@@ -124,6 +124,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/system/update', [UpdateController::class, 'index'])->name('system.update.index');
     Route::post('/system/update/check', [UpdateController::class, 'check'])->name('system.update.check');
+    Route::post('/system/update/pull', [UpdateController::class, 'pull'])->name('system.update.pull');
 
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 });

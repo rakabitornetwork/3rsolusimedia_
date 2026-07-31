@@ -30,6 +30,57 @@ class UpdateController extends Controller
             );
     }
 
+    public function pull(): RedirectResponse
+    {
+        $status = $this->gatherStatus(fetch: true);
+
+        if (! ($status['fetch_ok'] ?? false)) {
+            return redirect()
+                ->route('admin.system.update.index')
+                ->with('error', $status['message'] ?? 'Gagal menghubungi GitHub sebelum pull.');
+        }
+
+        if (! ($status['can_pull'] ?? false)) {
+            $reason = match ($status['sync_status'] ?? 'unknown') {
+                'up_to_date' => 'Tidak ada update terbaru dari GitHub.',
+                'ahead' => 'Server lokal lebih maju dari GitHub. Pull dibatalkan.',
+                'diverged' => 'Cabang berbeda (diverged). Pull otomatis dibatalkan.',
+                default => $status['dirty']
+                    ? 'Ada perubahan lokal yang belum di-commit. Pull dibatalkan agar tidak bentrok.'
+                    : 'Pull tidak tersedia. Cek update terlebih dahulu.',
+            };
+
+            return redirect()
+                ->route('admin.system.update.index')
+                ->with('error', $reason);
+        }
+
+        $branch = $status['branch'] ?: 'main';
+        $pull = $this->runGit(['pull', '--ff-only', 'origin', $branch], 90);
+
+        if (! ($pull['ok'] ?? false)) {
+            $detail = $pull['error'] !== '' ? $pull['error'] : ($pull['output'] !== '' ? $pull['output'] : 'git pull gagal.');
+
+            return redirect()
+                ->route('admin.system.update.index')
+                ->with('error', 'Gagal pull dari GitHub: '.$detail);
+        }
+
+        $after = $this->gatherStatus(fetch: false);
+        $summary = trim(($pull['output'] !== '' ? $pull['output'] : 'Pull berhasil.'));
+        $commit = $after['local_commit_short'] ?? null;
+
+        return redirect()
+            ->route('admin.system.update.index')
+            ->with(
+                'success',
+                'Update berhasil di-pull dari GitHub'
+                .($commit ? " (sekarang di {$commit})" : '')
+                .'. npm run build tidak dijalankan. Jika ada migrasi, jalankan php artisan migrate --force.'
+                .($summary !== '' ? ' '.$summary : '')
+            );
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -48,6 +99,7 @@ class UpdateController extends Controller
             'ahead' => 0,
             'behind' => 0,
             'dirty' => false,
+            'can_pull' => false,
             'sync_status' => 'unknown',
             'sync_label' => 'Tidak terdeteksi',
             'fetch_ok' => null,
@@ -140,6 +192,9 @@ class UpdateController extends Controller
             $base['sync_status'] = 'unknown';
             $base['sync_label'] = 'Remote tracking belum tersedia — coba Cek update';
         }
+
+        // Pull hanya jika remote lebih maju, working tree bersih, dan fast-forward aman.
+        $base['can_pull'] = $base['sync_status'] === 'behind' && ! $base['dirty'];
 
         if ($base['message'] === null) {
             $base['message'] = $base['sync_label'];

@@ -3,7 +3,6 @@ import {
     ArrowDownToLine,
     CheckCircle2,
     CloudUpload,
-    ExternalLink,
     GitBranch,
     RefreshCw,
     Server,
@@ -41,9 +40,22 @@ function InfoRow({ label, value, mono = false }) {
 export default function Update({ repo }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
+    const canPull = Boolean(canWrite && repo?.can_pull);
 
     const checkUpdate = () => {
         router.post('/admin/system/update/check');
+    };
+
+    const pullUpdate = () => {
+        if (!canPull) return;
+        if (
+            !window.confirm(
+                'Pull update dari GitHub ke server ini?\n\nPerintah npm run build tidak akan dijalankan.',
+            )
+        ) {
+            return;
+        }
+        router.post('/admin/system/update/pull');
     };
 
     return (
@@ -57,29 +69,34 @@ export default function Update({ repo }) {
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Pantau koneksi ke GitHub dan status sync. Build frontend dilakukan di lokal
                     (Laragon), lalu di-push bersama folder <code className="text-ink">public/build</code>.
-                    VPS cukup <code className="text-ink">git pull</code> — tanpa npm.
+                    Di VPS gunakan tombol pull di bawah — tanpa npm.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                    {repo?.github_url && (
-                        <a
-                            href={repo.github_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
-                        >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Buka GitHub
-                        </a>
-                    )}
                     {canWrite && (
-                        <button
-                            type="button"
-                            onClick={checkUpdate}
-                            className="inline-flex items-center gap-2 bg-signal-deep px-3 py-2 text-xs font-semibold text-white hover:bg-ink"
-                        >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Cek update
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={checkUpdate}
+                                className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                            >
+                                <RefreshCw className="h-3.5 w-3.5" />
+                                Cek update
+                            </button>
+                            <button
+                                type="button"
+                                onClick={pullUpdate}
+                                disabled={!canPull}
+                                title={
+                                    canPull
+                                        ? 'Pull update terbaru dari GitHub (tanpa npm)'
+                                        : 'Tidak ada update terbaru dari GitHub, atau pull belum aman'
+                                }
+                                className="inline-flex items-center gap-2 bg-signal-deep px-3 py-2 text-xs font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
+                            >
+                                <ArrowDownToLine className="h-3.5 w-3.5" />
+                                Pull dari GitHub
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -179,8 +196,11 @@ export default function Update({ repo }) {
                         <h2 className="text-sm font-semibold text-ink">Update di VPS</h2>
                     </div>
                     <ol className="list-decimal space-y-2 pl-4 text-sm text-ink-soft">
+                        <li>Klik <strong className="text-ink">Cek update</strong></li>
                         <li>
-                            <code className="text-ink">git pull origin main</code>
+                            Jika ada update, tombol{' '}
+                            <strong className="text-ink">Pull dari GitHub</strong> aktif — klik untuk
+                            menarik kode (tanpa npm)
                         </li>
                         <li>
                             Jika ada dependency PHP baru:{' '}
@@ -191,10 +211,23 @@ export default function Update({ repo }) {
                             <code className="text-ink">php artisan migrate --force</code>
                         </li>
                     </ol>
-                    <p className="mt-3 inline-flex items-start gap-2 text-xs text-ink-soft">
-                        <ArrowDownToLine className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal-deep" />
-                        Jangan jalankan <code className="text-ink">npm run build</code> di VPS.
+                    <p className="mt-3 text-xs text-ink-soft">
+                        Tombol pull nonaktif jika belum ada update di GitHub, working tree kotor,
+                        atau cabang diverged.
                     </p>
+                    {canWrite && (
+                        <button
+                            type="button"
+                            onClick={pullUpdate}
+                            disabled={!canPull}
+                            className="mt-4 inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
+                        >
+                            <ArrowDownToLine className="h-4 w-4" />
+                            {canPull
+                                ? `Pull ${repo?.behind || ''} commit dari GitHub`
+                                : 'Tidak ada update untuk di-pull'}
+                        </button>
+                    )}
                 </section>
             </div>
 

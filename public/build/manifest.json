@@ -157,7 +157,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-ntZts6nM.css",
+    "file": "assets/app-DOEXEOdr.css",
     "name": "app",
     "names": [
       "app.css"
@@ -505,7 +505,7 @@
     ]
   },
   "resources/js/Pages/Admin/System/Update.jsx": {
-    "file": "assets/Update-DYkp_Twc.js",
+    "file": "assets/Update-DMn6IXKw.js",
     "name": "Update",
     "src": "resources/js/Pages/Admin/System/Update.jsx",
     "isDynamicEntry": true,
@@ -692,7 +692,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-0ihjw-cD.js",
+    "file": "assets/app-DReqfm7w.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -737,7 +737,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-ntZts6nM.css"
+      "assets/app-DOEXEOdr.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
