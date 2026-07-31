@@ -1,5 +1,10 @@
 import { Activity, ArrowDownToLine, ArrowUpFromLine, LoaderCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const SPARK_POINTS = 24;
+const SPARK_WIDTH = 128;
+const SPARK_HEIGHT = 40;
+const SPARK_PAD = 3;
 
 function formatBitrate(bps) {
     if (bps == null || Number.isNaN(Number(bps))) return '0 bps';
@@ -14,19 +19,90 @@ function formatBitrate(bps) {
     return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
-function Spark({ values, colorClass }) {
+function padHistory(values, length = SPARK_POINTS) {
+    const arr = Array(length).fill(0);
+    const src = values.slice(-length);
+    for (let i = 0; i < src.length; i += 1) {
+        arr[length - src.length + i] = Number(src[i]) || 0;
+    }
+    return arr;
+}
+
+function buildPolyline(values) {
     const max = Math.max(...values, 1);
+    const last = Math.max(values.length - 1, 1);
+    return values
+        .map((value, index) => {
+            const x = SPARK_PAD + (index / last) * (SPARK_WIDTH - SPARK_PAD * 2);
+            const y =
+                SPARK_HEIGHT -
+                SPARK_PAD -
+                (value / max) * (SPARK_HEIGHT - SPARK_PAD * 2);
+            return `${x.toFixed(2)},${y.toFixed(2)}`;
+        })
+        .join(' ');
+}
+
+/** Zig-zag line chart with eased morph when values update. */
+function Spark({ values, strokeClass, fillClass }) {
+    const target = useMemo(() => padHistory(values), [values]);
+    const [display, setDisplay] = useState(target);
+    const displayRef = useRef(target);
+    const fromRef = useRef(target);
+    const toRef = useRef(target);
+    const startRef = useRef(0);
+    const rafRef = useRef(0);
+
+    useEffect(() => {
+        fromRef.current = displayRef.current;
+        toRef.current = target;
+        startRef.current = performance.now();
+
+        const duration = 720;
+        const tick = (now) => {
+            const t = Math.min(1, (now - startRef.current) / duration);
+            const ease = 1 - (1 - t) ** 3;
+            const next = fromRef.current.map(
+                (value, index) => value + (toRef.current[index] - value) * ease,
+            );
+            displayRef.current = next;
+            setDisplay(next);
+            if (t < 1) {
+                rafRef.current = requestAnimationFrame(tick);
+            }
+        };
+
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(tick);
+
+        return () => cancelAnimationFrame(rafRef.current);
+    }, [target]);
+
+    const points = buildPolyline(display);
 
     return (
-        <div className="flex h-10 items-end gap-0.5">
-            {values.map((value, index) => (
-                <div
-                    key={`${index}-${value}`}
-                    className={`w-1.5 rounded-sm ${colorClass}`}
-                    style={{ height: `${Math.max(8, Math.round((value / max) * 100))}%` }}
-                />
-            ))}
-        </div>
+        <svg
+            viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
+            className={`h-10 w-32 overflow-visible ${strokeClass}`}
+            aria-hidden
+        >
+            <polyline
+                points={points}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+            />
+            <polyline
+                points={`${SPARK_PAD},${SPARK_HEIGHT - SPARK_PAD} ${points} ${SPARK_WIDTH - SPARK_PAD},${SPARK_HEIGHT - SPARK_PAD}`}
+                className={fillClass}
+                fill="currentColor"
+                stroke="none"
+                opacity="0.12"
+            />
+        </svg>
     );
 }
 
@@ -170,7 +246,11 @@ export default function LiveTrafficCard({ routerId, physicalInterfaces = [] }) {
                             <ArrowDownToLine className="h-3.5 w-3.5 text-signal-deep" />
                             Download (RX)
                         </p>
-                        <Spark values={history.rx} colorClass="bg-signal-bright/80" />
+                        <Spark
+                            values={history.rx}
+                            strokeClass="text-signal-deep"
+                            fillClass="text-signal-deep"
+                        />
                     </div>
                     <p className="font-hero mt-3 text-3xl tracking-tight text-ink">
                         {formatBitrate(traffic?.rx_bps)}
@@ -181,10 +261,14 @@ export default function LiveTrafficCard({ routerId, physicalInterfaces = [] }) {
                 <div className="border border-ink/10 bg-mist/30 p-4">
                     <div className="flex items-center justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                            <ArrowUpFromLine className="h-3.5 w-3.5 text-signal-deep" />
+                            <ArrowUpFromLine className="h-3.5 w-3.5 text-ink" />
                             Upload (TX)
                         </p>
-                        <Spark values={history.tx} colorClass="bg-ink/50" />
+                        <Spark
+                            values={history.tx}
+                            strokeClass="text-ink/70"
+                            fillClass="text-ink"
+                        />
                     </div>
                     <p className="font-hero mt-3 text-3xl tracking-tight text-ink">
                         {formatBitrate(traffic?.tx_bps)}
