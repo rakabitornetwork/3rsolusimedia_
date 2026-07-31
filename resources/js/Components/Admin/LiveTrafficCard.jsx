@@ -2,9 +2,10 @@ import { Activity, ArrowDownToLine, ArrowUpFromLine, LoaderCircle } from 'lucide
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const SPARK_POINTS = 24;
-const SPARK_WIDTH = 128;
-const SPARK_HEIGHT = 40;
-const SPARK_PAD = 3;
+const POLL_SECONDS = 2;
+const CHART_WIDTH = 360;
+const CHART_HEIGHT = 160;
+const MARGIN = { top: 12, right: 12, bottom: 28, left: 56 };
 
 function formatBitrate(bps) {
     if (bps == null || Number.isNaN(Number(bps))) return '0 bps';
@@ -19,6 +20,33 @@ function formatBitrate(bps) {
     return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
+function formatAxisBitrate(bps) {
+    if (bps == null || Number.isNaN(Number(bps))) return '0';
+    const value = Number(bps);
+    if (value <= 0) return '0';
+    const units = ['bps', 'Kbps', 'Mbps', 'Gbps'];
+    let n = value;
+    let i = 0;
+    while (n >= 1000 && i < units.length - 1) {
+        n /= 1000;
+        i += 1;
+    }
+    const digits = n >= 100 || i === 0 ? 0 : n >= 10 ? 1 : 2;
+    return `${n.toFixed(digits)} ${units[i]}`;
+}
+
+function niceMax(value) {
+    const n = Math.max(Number(value) || 0, 1);
+    const magnitude = 10 ** Math.floor(Math.log10(n));
+    const residual = n / magnitude;
+    let nice = 1;
+    if (residual <= 1) nice = 1;
+    else if (residual <= 2) nice = 2;
+    else if (residual <= 5) nice = 5;
+    else nice = 10;
+    return nice * magnitude;
+}
+
 function padHistory(values, length = SPARK_POINTS) {
     const arr = Array(length).fill(0);
     const src = values.slice(-length);
@@ -28,23 +56,21 @@ function padHistory(values, length = SPARK_POINTS) {
     return arr;
 }
 
-function buildPolyline(values) {
-    const max = Math.max(...values, 1);
+function buildPolyline(values, max) {
+    const plotW = CHART_WIDTH - MARGIN.left - MARGIN.right;
+    const plotH = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
     const last = Math.max(values.length - 1, 1);
     return values
         .map((value, index) => {
-            const x = SPARK_PAD + (index / last) * (SPARK_WIDTH - SPARK_PAD * 2);
-            const y =
-                SPARK_HEIGHT -
-                SPARK_PAD -
-                (value / max) * (SPARK_HEIGHT - SPARK_PAD * 2);
+            const x = MARGIN.left + (index / last) * plotW;
+            const y = MARGIN.top + plotH - (value / max) * plotH;
             return `${x.toFixed(2)},${y.toFixed(2)}`;
         })
         .join(' ');
 }
 
-/** Zig-zag line chart with eased morph when values update. */
-function Spark({ values, strokeClass, fillClass }) {
+/** Zig-zag line chart with Y=bitrate and X=time axes. */
+function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
     const target = useMemo(() => padHistory(values), [values]);
     const [display, setDisplay] = useState(target);
     const displayRef = useRef(target);
@@ -78,31 +104,106 @@ function Spark({ values, strokeClass, fillClass }) {
         return () => cancelAnimationFrame(rafRef.current);
     }, [target]);
 
-    const points = buildPolyline(display);
+    const yMax = niceMax(Math.max(...display, 0));
+    const points = buildPolyline(display, yMax);
+    const plotW = CHART_WIDTH - MARGIN.left - MARGIN.right;
+    const plotH = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
+    const yTicks = [0, 0.5, 1].map((ratio) => ({
+        ratio,
+        value: yMax * ratio,
+        y: MARGIN.top + plotH - ratio * plotH,
+    }));
+    const windowSeconds = (SPARK_POINTS - 1) * POLL_SECONDS;
+    const xTicks = [
+        { label: `-${windowSeconds}s`, x: MARGIN.left },
+        { label: `-${Math.round(windowSeconds / 2)}s`, x: MARGIN.left + plotW / 2 },
+        { label: 'sekarang', x: MARGIN.left + plotW },
+    ];
 
     return (
-        <svg
-            viewBox={`0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}`}
-            className={`h-10 w-32 overflow-visible ${strokeClass}`}
-            aria-hidden
-        >
-            <polyline
-                points={points}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-            />
-            <polyline
-                points={`${SPARK_PAD},${SPARK_HEIGHT - SPARK_PAD} ${points} ${SPARK_WIDTH - SPARK_PAD},${SPARK_HEIGHT - SPARK_PAD}`}
-                className={fillClass}
-                fill="currentColor"
-                stroke="none"
-                opacity="0.12"
-            />
-        </svg>
+        <div className="mt-3">
+            <svg
+                viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+                className={`h-40 w-full ${strokeClass}`}
+                role="img"
+                aria-label="Grafik traffic live"
+            >
+                {/* Grid + Y axis */}
+                {yTicks.map((tick) => (
+                    <g key={`y-${tick.ratio}`}>
+                        <line
+                            x1={MARGIN.left}
+                            y1={tick.y}
+                            x2={MARGIN.left + plotW}
+                            y2={tick.y}
+                            className={axisClass}
+                            stroke="currentColor"
+                            strokeWidth="1"
+                            strokeOpacity={tick.ratio === 0 ? 0.35 : 0.15}
+                            vectorEffect="non-scaling-stroke"
+                        />
+                        <text
+                            x={MARGIN.left - 6}
+                            y={tick.y + 3}
+                            textAnchor="end"
+                            className={`fill-current text-[10px] ${axisClass}`}
+                        >
+                            {formatAxisBitrate(tick.value)}
+                        </text>
+                    </g>
+                ))}
+
+                {/* X axis */}
+                <line
+                    x1={MARGIN.left}
+                    y1={MARGIN.top + plotH}
+                    x2={MARGIN.left + plotW}
+                    y2={MARGIN.top + plotH}
+                    className={axisClass}
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    strokeOpacity="0.35"
+                    vectorEffect="non-scaling-stroke"
+                />
+                {xTicks.map((tick) => (
+                    <text
+                        key={tick.label}
+                        x={tick.x}
+                        y={CHART_HEIGHT - 8}
+                        textAnchor={
+                            tick.x === MARGIN.left
+                                ? 'start'
+                                : tick.x === MARGIN.left + plotW
+                                  ? 'end'
+                                  : 'middle'
+                        }
+                        className={`fill-current text-[10px] ${axisClass}`}
+                    >
+                        {tick.label}
+                    </text>
+                ))}
+
+                <polyline
+                    points={`${MARGIN.left},${MARGIN.top + plotH} ${points} ${MARGIN.left + plotW},${MARGIN.top + plotH}`}
+                    fill="currentColor"
+                    stroke="none"
+                    opacity="0.12"
+                />
+                <polyline
+                    points={points}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.25"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                />
+            </svg>
+            <div className="mt-0.5 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide uppercase text-ink/40">
+                <span>Y: Bitrate</span>
+                <span>X: Waktu (interval {POLL_SECONDS}s)</span>
+            </div>
+        </div>
     );
 }
 
@@ -353,39 +454,43 @@ export default function LiveTrafficCard({
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div className="border border-sky-200/80 bg-sky-50/70 p-4">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-sky-700 uppercase">
                             <ArrowDownToLine className="h-3.5 w-3.5 text-sky-600" />
                             Download (RX)
                         </p>
-                        <Spark
-                            values={history.rx}
-                            strokeClass="text-sky-500"
-                            fillClass="text-sky-500"
-                        />
+                        <p className="text-right text-xs text-sky-700/70">
+                            {traffic?.rx_pps ?? 0} paket/detik
+                        </p>
                     </div>
-                    <p className="font-hero mt-3 text-3xl tracking-tight text-sky-950">
+                    <p className="font-hero mt-2 text-3xl tracking-tight text-sky-950">
                         {formatBitrate(traffic?.rx_bps)}
                     </p>
-                    <p className="mt-1 text-xs text-sky-700/70">{traffic?.rx_pps ?? 0} paket/detik</p>
+                    <TrafficChart
+                        values={history.rx}
+                        strokeClass="text-sky-500"
+                        axisClass="text-sky-800/55"
+                    />
                 </div>
 
                 <div className="border border-orange-200/80 bg-orange-50/70 p-4">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-700 uppercase">
                             <ArrowUpFromLine className="h-3.5 w-3.5 text-orange-600" />
                             Upload (TX)
                         </p>
-                        <Spark
-                            values={history.tx}
-                            strokeClass="text-orange-500"
-                            fillClass="text-orange-500"
-                        />
+                        <p className="text-right text-xs text-orange-700/70">
+                            {traffic?.tx_pps ?? 0} paket/detik
+                        </p>
                     </div>
-                    <p className="font-hero mt-3 text-3xl tracking-tight text-orange-950">
+                    <p className="font-hero mt-2 text-3xl tracking-tight text-orange-950">
                         {formatBitrate(traffic?.tx_bps)}
                     </p>
-                    <p className="mt-1 text-xs text-orange-700/70">{traffic?.tx_pps ?? 0} paket/detik</p>
+                    <TrafficChart
+                        values={history.tx}
+                        strokeClass="text-orange-500"
+                        axisClass="text-orange-800/55"
+                    />
                 </div>
             </div>
         </div>
