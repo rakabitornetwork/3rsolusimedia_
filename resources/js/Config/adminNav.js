@@ -74,7 +74,16 @@ export const adminNav = [
                 href: '/admin/network/hotspot',
                 icon: Ticket,
                 match: ['/admin/network/hotspot'],
-                exclude: ['/admin/network/hotspot/profiles'],
+                exclude: [
+                    '/admin/network/hotspot/profiles',
+                    '/admin/network/hotspot/sessions',
+                ],
+            },
+            {
+                label: 'Sesi Aktif',
+                href: '/admin/network/hotspot/sessions',
+                icon: Activity,
+                match: ['/admin/network/hotspot/sessions'],
             },
             {
                 label: 'Profile Hotspot',

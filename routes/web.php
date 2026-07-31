@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GenieAcsController;
 use App\Http\Controllers\Admin\HotspotProfileController;
+use App\Http\Controllers\Admin\HotspotSessionController;
 use App\Http\Controllers\Admin\HotspotVoucherController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
 use App\Http\Controllers\Admin\ModuleController;
@@ -65,6 +66,10 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/network/hotspot', [HotspotVoucherController::class, 'index'])->name('network.hotspot');
     Route::get('/network/hotspot/generate', [HotspotVoucherController::class, 'create'])->name('network.hotspot.generate');
     Route::post('/network/hotspot', [HotspotVoucherController::class, 'store'])->name('network.hotspot.store');
+
+    Route::get('/network/hotspot/sessions', [HotspotSessionController::class, 'index'])->name('network.hotspot.sessions');
+    Route::delete('/network/hotspot/sessions/{router}/{session}', [HotspotSessionController::class, 'disconnect'])
+        ->name('network.hotspot.sessions.disconnect');
 
     Route::get('/network/hotspot/profiles', [HotspotProfileController::class, 'index'])->name('network.hotspot.profiles');
     Route::get('/network/hotspot/profiles/create', [HotspotProfileController::class, 'create'])->name('network.hotspot.profiles.create');

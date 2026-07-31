@@ -936,6 +936,95 @@ class MikrotikApiService
     }
 
     /**
+     * @return array{ok: bool, message?: string, sessions?: array<int, array<string, mixed>>}
+     */
+    public function listHotspotActiveSessions(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
+
+            $userProfiles = [];
+            try {
+                $users = $client->query(new Query('/ip/hotspot/user/print'))->read();
+                $userProfiles = collect($users)
+                    ->mapWithKeys(function (array $row) {
+                        $name = strtolower((string) ($row['name'] ?? ''));
+
+                        return $name !== ''
+                            ? [$name => [
+                                'profile' => $row['profile'] ?? null,
+                                'comment' => $row['comment'] ?? null,
+                            ]]
+                            : [];
+                    })
+                    ->all();
+            } catch (Throwable) {
+                // hotspot user list optional for enrichment
+            }
+
+            $sessions = collect($rows)
+                ->map(function (array $row) use ($userProfiles) {
+                    $mapped = $this->mapHotspotActiveSession($row);
+                    $key = strtolower((string) ($mapped['user'] ?? ''));
+                    $user = $userProfiles[$key] ?? null;
+
+                    return [
+                        ...$mapped,
+                        'profile' => $user['profile'] ?? null,
+                        'user_comment' => $user['comment'] ?? null,
+                        'user_registered' => $user !== null,
+                    ];
+                })
+                ->sortBy('user', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->all();
+
+            return [
+                'ok' => true,
+                'sessions' => $sessions,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'sessions' => [],
+            ];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function disconnectHotspotActiveSession(MikrotikRouter $router, string $sessionId): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
+            $existing = collect($rows)->first(
+                fn (array $row) => (string) ($row['.id'] ?? '') === (string) $sessionId
+            );
+
+            if (! $existing) {
+                return ['ok' => false, 'message' => 'Sesi hotspot aktif tidak ditemukan di RouterOS.'];
+            }
+
+            $name = (string) ($existing['user'] ?? $existing['name'] ?? $sessionId);
+
+            $client->query(
+                (new Query('/ip/hotspot/active/remove'))->equal('.id', $existing['.id'])
+            )->read();
+
+            return [
+                'ok' => true,
+                'message' => 'Sesi hotspot "'.$name.'" berhasil diputus.',
+            ];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function mapPppActiveSession(array $row): array
@@ -949,6 +1038,28 @@ class MikrotikApiService
             'uptime' => $row['uptime'] ?? null,
             'encoding' => $row['encoding'] ?? null,
             'session_id' => $row['session-id'] ?? null,
+            'radius' => ($row['radius'] ?? 'false') === 'true',
+            'comment' => $row['comment'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapHotspotActiveSession(array $row): array
+    {
+        return [
+            'id' => $row['.id'] ?? '',
+            'user' => $row['user'] ?? $row['name'] ?? '',
+            'address' => $row['address'] ?? null,
+            'mac_address' => $row['mac-address'] ?? null,
+            'login_by' => $row['login-by'] ?? null,
+            'uptime' => $row['uptime'] ?? null,
+            'idle_time' => $row['idle-time'] ?? null,
+            'session_time_left' => $row['session-time-left'] ?? null,
+            'bytes_in' => isset($row['bytes-in']) ? (int) $row['bytes-in'] : null,
+            'bytes_out' => isset($row['bytes-out']) ? (int) $row['bytes-out'] : null,
+            'server' => $row['server'] ?? null,
             'radius' => ($row['radius'] ?? 'false') === 'true',
             'comment' => $row['comment'] ?? null,
         ];
