@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const PULL_SCRIPT = [
     { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune --tags' },
@@ -36,6 +36,14 @@ function lineClass(tone) {
     }
 }
 
+function compactMessage(message, max = 96) {
+    const text = String(message || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (text.length <= max) return text;
+    return `${text.slice(0, max - 1)}…`;
+}
+
 export default function UpdateTerminal({
     open,
     mode = 'pull',
@@ -46,6 +54,7 @@ export default function UpdateTerminal({
 }) {
     const [visibleCount, setVisibleCount] = useState(0);
     const [cursorOn, setCursorOn] = useState(true);
+    const bodyRef = useRef(null);
 
     const lines = useMemo(() => {
         if (mode === 'check') {
@@ -75,7 +84,6 @@ export default function UpdateTerminal({
             return undefined;
         }
 
-        // Jika hasil sudah ada (mis. setelah redirect), tampilkan log penuh + pesan.
         if (result) {
             setVisibleCount(lines.length);
             return undefined;
@@ -100,6 +108,11 @@ export default function UpdateTerminal({
         return () => window.clearInterval(blink);
     }, [open]);
 
+    useEffect(() => {
+        if (!bodyRef.current) return;
+        bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }, [visibleCount, result, open]);
+
     if (!open) return null;
 
     const shown = lines.slice(0, visibleCount);
@@ -114,14 +127,14 @@ export default function UpdateTerminal({
             aria-modal="true"
             aria-label="Update dari GitHub sedang berlangsung"
         >
-            <div className="w-full max-w-xl overflow-hidden border border-white/10 bg-ink shadow-2xl">
-                <div className="flex h-1.5 w-full">
+            <div className="flex w-full max-w-xl flex-col overflow-hidden border border-white/10 bg-ink shadow-2xl">
+                <div className="flex h-1.5 w-full shrink-0">
                     <span className="flex-1 bg-gradient-to-r from-teal-400 to-teal-800" />
                     <span className="flex-1 bg-gradient-to-r from-slate-500 to-slate-900" />
                     <span className="flex-1 bg-gradient-to-r from-sky-400 to-blue-900" />
                 </div>
 
-                <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
                     <div className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-teal-400 to-teal-800" />
                         <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-slate-400 to-slate-800" />
@@ -146,7 +159,10 @@ export default function UpdateTerminal({
                     )}
                 </div>
 
-                <div className="relative min-h-[280px] bg-gradient-to-b from-[#0c1218] via-[#101820] to-[#0a1520] px-4 py-4 font-mono text-[12px] leading-6 sm:min-h-[320px] sm:text-[13px]">
+                <div
+                    ref={bodyRef}
+                    className="relative h-[260px] shrink-0 overflow-y-auto bg-gradient-to-b from-[#0c1218] via-[#101820] to-[#0a1520] px-4 py-4 font-mono text-[12px] leading-6 sm:h-[300px] sm:text-[13px]"
+                >
                     <div
                         className="pointer-events-none absolute inset-0 opacity-[0.12]"
                         style={{
@@ -159,26 +175,22 @@ export default function UpdateTerminal({
                         {shown.map((line, index) => (
                             <p
                                 key={`${line.text}-${index}`}
-                                className={`update-term-line ${lineClass(line.tone)}`}
+                                className={`update-term-line truncate ${lineClass(line.tone)}`}
                             >
                                 {line.text}
                             </p>
                         ))}
 
                         {finished && (
-                            <>
-                                <p className={`update-term-line pt-2 ${lineClass(result.type === 'error' ? 'error' : 'ok')}`}>
-                                    {result.type === 'error' ? '✗ ' : '✓ '}
-                                    {result.type === 'error' ? 'ERROR' : 'OK'}
-                                </p>
-                                <p
-                                    className={`update-term-line whitespace-pre-wrap ${lineClass(
-                                        result.type === 'error' ? 'error' : 'ok',
-                                    )}`}
-                                >
-                                    {result.message}
-                                </p>
-                            </>
+                            <p
+                                className={`update-term-line truncate pt-2 ${lineClass(
+                                    result.type === 'error' ? 'error' : 'ok',
+                                )}`}
+                                title={result.message}
+                            >
+                                {result.type === 'error' ? '✗ ' : '✓ '}
+                                {compactMessage(result.message)}
+                            </p>
                         )}
 
                         {!finished && !scriptDone && (
@@ -196,7 +208,7 @@ export default function UpdateTerminal({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 border-t border-white/10 text-[10px] font-semibold tracking-wide text-white uppercase">
+                <div className="grid shrink-0 grid-cols-3 border-t border-white/10 text-[10px] font-semibold tracking-wide text-white uppercase">
                     <div className="bg-gradient-to-br from-teal-500 to-teal-900 px-3 py-2.5 text-teal-50">
                         Status sync
                     </div>
@@ -209,7 +221,7 @@ export default function UpdateTerminal({
                 </div>
 
                 {finished && (
-                    <div className="border-t border-white/10 px-4 py-3">
+                    <div className="shrink-0 border-t border-white/10 px-4 py-3">
                         <button
                             type="button"
                             onClick={onClose}

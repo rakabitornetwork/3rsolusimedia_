@@ -67,17 +67,17 @@ class UpdateController extends Controller
         }
 
         $after = $this->gatherStatus(fetch: false);
-        $summary = trim(($pull['output'] !== '' ? $pull['output'] : 'Pull berhasil.'));
         $commit = $after['local_commit_short'] ?? null;
+        $version = $after['local_version'] ?? null;
 
         return redirect()
             ->route('admin.system.update.index')
             ->with(
                 'success',
-                'Update berhasil di-pull dari GitHub'
-                .($commit ? " (sekarang di {$commit})" : '')
-                .'. npm run build tidak dijalankan. Jika ada migrasi, jalankan php artisan migrate --force.'
-                .($summary !== '' ? ' '.$summary : '')
+                'Pull berhasil'
+                .($commit ? " · {$commit}" : '')
+                .($version ? " · v{$version}" : '')
+                .' · tanpa npm'
             );
     }
 
