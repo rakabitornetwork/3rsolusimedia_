@@ -36,16 +36,18 @@ function formatBytes(bytes) {
     return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function Stat({ label, value, icon: Icon }) {
+function Stat({ label, value, icon: Icon, tone }) {
     return (
-        <div className="border border-ink/10 bg-white p-4">
+        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
             <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-ink-soft uppercase">{label}</p>
-                <span className="inline-flex rounded-md bg-signal/10 p-1.5 text-signal-deep">
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                <p className="text-xs tracking-wide text-white/75 uppercase">{label}</p>
+                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
                 </span>
             </div>
-            <p className="mt-3 text-lg font-semibold text-ink">{value ?? '—'}</p>
+            <p className="font-display mt-3 text-lg font-bold leading-snug break-words">
+                {value ?? '—'}
+            </p>
         </div>
     );
 }
@@ -93,14 +95,35 @@ export default function Show({ router: item, info }) {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Stat label="Identity" value={info.identity} icon={BadgeInfo} />
-                <Stat label="Board" value={info.board} icon={CircuitBoard} />
-                <Stat label="Version" value={info.version} icon={Layers} />
-                <Stat label="Uptime" value={info.uptime} icon={Timer} />
+                <Stat
+                    label="Identity"
+                    value={info.identity}
+                    icon={BadgeInfo}
+                    tone="bg-gradient-to-br from-slate-400 to-slate-600"
+                />
+                <Stat
+                    label="Board"
+                    value={info.board}
+                    icon={CircuitBoard}
+                    tone="bg-gradient-to-br from-cyan-400 to-sky-600"
+                />
+                <Stat
+                    label="Version"
+                    value={info.version}
+                    icon={Layers}
+                    tone="bg-gradient-to-br from-indigo-400 to-blue-600"
+                />
+                <Stat
+                    label="Uptime"
+                    value={info.uptime}
+                    icon={Timer}
+                    tone="bg-gradient-to-br from-emerald-400 to-teal-600"
+                />
                 <Stat
                     label="CPU Load"
                     value={info.cpu_load != null ? `${info.cpu_load}%` : null}
                     icon={Cpu}
+                    tone="bg-gradient-to-br from-amber-300 to-orange-500"
                 />
                 <Stat
                     label="Memory"
@@ -110,9 +133,20 @@ export default function Show({ router: item, info }) {
                             : null
                     }
                     icon={MemoryStick}
+                    tone="bg-gradient-to-br from-violet-400 to-fuchsia-600"
                 />
-                <Stat label="PPPoE Aktif" value={info.ppp_active} icon={Cable} />
-                <Stat label="Hotspot Aktif" value={info.hotspot_active} icon={Wifi} />
+                <Stat
+                    label="PPPoE Aktif"
+                    value={info.ppp_active}
+                    icon={Cable}
+                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
+                />
+                <Stat
+                    label="Hotspot Aktif"
+                    value={info.hotspot_active}
+                    icon={Wifi}
+                    tone="bg-gradient-to-br from-rose-400 to-pink-600"
+                />
             </div>
 
             <div className="mt-6">
