@@ -2,13 +2,14 @@ import { Activity, ArrowDownToLine, ArrowUpFromLine, LoaderCircle } from 'lucide
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const SPARK_POINTS = 24;
-const POLL_SECONDS = 2;
+const POLL_SECONDS = 3;
 const CHART_WIDTH = 640;
-const CHART_HEIGHT = 220;
-const MARGIN = { top: 14, right: 16, bottom: 32, left: 58 };
+const CHART_HEIGHT = 132;
+const MARGIN = { top: 8, right: 12, bottom: 24, left: 52 };
 const SMOOTH = 0.16;
 const YMAX_UP = 0.22;
 const YMAX_DOWN = 0.035;
+const PEAK_SOFTEN = 0.42;
 
 function formatBitrate(bps) {
     if (bps == null || Number.isNaN(Number(bps))) return '0 bps';
@@ -59,16 +60,52 @@ function padHistory(values, length = SPARK_POINTS) {
     return arr;
 }
 
-function buildPolyline(values, max, plotW, plotH) {
+function toPoints(values, max, plotW, plotH) {
     const safeMax = Math.max(max, 1);
     const last = Math.max(values.length - 1, 1);
-    return values
-        .map((value, index) => {
-            const x = MARGIN.left + (index / last) * plotW;
-            const y = MARGIN.top + plotH - (value / safeMax) * plotH;
-            return `${x.toFixed(2)},${y.toFixed(2)}`;
-        })
-        .join(' ');
+    return values.map((value, index) => ({
+        x: MARGIN.left + (index / last) * plotW,
+        y: MARGIN.top + plotH - (value / safeMax) * plotH,
+    }));
+}
+
+/** Haluskan puncak agar zig-zag tidak terlalu lancip. */
+function softenPeaks(values, amount = PEAK_SOFTEN) {
+    if (values.length < 3) return values;
+    return values.map((value, index) => {
+        if (index === 0 || index === values.length - 1) return value;
+        const neighborAvg = (values[index - 1] + values[index + 1]) / 2;
+        return value * (1 - amount) + neighborAvg * amount;
+    });
+}
+
+/** Path kurva kuadratik lewat titik tengah — tetap zig-zag tapi lebih lembut. */
+function buildSmoothPath(values, max, plotW, plotH) {
+    const points = toPoints(softenPeaks(values), max, plotW, plotH);
+    if (points.length === 0) return '';
+    if (points.length === 1) {
+        return `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    }
+
+    let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+    for (let i = 0; i < points.length - 1; i += 1) {
+        const current = points[i];
+        const next = points[i + 1];
+        const midX = (current.x + next.x) / 2;
+        const midY = (current.y + next.y) / 2;
+        d += ` Q ${current.x.toFixed(2)} ${current.y.toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`;
+        if (i === points.length - 2) {
+            d += ` T ${next.x.toFixed(2)} ${next.y.toFixed(2)}`;
+        }
+    }
+    return d;
+}
+
+function buildAreaPath(values, max, plotW, plotH) {
+    const line = buildSmoothPath(values, max, plotW, plotH);
+    if (!line) return '';
+    const baseY = MARGIN.top + plotH;
+    return `${line} L ${(MARGIN.left + plotW).toFixed(2)} ${baseY.toFixed(2)} L ${MARGIN.left.toFixed(2)} ${baseY.toFixed(2)} Z`;
 }
 
 /** Zig-zag line chart with stable Y scale and continuous smooth chase. */
@@ -118,14 +155,9 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
     useEffect(() => {
         let raf = 0;
 
-        const paint = (points, max) => {
-            if (lineRef.current) lineRef.current.setAttribute('points', points);
-            if (fillRef.current) {
-                fillRef.current.setAttribute(
-                    'points',
-                    `${MARGIN.left},${MARGIN.top + plotH} ${points} ${MARGIN.left + plotW},${MARGIN.top + plotH}`,
-                );
-            }
+        const paint = (linePath, areaPath, max) => {
+            if (lineRef.current) lineRef.current.setAttribute('d', linePath);
+            if (fillRef.current) fillRef.current.setAttribute('d', areaPath);
 
             [0, 0.5, 1].forEach((ratio, index) => {
                 const y = MARGIN.top + plotH - ratio * plotH;
@@ -156,8 +188,9 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
             const rate = needed > currentMax ? YMAX_UP : YMAX_DOWN;
             yMaxRef.current = currentMax + (needed - currentMax) * rate;
 
-            const points = buildPolyline(next, yMaxRef.current, plotW, plotH);
-            paint(points, yMaxRef.current);
+            const linePath = buildSmoothPath(next, yMaxRef.current, plotW, plotH);
+            const areaPath = buildAreaPath(next, yMaxRef.current, plotW, plotH);
+            paint(linePath, areaPath, yMaxRef.current);
 
             // Sinkronisasi React lebih jarang agar animasi SVG tetap 60fps
             setDisplay((prev) => {
@@ -177,7 +210,8 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
         return () => cancelAnimationFrame(raf);
     }, [plotH, plotW]);
 
-    const points = buildPolyline(display, yMax, plotW, plotH);
+    const linePath = buildSmoothPath(display, yMax, plotW, plotH);
+    const areaPath = buildAreaPath(display, yMax, plotW, plotH);
     const yTicks = [0, 0.5, 1];
     const xTicks = [
         { label: `-${windowSeconds}s`, x: MARGIN.left, anchor: 'start' },
@@ -186,11 +220,11 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
     ];
 
     return (
-        <div className="mt-4 -mx-1 sm:-mx-2">
+        <div className="mt-2 -mx-1 sm:-mx-2">
             <svg
                 viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
                 className={`block w-full ${strokeClass}`}
-                style={{ aspectRatio: `${CHART_WIDTH} / ${CHART_HEIGHT}` }}
+                style={{ aspectRatio: `${CHART_WIDTH} / ${CHART_HEIGHT}`, maxHeight: 140 }}
                 preserveAspectRatio="xMidYMid meet"
                 role="img"
                 aria-label="Grafik traffic live"
@@ -220,7 +254,7 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                                 y={y + 3}
                                 textAnchor="end"
                                 className={`fill-current ${axisClass}`}
-                                style={{ fontSize: 11 }}
+                                style={{ fontSize: 10 }}
                             >
                                 {formatAxisBitrate(yMax * ratio)}
                             </text>
@@ -242,33 +276,33 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                     <text
                         key={tick.label}
                         x={tick.x}
-                        y={CHART_HEIGHT - 10}
+                        y={CHART_HEIGHT - 8}
                         textAnchor={tick.anchor}
                         className={`fill-current ${axisClass}`}
-                        style={{ fontSize: 11 }}
+                        style={{ fontSize: 10 }}
                     >
                         {tick.label}
                     </text>
                 ))}
 
-                <polyline
+                <path
                     ref={fillRef}
-                    points={`${MARGIN.left},${MARGIN.top + plotH} ${points} ${MARGIN.left + plotW},${MARGIN.top + plotH}`}
+                    d={areaPath}
                     fill="currentColor"
                     stroke="none"
                     opacity="0.14"
                 />
-                <polyline
+                <path
                     ref={lineRef}
-                    points={points}
+                    d={linePath}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="2.25"
                     strokeLinejoin="round"
                     strokeLinecap="round"
                 />
             </svg>
-            <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">
+            <div className="mt-0.5 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">
                 <span>Y: Bitrate</span>
                 <span>X: Waktu (interval {POLL_SECONDS}s)</span>
             </div>
@@ -409,7 +443,7 @@ export default function LiveTrafficCard({
         setHistory({ rx: [], tx: [] });
         setTraffic(null);
         fetchTraffic();
-        const timer = window.setInterval(fetchTraffic, 2000);
+        const timer = window.setInterval(fetchTraffic, POLL_SECONDS * 1000);
 
         return () => {
             cancelled = true;
@@ -463,7 +497,7 @@ export default function LiveTrafficCard({
                         Live Traffic
                     </h2>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Update tiap 2 detik dari API monitor-traffic
+                        Update tiap {POLL_SECONDS} detik dari API monitor-traffic
                     </p>
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -521,8 +555,8 @@ export default function LiveTrafficCard({
                 </div>
             )}
 
-            <div className="mt-5 grid gap-4 xl:grid-cols-2">
-                <div className="border border-sky-200/80 bg-sky-50/70 p-4 sm:p-5">
+            <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                <div className="border border-sky-200/80 bg-sky-50/70 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-sky-700 uppercase">
                             <ArrowDownToLine className="h-3.5 w-3.5 text-sky-600" />
@@ -532,7 +566,7 @@ export default function LiveTrafficCard({
                             {traffic?.rx_pps ?? 0} paket/detik
                         </p>
                     </div>
-                    <p className="font-hero mt-2 text-3xl tracking-tight text-sky-950">
+                    <p className="font-hero mt-1 text-2xl tracking-tight text-sky-950">
                         {formatBitrate(traffic?.rx_bps)}
                     </p>
                     <TrafficChart
@@ -542,7 +576,7 @@ export default function LiveTrafficCard({
                     />
                 </div>
 
-                <div className="border border-orange-200/80 bg-orange-50/70 p-4 sm:p-5">
+                <div className="border border-orange-200/80 bg-orange-50/70 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-700 uppercase">
                             <ArrowUpFromLine className="h-3.5 w-3.5 text-orange-600" />
@@ -552,7 +586,7 @@ export default function LiveTrafficCard({
                             {traffic?.tx_pps ?? 0} paket/detik
                         </p>
                     </div>
-                    <p className="font-hero mt-2 text-3xl tracking-tight text-orange-950">
+                    <p className="font-hero mt-1 text-2xl tracking-tight text-orange-950">
                         {formatBitrate(traffic?.tx_bps)}
                     </p>
                     <TrafficChart
