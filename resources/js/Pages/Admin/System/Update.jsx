@@ -1,7 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     ArrowDownToLine,
-    CheckCircle2,
     GitBranch,
     RefreshCw,
     Tag,
@@ -339,13 +338,6 @@ export default function Update({ repo }) {
                     />
                 </dl>
             </div>
-
-            {repo?.sync_status === 'up_to_date' && (
-                <div className="mt-5 flex items-start gap-3 border border-signal/20 bg-signal/5 px-4 py-3 text-sm text-signal-deep">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    <p>Lokal dan GitHub sudah sinkron pada commit yang sama.</p>
-                </div>
-            )}
 
             <div className="mt-5">
                 <Link
