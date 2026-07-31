@@ -166,7 +166,7 @@ export default function Sessions({
                                     {session.service || '—'}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end">
+                                    <div className="admin-actions">
                                         <button
                                             type="button"
                                             onClick={() => disconnect(session)}

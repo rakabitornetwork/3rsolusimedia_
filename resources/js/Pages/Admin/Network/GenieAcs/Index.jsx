@@ -72,38 +72,38 @@ export default function Index({ config, connection, devices, devices_error, stat
         >
             <Head title="GenieACS" />
 
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Hubungkan aplikasi ke GenieACS NBI (default port <strong>7557</strong>). Setelah
                     aktif, daftar perangkat CPE dapat dipantau dan di-summon dari panel ini.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="admin-toolbar-actions">
                     {config?.ui_url && (
                         <a
                             href={config.ui_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                            className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
                         >
-                            <ExternalLink className="h-3.5 w-3.5" />
+                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                             Buka UI GenieACS
                         </a>
                     )}
                     <button
                         type="button"
                         onClick={() => setShowSettings((v) => !v)}
-                        className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
                     >
-                        <Settings2 className="h-3.5 w-3.5" />
+                        <Settings2 className="mr-1.5 h-3.5 w-3.5" />
                         {showSettings ? 'Sembunyikan pengaturan' : 'Pengaturan koneksi'}
                     </button>
                     {canWrite && (
                         <button
                             type="button"
                             onClick={() => router.post('/admin/network/genieacs/test')}
-                            className="inline-flex items-center gap-2 bg-signal-deep px-3 py-2 text-xs font-semibold text-white hover:bg-ink"
+                            className="bg-signal-deep px-3 text-xs font-semibold text-white hover:bg-ink"
                         >
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                             Tes koneksi
                         </button>
                     )}
@@ -261,9 +261,12 @@ export default function Index({ config, connection, devices, devices_error, stat
                 {connection?.latency_ms != null && ` · Latency ${connection.latency_ms} ms`}
             </div>
 
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <form onSubmit={search} className="flex flex-wrap items-end gap-2">
-                    <label className="block text-sm text-ink">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <form
+                    onSubmit={search}
+                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end"
+                >
+                    <label className="block w-full text-sm text-ink sm:w-auto">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari perangkat</span>
                         <span className="relative block">
                             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
@@ -272,7 +275,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                                 placeholder="ID, serial, manufacturer, tag"
-                                className="w-64 border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal"
+                                className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                             />
                         </span>
                     </label>
@@ -283,14 +286,16 @@ export default function Index({ config, connection, devices, devices_error, stat
                         Cari
                     </button>
                 </form>
-                <button
-                    type="button"
-                    onClick={() => router.reload({ only: ['devices', 'stats', 'connection'] })}
-                    className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
-                >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Refresh daftar
-                </button>
+                <div className="admin-toolbar-actions">
+                    <button
+                        type="button"
+                        onClick={() => router.reload({ only: ['devices', 'stats', 'connection'] })}
+                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
+                    >
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        Refresh daftar
+                    </button>
+                </div>
             </div>
 
             {devices_error && (
@@ -335,7 +340,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                     </span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         <Link
                                             href={`/admin/network/genieacs/devices/${encodeURIComponent(item.id)}`}
                                             className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-mist"

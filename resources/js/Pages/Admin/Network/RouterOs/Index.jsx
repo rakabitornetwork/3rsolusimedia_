@@ -36,18 +36,20 @@ export default function Index({ routers }) {
         >
             <Head title="Router MikroTik" />
 
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Tambahkan data router, lalu uji koneksi API. Pastikan di MikroTik menu IP → Services
                     → api sudah aktif di port 8728.
                 </p>
-                <Link
-                    href="/admin/network/routeros/create"
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <Plus className="h-4 w-4" />
-                    Tambah Router
-                </Link>
+                <div className="admin-toolbar-actions">
+                    <Link
+                        href="/admin/network/routeros/create"
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Tambah Router
+                    </Link>
+                </div>
             </div>
 
             {routers.length === 0 ? (
@@ -101,7 +103,7 @@ export default function Index({ routers }) {
                                         )}
                                     </td>
                                     <td className="px-4 py-4">
-                                        <div className="flex flex-wrap justify-end gap-2">
+                                        <div className="admin-actions">
                                             <button
                                                 type="button"
                                                 onClick={() => test(item.id)}

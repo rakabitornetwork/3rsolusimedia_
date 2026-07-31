@@ -105,13 +105,13 @@ export default function Index({ customers, filters, routers, stats }) {
                 />
             </div>
 
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div className="flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     <input
                         type="search"
                         defaultValue={filters.q}
                         placeholder="Cari nama / username / telepon"
-                        className="min-w-[220px] border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:min-w-[220px] sm:w-auto"
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') applyFilters('q', e.currentTarget.value);
                         }}
@@ -119,7 +119,7 @@ export default function Index({ customers, filters, routers, stats }) {
                     <select
                         value={filters.router_id || ''}
                         onChange={(e) => applyFilters('router_id', e.target.value)}
-                        className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
                     >
                         <option value="">Semua router</option>
                         {routers.map((routerItem) => (
@@ -131,7 +131,7 @@ export default function Index({ customers, filters, routers, stats }) {
                     <select
                         value={filters.status || ''}
                         onChange={(e) => applyFilters('status', e.target.value)}
-                        className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
                     >
                         <option value="">Semua status</option>
                         <option value="active">Aktif</option>
@@ -140,13 +140,15 @@ export default function Index({ customers, filters, routers, stats }) {
                     </select>
                 </div>
 
-                <Link
-                    href="/admin/customers/pppoe/create"
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <Plus className="h-4 w-4" />
-                    Tambah Pelanggan
-                </Link>
+                <div className="admin-toolbar-actions">
+                    <Link
+                        href="/admin/customers/pppoe/create"
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Tambah Pelanggan
+                    </Link>
+                </div>
             </div>
 
             <div className="admin-data-scroll border border-ink/10 bg-white">
@@ -205,7 +207,7 @@ export default function Index({ customers, filters, routers, stats }) {
                                     />
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex flex-wrap justify-end gap-2">
+                                    <div className="admin-actions">
                                         <button
                                             type="button"
                                             onClick={() => sync(customer.id)}

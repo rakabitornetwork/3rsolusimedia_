@@ -73,11 +73,11 @@ function QuickPayButton({ invoice, methods }) {
     };
 
     return (
-        <div className="flex items-center gap-2">
+        <>
             <select
                 value={data.method}
                 onChange={(e) => setData('method', e.target.value)}
-                className="border border-ink/15 px-2 py-1.5 text-xs outline-none focus:border-signal"
+                className="border border-ink/15 px-2 text-xs outline-none focus:border-signal"
             >
                 {methods.map((item) => (
                     <option key={item.value} value={item.value}>
@@ -89,12 +89,12 @@ function QuickPayButton({ invoice, methods }) {
                 type="button"
                 onClick={pay}
                 disabled={processing}
-                className="inline-flex items-center gap-1 border border-signal/30 bg-signal/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-signal/20 disabled:opacity-60"
+                className="border border-signal/30 bg-signal/10 px-2.5 text-xs font-semibold text-signal-deep hover:bg-signal/20 disabled:opacity-60"
             >
-                <CheckCircle2 className="h-3.5 w-3.5" />
+                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                 Lunas
             </button>
-        </div>
+        </>
     );
 }
 
@@ -180,9 +180,9 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                 />
             </div>
 
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+                    <div className="relative w-full sm:w-auto">
                         <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                         <input
                             type="search"
@@ -191,13 +191,13 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') applyFilters('q', e.target.value);
                             }}
-                            className="w-64 border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal"
+                            className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                         />
                     </div>
                     <select
                         value={filters.status || ''}
                         onChange={(e) => applyFilters('status', e.target.value)}
-                        className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
                     >
                         <option value="">Semua status</option>
                         <option value="unpaid">Belum bayar</option>
@@ -214,14 +214,16 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                     </label>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={generate}
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <FilePlus2 className="h-4 w-4" />
-                    Generate Tagihan
-                </button>
+                <div className="admin-toolbar-actions">
+                    <button
+                        type="button"
+                        onClick={generate}
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <FilePlus2 className="mr-1.5 h-4 w-4" />
+                        Generate Tagihan
+                    </button>
+                </div>
             </div>
 
             <div className="admin-data-scroll border border-ink/10 bg-white">
@@ -262,7 +264,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                     <StatusBadge status={item.status} overdue={item.is_overdue} />
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         <QuickPayButton invoice={item} methods={payment_methods} />
                                         <Link
                                             href={`/admin/billing/invoices/${item.id}`}

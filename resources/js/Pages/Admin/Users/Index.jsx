@@ -89,15 +89,15 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                 />
             </div>
 
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
                 <form
                     onSubmit={(e) => {
                         e.preventDefault();
                         applyFilters({ q });
                     }}
-                    className="flex flex-wrap items-end gap-2"
+                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end"
                 >
-                    <label className="block text-sm text-ink">
+                    <label className="block w-full text-sm text-ink sm:w-auto">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari</span>
                         <span className="relative block">
                             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
@@ -106,16 +106,16 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
                                 placeholder="Nama atau email"
-                                className="w-56 border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal"
+                                className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-56"
                             />
                         </span>
                     </label>
-                    <label className="block text-sm text-ink">
+                    <label className="block w-full text-sm text-ink sm:w-auto">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Role</span>
                         <select
                             value={filters?.role || ''}
                             onChange={(e) => applyFilters({ role: e.target.value })}
-                            className="border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                         >
                             <option value="">Semua role</option>
                             {role_options.map((role) => (
@@ -134,13 +134,15 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                 </form>
 
                 {showManage && (
-                    <Link
-                        href="/admin/users/create"
-                        className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Tambah User
-                    </Link>
+                    <div className="admin-toolbar-actions">
+                        <Link
+                            href="/admin/users/create"
+                            className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Tambah User
+                        </Link>
+                    </div>
                 )}
             </div>
 
@@ -187,7 +189,7 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                                         : '—'}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         {showManage && user.can_edit && (
                                             <Link
                                                 href={`/admin/users/${user.id}/edit`}

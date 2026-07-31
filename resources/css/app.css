@@ -143,6 +143,67 @@
     white-space: nowrap;
 }
 
+/* Tombol aksi baris tabel — selalu sejajar satu baris */
+.admin-actions {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    vertical-align: middle;
+}
+
+.admin-actions > a,
+.admin-actions > button,
+.admin-actions > select {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 2rem;
+    box-sizing: border-box;
+}
+
+.admin-actions > select {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Cluster tombol di toolbar halaman (HP & desktop) */
+.admin-toolbar-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+@media (min-width: 640px) {
+    .admin-toolbar-actions {
+        width: auto;
+    }
+}
+
+.admin-toolbar-actions > a,
+.admin-toolbar-actions > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    min-height: 2.5rem;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+    .admin-toolbar-actions > a,
+    .admin-toolbar-actions > button {
+        flex: 0 0 auto;
+    }
+}
+
 @keyframes update-term-line-in {
     from {
         opacity: 0;

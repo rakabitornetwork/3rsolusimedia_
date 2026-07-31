@@ -149,14 +149,14 @@ export default function Index({
                 ))}
             </div>
 
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                <div className="flex flex-wrap items-end gap-3">
-                    <label className="block text-sm font-medium text-ink">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
+                    <label className="block w-full text-sm font-medium text-ink sm:w-auto">
                         Router
                         <select
                             value={selected_router_id || ''}
                             onChange={(e) => changeRouter(e.target.value)}
-                            className="mt-1.5 block min-w-[220px] border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            className="mt-1.5 block w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:min-w-[220px]"
                         >
                             {routers.length === 0 && <option value="">Belum ada router</option>}
                             {routers.map((item) => (
@@ -173,12 +173,12 @@ export default function Index({
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') changeFilter('q', e.currentTarget.value);
                         }}
-                        className="border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     />
                     <select
                         value={filters.profile || ''}
                         onChange={(e) => changeFilter('profile', e.target.value)}
-                        className="border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     >
                         <option value="">Semua profile</option>
                         {profiles.map((profile) => (
@@ -190,7 +190,7 @@ export default function Index({
                     <select
                         value={filters.status || ''}
                         onChange={(e) => changeFilter('status', e.target.value)}
-                        className="border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                        className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     >
                         <option value="">Semua status</option>
                         <option value="active">Aktif</option>
@@ -199,15 +199,17 @@ export default function Index({
                     </select>
                 </div>
 
-                <Link
-                    href={`/admin/network/hotspot/generate${
-                        selected_router_id ? `?router_id=${selected_router_id}` : ''
-                    }`}
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <Plus className="h-4 w-4" />
-                    Generate Voucher
-                </Link>
+                <div className="admin-toolbar-actions">
+                    <Link
+                        href={`/admin/network/hotspot/generate${
+                            selected_router_id ? `?router_id=${selected_router_id}` : ''
+                        }`}
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Generate Voucher
+                    </Link>
+                </div>
             </div>
 
             <div className="admin-data-scroll border border-ink/10 bg-white">
@@ -259,7 +261,7 @@ export default function Index({
                                     )}
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         <button
                                             type="button"
                                             onClick={() => toggle(user)}

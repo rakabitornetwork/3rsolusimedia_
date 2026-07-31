@@ -32,14 +32,14 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                 </div>
             )}
 
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                <div className="flex flex-wrap items-end gap-3">
-                    <label className="block text-sm font-medium text-ink">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
+                    <label className="block w-full text-sm font-medium text-ink sm:w-auto">
                         Router
                         <select
                             value={selected_router_id || ''}
                             onChange={(e) => changeRouter(e.target.value)}
-                            className="mt-1.5 block min-w-[220px] border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            className="mt-1.5 block w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:min-w-[220px]"
                         >
                             {routers.length === 0 && <option value="">Belum ada router</option>}
                             {routers.map((item) => (
@@ -54,15 +54,17 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         Layanan.
                     </p>
                 </div>
-                <Link
-                    href={`/admin/customers/hotspot/mikrotik-profiles/create${
-                        selected_router_id ? `?router_id=${selected_router_id}` : ''
-                    }`}
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <Plus className="h-4 w-4" />
-                    Tambah Profile
-                </Link>
+                <div className="admin-toolbar-actions">
+                    <Link
+                        href={`/admin/customers/hotspot/mikrotik-profiles/create${
+                            selected_router_id ? `?router_id=${selected_router_id}` : ''
+                        }`}
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Tambah Profile
+                    </Link>
+                </div>
             </div>
 
             <div className="admin-data-scroll border border-ink/10 bg-white">
@@ -96,7 +98,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                                 <td className="px-4 py-3 text-ink-soft">{item.only_one || 'default'}</td>
                                 <td className="px-4 py-3 text-ink-soft">{item.comment || '—'}</td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         <Link
                                             href={`/admin/customers/hotspot/mikrotik-profiles/${selected_router_id}/edit/${encodeURIComponent(item.id)}`}
                                             className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-mist"

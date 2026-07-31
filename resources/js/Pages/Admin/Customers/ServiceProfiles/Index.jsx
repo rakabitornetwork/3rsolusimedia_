@@ -16,18 +16,20 @@ export default function Index({ packages }) {
         >
             <Head title="Paket Layanan" />
 
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Paket layanan menghubungkan harga (misalnya 120rb/150rb/250rb) ke Profile PPPoE di
                     MikroTik.
                 </p>
-                <Link
-                    href="/admin/customers/pppoe/service-profiles/create"
-                    className="inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink"
-                >
-                    <Plus className="h-4 w-4" />
-                    Tambah Paket
-                </Link>
+                <div className="admin-toolbar-actions">
+                    <Link
+                        href="/admin/customers/pppoe/service-profiles/create"
+                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                    >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        Tambah Paket
+                    </Link>
+                </div>
             </div>
 
             <div className="admin-data-scroll border border-ink/10 bg-white">
@@ -68,7 +70,7 @@ export default function Index({ packages }) {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-2">
+                                    <div className="admin-actions">
                                         <Link
                                             href={`/admin/customers/pppoe/service-profiles/${item.id}/edit`}
                                             className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-mist"

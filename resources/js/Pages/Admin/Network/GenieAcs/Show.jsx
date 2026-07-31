@@ -22,7 +22,7 @@ export default function Show({ device, ui_url }) {
         >
             <Head title={`GenieACS · ${device.serial || device.id}`} />
 
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                     href="/admin/network/genieacs"
                     className="inline-flex items-center gap-2 text-sm font-semibold text-signal-deep hover:text-ink"
@@ -30,15 +30,15 @@ export default function Show({ device, ui_url }) {
                     <ArrowLeft className="h-4 w-4" />
                     Kembali ke daftar
                 </Link>
-                <div className="flex flex-wrap gap-2">
+                <div className="admin-toolbar-actions">
                     {ui_url && (
                         <a
                             href={`${ui_url.replace(/\/$/, '')}/#!/devices/${encodeURIComponent(device.id)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                            className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
                         >
-                            <ExternalLink className="h-3.5 w-3.5" />
+                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
                             Buka di GenieACS UI
                         </a>
                     )}
@@ -50,9 +50,9 @@ export default function Show({ device, ui_url }) {
                                     `/admin/network/genieacs/devices/${encodeURIComponent(device.id)}/summon`,
                                 )
                             }
-                            className="inline-flex items-center gap-2 bg-signal-deep px-3 py-2 text-xs font-semibold text-white hover:bg-ink"
+                            className="bg-signal-deep px-3 text-xs font-semibold text-white hover:bg-ink"
                         >
-                            <RefreshCw className="h-3.5 w-3.5" />
+                            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                             Summon / Refresh
                         </button>
                     )}

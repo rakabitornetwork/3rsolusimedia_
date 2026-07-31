@@ -172,15 +172,15 @@ export default function Update({ repo }) {
             />
 
             {canWrite && (
-                <div className="mb-5 flex flex-wrap justify-end gap-2">
+                <div className="admin-toolbar-actions mb-5">
                     <button
                         type="button"
                         onClick={checkUpdate}
                         disabled={checking || busy}
-                        className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
+                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
                     >
                         <RefreshCw
-                            className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
+                            className={`mr-1.5 h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
                         />
                         Cek update
                     </button>
@@ -193,9 +193,9 @@ export default function Update({ repo }) {
                                 ? 'Pull update terbaru dari GitHub (tanpa npm)'
                                 : 'Tidak ada update terbaru dari GitHub, atau pull belum aman'
                         }
-                        className="inline-flex items-center gap-2 bg-signal-deep px-3 py-2 text-xs font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
+                        className="bg-signal-deep px-3 text-xs font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
                     >
-                        <ArrowDownToLine className="h-3.5 w-3.5" />
+                        <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                         Pull dari GitHub
                     </button>
                 </div>
