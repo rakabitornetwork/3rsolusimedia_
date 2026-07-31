@@ -1,6 +1,28 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    Activity,
+    AlertTriangle,
+    Plus,
+    RefreshCw,
+    ShieldOff,
+    Trash2,
+    Users,
+} from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+
+function StatCard({ label, value, icon: Icon, tone }) {
+    return (
+        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
+            <div className="flex items-start justify-between gap-3">
+                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
+                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                </span>
+            </div>
+            <p className="font-display mt-3 text-2xl font-bold">{value}</p>
+        </div>
+    );
+}
 
 function StatusBadge({ status, overdue }) {
     if (overdue && status !== 'isolated') {
@@ -56,18 +78,31 @@ export default function Index({ customers, filters, routers, stats }) {
         >
             <Head title="Pelanggan PPPoE" />
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-4">
-                {[
-                    ['Total', stats.total],
-                    ['Aktif', stats.active],
-                    ['Isolir', stats.isolated],
-                    ['Lewat tempo', stats.overdue],
-                ].map(([label, value]) => (
-                    <div key={label} className="border border-ink/10 bg-white p-4">
-                        <p className="text-[11px] tracking-wide text-ink-soft uppercase">{label}</p>
-                        <p className="mt-2 text-xl font-semibold text-ink">{value}</p>
-                    </div>
-                ))}
+            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                    label="Total"
+                    value={stats.total}
+                    icon={Users}
+                    tone="bg-gradient-to-br from-slate-500 to-slate-950"
+                />
+                <StatCard
+                    label="Aktif"
+                    value={stats.active}
+                    icon={Activity}
+                    tone="bg-gradient-to-br from-teal-500 to-teal-950"
+                />
+                <StatCard
+                    label="Isolir"
+                    value={stats.isolated}
+                    icon={ShieldOff}
+                    tone="bg-gradient-to-br from-red-500 to-red-950"
+                />
+                <StatCard
+                    label="Lewat tempo"
+                    value={stats.overdue}
+                    icon={AlertTriangle}
+                    tone="bg-gradient-to-br from-amber-400 to-orange-800"
+                />
             </div>
 
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
