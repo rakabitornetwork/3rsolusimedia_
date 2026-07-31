@@ -125,6 +125,21 @@
     font: inherit;
 }
 
+@keyframes update-term-line-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.update-term-line {
+    animation: update-term-line-in 0.28s ease-out both;
+}
+
 /* Sidebar: scrollbar hidden by default, fade in on hover (desktop) / scroll (touch) */
 .admin-sidebar-scroll {
     scrollbar-width: thin;

@@ -8,15 +8,17 @@ import {
     Server,
     TriangleAlert,
 } from 'lucide-react';
+import { useState } from 'react';
+import UpdateTerminal from '../../../Components/Admin/UpdateTerminal';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
 function StatusBadge({ status, label }) {
     const tones = {
-        up_to_date: 'bg-signal/15 text-signal-deep',
-        behind: 'bg-amber-100 text-amber-800',
-        ahead: 'bg-sky-100 text-sky-800',
-        diverged: 'bg-red-100 text-red-800',
-        unknown: 'bg-ink/10 text-ink-soft',
+        up_to_date: 'bg-white/15 text-white',
+        behind: 'bg-amber-300/25 text-amber-50',
+        ahead: 'bg-white/15 text-white',
+        diverged: 'bg-red-300/25 text-red-50',
+        unknown: 'bg-white/10 text-white/80',
     };
 
     return (
@@ -41,13 +43,18 @@ export default function Update({ repo }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
     const canPull = Boolean(canWrite && repo?.can_pull);
+    const [pulling, setPulling] = useState(false);
+    const [checking, setChecking] = useState(false);
 
     const checkUpdate = () => {
-        router.post('/admin/system/update/check');
+        setChecking(true);
+        router.post('/admin/system/update/check', {}, {
+            onFinish: () => setChecking(false),
+        });
     };
 
     const pullUpdate = () => {
-        if (!canPull) return;
+        if (!canPull || pulling) return;
         if (
             !window.confirm(
                 'Pull update dari GitHub ke server ini?\n\nPerintah npm run build tidak akan dijalankan.',
@@ -55,7 +62,18 @@ export default function Update({ repo }) {
         ) {
             return;
         }
-        router.post('/admin/system/update/pull');
+
+        setPulling(true);
+        const started = Date.now();
+        const minShowMs = 3200;
+
+        router.post('/admin/system/update/pull', {}, {
+            onFinish: () => {
+                const elapsed = Date.now() - started;
+                const wait = Math.max(0, minShowMs - elapsed);
+                window.setTimeout(() => setPulling(false), wait);
+            },
+        });
     };
 
     return (
@@ -64,6 +82,12 @@ export default function Update({ repo }) {
             subtitle="Status repositori GitHub dan panduan sync ke VPS"
         >
             <Head title="Update" />
+
+            <UpdateTerminal
+                open={pulling}
+                branch={repo?.branch}
+                behind={repo?.behind || 0}
+            />
 
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
                 <p className="max-w-2xl text-sm text-ink-soft">
@@ -77,15 +101,18 @@ export default function Update({ repo }) {
                             <button
                                 type="button"
                                 onClick={checkUpdate}
-                                className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                                disabled={checking || pulling}
+                                className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
                             >
-                                <RefreshCw className="h-3.5 w-3.5" />
+                                <RefreshCw
+                                    className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
+                                />
                                 Cek update
                             </button>
                             <button
                                 type="button"
                                 onClick={pullUpdate}
-                                disabled={!canPull}
+                                disabled={!canPull || pulling}
                                 title={
                                     canPull
                                         ? 'Pull update terbaru dari GitHub (tanpa npm)'
@@ -102,29 +129,33 @@ export default function Update({ repo }) {
             </div>
 
             <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="border border-ink/10 bg-white p-4">
-                    <p className="text-[11px] tracking-wide text-ink-soft uppercase">Status sync</p>
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-teal-500 to-teal-950 p-4 text-white shadow-sm">
+                    <p className="text-[11px] tracking-wide text-teal-50/80 uppercase">Status sync</p>
                     <div className="mt-3">
                         <StatusBadge status={repo?.sync_status} label={repo?.sync_label || '—'} />
                     </div>
-                    <p className="mt-3 text-xs text-ink-soft">{repo?.message}</p>
+                    <p className="mt-auto pt-3 text-xs text-teal-50/80">{repo?.message}</p>
                 </div>
-                <div className="border border-ink/10 bg-white p-4">
-                    <p className="text-[11px] tracking-wide text-ink-soft uppercase">Commit lokal</p>
-                    <p className="font-display mt-2 text-xl font-bold text-ink">
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-slate-500 to-slate-950 p-4 text-white shadow-sm">
+                    <p className="text-[11px] tracking-wide text-slate-200/80 uppercase">
+                        Commit lokal
+                    </p>
+                    <p className="font-display mt-2 text-2xl font-bold tracking-tight">
                         {repo?.local_commit_short || '—'}
                     </p>
-                    <p className="mt-1 text-xs text-ink-soft">
+                    <p className="mt-auto pt-2 text-xs text-slate-200/75">
                         Branch: {repo?.branch || '—'}
                         {repo?.dirty ? ' · Ada perubahan belum di-commit' : ''}
                     </p>
                 </div>
-                <div className="border border-ink/10 bg-white p-4 sm:col-span-2 xl:col-span-1">
-                    <p className="text-[11px] tracking-wide text-ink-soft uppercase">Commit remote</p>
-                    <p className="font-display mt-2 text-xl font-bold text-ink">
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-sky-500 to-blue-950 p-4 text-white shadow-sm sm:col-span-2 xl:col-span-1">
+                    <p className="text-[11px] tracking-wide text-sky-100/80 uppercase">
+                        Commit remote
+                    </p>
+                    <p className="font-display mt-2 text-2xl font-bold tracking-tight">
                         {repo?.remote_commit_short || '—'}
                     </p>
-                    <p className="mt-1 text-xs text-ink-soft">
+                    <p className="mt-auto pt-2 text-xs text-sky-100/75">
                         Ahead {repo?.ahead ?? 0} · Behind {repo?.behind ?? 0}
                     </p>
                 </div>
@@ -196,7 +227,9 @@ export default function Update({ repo }) {
                         <h2 className="text-sm font-semibold text-ink">Update di VPS</h2>
                     </div>
                     <ol className="list-decimal space-y-2 pl-4 text-sm text-ink-soft">
-                        <li>Klik <strong className="text-ink">Cek update</strong></li>
+                        <li>
+                            Klik <strong className="text-ink">Cek update</strong>
+                        </li>
                         <li>
                             Jika ada update, tombol{' '}
                             <strong className="text-ink">Pull dari GitHub</strong> aktif — klik untuk
@@ -219,13 +252,15 @@ export default function Update({ repo }) {
                         <button
                             type="button"
                             onClick={pullUpdate}
-                            disabled={!canPull}
+                            disabled={!canPull || pulling}
                             className="mt-4 inline-flex items-center gap-2 bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
                         >
                             <ArrowDownToLine className="h-4 w-4" />
-                            {canPull
-                                ? `Pull ${repo?.behind || ''} commit dari GitHub`
-                                : 'Tidak ada update untuk di-pull'}
+                            {pulling
+                                ? 'Sedang pull...'
+                                : canPull
+                                  ? `Pull ${repo?.behind || ''} commit dari GitHub`
+                                  : 'Tidak ada update untuk di-pull'}
                         </button>
                     )}
                 </section>
