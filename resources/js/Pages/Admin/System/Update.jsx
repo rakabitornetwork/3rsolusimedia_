@@ -39,6 +39,7 @@ function InfoRow({ label, value, mono = false }) {
 }
 
 const TERMINAL_SESSION_KEY = 'update-terminal-session';
+const SUPPRESS_TOAST_KEY = 'update-suppress-toast';
 
 function flashResultFromFlash(flash) {
     if (flash?.success) {
@@ -64,8 +65,8 @@ export default function Update({ repo }) {
     const canWrite = auth?.user?.can_write !== false;
     const canPull = Boolean(canWrite && repo?.can_pull);
     const [terminalOpen, setTerminalOpen] = useState(false);
-    const [terminalMode, setTerminalMode] = useState('pull');
     const [terminalResult, setTerminalResult] = useState(null);
+    const [checking, setChecking] = useState(false);
     const seenFlashRef = useRef('');
     const busy = terminalOpen && !terminalResult;
 
@@ -79,58 +80,54 @@ export default function Update({ repo }) {
         }
     };
 
-    const rememberMode = (mode) => {
+    const rememberPullSession = () => {
         try {
             sessionStorage.setItem(
                 TERMINAL_SESSION_KEY,
-                JSON.stringify({ mode, at: Date.now() }),
+                JSON.stringify({ mode: 'pull', at: Date.now() }),
             );
+            sessionStorage.setItem(SUPPRESS_TOAST_KEY, '1');
         } catch {
             // ignore
         }
     };
 
-    // Setelah redirect Inertia, tampilkan flash di dalam terminal (bukan toast pojok).
+    // Flash hasil Pull saja yang masuk ke terminal (bukan Cek update).
     useEffect(() => {
         const result = flashResultFromFlash(flash);
         if (!result) return;
 
-        const signature = `${result.type}:${result.message}`;
-        if (seenFlashRef.current === signature) return;
-        seenFlashRef.current = signature;
-
-        let mode = 'pull';
+        let isPullSession = false;
         try {
             const raw = sessionStorage.getItem(TERMINAL_SESSION_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed?.mode) mode = parsed.mode;
-                sessionStorage.removeItem(TERMINAL_SESSION_KEY);
+                isPullSession = parsed?.mode === 'pull';
+                if (isPullSession) {
+                    sessionStorage.removeItem(TERMINAL_SESSION_KEY);
+                }
             }
         } catch {
             // ignore
         }
 
-        setTerminalMode(mode);
+        if (!isPullSession) return;
+
+        const signature = `${result.type}:${result.message}`;
+        if (seenFlashRef.current === signature) return;
+        seenFlashRef.current = signature;
+
         setTerminalResult(result);
         setTerminalOpen(true);
     }, [flash?.success, flash?.error]);
 
     const checkUpdate = () => {
-        if (busy) return;
-        rememberMode('check');
-        setTerminalMode('check');
-        setTerminalResult(null);
-        setTerminalOpen(true);
+        if (checking || busy) return;
+        setChecking(true);
 
         router.post('/admin/system/update/check', {}, {
             preserveScroll: true,
-            onSuccess: (page) => setTerminalResult(flashResultFromPage(page)),
-            onError: () =>
-                setTerminalResult({
-                    type: 'error',
-                    message: 'Gagal mengecek update dari GitHub.',
-                }),
+            onFinish: () => setChecking(false),
         });
     };
 
@@ -144,8 +141,7 @@ export default function Update({ repo }) {
             return;
         }
 
-        rememberMode('pull');
-        setTerminalMode('pull');
+        rememberPullSession();
         setTerminalResult(null);
         setTerminalOpen(true);
 
@@ -169,7 +165,7 @@ export default function Update({ repo }) {
 
             <UpdateTerminal
                 open={terminalOpen}
-                mode={terminalMode}
+                mode="pull"
                 branch={repo?.branch}
                 behind={repo?.behind || 0}
                 result={terminalResult}
@@ -181,18 +177,18 @@ export default function Update({ repo }) {
                     <button
                         type="button"
                         onClick={checkUpdate}
-                        disabled={busy}
+                        disabled={checking || busy}
                         className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
                     >
                         <RefreshCw
-                            className={`h-3.5 w-3.5 ${busy && terminalMode === 'check' ? 'animate-spin' : ''}`}
+                            className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
                         />
                         Cek update
                     </button>
                     <button
                         type="button"
                         onClick={pullUpdate}
-                        disabled={!canPull || busy}
+                        disabled={!canPull || busy || checking}
                         title={
                             canPull
                                 ? 'Pull update terbaru dari GitHub (tanpa npm)'
