@@ -236,7 +236,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                             <th className="px-4 py-3 font-semibold">Jatuh tempo</th>
                             <th className="px-4 py-3 font-semibold">Total</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

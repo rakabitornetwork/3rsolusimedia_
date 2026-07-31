@@ -75,7 +75,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                             <th className="px-4 py-3 font-semibold">Session / Idle</th>
                             <th className="px-4 py-3 font-semibold">Shared Users</th>
                             <th className="px-4 py-3 font-semibold">Address List</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

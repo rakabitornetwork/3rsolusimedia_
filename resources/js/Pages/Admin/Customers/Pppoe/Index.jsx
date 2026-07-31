@@ -164,7 +164,7 @@ export default function Index({ customers, filters, routers, stats }) {
                             </th>
                             <th className="px-4 py-3 font-semibold">Aksi Tempo</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

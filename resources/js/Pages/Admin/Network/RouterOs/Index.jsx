@@ -75,7 +75,7 @@ export default function Index({ routers }) {
                                 <th className="px-4 py-3 font-semibold">Host / Port</th>
                                 <th className="hidden px-4 py-3 font-semibold md:table-cell">User</th>
                                 <th className="px-4 py-3 font-semibold">Status</th>
-                                <th className="px-4 py-3 font-semibold" />
+                                <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>

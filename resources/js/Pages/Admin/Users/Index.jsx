@@ -153,7 +153,7 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                             <th className="px-4 py-3 font-semibold">Pengguna</th>
                             <th className="px-4 py-3 font-semibold">Role</th>
                             <th className="px-4 py-3 font-semibold">Dibuat</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

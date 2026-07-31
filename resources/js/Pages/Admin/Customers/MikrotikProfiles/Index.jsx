@@ -77,7 +77,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                             <th className="px-4 py-3 font-semibold">Local / Remote</th>
                             <th className="px-4 py-3 font-semibold">Only One</th>
                             <th className="px-4 py-3 font-semibold">Keterangan</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

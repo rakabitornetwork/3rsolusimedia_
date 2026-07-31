@@ -313,7 +313,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                             <th className="hidden px-4 py-3 font-semibold md:table-cell">Firmware</th>
                             <th className="px-4 py-3 font-semibold">Inform terakhir</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 font-semibold" />
+                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
