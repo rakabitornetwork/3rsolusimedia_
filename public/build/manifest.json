@@ -17,6 +17,15 @@
       "_vendor-react-Dyo4ernH.js"
     ]
   },
+  "_LiveTrafficCard-BvYgbY7i.js": {
+    "file": "assets/LiveTrafficCard-BvYgbY7i.js",
+    "name": "LiveTrafficCard",
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_vendor-ui-BSBrBipL.js",
+      "_vendor-react-Dyo4ernH.js"
+    ]
+  },
   "_Logo-DRn_eI5R.js": {
     "file": "assets/Logo-DRn_eI5R.js",
     "name": "Logo",
@@ -157,7 +166,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-DukZmEm8.css",
+    "file": "assets/app-BYewSaFV.css",
     "name": "app",
     "names": [
       "app.css"
@@ -357,14 +366,15 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard.jsx": {
-    "file": "assets/Dashboard-Cv6lzmuV.js",
+    "file": "assets/Dashboard-SqDActqw.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-ui-BSBrBipL.js",
       "_vendor-react-Dyo4ernH.js",
-      "_AdminLayout-BjrRgrjJ.js"
+      "_AdminLayout-BjrRgrjJ.js",
+      "_LiveTrafficCard-BvYgbY7i.js"
     ]
   },
   "resources/js/Pages/Admin/Network/GenieAcs/Index.jsx": {
@@ -469,15 +479,15 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Show.jsx": {
-    "file": "assets/Show-BARRKOoV.js",
+    "file": "assets/Show-DRaSsvqk.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
-      "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-BSBrBipL.js",
       "_vendor-react-Dyo4ernH.js",
-      "_AdminLayout-BjrRgrjJ.js"
+      "_AdminLayout-BjrRgrjJ.js",
+      "_LiveTrafficCard-BvYgbY7i.js"
     ]
   },
   "resources/js/Pages/Admin/SectionEdit.jsx": {
@@ -528,7 +538,7 @@
     ]
   },
   "resources/js/Pages/Admin/Users/Form.jsx": {
-    "file": "assets/Form-By0LCfLo2.js",
+    "file": "assets/Form-By0LCfLo.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Users/Form.jsx",
     "isDynamicEntry": true,
@@ -540,7 +550,7 @@
     ]
   },
   "resources/js/Pages/Admin/Users/Index.jsx": {
-    "file": "assets/Index-BI1FlbOy2.js",
+    "file": "assets/Index-BI1FlbOy.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Users/Index.jsx",
     "isDynamicEntry": true,
@@ -704,7 +714,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-BQRm6ipY.js",
+    "file": "assets/app-Cm2RAUV9.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -750,7 +760,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-DukZmEm8.css"
+      "assets/app-BYewSaFV.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

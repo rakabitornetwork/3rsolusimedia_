@@ -49,6 +49,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::put('/network/routeros/{router}', [RouterOsController::class, 'update'])->name('network.routeros.update');
     Route::delete('/network/routeros/{router}', [RouterOsController::class, 'destroy'])->name('network.routeros.destroy');
     Route::post('/network/routeros/{router}/test', [RouterOsController::class, 'test'])->name('network.routeros.test');
+    Route::get('/network/routeros/{router}/interfaces', [RouterOsController::class, 'interfaces'])->name('network.routeros.interfaces');
     Route::get('/network/routeros/{router}/traffic', [RouterOsController::class, 'traffic'])->name('network.routeros.traffic');
 
     Route::get('/network/map', [ModuleController::class, 'show'])->defaults('module', 'map')->name('network.map');

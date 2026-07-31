@@ -72,8 +72,20 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Invoice $invoice) => $invoice->toAdminArray());
 
+        $trafficRouters = MikrotikRouter::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'host'])
+            ->map(fn (MikrotikRouter $router) => [
+                'id' => $router->id,
+                'name' => $router->name,
+                'host' => $router->host,
+            ])
+            ->values();
+
         return Inertia::render('Admin/Dashboard', [
             'company' => SiteSetting::getValue('company_name', '3R Solusi Media'),
+            'traffic_routers' => $trafficRouters,
             'stats' => [
                 'customers_total' => $customersTotal,
                 'customers_active' => $customersActive,

@@ -169,6 +169,43 @@ class MikrotikApiService
     }
 
     /**
+     * @return array{ok: bool, message?: string, interfaces?: array<int, array<string, mixed>>}
+     */
+    public function listPhysicalInterfaces(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $interfaces = $client->query(new Query('/interface/print'))->read();
+
+            $physicalInterfaces = collect($interfaces)
+                ->filter(function (array $iface) {
+                    return ($iface['disabled'] ?? 'false') !== 'true'
+                        && strtolower((string) ($iface['type'] ?? '')) === 'ether'
+                        && ($iface['name'] ?? '') !== '';
+                })
+                ->map(fn (array $iface) => [
+                    'name' => (string) $iface['name'],
+                    'running' => ($iface['running'] ?? 'false') === 'true',
+                    'comment' => $iface['comment'] ?? null,
+                ])
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->all();
+
+            return [
+                'ok' => true,
+                'interfaces' => $physicalInterfaces,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'interfaces' => [],
+            ];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message?: string, data?: array<string, mixed>}
      */
     public function monitorTraffic(MikrotikRouter $router, string $interface): array

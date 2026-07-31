@@ -106,19 +106,88 @@ function Spark({ values, strokeClass, fillClass }) {
     );
 }
 
-export default function LiveTrafficCard({ routerId, physicalInterfaces = [] }) {
-    const defaultInterface = physicalInterfaces[0]?.name || '';
-    const [selected, setSelected] = useState(defaultInterface);
+/**
+ * @param {{
+ *   routerId?: number|string|null,
+ *   physicalInterfaces?: Array<{name: string, running?: boolean, comment?: string|null}>,
+ *   routers?: Array<{id: number, name: string, host?: string}>|null,
+ * }} props
+ */
+export default function LiveTrafficCard({
+    routerId: initialRouterId = null,
+    physicalInterfaces: initialInterfaces = [],
+    routers = null,
+}) {
+    const multiRouter = Array.isArray(routers);
+    const [routerId, setRouterId] = useState(
+        () => initialRouterId || routers?.[0]?.id || null,
+    );
+    const [physicalInterfaces, setPhysicalInterfaces] = useState(initialInterfaces);
+    const [selected, setSelected] = useState(initialInterfaces[0]?.name || '');
     const [traffic, setTraffic] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loadingInterfaces, setLoadingInterfaces] = useState(false);
     const [history, setHistory] = useState({ rx: [], tx: [] });
 
     useEffect(() => {
-        if (!selected && physicalInterfaces[0]?.name) {
-            setSelected(physicalInterfaces[0].name);
+        if (multiRouter) return;
+        setPhysicalInterfaces(initialInterfaces);
+        if (!selected && initialInterfaces[0]?.name) {
+            setSelected(initialInterfaces[0].name);
         }
-    }, [physicalInterfaces, selected]);
+    }, [initialInterfaces, multiRouter, selected]);
+
+    useEffect(() => {
+        if (!multiRouter || !routerId) return undefined;
+
+        let cancelled = false;
+
+        const loadInterfaces = async () => {
+            setLoadingInterfaces(true);
+            setError('');
+            setPhysicalInterfaces([]);
+            setSelected('');
+            setTraffic(null);
+            setHistory({ rx: [], tx: [] });
+
+            try {
+                const response = await fetch(
+                    `/admin/network/routeros/${routerId}/interfaces`,
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                    },
+                );
+                const payload = await response.json();
+                if (cancelled) return;
+
+                if (!payload.ok) {
+                    setError(payload.message || 'Gagal mengambil daftar interface');
+                    return;
+                }
+
+                const list = payload.interfaces || [];
+                setPhysicalInterfaces(list);
+                setSelected(list[0]?.name || '');
+            } catch {
+                if (!cancelled) {
+                    setError('Tidak bisa mengambil daftar interface');
+                }
+            } finally {
+                if (!cancelled) setLoadingInterfaces(false);
+            }
+        };
+
+        loadInterfaces();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [multiRouter, routerId]);
 
     useEffect(() => {
         if (!selected || !routerId) return undefined;
@@ -183,7 +252,27 @@ export default function LiveTrafficCard({ routerId, physicalInterfaces = [] }) {
         [physicalInterfaces, selected],
     );
 
-    if (!physicalInterfaces.length) {
+    if (multiRouter && routers.length === 0) {
+        return (
+            <div className="border border-ink/10 bg-white p-5">
+                <h2 className="font-display flex items-center gap-2 text-base font-bold text-ink">
+                    <Activity className="h-4 w-4 text-signal-deep" strokeWidth={1.75} />
+                    Live Traffic
+                </h2>
+                <p className="mt-3 text-sm text-ink-soft">
+                    Belum ada router aktif. Tambahkan router MikroTik terlebih dahulu.
+                </p>
+                <a
+                    href="/admin/network/routeros/create"
+                    className="mt-3 inline-flex text-sm font-semibold text-signal-deep hover:underline"
+                >
+                    Tambah Router
+                </a>
+            </div>
+        );
+    }
+
+    if (!multiRouter && !physicalInterfaces.length) {
         return (
             <div className="border border-ink/10 bg-white p-5">
                 <h2 className="font-display flex items-center gap-2 text-base font-bold text-ink">
@@ -207,15 +296,38 @@ export default function LiveTrafficCard({ routerId, physicalInterfaces = [] }) {
                         Update tiap 2 detik dari API monitor-traffic
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    {loading && (
-                        <LoaderCircle className="h-4 w-4 animate-spin text-signal-deep" aria-hidden />
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    {(loading || loadingInterfaces) && (
+                        <LoaderCircle
+                            className="hidden h-4 w-4 animate-spin text-signal-deep sm:block"
+                            aria-hidden
+                        />
+                    )}
+                    {multiRouter && (
+                        <select
+                            value={routerId || ''}
+                            onChange={(e) => setRouterId(Number(e.target.value) || e.target.value)}
+                            className="w-full border border-ink/15 bg-paper px-3 py-2 text-sm outline-none focus:border-signal sm:min-w-[180px] sm:w-auto"
+                        >
+                            {routers.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.name}
+                                    {item.host ? ` (${item.host})` : ''}
+                                </option>
+                            ))}
+                        </select>
                     )}
                     <select
                         value={selected}
                         onChange={(e) => setSelected(e.target.value)}
-                        className="min-w-[160px] border border-ink/15 bg-paper px-3 py-2 text-sm outline-none focus:border-signal"
+                        disabled={loadingInterfaces || !physicalInterfaces.length}
+                        className="w-full border border-ink/15 bg-paper px-3 py-2 text-sm outline-none focus:border-signal disabled:opacity-60 sm:min-w-[140px] sm:w-auto"
                     >
+                        {physicalInterfaces.length === 0 && (
+                            <option value="">
+                                {loadingInterfaces ? 'Memuat interface...' : 'Tidak ada interface'}
+                            </option>
+                        )}
                         {physicalInterfaces.map((iface) => (
                             <option key={iface.name} value={iface.name}>
                                 {iface.name}

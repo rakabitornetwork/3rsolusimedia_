@@ -13,6 +13,7 @@ import {
     WalletCards,
     Wifi,
 } from 'lucide-react';
+import LiveTrafficCard from '../../Components/Admin/LiveTrafficCard';
 import AdminLayout from '../../Layouts/AdminLayout';
 
 function StatWidget({ label, value, hint, href, gradient, icon: Icon }) {
@@ -53,6 +54,7 @@ function actionIcon(label) {
 export default function Dashboard({
     company,
     stats,
+    traffic_routers: trafficRouters = [],
     due_soon: dueSoon,
     attention_invoices: attentionInvoices,
     quick_actions: quickActions,
@@ -151,6 +153,13 @@ export default function Dashboard({
                         icon={Hourglass}
                     />
                 </div>
+            </section>
+
+            <section className="mb-8">
+                <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                    Live Traffic
+                </h3>
+                <LiveTrafficCard routers={trafficRouters} />
             </section>
 
             <section className="mb-8">

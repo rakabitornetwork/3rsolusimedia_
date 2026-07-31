@@ -135,6 +135,13 @@ class RouterOsController extends Controller
         ]);
     }
 
+    public function interfaces(MikrotikRouter $router)
+    {
+        $result = $this->api->listPhysicalInterfaces($router);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
     public function traffic(Request $request, MikrotikRouter $router)
     {
         $validated = $request->validate([
