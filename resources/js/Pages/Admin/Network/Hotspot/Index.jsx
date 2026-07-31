@@ -112,7 +112,7 @@ export default function Index({
                             </button>
                         </div>
                     </div>
-                    <div className="max-h-56 overflow-auto border border-ink/10">
+                    <div className="admin-data-scroll max-h-56 overflow-y-auto border border-ink/10">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                                 <tr>
@@ -210,7 +210,7 @@ export default function Index({
                 </Link>
             </div>
 
-            <div className="overflow-hidden border border-ink/10 bg-white">
+            <div className="admin-data-scroll border border-ink/10 bg-white">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>

@@ -65,7 +65,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                 </Link>
             </div>
 
-            <div className="overflow-hidden border border-ink/10 bg-white">
+            <div className="admin-data-scroll border border-ink/10 bg-white">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>

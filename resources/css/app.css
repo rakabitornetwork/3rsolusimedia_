@@ -125,6 +125,24 @@
     font: inherit;
 }
 
+/* Admin tables: allow horizontal swipe/scroll on mobile */
+.admin-data-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+.admin-data-scroll > table {
+    width: max(100%, 40rem);
+    min-width: 40rem;
+    border-collapse: collapse;
+}
+
+.admin-data-scroll > table th,
+.admin-data-scroll > table td {
+    white-space: nowrap;
+}
+
 @keyframes update-term-line-in {
     from {
         opacity: 0;

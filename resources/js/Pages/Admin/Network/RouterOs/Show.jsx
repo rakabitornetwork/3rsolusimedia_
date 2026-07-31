@@ -160,7 +160,7 @@ export default function Show({ router: item, info }) {
                             Maks. 20 interface aktif ditampilkan
                         </p>
                     </div>
-                    <div className="overflow-x-auto">
+                    <div className="admin-data-scroll">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-mist/40 text-xs tracking-wide text-ink-soft uppercase">
                                 <tr>
