@@ -63,15 +63,15 @@ export default function Sessions({
             )}
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-3">
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-emerald-500 to-teal-700 p-4 text-white shadow-sm">
+                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-emerald-400 to-teal-600 p-4 text-white shadow-sm">
                     <p className="text-[11px] tracking-wide text-white/75 uppercase">Online sekarang</p>
                     <p className="font-display mt-3 text-2xl font-bold">{stats.online}</p>
                 </div>
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-sky-500 to-blue-700 p-4 text-white shadow-sm">
+                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-cyan-400 to-sky-600 p-4 text-white shadow-sm">
                     <p className="text-[11px] tracking-wide text-white/75 uppercase">Terdaftar di app</p>
                     <p className="font-display mt-3 text-2xl font-bold">{stats.matched}</p>
                 </div>
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-amber-400 to-orange-600 p-4 text-white shadow-sm">
+                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-amber-300 to-orange-500 p-4 text-white shadow-sm">
                     <p className="text-[11px] tracking-wide text-white/75 uppercase">Belum terdaftar</p>
                     <p className="font-display mt-3 text-2xl font-bold">{stats.unknown}</p>
                 </div>

@@ -66,25 +66,25 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                 <StatWidget
                     label="Total User"
                     value={stats.total}
-                    gradient="bg-gradient-to-br from-slate-500 to-slate-900"
+                    gradient="bg-gradient-to-br from-slate-400 to-slate-600"
                     icon={Users}
                 />
                 <StatWidget
                     label="Superadmin"
                     value={stats.superadmin}
-                    gradient="bg-gradient-to-br from-indigo-500 to-indigo-900"
+                    gradient="bg-gradient-to-br from-indigo-400 to-blue-600"
                     icon={ShieldCheck}
                 />
                 <StatWidget
                     label="Admin"
                     value={stats.admin}
-                    gradient="bg-gradient-to-br from-emerald-500 to-teal-800"
+                    gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
                     icon={UserCog}
                 />
                 <StatWidget
                     label="Teknisi"
                     value={stats.teknisi}
-                    gradient="bg-gradient-to-br from-amber-400 to-orange-700"
+                    gradient="bg-gradient-to-br from-amber-300 to-orange-500"
                     icon={Wrench}
                 />
             </div>

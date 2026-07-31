@@ -157,25 +157,25 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                 <StatWidget
                     label="Belum bayar"
                     value={stats.unpaid}
-                    gradient="bg-gradient-to-br from-red-500 to-red-900"
+                    gradient="bg-gradient-to-br from-rose-400 to-pink-600"
                     icon={WalletCards}
                 />
                 <StatWidget
                     label="Jatuh tempo"
                     value={stats.overdue}
-                    gradient="bg-gradient-to-br from-yellow-400 to-yellow-700"
+                    gradient="bg-gradient-to-br from-amber-300 to-orange-500"
                     icon={Hourglass}
                 />
                 <StatWidget
                     label="Lunas bulan ini"
                     value={stats.paid_this_month}
-                    gradient="bg-gradient-to-br from-lime-400 to-green-800"
+                    gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
                     icon={ShieldCheck}
                 />
                 <StatWidget
                     label="Omzet bulan ini"
                     value={stats.collected_this_month_label}
-                    gradient="bg-gradient-to-br from-indigo-500 to-indigo-900"
+                    gradient="bg-gradient-to-br from-indigo-400 to-blue-600"
                     icon={Coins}
                 />
             </div>

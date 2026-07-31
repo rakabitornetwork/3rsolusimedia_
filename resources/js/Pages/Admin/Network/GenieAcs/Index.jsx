@@ -116,7 +116,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                     className="mb-5 space-y-4 border border-ink/10 bg-white p-5 sm:p-6"
                 >
                     <div className="flex items-start gap-3">
-                        <span className="inline-flex h-9 w-9 items-center justify-center bg-gradient-to-br from-sky-500 to-blue-800 text-white">
+                        <span className="inline-flex h-9 w-9 items-center justify-center bg-gradient-to-br from-cyan-400 to-sky-600 text-white">
                             <Radio className="h-4 w-4" />
                         </span>
                         <div>
@@ -232,27 +232,27 @@ export default function Index({ config, connection, devices, devices_error, stat
                     icon={connection?.ok ? Wifi : ServerCrash}
                     tone={
                         connection?.ok
-                            ? 'bg-gradient-to-br from-emerald-500 to-teal-800'
-                            : 'bg-gradient-to-br from-red-500 to-red-900'
+                            ? 'bg-gradient-to-br from-emerald-400 to-teal-600'
+                            : 'bg-gradient-to-br from-rose-400 to-pink-600'
                     }
                 />
                 <StatCard
                     label="Perangkat"
                     value={stats?.devices ?? 0}
                     icon={Radio}
-                    tone="bg-gradient-to-br from-sky-500 to-blue-800"
+                    tone="bg-gradient-to-br from-cyan-400 to-sky-600"
                 />
                 <StatCard
                     label="Online (~15 mnt)"
                     value={stats?.online ?? 0}
                     icon={Activity}
-                    tone="bg-gradient-to-br from-lime-400 to-green-800"
+                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
                 />
                 <StatCard
                     label="Faults"
                     value={stats?.faults ?? 0}
                     icon={ShieldAlert}
-                    tone="bg-gradient-to-br from-amber-400 to-orange-700"
+                    tone="bg-gradient-to-br from-amber-300 to-orange-500"
                 />
             </div>
 

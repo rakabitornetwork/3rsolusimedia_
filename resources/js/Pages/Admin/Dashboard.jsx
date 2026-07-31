@@ -123,7 +123,7 @@ export default function Dashboard({
                         value={stats.customers_total}
                         hint={`${stats.customers_disabled} nonaktif`}
                         href="/admin/customers/pppoe"
-                        gradient="bg-gradient-to-br from-sky-500 to-blue-700"
+                        gradient="bg-gradient-to-br from-cyan-400 to-sky-600"
                         icon={Coins}
                     />
                     <StatWidget
@@ -131,7 +131,7 @@ export default function Dashboard({
                         value={stats.customers_active}
                         hint="Koneksi berjalan normal"
                         href="/admin/customers/pppoe?status=active"
-                        gradient="bg-gradient-to-br from-emerald-500 to-teal-700"
+                        gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
                         icon={ShieldCheck}
                     />
                     <StatWidget
@@ -139,7 +139,7 @@ export default function Dashboard({
                         value={stats.customers_isolated}
                         hint="Perlu pembayaran / restore"
                         href="/admin/customers/pppoe?status=isolated"
-                        gradient="bg-gradient-to-br from-rose-500 to-red-700"
+                        gradient="bg-gradient-to-br from-rose-400 to-pink-600"
                         icon={WalletCards}
                     />
                     <StatWidget
@@ -147,7 +147,7 @@ export default function Dashboard({
                         value={stats.customers_overdue}
                         hint="Melewati jatuh tempo"
                         href="/admin/customers/pppoe"
-                        gradient="bg-gradient-to-br from-amber-400 to-orange-600"
+                        gradient="bg-gradient-to-br from-amber-300 to-orange-500"
                         icon={Hourglass}
                     />
                 </div>

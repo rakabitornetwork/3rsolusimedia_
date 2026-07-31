@@ -83,25 +83,25 @@ export default function Index({ customers, filters, routers, stats }) {
                     label="Total"
                     value={stats.total}
                     icon={Users}
-                    tone="bg-gradient-to-br from-slate-500 to-slate-950"
+                    tone="bg-gradient-to-br from-slate-400 to-slate-600"
                 />
                 <StatCard
                     label="Aktif"
                     value={stats.active}
                     icon={Activity}
-                    tone="bg-gradient-to-br from-teal-500 to-teal-950"
+                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
                 />
                 <StatCard
                     label="Isolir"
                     value={stats.isolated}
                     icon={ShieldOff}
-                    tone="bg-gradient-to-br from-red-500 to-red-950"
+                    tone="bg-gradient-to-br from-rose-400 to-pink-600"
                 />
                 <StatCard
                     label="Lewat tempo"
                     value={stats.overdue}
                     icon={AlertTriangle}
-                    tone="bg-gradient-to-br from-amber-400 to-orange-800"
+                    tone="bg-gradient-to-br from-amber-300 to-orange-500"
                 />
             </div>
 

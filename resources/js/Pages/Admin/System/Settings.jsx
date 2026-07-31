@@ -10,7 +10,7 @@ function Section({ icon: Icon, title, description, children }) {
     return (
         <section className="border border-ink/10 bg-white">
             <div className="flex items-start gap-3 border-b border-ink/10 bg-mist/40 px-5 py-4">
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-gradient-to-br from-slate-500 to-slate-900 text-white">
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-gradient-to-br from-slate-400 to-slate-600 text-white">
                     <Icon className="h-4 w-4" strokeWidth={1.75} />
                 </span>
                 <div>

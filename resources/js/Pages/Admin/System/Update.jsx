@@ -203,13 +203,13 @@ export default function Update({ repo }) {
 
             <div className="mb-5 overflow-hidden border border-ink/10 bg-white">
                 <div className="flex h-1.5 w-full">
-                    <span className="flex-1 bg-gradient-to-r from-teal-400 to-teal-800" />
-                    <span className="flex-1 bg-gradient-to-r from-slate-500 to-slate-900" />
-                    <span className="flex-1 bg-gradient-to-r from-sky-400 to-blue-900" />
+                    <span className="flex-1 bg-gradient-to-r from-teal-400 to-cyan-600" />
+                    <span className="flex-1 bg-gradient-to-r from-slate-400 to-slate-600" />
+                    <span className="flex-1 bg-gradient-to-r from-cyan-400 to-sky-600" />
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
                     <div className="flex items-start gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center bg-gradient-to-br from-teal-500 to-teal-900 text-white">
+                        <span className="inline-flex h-10 w-10 items-center justify-center bg-gradient-to-br from-teal-400 to-cyan-600 text-white">
                             <Tag className="h-4 w-4" />
                         </span>
                         <div>
@@ -250,33 +250,33 @@ export default function Update({ repo }) {
             </div>
 
             <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-teal-500 to-teal-950 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-teal-50/80 uppercase">Status sync</p>
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-teal-400 to-cyan-600 p-4 text-white shadow-sm">
+                    <p className="text-[11px] tracking-wide text-white/75 uppercase">Status sync</p>
                     <div className="mt-3">
                         <StatusBadge status={repo?.sync_status} label={repo?.sync_label || '—'} />
                     </div>
-                    <p className="mt-auto pt-3 text-xs text-teal-50/80">{repo?.message}</p>
+                    <p className="mt-auto pt-3 text-xs text-white/75">{repo?.message}</p>
                 </div>
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-slate-500 to-slate-950 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-slate-200/80 uppercase">
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-slate-400 to-slate-600 p-4 text-white shadow-sm">
+                    <p className="text-[11px] tracking-wide text-white/75 uppercase">
                         Commit lokal
                     </p>
                     <p className="font-display mt-2 text-2xl font-bold tracking-tight">
                         {repo?.local_commit_short || '—'}
                     </p>
-                    <p className="mt-auto pt-2 text-xs text-slate-200/75">
+                    <p className="mt-auto pt-2 text-xs text-white/75">
                         Versi {repo?.local_version ? `v${repo.local_version}` : '—'}
                         {repo?.dirty ? ' · Ada perubahan belum di-commit' : ''}
                     </p>
                 </div>
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-sky-500 to-blue-950 p-4 text-white shadow-sm sm:col-span-2 xl:col-span-1">
-                    <p className="text-[11px] tracking-wide text-sky-100/80 uppercase">
+                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-cyan-400 to-sky-600 p-4 text-white shadow-sm sm:col-span-2 xl:col-span-1">
+                    <p className="text-[11px] tracking-wide text-white/75 uppercase">
                         Commit remote
                     </p>
                     <p className="font-display mt-2 text-2xl font-bold tracking-tight">
                         {repo?.remote_commit_short || '—'}
                     </p>
-                    <p className="mt-auto pt-2 text-xs text-sky-100/75">
+                    <p className="mt-auto pt-2 text-xs text-white/75">
                         Versi {repo?.remote_version ? `v${repo.remote_version}` : '—'} · Ahead{' '}
                         {repo?.ahead ?? 0} · Behind {repo?.behind ?? 0}
                     </p>
