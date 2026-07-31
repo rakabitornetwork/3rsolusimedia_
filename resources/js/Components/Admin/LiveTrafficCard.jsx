@@ -3,9 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const SPARK_POINTS = 24;
 const POLL_SECONDS = 2;
-const CHART_WIDTH = 360;
-const CHART_HEIGHT = 160;
-const MARGIN = { top: 12, right: 12, bottom: 28, left: 56 };
+const CHART_WIDTH = 640;
+const CHART_HEIGHT = 220;
+const MARGIN = { top: 14, right: 16, bottom: 32, left: 58 };
+const SMOOTH = 0.16;
+const YMAX_UP = 0.22;
+const YMAX_DOWN = 0.035;
 
 function formatBitrate(bps) {
     if (bps == null || Number.isNaN(Number(bps))) return '0 bps';
@@ -56,104 +59,175 @@ function padHistory(values, length = SPARK_POINTS) {
     return arr;
 }
 
-function buildPolyline(values, max) {
-    const plotW = CHART_WIDTH - MARGIN.left - MARGIN.right;
-    const plotH = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
+function buildPolyline(values, max, plotW, plotH) {
+    const safeMax = Math.max(max, 1);
     const last = Math.max(values.length - 1, 1);
     return values
         .map((value, index) => {
             const x = MARGIN.left + (index / last) * plotW;
-            const y = MARGIN.top + plotH - (value / max) * plotH;
+            const y = MARGIN.top + plotH - (value / safeMax) * plotH;
             return `${x.toFixed(2)},${y.toFixed(2)}`;
         })
         .join(' ');
 }
 
-/** Zig-zag line chart with Y=bitrate and X=time axes. */
+/** Zig-zag line chart with stable Y scale and continuous smooth chase. */
 function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
+    const sampleCount = values.length;
     const target = useMemo(() => padHistory(values), [values]);
     const [display, setDisplay] = useState(target);
+    const [yMax, setYMax] = useState(() => niceMax(Math.max(...target, 1)));
+
     const displayRef = useRef(target);
-    const fromRef = useRef(target);
-    const toRef = useRef(target);
-    const startRef = useRef(0);
-    const rafRef = useRef(0);
+    const targetRef = useRef(target);
+    const yMaxRef = useRef(niceMax(Math.max(...target, 1)));
+    const sampleCountRef = useRef(sampleCount);
+    const lineRef = useRef(null);
+    const fillRef = useRef(null);
+    const yLabelRefs = useRef([]);
+    const gridRefs = useRef([]);
 
-    useEffect(() => {
-        fromRef.current = displayRef.current;
-        toRef.current = target;
-        startRef.current = performance.now();
-
-        const duration = 720;
-        const tick = (now) => {
-            const t = Math.min(1, (now - startRef.current) / duration);
-            const ease = 1 - (1 - t) ** 3;
-            const next = fromRef.current.map(
-                (value, index) => value + (toRef.current[index] - value) * ease,
-            );
-            displayRef.current = next;
-            setDisplay(next);
-            if (t < 1) {
-                rafRef.current = requestAnimationFrame(tick);
-            }
-        };
-
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(tick);
-
-        return () => cancelAnimationFrame(rafRef.current);
-    }, [target]);
-
-    const yMax = niceMax(Math.max(...display, 0));
-    const points = buildPolyline(display, yMax);
     const plotW = CHART_WIDTH - MARGIN.left - MARGIN.right;
     const plotH = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
-    const yTicks = [0, 0.5, 1].map((ratio) => ({
-        ratio,
-        value: yMax * ratio,
-        y: MARGIN.top + plotH - ratio * plotH,
-    }));
     const windowSeconds = (SPARK_POINTS - 1) * POLL_SECONDS;
+
+    useEffect(() => {
+        const prevCount = sampleCountRef.current;
+        sampleCountRef.current = sampleCount;
+        targetRef.current = target;
+
+        // Reset when history cleared (ganti router/interface)
+        if (sampleCount <= 1) {
+            displayRef.current = [...target];
+            yMaxRef.current = niceMax(Math.max(...target, 1));
+            setDisplay([...target]);
+            setYMax(yMaxRef.current);
+            return;
+        }
+
+        // Geser kiri hanya saat buffer penuh + sample baru (efek scroll mulus)
+        if (prevCount >= SPARK_POINTS && sampleCount >= SPARK_POINTS) {
+            const prev = displayRef.current;
+            displayRef.current = [
+                ...prev.slice(1),
+                prev[prev.length - 1] ?? target[target.length - 1] ?? 0,
+            ];
+        }
+    }, [target, sampleCount]);
+
+    useEffect(() => {
+        let raf = 0;
+
+        const paint = (points, max) => {
+            if (lineRef.current) lineRef.current.setAttribute('points', points);
+            if (fillRef.current) {
+                fillRef.current.setAttribute(
+                    'points',
+                    `${MARGIN.left},${MARGIN.top + plotH} ${points} ${MARGIN.left + plotW},${MARGIN.top + plotH}`,
+                );
+            }
+
+            [0, 0.5, 1].forEach((ratio, index) => {
+                const y = MARGIN.top + plotH - ratio * plotH;
+                const grid = gridRefs.current[index];
+                const label = yLabelRefs.current[index];
+                if (grid) {
+                    grid.setAttribute('y1', String(y));
+                    grid.setAttribute('y2', String(y));
+                }
+                if (label) {
+                    label.setAttribute('y', String(y + 3));
+                    label.textContent = formatAxisBitrate(max * ratio);
+                }
+            });
+        };
+
+        const loop = () => {
+            const goal = targetRef.current;
+            const current = displayRef.current;
+            const next = current.map((value, index) => {
+                const g = goal[index] ?? 0;
+                return value + (g - value) * SMOOTH;
+            });
+            displayRef.current = next;
+
+            const needed = niceMax(Math.max(...goal, 1));
+            const currentMax = yMaxRef.current || needed;
+            const rate = needed > currentMax ? YMAX_UP : YMAX_DOWN;
+            yMaxRef.current = currentMax + (needed - currentMax) * rate;
+
+            const points = buildPolyline(next, yMaxRef.current, plotW, plotH);
+            paint(points, yMaxRef.current);
+
+            // Sinkronisasi React lebih jarang agar animasi SVG tetap 60fps
+            setDisplay((prev) => {
+                const drifted = prev.some((value, index) => Math.abs(value - next[index]) > 1);
+                return drifted ? next : prev;
+            });
+            setYMax((prev) =>
+                Math.abs(prev - yMaxRef.current) / Math.max(prev, 1) > 0.08
+                    ? yMaxRef.current
+                    : prev,
+            );
+
+            raf = requestAnimationFrame(loop);
+        };
+
+        raf = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(raf);
+    }, [plotH, plotW]);
+
+    const points = buildPolyline(display, yMax, plotW, plotH);
+    const yTicks = [0, 0.5, 1];
     const xTicks = [
-        { label: `-${windowSeconds}s`, x: MARGIN.left },
-        { label: `-${Math.round(windowSeconds / 2)}s`, x: MARGIN.left + plotW / 2 },
-        { label: 'sekarang', x: MARGIN.left + plotW },
+        { label: `-${windowSeconds}s`, x: MARGIN.left, anchor: 'start' },
+        { label: `-${Math.round(windowSeconds / 2)}s`, x: MARGIN.left + plotW / 2, anchor: 'middle' },
+        { label: 'sekarang', x: MARGIN.left + plotW, anchor: 'end' },
     ];
 
     return (
-        <div className="mt-3">
+        <div className="mt-4 -mx-1 sm:-mx-2">
             <svg
                 viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-                className={`h-40 w-full ${strokeClass}`}
+                className={`block w-full ${strokeClass}`}
+                style={{ aspectRatio: `${CHART_WIDTH} / ${CHART_HEIGHT}` }}
+                preserveAspectRatio="xMidYMid meet"
                 role="img"
                 aria-label="Grafik traffic live"
             >
-                {/* Grid + Y axis */}
-                {yTicks.map((tick) => (
-                    <g key={`y-${tick.ratio}`}>
-                        <line
-                            x1={MARGIN.left}
-                            y1={tick.y}
-                            x2={MARGIN.left + plotW}
-                            y2={tick.y}
-                            className={axisClass}
-                            stroke="currentColor"
-                            strokeWidth="1"
-                            strokeOpacity={tick.ratio === 0 ? 0.35 : 0.15}
-                            vectorEffect="non-scaling-stroke"
-                        />
-                        <text
-                            x={MARGIN.left - 6}
-                            y={tick.y + 3}
-                            textAnchor="end"
-                            className={`fill-current text-[10px] ${axisClass}`}
-                        >
-                            {formatAxisBitrate(tick.value)}
-                        </text>
-                    </g>
-                ))}
+                {yTicks.map((ratio, index) => {
+                    const y = MARGIN.top + plotH - ratio * plotH;
+                    return (
+                        <g key={`y-${ratio}`}>
+                            <line
+                                ref={(node) => {
+                                    gridRefs.current[index] = node;
+                                }}
+                                x1={MARGIN.left}
+                                y1={y}
+                                x2={MARGIN.left + plotW}
+                                y2={y}
+                                className={axisClass}
+                                stroke="currentColor"
+                                strokeWidth="1"
+                                strokeOpacity={ratio === 0 ? 0.35 : 0.14}
+                            />
+                            <text
+                                ref={(node) => {
+                                    yLabelRefs.current[index] = node;
+                                }}
+                                x={MARGIN.left - 8}
+                                y={y + 3}
+                                textAnchor="end"
+                                className={`fill-current ${axisClass}`}
+                                style={{ fontSize: 11 }}
+                            >
+                                {formatAxisBitrate(yMax * ratio)}
+                            </text>
+                        </g>
+                    );
+                })}
 
-                {/* X axis */}
                 <line
                     x1={MARGIN.left}
                     y1={MARGIN.top + plotH}
@@ -163,43 +237,38 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                     stroke="currentColor"
                     strokeWidth="1"
                     strokeOpacity="0.35"
-                    vectorEffect="non-scaling-stroke"
                 />
                 {xTicks.map((tick) => (
                     <text
                         key={tick.label}
                         x={tick.x}
-                        y={CHART_HEIGHT - 8}
-                        textAnchor={
-                            tick.x === MARGIN.left
-                                ? 'start'
-                                : tick.x === MARGIN.left + plotW
-                                  ? 'end'
-                                  : 'middle'
-                        }
-                        className={`fill-current text-[10px] ${axisClass}`}
+                        y={CHART_HEIGHT - 10}
+                        textAnchor={tick.anchor}
+                        className={`fill-current ${axisClass}`}
+                        style={{ fontSize: 11 }}
                     >
                         {tick.label}
                     </text>
                 ))}
 
                 <polyline
+                    ref={fillRef}
                     points={`${MARGIN.left},${MARGIN.top + plotH} ${points} ${MARGIN.left + plotW},${MARGIN.top + plotH}`}
                     fill="currentColor"
                     stroke="none"
-                    opacity="0.12"
+                    opacity="0.14"
                 />
                 <polyline
+                    ref={lineRef}
                     points={points}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2.25"
+                    strokeWidth="2.5"
                     strokeLinejoin="round"
                     strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
                 />
             </svg>
-            <div className="mt-0.5 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide uppercase text-ink/40">
+            <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">
                 <span>Y: Bitrate</span>
                 <span>X: Waktu (interval {POLL_SECONDS}s)</span>
             </div>
@@ -452,8 +521,8 @@ export default function LiveTrafficCard({
                 </div>
             )}
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="border border-sky-200/80 bg-sky-50/70 p-4">
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                <div className="border border-sky-200/80 bg-sky-50/70 p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-sky-700 uppercase">
                             <ArrowDownToLine className="h-3.5 w-3.5 text-sky-600" />
@@ -473,7 +542,7 @@ export default function LiveTrafficCard({
                     />
                 </div>
 
-                <div className="border border-orange-200/80 bg-orange-50/70 p-4">
+                <div className="border border-orange-200/80 bg-orange-50/70 p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-700 uppercase">
                             <ArrowUpFromLine className="h-3.5 w-3.5 text-orange-600" />
