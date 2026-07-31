@@ -10,7 +10,7 @@ class GitUpdateService
     /**
      * @return array<string, mixed>
      */
-    public function gatherStatus(bool $fetch = false): array
+    public function gatherStatus(bool $fetch = false, int $fetchTimeout = 60): array
     {
         $base = [
             'available' => false,
@@ -59,7 +59,7 @@ class GitUpdateService
         $base['available'] = true;
 
         if ($fetch) {
-            $fetchResult = $this->runGit(['fetch', 'origin', '--prune', '--tags'], 60);
+            $fetchResult = $this->runGit(['fetch', 'origin', '--prune', '--tags'], $fetchTimeout);
             $base['fetch_ok'] = $fetchResult['ok'];
             if (! $fetchResult['ok']) {
                 $base['message'] = 'Gagal menghubungi GitHub: '.
@@ -145,7 +145,7 @@ class GitUpdateService
     }
 
     /**
-     * Ringkas untuk badge Dashboard (tanpa fetch jaringan).
+     * Ringkas untuk badge Dashboard — otomatis fetch dari GitHub.
      *
      * @return array{
      *     available: bool,
@@ -157,12 +157,13 @@ class GitUpdateService
      *     remote_version: ?string,
      *     remote_commit_short: ?string,
      *     incoming_commits: array<int, array<string, string>>,
+     *     fetch_ok: ?bool,
      *     href: string
      * }|null
      */
     public function dashboardNotice(): ?array
     {
-        $status = $this->gatherStatus(fetch: false);
+        $status = $this->gatherStatus(fetch: true, fetchTimeout: 20);
 
         if (! ($status['available'] ?? false)) {
             return null;
@@ -185,6 +186,7 @@ class GitUpdateService
             'remote_version' => $status['remote_version'] ?? null,
             'remote_commit_short' => $status['remote_commit_short'] ?? null,
             'incoming_commits' => $status['incoming_commits'] ?? [],
+            'fetch_ok' => $status['fetch_ok'] ?? null,
             'href' => '/admin/system/update',
         ];
     }
