@@ -166,7 +166,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-Cg3ct_n6.css",
+    "file": "assets/app-D9rJo7T_.css",
     "name": "app",
     "names": [
       "app.css"
@@ -726,7 +726,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-WSvWXic1.js",
+    "file": "assets/app-Qb9xMTuu.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -773,7 +773,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-Cg3ct_n6.css"
+      "assets/app-D9rJo7T_.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
