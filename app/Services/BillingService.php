@@ -1,0 +1,348 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PppoeCustomer;
+use App\Support\AppSettings;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+
+class BillingService
+{
+    /** Fallback jika pengaturan aplikasi belum tersedia. */
+    public const UPCOMING_WINDOW_DAYS = 7;
+
+    public function __construct(
+        private readonly BillingCycleService $cycle,
+        private readonly PppoeSyncService $sync,
+    ) {
+    }
+
+    public function createProrataInvoice(PppoeCustomer $customer): ?Invoice
+    {
+        $customer->loadMissing('package');
+
+        $amount = (int) ($customer->first_bill_amount ?? 0);
+        if ($amount <= 0 || ! $customer->due_date || ! $customer->start_date) {
+            return null;
+        }
+
+        $existing = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('type', 'prorata')
+            ->where('status', '!=', 'void')
+            ->exists();
+
+        if ($existing) {
+            return null;
+        }
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: 'prorata',
+            periodStart: $customer->start_date->toDateString(),
+            periodEnd: $customer->due_date->toDateString(),
+            dueDate: $customer->due_date->toDateString(),
+            amount: $amount,
+            notes: 'Tagihan pertama (prorata)',
+        );
+    }
+
+    /**
+     * Samakan invoice prorata unpaid dengan hitungan pelanggan terkini
+     * (setelah ubah start_date / billing_day / paket).
+     */
+    public function syncUnpaidProrataInvoice(PppoeCustomer $customer): ?Invoice
+    {
+        $customer->loadMissing('package');
+
+        $invoice = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('type', 'prorata')
+            ->where('status', 'unpaid')
+            ->latest('id')
+            ->first();
+
+        if (! $invoice) {
+            return null;
+        }
+
+        $amount = (int) ($customer->first_bill_amount ?? 0);
+        if ($amount <= 0 || ! $customer->due_date || ! $customer->start_date) {
+            return $invoice;
+        }
+
+        $invoice->update([
+            'subscription_package_id' => $customer->subscription_package_id,
+            'period_start' => $customer->start_date->toDateString(),
+            'period_end' => $customer->due_date->toDateString(),
+            'due_date' => $customer->due_date->toDateString(),
+            'amount' => $amount,
+            'discount' => 0,
+            'total' => $amount,
+            'package_name' => $customer->package?->name,
+            'package_price' => $customer->package?->price,
+            'notes' => 'Tagihan pertama (prorata)',
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Buat tagihan bulanan terbuka hanya jika jatuh tempo ≤ 7 hari (atau sudah lewat).
+     * Tagihan prorata pertama hanya dibuat saat pelanggan baru (bukan di sini),
+     * agar hapus invoice tidak langsung dibuat ulang.
+     *
+     * @return array{created: int, skipped: int}
+     */
+    public function generateOpenInvoices(): array
+    {
+        $created = 0;
+        $skipped = 0;
+
+        $customers = PppoeCustomer::query()
+            ->with('package')
+            ->where('is_active', true)
+            ->whereNotNull('due_date')
+            ->get();
+
+        foreach ($customers as $customer) {
+            $hasUnpaid = Invoice::query()
+                ->where('pppoe_customer_id', $customer->id)
+                ->where('status', 'unpaid')
+                ->exists();
+
+            if ($hasUnpaid) {
+                $skipped++;
+                continue;
+            }
+
+            if (! $this->isWithinUpcomingWindow($customer->due_date)) {
+                $skipped++;
+                continue;
+            }
+
+            // Hindari duplikat untuk due_date yang sama (termasuk yang sudah lunas).
+            $existsForDue = Invoice::query()
+                ->where('pppoe_customer_id', $customer->id)
+                ->whereDate('due_date', $customer->due_date->toDateString())
+                ->whereIn('status', ['unpaid', 'paid'])
+                ->exists();
+
+            if ($existsForDue) {
+                $skipped++;
+                continue;
+            }
+
+            $hasPaidInvoice = Invoice::query()
+                ->where('pppoe_customer_id', $customer->id)
+                ->where('status', 'paid')
+                ->exists();
+
+            // Siklus pertama: pakai jumlah prorata (sudah dibulatkan), bukan harga penuh.
+            if (! $hasPaidInvoice && (int) ($customer->first_bill_amount ?? 0) > 0) {
+                $invoice = $this->createProrataInvoice($customer);
+            } else {
+                $price = (int) ($customer->package?->price ?? 0);
+                if ($price <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                $invoice = $this->createInvoice(
+                    customer: $customer,
+                    type: 'monthly',
+                    periodStart: $this->periodStartBeforeDue($customer),
+                    periodEnd: $customer->due_date->toDateString(),
+                    dueDate: $customer->due_date->toDateString(),
+                    amount: $price,
+                    notes: 'Tagihan bulanan',
+                );
+            }
+
+            if ($invoice) {
+                $created++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        return compact('created', 'skipped');
+    }
+
+    /**
+     * @return array{invoice: Invoice, payment: Payment, next_due_date: ?string}
+     */
+    public function markPaid(
+        Invoice $invoice,
+        string $method = 'cash',
+        ?string $reference = null,
+        ?string $notes = null,
+        ?int $receivedBy = null,
+        ?Carbon $paidAt = null,
+    ): array {
+        if (! $invoice->isUnpaid()) {
+            throw new InvalidArgumentException('Tagihan ini sudah tidak berstatus belum bayar.');
+        }
+
+        $paidAt ??= now();
+
+        return DB::transaction(function () use ($invoice, $method, $reference, $notes, $receivedBy, $paidAt) {
+            $invoice->loadMissing(['customer.package']);
+
+            $payment = Payment::query()->create([
+                'invoice_id' => $invoice->id,
+                'received_by' => $receivedBy,
+                'amount' => $invoice->total,
+                'method' => $method,
+                'paid_at' => $paidAt,
+                'reference' => $reference,
+                'notes' => $notes,
+            ]);
+
+            $invoice->update([
+                'status' => 'paid',
+                'paid_at' => $paidAt,
+            ]);
+
+            $customer = $invoice->customer;
+            $nextDueDate = null;
+
+            if ($customer) {
+                $paidThrough = $invoice->due_date->toDateString();
+                $nextDue = $this->cycle->advanceDueDate($paidThrough, (int) $customer->billing_day);
+                $nextDueDate = $nextDue->toDateString();
+
+                $customer->update([
+                    'due_date' => $nextDueDate,
+                ]);
+
+                // Tagihan berikutnya tidak dibuat di sini — baru muncul
+                // lewat generate saat jatuh tempo ≤ 7 hari.
+
+                $this->sync->sync($customer->fresh(['router', 'package']));
+            }
+
+            return [
+                'invoice' => $invoice->fresh(['customer', 'payments.receiver', 'package']),
+                'payment' => $payment->load('receiver'),
+                'next_due_date' => $nextDueDate,
+            ];
+        });
+    }
+
+    public function isWithinUpcomingWindow(Carbon|string $dueDate): bool
+    {
+        $due = Carbon::parse($dueDate)->startOfDay();
+        $today = now()->startOfDay();
+        $windowDays = AppSettings::billingGenerateDays();
+        $windowEnd = $today->copy()->addDays($windowDays);
+
+        // Sudah lewat tempo atau dalam jendela generate yang dikonfigurasi.
+        return $due->lessThanOrEqualTo($windowEnd);
+    }
+
+    /**
+     * Hapus tagihan belum bayar atau yang sudah dibatalkan (void).
+     * Tagihan berstatus lunas harus di-void dulu sebelum bisa dihapus.
+     */
+    public function deleteInvoice(Invoice $invoice): void
+    {
+        if ($invoice->status === 'paid') {
+            throw new InvalidArgumentException(
+                'Tagihan yang masih berstatus lunas tidak bisa dihapus. Batalkan (void) dulu, lalu hapus.'
+            );
+        }
+
+        if (! in_array($invoice->status, ['unpaid', 'void'], true)) {
+            throw new InvalidArgumentException('Status tagihan tidak memungkinkan untuk dihapus.');
+        }
+
+        // Hapus payment terkait dulu (jika void dari tagihan lunas), lalu invoice.
+        $invoice->payments()->delete();
+        $invoice->delete();
+    }
+
+    /**
+     * Batalkan tagihan tanpa menghapus riwayat (termasuk yang sudah lunas).
+     * Tidak mengembalikan due_date pelanggan — koreksi due_date tetap manual di PPPoE bila perlu.
+     */
+    public function voidInvoice(Invoice $invoice, ?string $notes = null): Invoice
+    {
+        if ($invoice->status === 'void') {
+            throw new InvalidArgumentException('Tagihan ini sudah dibatalkan.');
+        }
+
+        $invoice->update([
+            'status' => 'void',
+            'notes' => trim(($invoice->notes ? $invoice->notes."\n" : '').($notes ?: 'Dibatalkan dari admin.')),
+        ]);
+
+        return $invoice->fresh(['customer', 'payments.receiver', 'package']);
+    }
+
+    private function createInvoice(
+        PppoeCustomer $customer,
+        string $type,
+        string $periodStart,
+        string $periodEnd,
+        string $dueDate,
+        int $amount,
+        ?string $notes = null,
+    ): Invoice {
+        $package = $customer->relationLoaded('package')
+            ? $customer->package
+            : $customer->package()->first();
+
+        $discount = 0;
+        $total = max(0, $amount - $discount);
+
+        return Invoice::query()->create([
+            'number' => $this->nextNumber(),
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $customer->subscription_package_id,
+            'type' => $type,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
+            'due_date' => $dueDate,
+            'amount' => $amount,
+            'discount' => $discount,
+            'total' => $total,
+            'status' => 'unpaid',
+            'package_name' => $package?->name,
+            'package_price' => $package?->price,
+            'notes' => $notes,
+        ]);
+    }
+
+    private function periodStartBeforeDue(PppoeCustomer $customer): string
+    {
+        $due = $customer->due_date->copy()->startOfDay();
+        $billingDay = $this->cycle->normalizeBillingDay((int) $customer->billing_day);
+        $prevMonth = $due->copy()->subMonthNoOverflow();
+        $day = min($billingDay, $prevMonth->daysInMonth);
+
+        return $prevMonth->day($day)->toDateString();
+    }
+
+    private function nextNumber(): string
+    {
+        $code = strtoupper((string) AppSettings::get('app_invoice_prefix', 'INV'));
+        $prefix = $code.'/'.now()->format('Y/m').'/';
+
+        $latest = Invoice::query()
+            ->where('number', 'like', $prefix.'%')
+            ->orderByDesc('number')
+            ->value('number');
+
+        $seq = 1;
+        if ($latest && preg_match('/\/(\d+)$/', $latest, $matches)) {
+            $seq = ((int) $matches[1]) + 1;
+        }
+
+        return $prefix.str_pad((string) $seq, 4, '0', STR_PAD_LEFT);
+    }
+}
