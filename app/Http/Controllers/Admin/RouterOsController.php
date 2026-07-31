@@ -64,8 +64,14 @@ class RouterOsController extends Controller
             ->with('success', 'Router berhasil ditambahkan.');
     }
 
-    public function edit(MikrotikRouter $router): Response
+    public function edit(Request $request, MikrotikRouter $router): Response|RedirectResponse
     {
+        if (! $request->user()?->isSuperadmin()) {
+            return redirect()
+                ->route('admin.network.routeros')
+                ->with('error', 'Hanya Superadmin yang dapat mengedit RouterOS.');
+        }
+
         return Inertia::render('Admin/Network/RouterOs/Form', [
             'router' => $router->toSafeArray(),
         ]);
@@ -73,6 +79,12 @@ class RouterOsController extends Controller
 
     public function update(Request $request, MikrotikRouter $router): RedirectResponse
     {
+        if (! $request->user()?->isSuperadmin()) {
+            return redirect()
+                ->route('admin.network.routeros')
+                ->with('error', 'Hanya Superadmin yang dapat mengedit RouterOS.');
+        }
+
         $validated = $this->validateRouter($request, updating: true);
 
         $payload = [
@@ -96,8 +108,14 @@ class RouterOsController extends Controller
             ->with('success', 'Router berhasil diperbarui.');
     }
 
-    public function destroy(MikrotikRouter $router): RedirectResponse
+    public function destroy(Request $request, MikrotikRouter $router): RedirectResponse
     {
+        if (! $request->user()?->isSuperadmin()) {
+            return redirect()
+                ->route('admin.network.routeros')
+                ->with('error', 'Hanya Superadmin yang dapat menghapus RouterOS.');
+        }
+
         $router->delete();
 
         return redirect()

@@ -20,7 +20,7 @@ function StatusBadge({ status }) {
 
 export default function Index({ routers }) {
     const { auth } = usePage().props;
-    const canAddRouter = Boolean(auth?.user?.is_superadmin);
+    const canManageRouter = Boolean(auth?.user?.is_superadmin);
 
     const remove = (id, name) => {
         if (!window.confirm(`Hapus router "${name}"?`)) return;
@@ -40,11 +40,11 @@ export default function Index({ routers }) {
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-2xl text-sm text-ink-soft">
-                    {canAddRouter
+                    {canManageRouter
                         ? 'Tambahkan data router, lalu uji koneksi API. Pastikan di MikroTik menu IP → Services → api sudah aktif di port 8728.'
-                        : 'Kelola dan pantau koneksi RouterOS. Penambahan router hanya dapat dilakukan oleh Superadmin.'}
+                        : 'Pantau koneksi RouterOS. Tambah, edit, dan hapus router hanya dapat dilakukan oleh Superadmin.'}
                 </p>
-                {canAddRouter && (
+                {canManageRouter && (
                     <div className="admin-toolbar-actions">
                         <Link
                             href="/admin/network/routeros/create"
@@ -62,11 +62,11 @@ export default function Index({ routers }) {
                     <Cable className="mx-auto h-8 w-8 text-ink/25" />
                     <p className="mt-3 font-medium text-ink">Belum ada router</p>
                     <p className="mt-1 text-sm text-ink-soft">
-                        {canAddRouter
+                        {canManageRouter
                             ? 'Tambah router pertama untuk mulai koneksi API.'
                             : 'Hubungi Superadmin untuk menambahkan router MikroTik.'}
                     </p>
-                    {canAddRouter && (
+                    {canManageRouter && (
                         <Link
                             href="/admin/network/routeros/create"
                             className="mt-5 inline-flex bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white"
@@ -128,21 +128,25 @@ export default function Index({ routers }) {
                                                 <Eye className="h-3.5 w-3.5" />
                                                 Buka
                                             </Link>
-                                            <Link
-                                                href={`/admin/network/routeros/${item.id}/edit`}
-                                                className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
-                                            >
-                                                <Pencil className="h-3.5 w-3.5" />
-                                                Edit
-                                            </Link>
-                                            <button
-                                                type="button"
-                                                onClick={() => remove(item.id, item.name)}
-                                                className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                                Hapus
-                                            </button>
+                                            {canManageRouter && (
+                                                <>
+                                                    <Link
+                                                        href={`/admin/network/routeros/${item.id}/edit`}
+                                                        className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5" />
+                                                        Edit
+                                                    </Link>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => remove(item.id, item.name)}
+                                                        className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        Hapus
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
