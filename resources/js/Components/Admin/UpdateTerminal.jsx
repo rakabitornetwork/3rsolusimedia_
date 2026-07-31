@@ -1,47 +1,76 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+/** Warna ANSI/Tango yang umum di terminal Ubuntu. */
+const C = {
+    bg: '#300A24',
+    title: '#2C001E',
+    border: '#1A000F',
+    fg: '#EEEEEC',
+    dim: '#888A85',
+    green: '#8AE234',
+    blue: '#729FCF',
+    red: '#EF2929',
+    yellow: '#FCE94F',
+    white: '#D3D7CF',
+};
+
 const PULL_SCRIPT = [
-    { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune --tags' },
-    { tone: 'signal', text: 'remote: Enumerating objects...' },
-    { tone: 'signal', text: 'remote: Counting objects: 100% (12/12), done.' },
-    { tone: 'muted', text: '3rsolusi@vps:~$ git pull --ff-only origin main' },
-    { tone: 'sky', text: 'From github.com:origin/main' },
-    { tone: 'sky', text: ' * branch            main       -> FETCH_HEAD' },
-    { tone: 'ink', text: 'Updating local working tree...' },
-    { tone: 'ink', text: 'Fast-forward' },
+    { tone: 'prompt', text: 'git fetch origin --prune --tags' },
+    { tone: 'dim', text: 'remote: Enumerating objects...' },
+    { tone: 'dim', text: 'remote: Counting objects: 100% (12/12), done.' },
+    { tone: 'prompt', text: 'git pull --ff-only origin main' },
+    { tone: 'fg', text: 'From github.com:origin/main' },
+    { tone: 'fg', text: ' * branch            main       -> FETCH_HEAD' },
+    { tone: 'fg', text: 'Updating local working tree...' },
+    { tone: 'green', text: 'Fast-forward' },
 ];
 
 const CHECK_SCRIPT = [
-    { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune --tags' },
-    { tone: 'signal', text: 'remote: Enumerating objects...' },
-    { tone: 'signal', text: 'remote: Counting objects: 100% (8/8), done.' },
-    { tone: 'sky', text: 'From github.com:origin/main' },
-    { tone: 'ink', text: 'Checking local HEAD against origin...' },
+    { tone: 'prompt', text: 'git fetch origin --prune --tags' },
+    { tone: 'dim', text: 'remote: Enumerating objects...' },
+    { tone: 'dim', text: 'remote: Counting objects: 100% (8/8), done.' },
+    { tone: 'fg', text: 'From github.com:origin/main' },
+    { tone: 'fg', text: 'Checking local HEAD against origin...' },
 ];
 
-function lineClass(tone) {
+function toneColor(tone) {
     switch (tone) {
-        case 'signal':
-            return 'text-teal-300';
-        case 'sky':
-            return 'text-sky-300';
-        case 'ink':
-            return 'text-slate-200';
+        case 'green':
         case 'ok':
-            return 'text-emerald-300';
+            return C.green;
+        case 'blue':
+            return C.blue;
+        case 'red':
         case 'error':
-            return 'text-red-300';
+            return C.red;
+        case 'yellow':
+            return C.yellow;
+        case 'dim':
+            return C.dim;
+        case 'fg':
         default:
-            return 'text-white/55';
+            return C.fg;
     }
 }
 
-function compactMessage(message, max = 96) {
+function compactMessage(message, max = 88) {
     const text = String(message || '')
         .replace(/\s+/g, ' ')
         .trim();
     if (text.length <= max) return text;
     return `${text.slice(0, max - 1)}…`;
+}
+
+function PromptLine({ command }) {
+    return (
+        <p className="update-term-line truncate" style={{ color: C.fg }}>
+            <span style={{ color: C.green }}>3rsolusi@vps</span>
+            <span style={{ color: C.fg }}>:</span>
+            <span style={{ color: C.blue }}>~</span>
+            <span style={{ color: C.fg }}>$ </span>
+            <span style={{ color: C.white }}>{command}</span>
+        </p>
+    );
 }
 
 export default function UpdateTerminal({
@@ -64,15 +93,17 @@ export default function UpdateTerminal({
         const next = PULL_SCRIPT.map((line) => ({ ...line }));
         if (behind > 0) {
             next.splice(6, 0, {
-                tone: 'sky',
+                tone: 'dim',
                 text: `Receiving objects for ${behind} commit${behind > 1 ? 's' : ''}...`,
             });
         }
-        const pullIdx = next.findIndex((line) => line.text.includes('git pull'));
+        const pullIdx = next.findIndex(
+            (line) => line.tone === 'prompt' && line.text.includes('git pull'),
+        );
         if (pullIdx >= 0) {
             next[pullIdx] = {
-                tone: 'muted',
-                text: `3rsolusi@vps:~$ git pull --ff-only origin ${branch || 'main'}`,
+                tone: 'prompt',
+                text: `git pull --ff-only origin ${branch || 'main'}`,
             };
         }
         return next;
@@ -104,7 +135,7 @@ export default function UpdateTerminal({
 
     useEffect(() => {
         if (!open) return undefined;
-        const blink = window.setInterval(() => setCursorOn((v) => !v), 480);
+        const blink = window.setInterval(() => setCursorOn((v) => !v), 530);
         return () => window.clearInterval(blink);
     }, [open]);
 
@@ -119,115 +150,131 @@ export default function UpdateTerminal({
     const scriptDone = visibleCount >= lines.length;
     const waiting = scriptDone && !result;
     const finished = Boolean(result);
+    const title =
+        mode === 'check'
+            ? '3rsolusi@vps: ~'
+            : '3rsolusi@vps: ~';
 
     return (
         <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/55 p-4 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
             role="dialog"
             aria-modal="true"
-            aria-label="Update dari GitHub sedang berlangsung"
+            aria-label="Terminal update GitHub"
         >
-            <div className="flex w-full max-w-xl flex-col overflow-hidden border border-white/10 bg-ink shadow-2xl">
-                <div className="flex h-1.5 w-full shrink-0">
-                    <span className="flex-1 bg-gradient-to-r from-teal-400 to-teal-800" />
-                    <span className="flex-1 bg-gradient-to-r from-slate-500 to-slate-900" />
-                    <span className="flex-1 bg-gradient-to-r from-sky-400 to-blue-900" />
-                </div>
-
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-teal-400 to-teal-800" />
-                        <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-slate-400 to-slate-800" />
-                        <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-sky-400 to-blue-800" />
+            <div
+                className="flex w-full max-w-xl flex-col overflow-hidden shadow-2xl"
+                style={{
+                    backgroundColor: C.bg,
+                    border: `1px solid ${C.border}`,
+                    borderRadius: '8px 8px 0 0',
+                }}
+            >
+                {/* Title bar ala Ubuntu / GNOME */}
+                <div
+                    className="flex shrink-0 items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: C.title }}
+                >
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={finished ? onClose : undefined}
+                            className="h-3 w-3 rounded-full border border-black/20"
+                            style={{ backgroundColor: '#E95420' }}
+                            aria-label="Close"
+                        />
+                        <span
+                            className="h-3 w-3 rounded-full border border-black/20"
+                            style={{ backgroundColor: '#E5A50A' }}
+                        />
+                        <span
+                            className="h-3 w-3 rounded-full border border-black/20"
+                            style={{ backgroundColor: '#33D17A' }}
+                        />
                     </div>
-                    <p className="truncate text-xs font-semibold tracking-wide text-white/70">
-                        terminal · {mode === 'check' ? 'git fetch' : 'git pull'} · tanpa npm
+                    <p
+                        className="min-w-0 flex-1 truncate text-center text-xs font-medium"
+                        style={{ color: C.fg }}
+                    >
+                        {title}
                     </p>
-                    {!finished ? (
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-teal-300 uppercase">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
-                            Running
-                        </span>
-                    ) : result.type === 'error' ? (
-                        <span className="text-[10px] font-semibold tracking-wide text-red-300 uppercase">
-                            Failed
-                        </span>
-                    ) : (
-                        <span className="text-[10px] font-semibold tracking-wide text-emerald-300 uppercase">
-                            Done
-                        </span>
-                    )}
+                    <span className="w-12 shrink-0 text-right text-[10px]" style={{ color: C.dim }}>
+                        {!finished ? '…' : result.type === 'error' ? 'err' : 'ok'}
+                    </span>
                 </div>
 
                 <div
                     ref={bodyRef}
-                    className="relative h-[260px] shrink-0 overflow-y-auto bg-gradient-to-b from-[#0c1218] via-[#101820] to-[#0a1520] px-4 py-4 font-mono text-[12px] leading-6 sm:h-[300px] sm:text-[13px]"
+                    className="h-[260px] shrink-0 overflow-y-auto px-3 py-3 font-mono text-[12px] leading-6 sm:h-[300px] sm:text-[13px]"
+                    style={{ backgroundColor: C.bg, color: C.fg }}
                 >
-                    <div
-                        className="pointer-events-none absolute inset-0 opacity-[0.12]"
-                        style={{
-                            backgroundImage:
-                                'linear-gradient(to right, transparent, transparent), repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.04) 3px)',
-                        }}
-                    />
-
-                    <div className="relative space-y-1">
-                        {shown.map((line, index) => (
-                            <p
-                                key={`${line.text}-${index}`}
-                                className={`update-term-line truncate ${lineClass(line.tone)}`}
-                            >
-                                {line.text}
-                            </p>
-                        ))}
+                    <div className="space-y-0.5">
+                        {shown.map((line, index) =>
+                            line.tone === 'prompt' ? (
+                                <PromptLine key={`${line.text}-${index}`} command={line.text} />
+                            ) : (
+                                <p
+                                    key={`${line.text}-${index}`}
+                                    className="update-term-line truncate"
+                                    style={{ color: toneColor(line.tone) }}
+                                >
+                                    {line.text}
+                                </p>
+                            ),
+                        )}
 
                         {finished && (
                             <p
-                                className={`update-term-line truncate pt-2 ${lineClass(
-                                    result.type === 'error' ? 'error' : 'ok',
-                                )}`}
+                                className="update-term-line truncate pt-1"
+                                style={{
+                                    color: result.type === 'error' ? C.red : C.green,
+                                }}
                                 title={result.message}
                             >
-                                {result.type === 'error' ? '✗ ' : '✓ '}
+                                {result.type === 'error' ? 'error: ' : ''}
                                 {compactMessage(result.message)}
                             </p>
                         )}
 
                         {!finished && !scriptDone && (
-                            <p className="text-white/80">
-                                <span className={cursorOn ? 'opacity-100' : 'opacity-0'}>▋</span>
+                            <p style={{ color: C.fg }}>
+                                <span
+                                    className="inline-block h-[1.1em] w-[0.6em] align-middle"
+                                    style={{
+                                        backgroundColor: cursorOn ? C.fg : 'transparent',
+                                    }}
+                                />
                             </p>
                         )}
 
                         {waiting && (
-                            <p className="pt-2 text-white/45">
-                                Menunggu respons server
-                                <span className={cursorOn ? 'opacity-100' : 'opacity-0'}>…</span>
+                            <p className="pt-1" style={{ color: C.dim }}>
+                                waiting for server
+                                <span style={{ opacity: cursorOn ? 1 : 0 }}>_</span>
                             </p>
+                        )}
+
+                        {finished && (
+                            <PromptLine command="" />
                         )}
                     </div>
                 </div>
 
-                <div className="grid shrink-0 grid-cols-3 border-t border-white/10 text-[10px] font-semibold tracking-wide text-white uppercase">
-                    <div className="bg-gradient-to-br from-teal-500 to-teal-900 px-3 py-2.5 text-teal-50">
-                        Status sync
-                    </div>
-                    <div className="bg-gradient-to-br from-slate-500 to-slate-950 px-3 py-2.5 text-slate-100">
-                        Commit lokal
-                    </div>
-                    <div className="bg-gradient-to-br from-sky-500 to-blue-950 px-3 py-2.5 text-sky-50">
-                        Commit remote
-                    </div>
-                </div>
-
                 {finished && (
-                    <div className="shrink-0 border-t border-white/10 px-4 py-3">
+                    <div
+                        className="shrink-0 px-3 py-2"
+                        style={{ backgroundColor: C.title, borderTop: `1px solid ${C.border}` }}
+                    >
                         <button
                             type="button"
                             onClick={onClose}
-                            className="w-full bg-gradient-to-r from-teal-600 via-slate-700 to-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110"
+                            className="w-full px-3 py-2 text-sm font-medium"
+                            style={{
+                                backgroundColor: '#E95420',
+                                color: '#FFFFFF',
+                            }}
                         >
-                            Tutup terminal
+                            Close
                         </button>
                     </div>
                 )}
