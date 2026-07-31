@@ -9,11 +9,16 @@ use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
+use App\Services\GitUpdateService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly GitUpdateService $git)
+    {
+    }
+
     public function index(): Response
     {
         $today = now()->toDateString();
@@ -86,6 +91,7 @@ class DashboardController extends Controller
         return Inertia::render('Admin/Dashboard', [
             'company' => SiteSetting::getValue('company_name', '3R Solusi Media'),
             'traffic_routers' => $trafficRouters,
+            'update_notice' => $this->git->dashboardNotice(),
             'stats' => [
                 'customers_total' => $customersTotal,
                 'customers_active' => $customersActive,

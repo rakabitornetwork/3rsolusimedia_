@@ -1,11 +1,14 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
+    ArrowRight,
     Cable,
     Coins,
     CreditCard,
+    GitCommitHorizontal,
     Hourglass,
     Plus,
+    RefreshCw,
     Router,
     ShieldCheck,
     Ticket,
@@ -55,6 +58,7 @@ export default function Dashboard({
     company,
     stats,
     traffic_routers: trafficRouters = [],
+    update_notice: updateNotice = null,
     due_soon: dueSoon,
     attention_invoices: attentionInvoices,
     quick_actions: quickActions,
@@ -95,6 +99,63 @@ export default function Dashboard({
             <div className="mb-6">
                 <p className="text-sm text-ink-soft">Selamat datang, {userName}</p>
             </div>
+
+            {updateNotice?.has_update && (
+                <Link
+                    href={updateNotice.href}
+                    className="mb-6 block border border-teal-200 bg-gradient-to-br from-teal-400 to-cyan-600 p-4 text-white shadow-sm transition hover:brightness-105"
+                >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 bg-white/20 px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase">
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    Update tersedia
+                                </span>
+                                <span className="text-xs text-white/80">
+                                    {updateNotice.behind} commit baru
+                                    {updateNotice.remote_version
+                                        ? ` · v${updateNotice.remote_version}`
+                                        : ''}
+                                    {updateNotice.remote_commit_short
+                                        ? ` · ${updateNotice.remote_commit_short}`
+                                        : ''}
+                                </span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold text-white">
+                                {updateNotice.sync_label}
+                            </p>
+
+                            {updateNotice.incoming_commits?.length > 0 && (
+                                <ul className="mt-3 space-y-1.5 border-t border-white/20 pt-3">
+                                    {updateNotice.incoming_commits.map((commit) => (
+                                        <li
+                                            key={commit.hash}
+                                            className="flex items-start gap-2 text-sm text-white/90"
+                                        >
+                                            <GitCommitHorizontal className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/70" />
+                                            <span className="min-w-0">
+                                                <span className="font-mono text-xs text-white/70">
+                                                    {commit.hash}
+                                                </span>{' '}
+                                                <span className="font-medium">{commit.subject}</span>
+                                                <span className="mt-0.5 block text-xs text-white/65">
+                                                    {commit.author}
+                                                    {commit.date ? ` · ${commit.date}` : ''}
+                                                </span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 bg-white px-3 py-2 text-xs font-semibold text-teal-800">
+                            Buka halaman Update
+                            <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                    </div>
+                </Link>
+            )}
 
             {alerts.length > 0 && (
                 <div className="mb-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
