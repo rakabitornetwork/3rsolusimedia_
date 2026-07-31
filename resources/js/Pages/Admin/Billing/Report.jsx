@@ -221,8 +221,8 @@ export default function Report({
                 </div>
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-2">
-                <section>
+            <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+                <section className="min-w-0">
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
                             Pembayaran terbaru
@@ -235,7 +235,7 @@ export default function Report({
                         </Link>
                     </div>
                     <div className="admin-data-scroll border border-ink/10 bg-white">
-                        <table className="w-full text-left text-sm">
+                        <table className="text-left text-sm">
                             <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                                 <tr>
                                     <th className="px-4 py-3 font-semibold">Invoice</th>
@@ -289,7 +289,7 @@ export default function Report({
                     </div>
                 </section>
 
-                <section>
+                <section className="min-w-0">
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
                             Tagihan perlu perhatian
@@ -302,7 +302,7 @@ export default function Report({
                         </Link>
                     </div>
                     <div className="admin-data-scroll border border-ink/10 bg-white">
-                        <table className="w-full text-left text-sm">
+                        <table className="text-left text-sm">
                             <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                                 <tr>
                                     <th className="px-4 py-3 font-semibold">Pelanggan</th>
