@@ -373,40 +373,12 @@ export default function AdminLayout({ children, title, subtitle }) {
                 <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
 
                 <footer className="mt-auto border-t border-ink/10 bg-white">
-                    <div className="flex flex-col gap-2 px-4 py-4 text-xs text-ink-soft sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                    <div className="px-4 py-4 text-center text-xs text-ink-soft sm:px-6 lg:px-8">
                         <p>
                             © {new Date().getFullYear()}{' '}
                             <span className="font-semibold text-ink">{companyName}</span>
                             <span className="text-ink-soft/70"> · Panel Admin</span>
                         </p>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <a
-                                href="/"
-                                target="_blank"
-                                rel="noreferrer"
-                                className="font-medium text-signal-deep transition hover:text-ink"
-                            >
-                                Lihat Website
-                            </a>
-                            <Link
-                                href="/admin/settings"
-                                className="font-medium text-signal-deep transition hover:text-ink"
-                            >
-                                Pengaturan Situs
-                            </Link>
-                            <Link
-                                href="/admin/system"
-                                className="font-medium text-signal-deep transition hover:text-ink"
-                            >
-                                Pengaturan Aplikasi
-                            </Link>
-                            <Link
-                                href="/admin/system/update"
-                                className="font-medium text-signal-deep transition hover:text-ink"
-                            >
-                                Update
-                            </Link>
-                        </div>
                     </div>
                 </footer>
             </div>
