@@ -458,7 +458,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Show.jsx": {
-    "file": "assets/Show-C_7gXLSh.js",
+    "file": "assets/Show-V3bxrHiG.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Show.jsx",
     "isDynamicEntry": true,
@@ -693,7 +693,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-BoqAyEix.js",
+    "file": "assets/app-Cu9tGVfL.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

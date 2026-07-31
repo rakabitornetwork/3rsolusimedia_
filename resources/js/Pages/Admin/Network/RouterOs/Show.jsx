@@ -36,6 +36,15 @@ function formatBytes(bytes) {
     return `${n.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+/** MikroTik uptime "3w2d5h30m15s" → "3w 2d 5h 30m 15s" */
+function formatUptime(uptime) {
+    if (uptime == null || uptime === '') return null;
+    return String(uptime)
+        .replace(/(\d+[wdhms])/gi, '$1 ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function Stat({ label, value, icon: Icon, tone }) {
     return (
         <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
@@ -115,7 +124,7 @@ export default function Show({ router: item, info }) {
                 />
                 <Stat
                     label="Uptime"
-                    value={info.uptime}
+                    value={formatUptime(info.uptime)}
                     icon={Timer}
                     tone="bg-gradient-to-br from-emerald-400 to-teal-600"
                 />
