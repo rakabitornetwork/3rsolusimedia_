@@ -221,7 +221,7 @@ export default function Index({
                             <th className="hidden px-4 py-3 font-semibold md:table-cell">Limit</th>
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">Usage</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
+                            <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>

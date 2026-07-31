@@ -18,7 +18,7 @@ export default function Sections({ sections }) {
                             <th className="hidden px-4 py-3 font-semibold sm:table-cell">Judul</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
                             <th className="px-4 py-3 font-semibold">Urutan</th>
-                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
+                            <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -40,7 +40,7 @@ export default function Sections({ sections }) {
                                     </span>
                                 </td>
                                 <td className="px-4 py-4 text-ink-soft">{section.sort_order}</td>
-                                <td className="px-4 py-4 text-right">
+                                <td className="px-4 py-4 text-center">
                                     <Link
                                         href={`/admin/sections/${section.id}/edit`}
                                         className="font-semibold text-signal-deep hover:underline"

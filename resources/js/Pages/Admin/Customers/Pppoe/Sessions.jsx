@@ -126,7 +126,7 @@ export default function Sessions({
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">Caller ID</th>
                             <th className="px-4 py-3 font-semibold">Uptime</th>
                             <th className="hidden px-4 py-3 font-semibold xl:table-cell">Service</th>
-                            <th className="px-4 py-3 text-right font-semibold">Aksi</th>
+                            <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
