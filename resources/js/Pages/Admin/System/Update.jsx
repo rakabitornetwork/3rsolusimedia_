@@ -6,6 +6,7 @@ import {
     GitBranch,
     RefreshCw,
     Server,
+    Tag,
     TriangleAlert,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -128,6 +129,54 @@ export default function Update({ repo }) {
                 </div>
             </div>
 
+            <div className="mb-5 overflow-hidden border border-ink/10 bg-white">
+                <div className="flex h-1.5 w-full">
+                    <span className="flex-1 bg-gradient-to-r from-teal-400 to-teal-800" />
+                    <span className="flex-1 bg-gradient-to-r from-slate-500 to-slate-900" />
+                    <span className="flex-1 bg-gradient-to-r from-sky-400 to-blue-900" />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-6">
+                    <div className="flex items-start gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center bg-gradient-to-br from-teal-500 to-teal-900 text-white">
+                            <Tag className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <p className="text-[11px] font-semibold tracking-wide text-ink-soft uppercase">
+                                Versi aplikasi (GitHub tag)
+                            </p>
+                            <p className="font-display mt-1 text-3xl font-bold tracking-tight text-ink">
+                                {repo?.latest_tag || repo?.local_version
+                                    ? `v${repo?.latest_tag || repo?.local_version}`
+                                    : '—'}
+                            </p>
+                            <p className="mt-1 text-xs text-ink-soft">
+                                Tag diambil dari repositori GitHub
+                                {repo?.local_version_full
+                                    ? ` · describe: ${repo.local_version_full}`
+                                    : ''}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid min-w-[220px] gap-2 text-sm sm:text-right">
+                        <p className="text-ink">
+                            <span className="text-ink-soft">Lokal:</span>{' '}
+                            <strong>
+                                {repo?.local_version ? `v${repo.local_version}` : '—'}
+                            </strong>
+                            {repo?.commits_since_tag > 0
+                                ? ` (+${repo.commits_since_tag} commit)`
+                                : ''}
+                        </p>
+                        <p className="text-ink">
+                            <span className="text-ink-soft">GitHub:</span>{' '}
+                            <strong>
+                                {repo?.remote_version ? `v${repo.remote_version}` : '—'}
+                            </strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-teal-500 to-teal-950 p-4 text-white shadow-sm">
                     <p className="text-[11px] tracking-wide text-teal-50/80 uppercase">Status sync</p>
@@ -144,7 +193,7 @@ export default function Update({ repo }) {
                         {repo?.local_commit_short || '—'}
                     </p>
                     <p className="mt-auto pt-2 text-xs text-slate-200/75">
-                        Branch: {repo?.branch || '—'}
+                        Versi {repo?.local_version ? `v${repo.local_version}` : '—'}
                         {repo?.dirty ? ' · Ada perubahan belum di-commit' : ''}
                     </p>
                 </div>
@@ -156,7 +205,8 @@ export default function Update({ repo }) {
                         {repo?.remote_commit_short || '—'}
                     </p>
                     <p className="mt-auto pt-2 text-xs text-sky-100/75">
-                        Ahead {repo?.ahead ?? 0} · Behind {repo?.behind ?? 0}
+                        Versi {repo?.remote_version ? `v${repo.remote_version}` : '—'} · Ahead{' '}
+                        {repo?.ahead ?? 0} · Behind {repo?.behind ?? 0}
                     </p>
                 </div>
             </div>
@@ -177,6 +227,27 @@ export default function Update({ repo }) {
                     <h2 className="text-sm font-semibold text-ink">Detail repositori</h2>
                 </div>
                 <dl>
+                    <InfoRow
+                        label="Versi (tag)"
+                        value={
+                            repo?.latest_tag || repo?.local_version
+                                ? `v${repo?.latest_tag || repo?.local_version}`
+                                : null
+                        }
+                    />
+                    <InfoRow
+                        label="Versi lokal"
+                        value={
+                            repo?.local_version_full
+                                ? `v${String(repo.local_version_full).replace(/^v/i, '')}`
+                                : null
+                        }
+                        mono
+                    />
+                    <InfoRow
+                        label="Versi GitHub"
+                        value={repo?.remote_version ? `v${repo.remote_version}` : null}
+                    />
                     <InfoRow label="Remote URL" value={repo?.remote_url} mono />
                     <InfoRow label="Branch" value={repo?.branch} />
                     <InfoRow label="Local HEAD" value={repo?.local_commit} mono />

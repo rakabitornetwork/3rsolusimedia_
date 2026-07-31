@@ -96,6 +96,11 @@ class UpdateController extends Controller
             'local_commit_short' => null,
             'remote_commit' => null,
             'remote_commit_short' => null,
+            'local_version' => null,
+            'local_version_full' => null,
+            'remote_version' => null,
+            'latest_tag' => null,
+            'commits_since_tag' => 0,
             'ahead' => 0,
             'behind' => 0,
             'dirty' => false,
@@ -127,7 +132,7 @@ class UpdateController extends Controller
         $base['available'] = true;
 
         if ($fetch) {
-            $fetchResult = $this->runGit(['fetch', 'origin', '--prune'], 60);
+            $fetchResult = $this->runGit(['fetch', 'origin', '--prune', '--tags'], 60);
             $base['fetch_ok'] = $fetchResult['ok'];
             if (! $fetchResult['ok']) {
                 $base['message'] = 'Gagal menghubungi GitHub: '.
@@ -158,6 +163,8 @@ class UpdateController extends Controller
             $base['remote_commit'] = $remote['output'];
             $base['remote_commit_short'] = substr($remote['output'], 0, 7);
         }
+
+        $base = [...$base, ...$this->resolveVersions($remoteRef)];
 
         $dirty = $this->runGit(['status', '--porcelain']);
         $base['dirty'] = $dirty['ok'] && $dirty['output'] !== '';
@@ -201,6 +208,62 @@ class UpdateController extends Controller
         }
 
         return $base;
+    }
+
+    /**
+     * @return array{
+     *     local_version: ?string,
+     *     local_version_full: ?string,
+     *     remote_version: ?string,
+     *     latest_tag: ?string,
+     *     commits_since_tag: int
+     * }
+     */
+    private function resolveVersions(string $remoteRef): array
+    {
+        $localTag = $this->runGit(['describe', '--tags', '--abbrev=0', 'HEAD']);
+        $localFull = $this->runGit(['describe', '--tags', 'HEAD']);
+        $remoteTag = $this->runGit(['describe', '--tags', '--abbrev=0', $remoteRef]);
+        $latestTag = $this->runGit(['tag', '-l', '--sort=-v:refname']);
+
+        $localVersion = ($localTag['ok'] ?? false) && $localTag['output'] !== ''
+            ? $this->normalizeVersion($localTag['output'])
+            : null;
+        $localVersionFull = ($localFull['ok'] ?? false) && $localFull['output'] !== ''
+            ? $localFull['output']
+            : $localVersion;
+        $remoteVersion = ($remoteTag['ok'] ?? false) && $remoteTag['output'] !== ''
+            ? $this->normalizeVersion($remoteTag['output'])
+            : null;
+
+        $latest = null;
+        if (($latestTag['ok'] ?? false) && $latestTag['output'] !== '') {
+            $tags = preg_split('/\R/', $latestTag['output']) ?: [];
+            $latest = $this->normalizeVersion(trim((string) ($tags[0] ?? ''))) ?: null;
+        }
+
+        $commitsSince = 0;
+        if (is_string($localVersionFull) && preg_match('/^.+-(\d+)-g[0-9a-f]+$/i', $localVersionFull, $m)) {
+            $commitsSince = (int) $m[1];
+        }
+
+        return [
+            'local_version' => $localVersion,
+            'local_version_full' => $localVersionFull,
+            'remote_version' => $remoteVersion ?: $latest,
+            'latest_tag' => $latest ?: $remoteVersion ?: $localVersion,
+            'commits_since_tag' => $commitsSince,
+        ];
+    }
+
+    private function normalizeVersion(string $tag): string
+    {
+        $tag = trim($tag);
+        if ($tag === '') {
+            return '';
+        }
+
+        return str_starts_with(strtolower($tag), 'v') ? substr($tag, 1) : $tag;
     }
 
     /**
