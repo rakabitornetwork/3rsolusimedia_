@@ -7,7 +7,7 @@ import {
     Tag,
     TriangleAlert,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import UpdateTerminal from '../../../Components/Admin/UpdateTerminal';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -38,22 +38,104 @@ function InfoRow({ label, value, mono = false }) {
     );
 }
 
+const TERMINAL_SESSION_KEY = 'update-terminal-session';
+
+function flashResultFromFlash(flash) {
+    if (flash?.success) {
+        return { type: 'success', message: String(flash.success) };
+    }
+    if (flash?.error) {
+        return { type: 'error', message: String(flash.error) };
+    }
+    return null;
+}
+
+function flashResultFromPage(page) {
+    return (
+        flashResultFromFlash(page?.props?.flash) || {
+            type: 'success',
+            message: 'Operasi selesai.',
+        }
+    );
+}
+
 export default function Update({ repo }) {
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
     const canPull = Boolean(canWrite && repo?.can_pull);
-    const [pulling, setPulling] = useState(false);
-    const [checking, setChecking] = useState(false);
+    const [terminalOpen, setTerminalOpen] = useState(false);
+    const [terminalMode, setTerminalMode] = useState('pull');
+    const [terminalResult, setTerminalResult] = useState(null);
+    const seenFlashRef = useRef('');
+    const busy = terminalOpen && !terminalResult;
+
+    const closeTerminal = () => {
+        setTerminalOpen(false);
+        setTerminalResult(null);
+        try {
+            sessionStorage.removeItem(TERMINAL_SESSION_KEY);
+        } catch {
+            // ignore
+        }
+    };
+
+    const rememberMode = (mode) => {
+        try {
+            sessionStorage.setItem(
+                TERMINAL_SESSION_KEY,
+                JSON.stringify({ mode, at: Date.now() }),
+            );
+        } catch {
+            // ignore
+        }
+    };
+
+    // Setelah redirect Inertia, tampilkan flash di dalam terminal (bukan toast pojok).
+    useEffect(() => {
+        const result = flashResultFromFlash(flash);
+        if (!result) return;
+
+        const signature = `${result.type}:${result.message}`;
+        if (seenFlashRef.current === signature) return;
+        seenFlashRef.current = signature;
+
+        let mode = 'pull';
+        try {
+            const raw = sessionStorage.getItem(TERMINAL_SESSION_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed?.mode) mode = parsed.mode;
+                sessionStorage.removeItem(TERMINAL_SESSION_KEY);
+            }
+        } catch {
+            // ignore
+        }
+
+        setTerminalMode(mode);
+        setTerminalResult(result);
+        setTerminalOpen(true);
+    }, [flash?.success, flash?.error]);
 
     const checkUpdate = () => {
-        setChecking(true);
+        if (busy) return;
+        rememberMode('check');
+        setTerminalMode('check');
+        setTerminalResult(null);
+        setTerminalOpen(true);
+
         router.post('/admin/system/update/check', {}, {
-            onFinish: () => setChecking(false),
+            preserveScroll: true,
+            onSuccess: (page) => setTerminalResult(flashResultFromPage(page)),
+            onError: () =>
+                setTerminalResult({
+                    type: 'error',
+                    message: 'Gagal mengecek update dari GitHub.',
+                }),
         });
     };
 
     const pullUpdate = () => {
-        if (!canPull || pulling) return;
+        if (!canPull || busy) return;
         if (
             !window.confirm(
                 'Pull update dari GitHub ke server ini?\n\nPerintah npm run build tidak akan dijalankan.',
@@ -62,16 +144,19 @@ export default function Update({ repo }) {
             return;
         }
 
-        setPulling(true);
-        const started = Date.now();
-        const minShowMs = 3200;
+        rememberMode('pull');
+        setTerminalMode('pull');
+        setTerminalResult(null);
+        setTerminalOpen(true);
 
         router.post('/admin/system/update/pull', {}, {
-            onFinish: () => {
-                const elapsed = Date.now() - started;
-                const wait = Math.max(0, minShowMs - elapsed);
-                window.setTimeout(() => setPulling(false), wait);
-            },
+            preserveScroll: true,
+            onSuccess: (page) => setTerminalResult(flashResultFromPage(page)),
+            onError: () =>
+                setTerminalResult({
+                    type: 'error',
+                    message: 'Gagal pull dari GitHub.',
+                }),
         });
     };
 
@@ -83,9 +168,12 @@ export default function Update({ repo }) {
             <Head title="Update" />
 
             <UpdateTerminal
-                open={pulling}
+                open={terminalOpen}
+                mode={terminalMode}
                 branch={repo?.branch}
                 behind={repo?.behind || 0}
+                result={terminalResult}
+                onClose={closeTerminal}
             />
 
             {canWrite && (
@@ -93,18 +181,18 @@ export default function Update({ repo }) {
                     <button
                         type="button"
                         onClick={checkUpdate}
-                        disabled={checking || pulling}
+                        disabled={busy}
                         className="inline-flex items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
                     >
                         <RefreshCw
-                            className={`h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
+                            className={`h-3.5 w-3.5 ${busy && terminalMode === 'check' ? 'animate-spin' : ''}`}
                         />
                         Cek update
                     </button>
                     <button
                         type="button"
                         onClick={pullUpdate}
-                        disabled={!canPull || pulling}
+                        disabled={!canPull || busy}
                         title={
                             canPull
                                 ? 'Pull update terbaru dari GitHub (tanpa npm)'

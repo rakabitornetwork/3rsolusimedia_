@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const SCRIPT = [
-    { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune' },
+const PULL_SCRIPT = [
+    { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune --tags' },
     { tone: 'signal', text: 'remote: Enumerating objects...' },
     { tone: 'signal', text: 'remote: Counting objects: 100% (12/12), done.' },
     { tone: 'muted', text: '3rsolusi@vps:~$ git pull --ff-only origin main' },
@@ -9,7 +9,14 @@ const SCRIPT = [
     { tone: 'sky', text: ' * branch            main       -> FETCH_HEAD' },
     { tone: 'ink', text: 'Updating local working tree...' },
     { tone: 'ink', text: 'Fast-forward' },
-    { tone: 'ok', text: '✓ Pull selesai — npm run build dilewati' },
+];
+
+const CHECK_SCRIPT = [
+    { tone: 'muted', text: '3rsolusi@vps:~$ git fetch origin --prune --tags' },
+    { tone: 'signal', text: 'remote: Enumerating objects...' },
+    { tone: 'signal', text: 'remote: Counting objects: 100% (8/8), done.' },
+    { tone: 'sky', text: 'From github.com:origin/main' },
+    { tone: 'ink', text: 'Checking local HEAD against origin...' },
 ];
 
 function lineClass(tone) {
@@ -22,33 +29,55 @@ function lineClass(tone) {
             return 'text-slate-200';
         case 'ok':
             return 'text-emerald-300';
+        case 'error':
+            return 'text-red-300';
         default:
             return 'text-white/55';
     }
 }
 
-export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
+export default function UpdateTerminal({
+    open,
+    mode = 'pull',
+    branch = 'main',
+    behind = 0,
+    result = null,
+    onClose,
+}) {
     const [visibleCount, setVisibleCount] = useState(0);
     const [cursorOn, setCursorOn] = useState(true);
 
     const lines = useMemo(() => {
-        const next = [...SCRIPT];
+        if (mode === 'check') {
+            return CHECK_SCRIPT.map((line) => ({ ...line }));
+        }
+
+        const next = PULL_SCRIPT.map((line) => ({ ...line }));
         if (behind > 0) {
             next.splice(6, 0, {
                 tone: 'sky',
                 text: `Receiving objects for ${behind} commit${behind > 1 ? 's' : ''}...`,
             });
         }
-        next[3] = {
-            tone: 'muted',
-            text: `3rsolusi@vps:~$ git pull --ff-only origin ${branch || 'main'}`,
-        };
+        const pullIdx = next.findIndex((line) => line.text.includes('git pull'));
+        if (pullIdx >= 0) {
+            next[pullIdx] = {
+                tone: 'muted',
+                text: `3rsolusi@vps:~$ git pull --ff-only origin ${branch || 'main'}`,
+            };
+        }
         return next;
-    }, [branch, behind]);
+    }, [mode, branch, behind]);
 
     useEffect(() => {
         if (!open) {
             setVisibleCount(0);
+            return undefined;
+        }
+
+        // Jika hasil sudah ada (mis. setelah redirect), tampilkan log penuh + pesan.
+        if (result) {
+            setVisibleCount(lines.length);
             return undefined;
         }
 
@@ -60,10 +89,10 @@ export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
             if (i >= lines.length) {
                 window.clearInterval(timer);
             }
-        }, 420);
+        }, 380);
 
         return () => window.clearInterval(timer);
-    }, [open, lines.length]);
+    }, [open, lines.length, mode, result]);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -74,7 +103,9 @@ export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
     if (!open) return null;
 
     const shown = lines.slice(0, visibleCount);
-    const typing = visibleCount < lines.length;
+    const scriptDone = visibleCount >= lines.length;
+    const waiting = scriptDone && !result;
+    const finished = Boolean(result);
 
     return (
         <div
@@ -97,15 +128,25 @@ export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
                         <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-sky-400 to-blue-800" />
                     </div>
                     <p className="truncate text-xs font-semibold tracking-wide text-white/70">
-                        terminal · git pull · tanpa npm
+                        terminal · {mode === 'check' ? 'git fetch' : 'git pull'} · tanpa npm
                     </p>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-teal-300 uppercase">
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
-                        Running
-                    </span>
+                    {!finished ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold tracking-wide text-teal-300 uppercase">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-teal-300" />
+                            Running
+                        </span>
+                    ) : result.type === 'error' ? (
+                        <span className="text-[10px] font-semibold tracking-wide text-red-300 uppercase">
+                            Failed
+                        </span>
+                    ) : (
+                        <span className="text-[10px] font-semibold tracking-wide text-emerald-300 uppercase">
+                            Done
+                        </span>
+                    )}
                 </div>
 
-                <div className="relative min-h-[260px] bg-gradient-to-b from-[#0c1218] via-[#101820] to-[#0a1520] px-4 py-4 font-mono text-[12px] leading-6 sm:min-h-[300px] sm:text-[13px]">
+                <div className="relative min-h-[280px] bg-gradient-to-b from-[#0c1218] via-[#101820] to-[#0a1520] px-4 py-4 font-mono text-[12px] leading-6 sm:min-h-[320px] sm:text-[13px]">
                     <div
                         className="pointer-events-none absolute inset-0 opacity-[0.12]"
                         style={{
@@ -123,13 +164,34 @@ export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
                                 {line.text}
                             </p>
                         ))}
-                        {typing && (
+
+                        {finished && (
+                            <>
+                                <p className={`update-term-line pt-2 ${lineClass(result.type === 'error' ? 'error' : 'ok')}`}>
+                                    {result.type === 'error' ? '✗ ' : '✓ '}
+                                    {result.type === 'error' ? 'ERROR' : 'OK'}
+                                </p>
+                                <p
+                                    className={`update-term-line whitespace-pre-wrap ${lineClass(
+                                        result.type === 'error' ? 'error' : 'ok',
+                                    )}`}
+                                >
+                                    {result.message}
+                                </p>
+                            </>
+                        )}
+
+                        {!finished && !scriptDone && (
                             <p className="text-white/80">
                                 <span className={cursorOn ? 'opacity-100' : 'opacity-0'}>▋</span>
                             </p>
                         )}
-                        {!typing && (
-                            <p className="pt-2 text-white/45">Menunggu respons server...</p>
+
+                        {waiting && (
+                            <p className="pt-2 text-white/45">
+                                Menunggu respons server
+                                <span className={cursorOn ? 'opacity-100' : 'opacity-0'}>…</span>
+                            </p>
                         )}
                     </div>
                 </div>
@@ -145,6 +207,18 @@ export default function UpdateTerminal({ open, branch = 'main', behind = 0 }) {
                         Commit remote
                     </div>
                 </div>
+
+                {finished && (
+                    <div className="border-t border-white/10 px-4 py-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full bg-gradient-to-r from-teal-600 via-slate-700 to-sky-700 px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110"
+                        >
+                            Tutup terminal
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

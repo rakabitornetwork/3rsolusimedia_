@@ -6,7 +6,11 @@ const DISPLAY_MS = 4200;
 const EXIT_MS = 320;
 
 export default function FlashToast() {
-    const { flash } = usePage().props;
+    const page = usePage();
+    const { flash } = page.props;
+    const pathname = String(page.url || '').split('?')[0];
+    // Halaman Update menampilkan flash di dalam animasi terminal.
+    const suppress = pathname === '/admin/system/update' || pathname.startsWith('/admin/system/update/');
     const [toasts, setToasts] = useState([]);
     const seenRef = useRef('');
     const timersRef = useRef(new Map());
@@ -38,6 +42,11 @@ export default function FlashToast() {
     );
 
     useEffect(() => {
+        if (suppress) {
+            setToasts([]);
+            return;
+        }
+
         const next = [];
         if (flash?.success) {
             next.push({ type: 'success', message: String(flash.success) });
@@ -64,7 +73,7 @@ export default function FlashToast() {
             const timer = window.setTimeout(() => dismiss(toast.id), DISPLAY_MS);
             timersRef.current.set(toast.id, timer);
         });
-    }, [flash?.success, flash?.error, dismiss]);
+    }, [flash?.success, flash?.error, dismiss, suppress]);
 
     useEffect(
         () => () => {
