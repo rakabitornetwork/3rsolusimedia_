@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { Activity, ArrowDownToLine, ArrowUpFromLine, LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -456,6 +457,9 @@ export default function LiveTrafficCard({
         [physicalInterfaces, selected],
     );
 
+    const { auth } = usePage().props;
+    const canAddRouter = Boolean(auth?.user?.is_superadmin);
+
     if (multiRouter && routers.length === 0) {
         return (
             <div className="border border-ink/10 bg-white p-5">
@@ -464,14 +468,19 @@ export default function LiveTrafficCard({
                     Live Traffic
                 </h2>
                 <p className="mt-3 text-sm text-ink-soft">
-                    Belum ada router aktif. Tambahkan router MikroTik terlebih dahulu.
+                    Belum ada router aktif.
+                    {canAddRouter
+                        ? ' Tambahkan router MikroTik terlebih dahulu.'
+                        : ' Hubungi Superadmin untuk menambahkan router.'}
                 </p>
-                <a
-                    href="/admin/network/routeros/create"
-                    className="mt-3 inline-flex text-sm font-semibold text-signal-deep hover:underline"
-                >
-                    Tambah Router
-                </a>
+                {canAddRouter && (
+                    <a
+                        href="/admin/network/routeros/create"
+                        className="mt-3 inline-flex text-sm font-semibold text-signal-deep hover:underline"
+                    >
+                        Tambah Router
+                    </a>
+                )}
             </div>
         );
     }

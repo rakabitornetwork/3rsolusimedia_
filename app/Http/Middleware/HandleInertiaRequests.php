@@ -28,6 +28,7 @@ class HandleInertiaRequests extends Middleware
                         'initials' => $request->user()->initials(),
                         'can_write' => $request->user()->canWrite(),
                         'can_manage_users' => $request->user()->canManageUsers(),
+                        'is_superadmin' => $request->user()->isSuperadmin(),
                     ]
                     : null,
             ],

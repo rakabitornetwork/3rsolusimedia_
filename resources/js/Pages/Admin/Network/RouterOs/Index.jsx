@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Cable, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 
@@ -19,6 +19,8 @@ function StatusBadge({ status }) {
 }
 
 export default function Index({ routers }) {
+    const { auth } = usePage().props;
+    const canAddRouter = Boolean(auth?.user?.is_superadmin);
 
     const remove = (id, name) => {
         if (!window.confirm(`Hapus router "${name}"?`)) return;
@@ -38,18 +40,21 @@ export default function Index({ routers }) {
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="max-w-2xl text-sm text-ink-soft">
-                    Tambahkan data router, lalu uji koneksi API. Pastikan di MikroTik menu IP → Services
-                    → api sudah aktif di port 8728.
+                    {canAddRouter
+                        ? 'Tambahkan data router, lalu uji koneksi API. Pastikan di MikroTik menu IP → Services → api sudah aktif di port 8728.'
+                        : 'Kelola dan pantau koneksi RouterOS. Penambahan router hanya dapat dilakukan oleh Superadmin.'}
                 </p>
-                <div className="admin-toolbar-actions">
-                    <Link
-                        href="/admin/network/routeros/create"
-                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
-                    >
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Tambah Router
-                    </Link>
-                </div>
+                {canAddRouter && (
+                    <div className="admin-toolbar-actions">
+                        <Link
+                            href="/admin/network/routeros/create"
+                            className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Tambah Router
+                        </Link>
+                    </div>
+                )}
             </div>
 
             {routers.length === 0 ? (
@@ -57,14 +62,18 @@ export default function Index({ routers }) {
                     <Cable className="mx-auto h-8 w-8 text-ink/25" />
                     <p className="mt-3 font-medium text-ink">Belum ada router</p>
                     <p className="mt-1 text-sm text-ink-soft">
-                        Tambah router pertama untuk mulai koneksi API.
+                        {canAddRouter
+                            ? 'Tambah router pertama untuk mulai koneksi API.'
+                            : 'Hubungi Superadmin untuk menambahkan router MikroTik.'}
                     </p>
-                    <Link
-                        href="/admin/network/routeros/create"
-                        className="mt-5 inline-flex bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white"
-                    >
-                        Tambah Router
-                    </Link>
+                    {canAddRouter && (
+                        <Link
+                            href="/admin/network/routeros/create"
+                            className="mt-5 inline-flex bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white"
+                        >
+                            Tambah Router
+                        </Link>
+                    )}
                 </div>
             ) : (
                 <div className="admin-data-scroll border border-ink/10 bg-white">

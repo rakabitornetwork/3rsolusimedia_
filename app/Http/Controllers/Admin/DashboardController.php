@@ -110,7 +110,7 @@ class DashboardController extends Controller
             ],
             'due_soon' => $dueSoon,
             'attention_invoices' => $attentionInvoices,
-            'quick_actions' => [
+            'quick_actions' => collect([
                 [
                     'label' => 'Tambah Pelanggan',
                     'description' => 'Daftarkan secret PPPoE baru',
@@ -134,6 +134,7 @@ class DashboardController extends Controller
                     'description' => 'Hubungkan RouterOS baru',
                     'href' => '/admin/network/routeros/create',
                     'tone' => 'default',
+                    'superadmin_only' => true,
                 ],
                 [
                     'label' => 'Paket Layanan',
@@ -147,7 +148,14 @@ class DashboardController extends Controller
                     'href' => '/admin/customers/pppoe/mikrotik-profiles',
                     'tone' => 'default',
                 ],
-            ],
+            ])
+                ->when(
+                    ! request()->user()?->isSuperadmin(),
+                    fn ($actions) => $actions->reject(fn (array $action) => ($action['superadmin_only'] ?? false)),
+                )
+                ->map(fn (array $action) => collect($action)->except('superadmin_only')->all())
+                ->values()
+                ->all(),
         ]);
     }
 }

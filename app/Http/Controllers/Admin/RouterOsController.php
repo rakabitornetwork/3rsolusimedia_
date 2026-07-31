@@ -29,8 +29,14 @@ class RouterOsController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response|RedirectResponse
     {
+        if (! $request->user()?->isSuperadmin()) {
+            return redirect()
+                ->route('admin.network.routeros')
+                ->with('error', 'Hanya Superadmin yang dapat menambahkan RouterOS.');
+        }
+
         return Inertia::render('Admin/Network/RouterOs/Form', [
             'router' => null,
         ]);
@@ -38,6 +44,12 @@ class RouterOsController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! $request->user()?->isSuperadmin()) {
+            return redirect()
+                ->route('admin.network.routeros')
+                ->with('error', 'Hanya Superadmin yang dapat menambahkan RouterOS.');
+        }
+
         $validated = $this->validateRouter($request);
 
         MikrotikRouter::create([
