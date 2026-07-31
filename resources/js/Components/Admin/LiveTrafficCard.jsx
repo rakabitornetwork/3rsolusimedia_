@@ -352,40 +352,40 @@ export default function LiveTrafficCard({
             )}
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="border border-ink/10 bg-mist/30 p-4">
+                <div className="border border-sky-200/80 bg-sky-50/70 p-4">
                     <div className="flex items-center justify-between gap-2">
-                        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                            <ArrowDownToLine className="h-3.5 w-3.5 text-signal-deep" />
+                        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-sky-700 uppercase">
+                            <ArrowDownToLine className="h-3.5 w-3.5 text-sky-600" />
                             Download (RX)
                         </p>
                         <Spark
                             values={history.rx}
-                            strokeClass="text-signal-deep"
-                            fillClass="text-signal-deep"
+                            strokeClass="text-sky-500"
+                            fillClass="text-sky-500"
                         />
                     </div>
-                    <p className="font-hero mt-3 text-3xl tracking-tight text-ink">
+                    <p className="font-hero mt-3 text-3xl tracking-tight text-sky-950">
                         {formatBitrate(traffic?.rx_bps)}
                     </p>
-                    <p className="mt-1 text-xs text-ink/45">{traffic?.rx_pps ?? 0} paket/detik</p>
+                    <p className="mt-1 text-xs text-sky-700/70">{traffic?.rx_pps ?? 0} paket/detik</p>
                 </div>
 
-                <div className="border border-ink/10 bg-mist/30 p-4">
+                <div className="border border-orange-200/80 bg-orange-50/70 p-4">
                     <div className="flex items-center justify-between gap-2">
-                        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                            <ArrowUpFromLine className="h-3.5 w-3.5 text-ink" />
+                        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-700 uppercase">
+                            <ArrowUpFromLine className="h-3.5 w-3.5 text-orange-600" />
                             Upload (TX)
                         </p>
                         <Spark
                             values={history.tx}
-                            strokeClass="text-ink/70"
-                            fillClass="text-ink"
+                            strokeClass="text-orange-500"
+                            fillClass="text-orange-500"
                         />
                     </div>
-                    <p className="font-hero mt-3 text-3xl tracking-tight text-ink">
+                    <p className="font-hero mt-3 text-3xl tracking-tight text-orange-950">
                         {formatBitrate(traffic?.tx_bps)}
                     </p>
-                    <p className="mt-1 text-xs text-ink/45">{traffic?.tx_pps ?? 0} paket/detik</p>
+                    <p className="mt-1 text-xs text-orange-700/70">{traffic?.tx_pps ?? 0} paket/detik</p>
                 </div>
             </div>
         </div>
