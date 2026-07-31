@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BillingController;
+use App\Http\Controllers\Admin\FinancialReportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GenieAcsController;
 use App\Http\Controllers\Admin\HotspotProfileController;
@@ -112,6 +113,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->name('customers.pppoe.sync');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
+    Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
     Route::get('/billing/invoices/{invoice}', [BillingController::class, 'show'])->name('billing.show');
     Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])->name('billing.pay');

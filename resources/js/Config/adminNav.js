@@ -1,5 +1,6 @@
 import {
     Activity,
+    BarChart3,
     Cable,
     CreditCard,
     FileText,
@@ -101,6 +102,13 @@ export const adminNav = [
                 href: '/admin/billing',
                 icon: CreditCard,
                 match: ['/admin/billing'],
+                exclude: ['/admin/billing/reports'],
+            },
+            {
+                label: 'Laporan Keuangan',
+                href: '/admin/billing/reports',
+                icon: BarChart3,
+                match: ['/admin/billing/reports'],
             },
         ],
     },
