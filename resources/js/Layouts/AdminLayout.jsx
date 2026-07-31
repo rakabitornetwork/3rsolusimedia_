@@ -400,6 +400,12 @@ export default function AdminLayout({ children, title, subtitle }) {
                             >
                                 Pengaturan Aplikasi
                             </Link>
+                            <Link
+                                href="/admin/system/update"
+                                className="font-medium text-signal-deep transition hover:text-ink"
+                            >
+                                Update
+                            </Link>
                         </div>
                     </div>
                 </footer>

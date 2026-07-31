@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\ServiceProfileController;
 use App\Http\Controllers\Admin\AppSettingController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
@@ -120,6 +121,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/system', [AppSettingController::class, 'edit'])->name('system.index');
     Route::post('/system', [AppSettingController::class, 'update'])->name('system.update');
+
+    Route::get('/system/update', [UpdateController::class, 'index'])->name('system.update.index');
+    Route::post('/system/update/check', [UpdateController::class, 'check'])->name('system.update.check');
 
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 });
