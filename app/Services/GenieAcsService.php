@@ -44,9 +44,12 @@ class GenieAcsService
             $latency = (int) round((microtime(true) - $started) * 1000);
 
             if ($response->successful()) {
+                $total = $response->header('Total');
+
                 return [
                     'ok' => true,
-                    'message' => 'Koneksi ke GenieACS NBI berhasil.',
+                    'message' => 'Koneksi ke GenieACS NBI berhasil.'
+                        .($total !== null && $total !== '' ? " Total perangkat: {$total}." : ''),
                     'latency_ms' => $latency,
                 ];
             }
@@ -67,12 +70,12 @@ class GenieAcsService
     /**
      * @return array{ok: bool, message?: string, devices?: array<int, array<string, mixed>>, total?: int}
      */
-    public function listDevices(?string $search = null, int $limit = 50, int $skip = 0): array
+    public function listDevices(?string $search = null, int $limit = 100, int $skip = 0): array
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isConfigured()) {
             return [
                 'ok' => false,
-                'message' => 'Integrasi GenieACS belum diaktifkan atau URL belum diisi.',
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
             ];
         }
 
@@ -82,6 +85,9 @@ class GenieAcsService
                 '$or' => [
                     ['_id' => ['$regex' => $search, '$options' => 'i']],
                     ['_tags' => $search],
+                    ['_deviceId._SerialNumber' => ['$regex' => $search, '$options' => 'i']],
+                    ['_deviceId._Manufacturer' => ['$regex' => $search, '$options' => 'i']],
+                    ['_deviceId._ProductClass' => ['$regex' => $search, '$options' => 'i']],
                     ['InternetGatewayDevice.DeviceInfo.SerialNumber._value' => ['$regex' => $search, '$options' => 'i']],
                     ['Device.DeviceInfo.SerialNumber._value' => ['$regex' => $search, '$options' => 'i']],
                     ['InternetGatewayDevice.DeviceInfo.Manufacturer._value' => ['$regex' => $search, '$options' => 'i']],
@@ -92,12 +98,13 @@ class GenieAcsService
 
         try {
             $params = [
-                'limit' => max(1, min(200, $limit)),
+                'limit' => max(1, min(500, $limit)),
                 'skip' => max(0, $skip),
                 'projection' => implode(',', [
                     '_id',
                     '_lastInform',
                     '_tags',
+                    '_deviceId',
                     'InternetGatewayDevice.DeviceInfo.Manufacturer',
                     'InternetGatewayDevice.DeviceInfo.ModelName',
                     'InternetGatewayDevice.DeviceInfo.SerialNumber',
@@ -115,7 +122,7 @@ class GenieAcsService
                 $params['query'] = json_encode($query, JSON_UNESCAPED_SLASHES);
             }
 
-            $response = $this->client()->timeout(20)->get('/devices/', $params);
+            $response = $this->client()->timeout(30)->get('/devices/', $params);
 
             if (! $response->successful()) {
                 return [
@@ -124,15 +131,27 @@ class GenieAcsService
                 ];
             }
 
-            $devices = collect($response->json() ?: [])
+            $payload = $response->json();
+            if (! is_array($payload)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Respons GenieACS tidak valid (bukan JSON array).',
+                ];
+            }
+
+            $devices = collect($payload)
+                ->filter(fn ($device) => is_array($device))
                 ->map(fn (array $device) => $this->summarizeDevice($device))
                 ->values()
                 ->all();
 
+            $totalHeader = $response->header('Total');
+            $total = is_numeric($totalHeader) ? (int) $totalHeader : count($devices);
+
             return [
                 'ok' => true,
                 'devices' => $devices,
-                'total' => count($devices),
+                'total' => $total,
             ];
         } catch (Throwable $e) {
             return [
@@ -147,10 +166,10 @@ class GenieAcsService
      */
     public function getDevice(string $deviceId): array
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isConfigured()) {
             return [
                 'ok' => false,
-                'message' => 'Integrasi GenieACS belum diaktifkan atau URL belum diisi.',
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
             ];
         }
 
@@ -167,7 +186,15 @@ class GenieAcsService
             }
 
             $items = $response->json() ?: [];
-            if ($items === []) {
+            if (! is_array($items) || $items === []) {
+                return [
+                    'ok' => false,
+                    'message' => 'Perangkat tidak ditemukan di GenieACS.',
+                ];
+            }
+
+            $first = $items[0] ?? null;
+            if (! is_array($first)) {
                 return [
                     'ok' => false,
                     'message' => 'Perangkat tidak ditemukan di GenieACS.',
@@ -176,7 +203,7 @@ class GenieAcsService
 
             return [
                 'ok' => true,
-                'device' => $this->detailDevice($items[0]),
+                'device' => $this->detailDevice($first),
             ];
         } catch (Throwable $e) {
             return [
@@ -191,10 +218,10 @@ class GenieAcsService
      */
     public function summonDevice(string $deviceId): array
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isConfigured()) {
             return [
                 'ok' => false,
-                'message' => 'Integrasi GenieACS belum diaktifkan atau URL belum diisi.',
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
             ];
         }
 
@@ -233,17 +260,26 @@ class GenieAcsService
      */
     public function countFaults(): array
     {
-        if (! $this->isEnabled()) {
+        if (! $this->isConfigured()) {
             return ['ok' => false, 'message' => 'GenieACS belum dikonfigurasi.'];
         }
 
         try {
             $response = $this->client()->timeout(10)->get('/faults/', [
                 'projection' => '_id',
+                'limit' => 1,
             ]);
 
             if (! $response->successful()) {
                 return ['ok' => false, 'message' => 'Gagal mengambil faults.'];
+            }
+
+            $totalHeader = $response->header('Total');
+            if (is_numeric($totalHeader)) {
+                return [
+                    'ok' => true,
+                    'count' => (int) $totalHeader,
+                ];
             }
 
             return [
@@ -283,21 +319,22 @@ class GenieAcsService
     private function summarizeDevice(array $device): array
     {
         $lastInform = $device['_lastInform'] ?? null;
+        $deviceId = is_array($device['_deviceId'] ?? null) ? $device['_deviceId'] : [];
 
         return [
             'id' => (string) ($device['_id'] ?? ''),
             'manufacturer' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.Manufacturer',
                 'Device.DeviceInfo.Manufacturer',
-            ]),
+            ]) ?: $this->scalarOrNull($deviceId['_Manufacturer'] ?? null),
             'model' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.ModelName',
                 'Device.DeviceInfo.ModelName',
-            ]),
+            ]) ?: $this->scalarOrNull($deviceId['_ProductClass'] ?? null),
             'serial' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.SerialNumber',
                 'Device.DeviceInfo.SerialNumber',
-            ]),
+            ]) ?: $this->scalarOrNull($deviceId['_SerialNumber'] ?? null),
             'software_version' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
                 'Device.DeviceInfo.SoftwareVersion',
@@ -306,7 +343,7 @@ class GenieAcsService
                 'InternetGatewayDevice.DeviceInfo.HardwareVersion',
                 'Device.DeviceInfo.HardwareVersion',
             ]),
-            'tags' => array_values($device['_tags'] ?? []),
+            'tags' => $this->normalizeTags($device['_tags'] ?? []),
             'last_inform' => $lastInform,
             'last_inform_label' => $lastInform ? $this->formatDate($lastInform) : '—',
             'online' => $this->isRecentlyInformed($lastInform),
@@ -320,6 +357,7 @@ class GenieAcsService
     private function detailDevice(array $device): array
     {
         $summary = $this->summarizeDevice($device);
+        $deviceId = is_array($device['_deviceId'] ?? null) ? $device['_deviceId'] : [];
 
         return [
             ...$summary,
@@ -328,11 +366,11 @@ class GenieAcsService
                 'Device.DeviceInfo.ProductClass',
                 'InternetGatewayDevice.DeviceInfo.ModelName',
                 'Device.DeviceInfo.ModelName',
-            ]),
+            ]) ?: $this->scalarOrNull($deviceId['_ProductClass'] ?? null),
             'oui' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.ManufacturerOUI',
                 'Device.DeviceInfo.ManufacturerOUI',
-            ]),
+            ]) ?: $this->scalarOrNull($deviceId['_OUI'] ?? null),
             'raw_keys' => array_values(array_filter(array_keys($device), fn ($key) => ! str_starts_with((string) $key, '_'))),
         ];
     }
@@ -373,6 +411,35 @@ class GenieAcsService
         return is_scalar($node) ? $node : null;
     }
 
+    private function scalarOrNull(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return is_scalar($value) ? (string) $value : null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function normalizeTags(mixed $tags): array
+    {
+        if (! is_array($tags)) {
+            return [];
+        }
+
+        if (array_is_list($tags)) {
+            return array_values(array_map(
+                static fn ($tag) => (string) $tag,
+                array_filter($tags, static fn ($tag) => is_scalar($tag) && (string) $tag !== '')
+            ));
+        }
+
+        // Format lama GenieACS: { "tagName": true }
+        return array_values(array_map('strval', array_keys(array_filter($tags))));
+    }
+
     private function isRecentlyInformed(mixed $lastInform): bool
     {
         if (! $lastInform) {
@@ -380,7 +447,7 @@ class GenieAcsService
         }
 
         try {
-            return now()->diffInMinutes(\Carbon\Carbon::parse($lastInform)) <= 15;
+            return abs(now()->diffInMinutes(\Carbon\Carbon::parse($lastInform), false)) <= 15;
         } catch (Throwable) {
             return false;
         }

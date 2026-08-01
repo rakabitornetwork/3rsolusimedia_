@@ -38,7 +38,8 @@ export default function Index({ config, connection, devices, devices_error, stat
     const [showSettings, setShowSettings] = useState(false);
 
     const { data, setData, post, processing, errors, transform } = useForm({
-        genieacs_enabled: Boolean(config?.enabled),
+        // Default aktif bila URL NBI sudah terisi (agar daftar ONU langsung tampil setelah simpan).
+        genieacs_enabled: config?.enabled ?? Boolean(config?.nbi_url),
         genieacs_nbi_url: config?.nbi_url || 'http://127.0.0.1:7557',
         genieacs_ui_url: config?.ui_url || 'http://127.0.0.1:3000',
         genieacs_api_key: '',
@@ -132,7 +133,8 @@ export default function Index({ config, connection, devices, devices_error, stat
                         <span>
                             <span className="block text-sm font-medium text-ink">Aktifkan integrasi</span>
                             <span className="mt-0.5 block text-xs text-ink-soft">
-                                Jika nonaktif, daftar perangkat tidak diambil dari GenieACS.
+                                Tandai sebagai aktif di panel. Daftar perangkat diambil otomatis
+                                selama URL NBI dapat dihubungi.
                             </span>
                         </span>
                         <input
@@ -369,9 +371,9 @@ export default function Index({ config, connection, devices, devices_error, stat
                         {devices.length === 0 && (
                             <tr>
                                 <td colSpan={6} className="px-4 py-10 text-center text-ink-soft">
-                                    {config?.enabled
+                                    {connection?.ok
                                         ? 'Belum ada perangkat yang cocok, atau GenieACS belum menerima inform.'
-                                        : 'Aktifkan integrasi GenieACS pada pengaturan koneksi untuk menampilkan perangkat.'}
+                                        : 'Atur URL NBI GenieACS (port 7557) di Pengaturan koneksi, lalu Tes koneksi.'}
                                 </td>
                             </tr>
                         )}

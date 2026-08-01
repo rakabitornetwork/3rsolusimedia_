@@ -28,10 +28,21 @@ class GenieAcsController extends Controller
         $devicesResult = ['ok' => true, 'devices' => [], 'total' => 0];
         $faults = ['ok' => true, 'count' => 0];
 
-        if ($config['enabled'] && ($connection['ok'] ?? false)) {
-            $devicesResult = $this->genie->listDevices($search !== '' ? $search : null);
+        // Ambil daftar bila URL NBI terisi & koneksi OK (tidak bergantung flag "enabled"
+        // yang sering terlewat karena panel pengaturan tersembunyi).
+        if ($this->genie->isConfigured() && ($connection['ok'] ?? false)) {
+            $devicesResult = $this->genie->listDevices($search !== '' ? $search : null, 200);
             $faults = $this->genie->countFaults();
+        } elseif ($this->genie->isConfigured() && ! ($connection['ok'] ?? false)) {
+            $devicesResult = [
+                'ok' => false,
+                'message' => $connection['message'] ?? 'Tidak dapat terhubung ke GenieACS NBI.',
+                'devices' => [],
+                'total' => 0,
+            ];
         }
+
+        $listed = $devicesResult['devices'] ?? [];
 
         return Inertia::render('Admin/Network/GenieAcs/Index', [
             'config' => [
@@ -40,11 +51,11 @@ class GenieAcsController extends Controller
                 'api_key' => '',
             ],
             'connection' => $connection,
-            'devices' => $devicesResult['devices'] ?? [],
+            'devices' => $listed,
             'devices_error' => ($devicesResult['ok'] ?? false) ? null : ($devicesResult['message'] ?? 'Gagal memuat perangkat.'),
             'stats' => [
-                'devices' => $devicesResult['total'] ?? count($devicesResult['devices'] ?? []),
-                'online' => collect($devicesResult['devices'] ?? [])->where('online', true)->count(),
+                'devices' => $devicesResult['total'] ?? count($listed),
+                'online' => collect($listed)->where('online', true)->count(),
                 'faults' => $faults['count'] ?? 0,
             ],
             'filters' => [
@@ -64,8 +75,9 @@ class GenieAcsController extends Controller
             'genieacs_password' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // Simpan URL = aktifkan integrasi (kecuali user sengaja menonaktifkan lewat checkbox).
         $values = [
-            'genieacs_enabled' => $request->boolean('genieacs_enabled') ? '1' : '0',
+            'genieacs_enabled' => $request->boolean('genieacs_enabled', true) ? '1' : '0',
             'genieacs_nbi_url' => rtrim($validated['genieacs_nbi_url'], '/'),
             'genieacs_ui_url' => isset($validated['genieacs_ui_url'])
                 ? rtrim((string) $validated['genieacs_ui_url'], '/')
