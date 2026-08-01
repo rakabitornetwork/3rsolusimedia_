@@ -10,6 +10,7 @@ use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
+use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,11 +74,30 @@ class PppoeCustomerController extends Controller
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response|RedirectResponse
     {
+        $routerId = $request->integer('router_id') ?: null;
+        $username = trim((string) $request->get('username', ''));
+
+        if ($routerId && $username !== '') {
+            $existing = PppoeCustomer::query()
+                ->where('mikrotik_router_id', $routerId)
+                ->whereRaw('LOWER(username) = ?', [strtolower($username)])
+                ->first();
+
+            if ($existing) {
+                return redirect()
+                    ->route('admin.customers.pppoe.edit', $existing)
+                    ->with('success', 'Username sudah terdaftar. Membuka form edit.');
+            }
+        }
+
+        $prefill = $this->buildSessionPrefill($routerId, $username);
+
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => null,
-            ...$this->formOptions(),
+            'prefill' => $prefill,
+            ...$this->formOptions($routerId),
         ]);
     }
 
@@ -206,6 +226,127 @@ class PppoeCustomerController extends Controller
         return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
+    public function secret(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'router_id' => ['required', 'exists:mikrotik_routers,id'],
+            'username' => ['required', 'string', 'max:100'],
+        ]);
+
+        $router = MikrotikRouter::query()->findOrFail($validated['router_id']);
+        $result = $this->api->getPppSecret($router, $validated['username']);
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    /**
+     * Impor massal pelanggan dari sesi aktif yang belum terdaftar.
+     * Password dipakai bersama (semua secret sama).
+     */
+    public function importFromSessions(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
+            'subscription_package_id' => ['required', 'exists:subscription_packages,id'],
+            'usernames' => ['required', 'array', 'min:1'],
+            'usernames.*' => ['required', 'string', 'max:100'],
+            'password' => ['required', 'string', 'max:255'],
+            'start_date' => ['required', 'date'],
+            'billing_day' => ['required', 'integer', 'min:1', 'max:28'],
+            'overdue_action' => ['required', Rule::in(['bypass', 'isolir'])],
+            'isolir_profile' => [
+                Rule::requiredIf(fn () => $request->input('overdue_action') === 'isolir'),
+                'nullable',
+                'string',
+                'max:120',
+            ],
+        ]);
+
+        $router = MikrotikRouter::query()->findOrFail($validated['mikrotik_router_id']);
+        $package = SubscriptionPackage::query()->findOrFail($validated['subscription_package_id']);
+        $usernames = collect($validated['usernames'])
+            ->map(fn ($u) => trim((string) $u))
+            ->filter()
+            ->unique(fn ($u) => strtolower($u))
+            ->values();
+
+        $created = 0;
+        $skipped = 0;
+        $failed = 0;
+
+        foreach ($usernames as $username) {
+            $exists = PppoeCustomer::query()
+                ->where('mikrotik_router_id', $router->id)
+                ->whereRaw('LOWER(username) = ?', [strtolower($username)])
+                ->exists();
+
+            if ($exists) {
+                $skipped++;
+                continue;
+            }
+
+            $secretResult = $this->api->getPppSecret($router, $username);
+            $secret = ($secretResult['ok'] ?? false) ? ($secretResult['secret'] ?? []) : [];
+
+            $name = trim((string) ($secret['comment'] ?? ''));
+            if ($name === '') {
+                $name = $username;
+            }
+
+            $serviceProfile = trim((string) ($secret['profile'] ?? ''));
+            if ($serviceProfile === '') {
+                $serviceProfile = (string) $package->mikrotik_profile;
+            }
+
+            $payload = [
+                'mikrotik_router_id' => $router->id,
+                'subscription_package_id' => $package->id,
+                'name' => $name,
+                'username' => $username,
+                'password' => $validated['password'],
+                'service_profile' => $serviceProfile,
+                'start_date' => $validated['start_date'],
+                'billing_day' => (int) $validated['billing_day'],
+                'overdue_action' => $validated['overdue_action'],
+                'isolir_profile' => $validated['overdue_action'] === 'isolir'
+                    ? ($validated['isolir_profile'] ?? null)
+                    : null,
+                'notes' => 'Diimpor dari sesi aktif PPPoE',
+                'is_active' => true,
+            ];
+
+            try {
+                $payload = $this->applyBillingCycle($payload, $package);
+
+                $customer = PppoeCustomer::query()->create([
+                    ...$payload,
+                    'status' => 'active',
+                    'sync_status' => 'pending',
+                    'is_active' => true,
+                ]);
+
+                $this->billingService->createProrataInvoice($customer->fresh('package'));
+                $this->sync->sync($customer->fresh(['router', 'package']));
+                $created++;
+            } catch (\Throwable) {
+                $failed++;
+            }
+        }
+
+        $message = "Impor selesai: {$created} dibuat";
+        if ($skipped > 0) {
+            $message .= ", {$skipped} dilewati (sudah ada)";
+        }
+        if ($failed > 0) {
+            $message .= ", {$failed} gagal";
+        }
+        $message .= '.';
+
+        return redirect()
+            ->route('admin.customers.pppoe.sessions', ['router_id' => $router->id])
+            ->with($failed > 0 && $created === 0 ? 'error' : 'success', $message);
+    }
+
     private function formOptions(?int $routerId = null): array
     {
         $profiles = [];
@@ -276,6 +417,62 @@ class PppoeCustomerController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['nullable', 'boolean'],
         ]);
+    }
+
+    /**
+     * Prefill form dari sesi aktif + PPP secret MikroTik.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildSessionPrefill(?int $routerId, string $username): ?array
+    {
+        if (! $routerId || $username === '') {
+            return null;
+        }
+
+        $router = MikrotikRouter::query()->find($routerId);
+        if (! $router) {
+            return null;
+        }
+
+        $secretResult = $this->api->getPppSecret($router, $username);
+        $secret = ($secretResult['ok'] ?? false) ? ($secretResult['secret'] ?? []) : [];
+
+        $profile = trim((string) ($secret['profile'] ?? ''));
+        $comment = trim((string) ($secret['comment'] ?? ''));
+        $password = (string) ($secret['password'] ?? '');
+
+        $packageId = null;
+        if ($profile !== '') {
+            $packageId = SubscriptionPackage::query()
+                ->where('is_active', true)
+                ->where('mikrotik_profile', $profile)
+                ->orderBy('sort_order')
+                ->value('id');
+        }
+
+        $isolirProfile = null;
+        $profilesResult = $this->api->listPppProfiles($router);
+        $isolirProfiles = $profilesResult['isolir_profiles'] ?? [];
+        if (count($isolirProfiles) === 1) {
+            $isolirProfile = $isolirProfiles[0]['name'] ?? null;
+        }
+
+        return [
+            'from_session' => true,
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $packageId,
+            'name' => $comment !== '' ? $comment : $username,
+            'username' => $username,
+            'password' => $password,
+            'service_profile' => $profile !== '' ? $profile : null,
+            'start_date' => now()->toDateString(),
+            'billing_day' => AppSettings::int('app_default_billing_day', 1),
+            'overdue_action' => 'isolir',
+            'isolir_profile' => $isolirProfile,
+            'secret_found' => (bool) ($secretResult['ok'] ?? false),
+            'secret_message' => $secretResult['message'] ?? null,
+        ];
     }
 
     private function applyBillingCycle(

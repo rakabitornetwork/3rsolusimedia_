@@ -914,6 +914,48 @@ class MikrotikApiService
     }
 
     /**
+     * Ambil satu PPP secret (untuk prefill impor pelanggan).
+     *
+     * @return array{ok: bool, message?: string, secret?: array<string, mixed>}
+     */
+    public function getPppSecret(MikrotikRouter $router, string $username): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $existing = $client->query(
+                (new Query('/ppp/secret/print'))->where('name', $username)
+            )->read();
+
+            if (empty($existing[0])) {
+                return [
+                    'ok' => false,
+                    'message' => 'Secret PPPoE tidak ditemukan di RouterOS.',
+                ];
+            }
+
+            $row = $existing[0];
+
+            return [
+                'ok' => true,
+                'secret' => [
+                    'id' => $row['.id'] ?? '',
+                    'name' => $row['name'] ?? $username,
+                    'password' => $row['password'] ?? '',
+                    'profile' => $row['profile'] ?? null,
+                    'service' => $row['service'] ?? null,
+                    'comment' => $row['comment'] ?? null,
+                    'disabled' => ($row['disabled'] ?? 'false') === 'true',
+                ],
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+            ];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message?: string, sessions?: array<int, array<string, mixed>>}
      */
     public function listPppActiveSessions(MikrotikRouter $router): array

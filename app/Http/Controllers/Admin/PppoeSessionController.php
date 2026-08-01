@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
+use App\Models\SubscriptionPackage;
 use App\Services\MikrotikApiService;
+use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -79,6 +81,15 @@ class PppoeSessionController extends Controller
             });
         }
 
+        $isolirProfiles = [];
+        if ($selectedRouterId) {
+            $router = MikrotikRouter::query()->find($selectedRouterId);
+            if ($router) {
+                $profilesResult = $this->api->listPppProfiles($router);
+                $isolirProfiles = $profilesResult['isolir_profiles'] ?? [];
+            }
+        }
+
         return Inertia::render('Admin/Customers/Pppoe/Sessions', [
             'routers' => $routers->values(),
             'selected_router_id' => $selectedRouterId,
@@ -88,6 +99,19 @@ class PppoeSessionController extends Controller
             ],
             'stats' => $stats,
             'error' => $error,
+            'packages' => SubscriptionPackage::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('price')
+                ->get()
+                ->map(fn (SubscriptionPackage $package) => $package->toOptionArray())
+                ->values(),
+            'isolir_profiles' => $isolirProfiles,
+            'defaults' => [
+                'billing_day' => AppSettings::int('app_default_billing_day', 1),
+                'start_date' => now()->toDateString(),
+                'overdue_action' => 'isolir',
+            ],
         ]);
     }
 

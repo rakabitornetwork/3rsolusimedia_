@@ -18,6 +18,7 @@ function todayIso() {
 
 export default function Form({
     customer,
+    prefill = null,
     routers,
     packages,
     profiles: initialProfiles,
@@ -26,6 +27,7 @@ export default function Form({
     billing_days: billingDaysProp,
 }) {
     const editing = Boolean(customer);
+    const fromSession = Boolean(prefill?.from_session) && !editing;
     const billingDays = billingDaysProp?.length ? billingDaysProp : billingDayOptions;
     const [profiles, setProfiles] = useState(initialProfiles || []);
     const [isolirProfiles, setIsolirProfiles] = useState(initialIsolirProfiles || []);
@@ -33,21 +35,26 @@ export default function Form({
     const [profileError, setProfileError] = useState('');
 
     const { data, setData, post, put, processing, errors } = useForm({
-        mikrotik_router_id: customer?.mikrotik_router_id || routers[0]?.id || '',
-        subscription_package_id: customer?.subscription_package_id || '',
-        name: customer?.name || '',
+        mikrotik_router_id:
+            customer?.mikrotik_router_id ||
+            prefill?.mikrotik_router_id ||
+            routers[0]?.id ||
+            '',
+        subscription_package_id:
+            customer?.subscription_package_id || prefill?.subscription_package_id || '',
+        name: customer?.name || prefill?.name || '',
         phone: customer?.phone || '',
         address: customer?.address || '',
         latitude: customer?.latitude ?? '',
         longitude: customer?.longitude ?? '',
-        username: customer?.username || '',
-        password: '',
-        service_profile: customer?.service_profile || '',
-        start_date: customer?.start_date || todayIso(),
-        billing_day: customer?.billing_day || 10,
-        overdue_action: customer?.overdue_action || 'isolir',
-        isolir_profile: customer?.isolir_profile || '',
-        notes: customer?.notes || '',
+        username: customer?.username || prefill?.username || '',
+        password: prefill?.password || '',
+        service_profile: customer?.service_profile || prefill?.service_profile || '',
+        start_date: customer?.start_date || prefill?.start_date || todayIso(),
+        billing_day: customer?.billing_day || prefill?.billing_day || 10,
+        overdue_action: customer?.overdue_action || prefill?.overdue_action || 'isolir',
+        isolir_profile: customer?.isolir_profile || prefill?.isolir_profile || '',
+        notes: customer?.notes || (fromSession ? 'Diimpor dari sesi aktif PPPoE' : ''),
         is_active: customer?.is_active ?? true,
     });
 
@@ -145,6 +152,16 @@ export default function Form({
             subtitle="Jatuh tempo tetap tiap bulan + tagihan pertama prorata"
         >
             <Head title={editing ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'} />
+
+            {fromSession && (
+                <div className="mb-4 border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                    Data diisi dari sesi aktif
+                    {prefill?.secret_found
+                        ? ' + secret MikroTik (password & profil ikut terisi).'
+                        : ' (secret belum terbaca — isi password & paket manual).'}{' '}
+                    Lengkapi paket/billing bila perlu, lalu simpan.
+                </div>
+            )}
 
             <form
                 onSubmit={submit}
