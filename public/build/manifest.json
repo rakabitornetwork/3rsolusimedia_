@@ -166,7 +166,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-D9rJo7T_.css",
+    "file": "assets/app-37YPWr1Y.css",
     "name": "app",
     "names": [
       "app.css"
@@ -491,7 +491,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Show.jsx": {
-    "file": "assets/Show-DGGi9-Pp.js",
+    "file": "assets/Show-w8YrgnTJ.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Show.jsx",
     "isDynamicEntry": true,
@@ -726,7 +726,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Qb9xMTuu.js",
+    "file": "assets/app-C0AtWNWe.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -773,7 +773,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-D9rJo7T_.css"
+      "assets/app-37YPWr1Y.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
