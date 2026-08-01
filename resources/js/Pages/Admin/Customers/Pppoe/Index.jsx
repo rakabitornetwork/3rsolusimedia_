@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
     AlertTriangle,
@@ -8,6 +8,7 @@ import {
     Trash2,
     Users,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 
 function StatCard({ label, value, icon: Icon, tone }) {
@@ -53,8 +54,23 @@ function StatusBadge({ status, overdue }) {
 }
 
 export default function Index({ customers, filters, routers, stats }) {
+    const { auth } = usePage().props;
+    const canWrite = auth?.user?.can_write !== false;
+    const [selected, setSelected] = useState([]);
+    const [showBulkDelete, setShowBulkDelete] = useState(false);
+    const [removeSecret, setRemoveSecret] = useState(false);
+    const [processing, setProcessing] = useState(false);
+
+    const pageIds = useMemo(
+        () => (customers?.data || []).map((item) => item.id),
+        [customers],
+    );
+    const allPageSelected =
+        pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
     const applyFilters = (key, value) => {
+        setSelected([]);
+        setShowBulkDelete(false);
         router.get(
             '/admin/customers/pppoe',
             { ...filters, [key]: value },
@@ -62,13 +78,62 @@ export default function Index({ customers, filters, routers, stats }) {
         );
     };
 
-    const remove = (id, name) => {
-        if (!window.confirm(`Hapus pelanggan "${name}"?`)) return;
-        router.delete(`/admin/customers/pppoe/${id}`);
+    const toggleOne = (id) => {
+        setSelected((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+        );
+    };
+
+    const togglePage = () => {
+        if (allPageSelected) {
+            setSelected((prev) => prev.filter((id) => !pageIds.includes(id)));
+            return;
+        }
+        setSelected((prev) => [...new Set([...prev, ...pageIds])]);
+    };
+
+    const remove = (id) => {
+        if (!canWrite) return;
+        setSelected([id]);
+        setRemoveSecret(false);
+        setShowBulkDelete(true);
     };
 
     const sync = (id) => {
         router.post(`/admin/customers/pppoe/${id}/sync`);
+    };
+
+    const submitBulkDelete = () => {
+        if (!canWrite || selected.length === 0) return;
+
+        const scope = removeSecret
+            ? 'data di aplikasi DAN secret di RouterOS'
+            : 'data di aplikasi saja (secret RouterOS tetap ada)';
+
+        if (
+            !window.confirm(
+                `Hapus ${selected.length} pelanggan (${scope})?\n\nTagihan terkait juga ikut terhapus. Tindakan ini tidak bisa dibatalkan.`,
+            )
+        ) {
+            return;
+        }
+
+        setProcessing(true);
+        router.post(
+            '/admin/customers/pppoe/bulk-destroy',
+            {
+                ids: selected,
+                remove_secret: removeSecret,
+            },
+            {
+                onFinish: () => {
+                    setProcessing(false);
+                    setSelected([]);
+                    setShowBulkDelete(false);
+                    setRemoveSecret(false);
+                },
+            },
+        );
     };
 
     return (
@@ -141,6 +206,16 @@ export default function Index({ customers, filters, routers, stats }) {
                 </div>
 
                 <div className="admin-toolbar-actions">
+                    {canWrite && selected.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowBulkDelete((v) => !v)}
+                            className="border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        >
+                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                            Hapus masal ({selected.length})
+                        </button>
+                    )}
                     <Link
                         href="/admin/customers/pppoe/create"
                         className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
@@ -151,10 +226,107 @@ export default function Index({ customers, filters, routers, stats }) {
                 </div>
             </div>
 
+            {showBulkDelete && selected.length > 0 && canWrite && (
+                <div className="mb-4 space-y-3 border border-rose-200 bg-white p-4 sm:p-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            Hapus {selected.length} pelanggan terpilih
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Pilih cakupan penghapusan. Tagihan terkait pelanggan ikut terhapus.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                !removeSecret
+                                    ? 'border-sky-300 bg-sky-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_delete_mode"
+                                checked={!removeSecret}
+                                onChange={() => setRemoveSecret(false)}
+                                className="mt-0.5 accent-sky-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Hanya di aplikasi
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Data pelanggan & tagihan di app dihapus. Secret PPPoE di
+                                    RouterOS tetap ada.
+                                </span>
+                            </span>
+                        </label>
+
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                removeSecret
+                                    ? 'border-rose-300 bg-rose-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_delete_mode"
+                                checked={removeSecret}
+                                onChange={() => setRemoveSecret(true)}
+                                className="mt-0.5 accent-rose-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Aplikasi + secret RouterOS
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Hapus data app dan secret `/ppp/secret` di router. Pelanggan
+                                    tidak bisa login lagi.
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={submitBulkDelete}
+                            disabled={processing}
+                            className="bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                        >
+                            {processing ? 'Menghapus...' : 'Konfirmasi hapus'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowBulkDelete(false);
+                                setRemoveSecret(false);
+                            }}
+                            className="border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist"
+                        >
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="admin-data-scroll border border-ink/10 bg-white">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
+                            <th className="px-3 py-3 font-semibold">
+                                {canWrite && (
+                                    <input
+                                        type="checkbox"
+                                        checked={allPageSelected}
+                                        onChange={togglePage}
+                                        className="accent-signal-deep"
+                                        title="Pilih semua di halaman ini"
+                                    />
+                                )}
+                            </th>
                             <th className="px-4 py-3 font-semibold">Pelanggan</th>
                             <th className="px-4 py-3 font-semibold">Username</th>
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">Paket</th>
@@ -170,6 +342,16 @@ export default function Index({ customers, filters, routers, stats }) {
                     <tbody>
                         {customers.data.map((customer) => (
                             <tr key={customer.id} className="border-b border-ink/5 last:border-0">
+                                <td className="px-3 py-3">
+                                    {canWrite && (
+                                        <input
+                                            type="checkbox"
+                                            checked={selected.includes(customer.id)}
+                                            onChange={() => toggleOne(customer.id)}
+                                            className="accent-signal-deep"
+                                        />
+                                    )}
+                                </td>
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{customer.name}</p>
                                     <p className="text-xs text-ink-soft">
@@ -222,21 +404,23 @@ export default function Index({ customers, filters, routers, stats }) {
                                         >
                                             Edit
                                         </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => remove(customer.id, customer.name)}
-                                            className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            Hapus
-                                        </button>
+                                        {canWrite && (
+                                            <button
+                                                type="button"
+                                                onClick={() => remove(customer.id)}
+                                                className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                                Hapus
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
                         ))}
                         {customers.data.length === 0 && (
                             <tr>
-                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={9} className="px-4 py-10 text-center text-ink-soft">
                                     Belum ada pelanggan PPPoE.
                                 </td>
                             </tr>

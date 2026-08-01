@@ -191,17 +191,76 @@ class PppoeCustomerController extends Controller
             );
     }
 
-    public function destroy(PppoeCustomer $pppoe): RedirectResponse
+    public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
-        if ($pppoe->router) {
-            $this->api->removePppSecret($pppoe->router, $pppoe->username);
+        $removeSecret = $request->boolean('remove_secret');
+        $secretNote = '';
+
+        if ($removeSecret && $pppoe->router) {
+            $result = $this->api->removePppSecret($pppoe->router, $pppoe->username);
+            $secretNote = ($result['ok'] ?? false)
+                ? ' Secret RouterOS juga dihapus.'
+                : ' Data app terhapus, tetapi secret RouterOS gagal dihapus: '.($result['message'] ?? 'unknown');
         }
 
         $pppoe->delete();
 
         return redirect()
             ->route('admin.customers.pppoe')
-            ->with('success', 'Pelanggan PPPoE berhasil dihapus.');
+            ->with(
+                'success',
+                'Pelanggan PPPoE berhasil dihapus.'.($removeSecret
+                    ? $secretNote
+                    : ' Secret di RouterOS dibiarkan.')
+            );
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:pppoe_customers,id'],
+            'remove_secret' => ['sometimes', 'boolean'],
+        ]);
+
+        $removeSecret = $request->boolean('remove_secret');
+        $customers = PppoeCustomer::query()
+            ->with('router')
+            ->whereIn('id', $validated['ids'])
+            ->get();
+
+        $deleted = 0;
+        $secretRemoved = 0;
+        $secretFailed = 0;
+
+        foreach ($customers as $customer) {
+            if ($removeSecret && $customer->router) {
+                $result = $this->api->removePppSecret($customer->router, $customer->username);
+                if ($result['ok'] ?? false) {
+                    $secretRemoved++;
+                } else {
+                    $secretFailed++;
+                }
+            }
+
+            $customer->delete();
+            $deleted++;
+        }
+
+        $message = "{$deleted} pelanggan PPPoE dihapus dari aplikasi.";
+        if ($removeSecret) {
+            $message .= " Secret RouterOS: {$secretRemoved} berhasil dihapus";
+            if ($secretFailed > 0) {
+                $message .= ", {$secretFailed} gagal";
+            }
+            $message .= '.';
+        } else {
+            $message .= ' Secret di RouterOS dibiarkan.';
+        }
+
+        return redirect()
+            ->route('admin.customers.pppoe')
+            ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
     public function sync(PppoeCustomer $pppoe): RedirectResponse
