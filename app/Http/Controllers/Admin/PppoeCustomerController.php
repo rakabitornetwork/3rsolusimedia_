@@ -30,25 +30,53 @@ class PppoeCustomerController extends Controller
 
     public function index(Request $request): Response
     {
+        $sort = (string) $request->get('sort', 'name');
+        $direction = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        $allowedSorts = [
+            'name' => 'pppoe_customers.name',
+            'username' => 'pppoe_customers.username',
+            'package' => 'subscription_packages.name',
+            'due_date' => 'pppoe_customers.due_date',
+            'overdue_action' => 'pppoe_customers.overdue_action',
+            'status' => 'pppoe_customers.status',
+        ];
+
+        if (! array_key_exists($sort, $allowedSorts)) {
+            $sort = 'name';
+        }
+
         $query = PppoeCustomer::query()
             ->with(['router', 'package'])
-            ->latest();
+            ->select('pppoe_customers.*');
+
+        if ($sort === 'package') {
+            $query->leftJoin(
+                'subscription_packages',
+                'subscription_packages.id',
+                '=',
+                'pppoe_customers.subscription_package_id'
+            );
+        }
 
         if ($search = trim((string) $request->get('q', ''))) {
             $query->where(function ($builder) use ($search) {
-                $builder->where('name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
+                $builder->where('pppoe_customers.name', 'like', "%{$search}%")
+                    ->orWhere('pppoe_customers.username', 'like', "%{$search}%")
+                    ->orWhere('pppoe_customers.phone', 'like', "%{$search}%");
             });
         }
 
         if ($status = $request->get('status')) {
-            $query->where('status', $status);
+            $query->where('pppoe_customers.status', $status);
         }
 
         if ($routerId = $request->get('router_id')) {
-            $query->where('mikrotik_router_id', $routerId);
+            $query->where('pppoe_customers.mikrotik_router_id', $routerId);
         }
+
+        $query->orderBy($allowedSorts[$sort], $direction)
+            ->orderBy('pppoe_customers.id', $direction);
 
         $customers = $query->paginate(15)->withQueryString()->through(
             fn (PppoeCustomer $customer) => $customer->toSafeArray()
@@ -60,6 +88,8 @@ class PppoeCustomerController extends Controller
                 'q' => $request->get('q', ''),
                 'status' => $request->get('status', ''),
                 'router_id' => $request->get('router_id', ''),
+                'sort' => $sort,
+                'direction' => $direction,
             ],
             'routers' => MikrotikRouter::query()
                 ->where('is_active', true)

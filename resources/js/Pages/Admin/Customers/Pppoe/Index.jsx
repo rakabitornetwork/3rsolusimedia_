@@ -2,6 +2,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Activity,
     AlertTriangle,
+    ChevronDown,
+    ChevronUp,
     Plus,
     RefreshCw,
     ShieldOff,
@@ -10,6 +12,44 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+
+function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
+    const active = sort === column;
+
+    return (
+        <th className={`px-4 py-3 font-semibold ${className}`}>
+            <span className="inline-flex items-center gap-1.5">
+                <span>{label}</span>
+                <span className="inline-flex flex-col -space-y-1">
+                    <button
+                        type="button"
+                        onClick={() => onSort(column, 'asc')}
+                        title={`Urutkan ${label} A → Z`}
+                        className={`leading-none ${
+                            active && direction === 'asc'
+                                ? 'text-signal-deep'
+                                : 'text-ink-soft/40 hover:text-ink-soft'
+                        }`}
+                    >
+                        <ChevronUp className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onSort(column, 'desc')}
+                        title={`Urutkan ${label} Z → A`}
+                        className={`leading-none ${
+                            active && direction === 'desc'
+                                ? 'text-signal-deep'
+                                : 'text-ink-soft/40 hover:text-ink-soft'
+                        }`}
+                    >
+                        <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                </span>
+            </span>
+        </th>
+    );
+}
 
 function StatCard({ label, value, icon: Icon, tone }) {
     return (
@@ -73,7 +113,22 @@ export default function Index({ customers, filters, routers, stats }) {
         setShowBulkDelete(false);
         router.get(
             '/admin/customers/pppoe',
-            { ...filters, [key]: value },
+            { ...filters, [key]: value, page: 1 },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    const applySort = (column, direction) => {
+        setSelected([]);
+        setShowBulkDelete(false);
+        router.get(
+            '/admin/customers/pppoe',
+            {
+                ...filters,
+                sort: column,
+                direction,
+                page: 1,
+            },
             { preserveState: true, replace: true },
         );
     };
@@ -327,15 +382,52 @@ export default function Index({ customers, filters, routers, stats }) {
                                     />
                                 )}
                             </th>
-                            <th className="px-4 py-3 font-semibold">Pelanggan</th>
-                            <th className="px-4 py-3 font-semibold">Username</th>
-                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">Paket</th>
-                            <th className="px-4 py-3 font-semibold">Jatuh Tempo</th>
+                            <SortableHeader
+                                label="Pelanggan"
+                                column="name"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Username"
+                                column="username"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Paket"
+                                column="package"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                                className="hidden lg:table-cell"
+                            />
+                            <SortableHeader
+                                label="Jatuh Tempo"
+                                column="due_date"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
                             <th className="hidden px-4 py-3 font-semibold xl:table-cell">
                                 Tagihan Awal
                             </th>
-                            <th className="px-4 py-3 font-semibold">Aksi Tempo</th>
-                            <th className="px-4 py-3 font-semibold">Status</th>
+                            <SortableHeader
+                                label="Aksi Tempo"
+                                column="overdue_action"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Status"
+                                column="status"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
