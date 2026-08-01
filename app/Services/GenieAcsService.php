@@ -81,7 +81,7 @@ class GenieAcsService
 
         $query = [];
         if ($search) {
-            $query = [
+                $query = [
                 '$or' => [
                     ['_id' => ['$regex' => $search, '$options' => 'i']],
                     ['_tags' => $search],
@@ -92,6 +92,7 @@ class GenieAcsService
                     ['Device.DeviceInfo.SerialNumber._value' => ['$regex' => $search, '$options' => 'i']],
                     ['InternetGatewayDevice.DeviceInfo.Manufacturer._value' => ['$regex' => $search, '$options' => 'i']],
                     ['Device.DeviceInfo.Manufacturer._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID._value' => ['$regex' => $search, '$options' => 'i']],
                 ],
             ];
         }
@@ -105,16 +106,30 @@ class GenieAcsService
                     '_lastInform',
                     '_tags',
                     '_deviceId',
+                    'VirtualParameters.gettemp',
+                    'VirtualParameters.RXPower',
+                    'VirtualParameters.WlanPassword',
                     'InternetGatewayDevice.DeviceInfo.Manufacturer',
                     'InternetGatewayDevice.DeviceInfo.ModelName',
                     'InternetGatewayDevice.DeviceInfo.SerialNumber',
                     'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
                     'InternetGatewayDevice.DeviceInfo.HardwareVersion',
+                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+                    'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.Temperature',
+                    'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower',
+                    'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TransceiverTemperature',
+                    'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.RXPower',
+                    'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TransceiverTemperature',
+                    'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.RXPower',
                     'Device.DeviceInfo.Manufacturer',
                     'Device.DeviceInfo.ModelName',
                     'Device.DeviceInfo.SerialNumber',
                     'Device.DeviceInfo.SoftwareVersion',
                     'Device.DeviceInfo.HardwareVersion',
+                    'Device.WiFi.SSID.1.SSID',
+                    'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
                 ]),
             ];
 
@@ -291,6 +306,33 @@ class GenieAcsService
         }
     }
 
+    /**
+     * Hitung perangkat online dari _lastInform (projection ringan).
+     */
+    public function countOnlineDevices(int $limit = 500): int
+    {
+        if (! $this->isConfigured()) {
+            return 0;
+        }
+
+        try {
+            $response = $this->client()->timeout(20)->get('/devices/', [
+                'limit' => max(1, min(1000, $limit)),
+                'projection' => '_lastInform',
+            ]);
+
+            if (! $response->successful()) {
+                return 0;
+            }
+
+            return collect($response->json() ?: [])
+                ->filter(fn ($device) => is_array($device) && $this->isRecentlyInformed($device['_lastInform'] ?? null))
+                ->count();
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
     private function client(): PendingRequest
     {
         $base = rtrim((string) AppSettings::get('genieacs_nbi_url', ''), '/');
@@ -320,6 +362,10 @@ class GenieAcsService
     {
         $lastInform = $device['_lastInform'] ?? null;
         $deviceId = is_array($device['_deviceId'] ?? null) ? $device['_deviceId'] : [];
+        $temperature = $this->extractTemperature($device);
+        $rxPower = $this->extractRxPower($device);
+        $ssid = $this->extractSsid($device);
+        $ssidPassword = $this->extractSsidPassword($device);
 
         return [
             'id' => (string) ($device['_id'] ?? ''),
@@ -343,6 +389,12 @@ class GenieAcsService
                 'InternetGatewayDevice.DeviceInfo.HardwareVersion',
                 'Device.DeviceInfo.HardwareVersion',
             ]),
+            'temperature' => $temperature,
+            'temperature_label' => $temperature !== null ? $temperature.' °C' : '—',
+            'rx_power' => $rxPower,
+            'rx_power_label' => $rxPower !== null ? $rxPower.' dBm' : '—',
+            'ssid' => $ssid,
+            'ssid_password' => $ssidPassword,
             'tags' => $this->normalizeTags($device['_tags'] ?? []),
             'last_inform' => $lastInform,
             'last_inform_label' => $lastInform ? $this->formatDate($lastInform) : '—',
@@ -418,6 +470,94 @@ class GenieAcsService
         }
 
         return is_scalar($value) ? (string) $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractTemperature(array $device): ?float
+    {
+        $virtual = $this->firstParam($device, ['VirtualParameters.gettemp']);
+        if ($virtual !== null && is_numeric($virtual)) {
+            return round((float) $virtual, 1);
+        }
+
+        foreach ([
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.Temperature',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TransceiverTemperature',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TransceiverTemperature',
+        ] as $path) {
+            $raw = $this->paramValue($device, $path);
+            if ($raw === null || $raw === '' || ! is_numeric($raw)) {
+                continue;
+            }
+
+            $value = (float) $raw;
+            // Banyak ONT ZTE/CMCC menyimpan suhu sebagai nilai × 256.
+            if ($value > 200) {
+                $value = $value / 256;
+            }
+
+            return round($value, 1);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractRxPower(array $device): ?float
+    {
+        $virtual = $this->firstParam($device, ['VirtualParameters.RXPower']);
+        if ($virtual !== null && is_numeric($virtual)) {
+            return round((float) $virtual, 2);
+        }
+
+        foreach ([
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.RXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.RXPower',
+        ] as $path) {
+            $raw = $this->paramValue($device, $path);
+            if ($raw === null || $raw === '' || ! is_numeric($raw)) {
+                continue;
+            }
+
+            $value = (float) $raw;
+            // Nilai mentah optik vendor sering perlu dikonversi ke dBm.
+            if ($value > 0 && $value < 10000) {
+                $value = round(($value * 0.002) - 30, 2);
+            }
+
+            return round($value, 2);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractSsid(array $device): ?string
+    {
+        return $this->firstParam($device, [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+            'Device.WiFi.SSID.1.SSID',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractSsidPassword(array $device): ?string
+    {
+        return $this->firstParam($device, [
+            'VirtualParameters.WlanPassword',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ]);
     }
 
     /**

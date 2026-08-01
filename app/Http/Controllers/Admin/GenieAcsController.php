@@ -8,6 +8,7 @@ use App\Services\GenieAcsService;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,6 +21,12 @@ class GenieAcsController extends Controller
     public function index(Request $request): Response
     {
         $search = trim((string) $request->get('q', ''));
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = (int) $request->integer('per_page', 10);
+        if (! in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 10;
+        }
+
         $config = AppSettings::genieAcsConfig();
         $connection = $this->genie->isConfigured()
             ? $this->genie->testConnection()
@@ -27,12 +34,19 @@ class GenieAcsController extends Controller
 
         $devicesResult = ['ok' => true, 'devices' => [], 'total' => 0];
         $faults = ['ok' => true, 'count' => 0];
+        $onlineCount = 0;
 
         // Ambil daftar bila URL NBI terisi & koneksi OK (tidak bergantung flag "enabled"
         // yang sering terlewat karena panel pengaturan tersembunyi).
         if ($this->genie->isConfigured() && ($connection['ok'] ?? false)) {
-            $devicesResult = $this->genie->listDevices($search !== '' ? $search : null, 200);
+            $skip = ($page - 1) * $perPage;
+            $devicesResult = $this->genie->listDevices(
+                $search !== '' ? $search : null,
+                $perPage,
+                $skip
+            );
             $faults = $this->genie->countFaults();
+            $onlineCount = $this->genie->countOnlineDevices();
         } elseif ($this->genie->isConfigured() && ! ($connection['ok'] ?? false)) {
             $devicesResult = [
                 'ok' => false,
@@ -43,6 +57,18 @@ class GenieAcsController extends Controller
         }
 
         $listed = $devicesResult['devices'] ?? [];
+        $total = (int) ($devicesResult['total'] ?? count($listed));
+
+        $paginator = new LengthAwarePaginator(
+            $listed,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
 
         return Inertia::render('Admin/Network/GenieAcs/Index', [
             'config' => [
@@ -51,15 +77,16 @@ class GenieAcsController extends Controller
                 'api_key' => '',
             ],
             'connection' => $connection,
-            'devices' => $listed,
+            'devices' => $paginator,
             'devices_error' => ($devicesResult['ok'] ?? false) ? null : ($devicesResult['message'] ?? 'Gagal memuat perangkat.'),
             'stats' => [
-                'devices' => $devicesResult['total'] ?? count($listed),
-                'online' => collect($listed)->where('online', true)->count(),
+                'devices' => $total,
+                'online' => $onlineCount,
                 'faults' => $faults['count'] ?? 0,
             ],
             'filters' => [
                 'q' => $search,
+                'per_page' => $perPage,
             ],
         ]);
     }
