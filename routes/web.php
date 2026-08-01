@@ -64,6 +64,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/network/genieacs/devices/{device}/summon', [GenieAcsController::class, 'summon'])
         ->where('device', '.*')
         ->name('network.genieacs.summon');
+    Route::post('/network/genieacs/devices/{device}/wifi', [GenieAcsController::class, 'updateWifi'])
+        ->where('device', '.*')
+        ->name('network.genieacs.wifi');
 
     Route::get('/network/hotspot', [HotspotVoucherController::class, 'index'])->name('network.hotspot');
     Route::get('/network/hotspot/generate', [HotspotVoucherController::class, 'create'])->name('network.hotspot.generate');

@@ -13,6 +13,7 @@ import {
     ShieldAlert,
     Signal,
     Thermometer,
+    Users,
     Wifi,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -433,6 +434,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                             <th className="px-4 py-3 font-semibold">RX Power</th>
                             <th className="px-4 py-3 font-semibold">SSID</th>
                             <th className="px-4 py-3 font-semibold">Password SSID</th>
+                            <th className="px-4 py-3 font-semibold">Klien</th>
                             <th className="px-4 py-3 font-semibold">Inform</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
@@ -483,6 +485,12 @@ export default function Index({ config, connection, devices, devices_error, stat
                                     <td className="px-4 py-3">
                                         <SsidPasswordCell password={item.ssid_password} />
                                     </td>
+                                    <td className="px-4 py-3">
+                                        <span className="inline-flex items-center gap-1.5 bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-800">
+                                            <Users className="h-3.5 w-3.5 text-teal-600" />
+                                            {item.connected_count ?? 0}
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-3 text-ink-soft">{item.last_inform_label}</td>
                                     <td className="px-4 py-3">
                                         <MetricPill
@@ -521,7 +529,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                         })}
                         {rows.length === 0 && (
                             <tr>
-                                <td colSpan={9} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
                                     {connection?.ok
                                         ? 'Belum ada perangkat yang cocok, atau GenieACS belum menerima inform.'
                                         : 'Atur URL NBI GenieACS (port 7557) di Pengaturan koneksi, lalu Tes koneksi.'}

@@ -162,4 +162,36 @@ class GenieAcsController extends Controller
             $result['message']
         );
     }
+
+    public function updateWifi(Request $request, string $device): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ssid' => ['nullable', 'string', 'max:32'],
+            'password' => ['nullable', 'string', 'max:63'],
+        ]);
+
+        $ssid = trim((string) ($validated['ssid'] ?? ''));
+        $password = (string) ($validated['password'] ?? '');
+
+        if ($ssid === '' && $password === '') {
+            return back()->with('error', 'Isi SSID dan/atau password baru.');
+        }
+
+        if ($password !== '' && strlen($password) < 8) {
+            return back()
+                ->withErrors(['password' => 'Password WiFi minimal 8 karakter.'])
+                ->withInput();
+        }
+
+        $result = $this->genie->updateWifi(
+            $device,
+            $ssid !== '' ? $ssid : null,
+            $password !== '' ? $password : null,
+        );
+
+        return back()->with(
+            $result['ok'] ? 'success' : 'error',
+            $result['message']
+        );
+    }
 }

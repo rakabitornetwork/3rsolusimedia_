@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     Activity,
     ArrowLeft,
@@ -6,11 +6,15 @@ import {
     ExternalLink,
     Hash,
     KeyRound,
+    Laptop,
     Radio,
     RefreshCw,
+    Save,
     ServerCrash,
     Signal,
+    Smartphone,
     Thermometer,
+    Users,
     Wifi,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -20,6 +24,9 @@ import {
     rxPowerTone,
     temperatureTone,
 } from '../../../../Utils/genieacsMetrics';
+
+const fieldClass =
+    'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal disabled:bg-mist';
 
 function Row({ label, value, icon: Icon, iconClass = 'text-ink-soft' }) {
     return (
@@ -54,6 +61,23 @@ function MetricCard({ label, value, icon: Icon, tone, hint }) {
     );
 }
 
+function clientIcon(name = '') {
+    const lower = name.toLowerCase();
+    if (
+        lower.includes('iphone') ||
+        lower.includes('android') ||
+        lower.includes('redmi') ||
+        lower.includes('xiaomi') ||
+        lower.includes('oppo') ||
+        lower.includes('vivo') ||
+        lower.includes('samsung')
+    ) {
+        return Smartphone;
+    }
+
+    return Laptop;
+}
+
 export default function Show({ device, ui_url }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
@@ -63,6 +87,13 @@ export default function Show({ device, ui_url }) {
     const status = onlineTone(device.online);
     const temp = temperatureTone(device.temperature);
     const rx = rxPowerTone(device.rx_power);
+    const clients = device.connected_clients || [];
+    const connectedCount = device.connected_count ?? clients.length;
+
+    const wifiForm = useForm({
+        ssid: device.ssid || '',
+        password: '',
+    });
 
     const summon = () => {
         if (summoning) return;
@@ -72,6 +103,16 @@ export default function Show({ device, ui_url }) {
             {},
             { onFinish: () => setSummoning(false) },
         );
+    };
+
+    const saveWifi = (e) => {
+        e.preventDefault();
+        if (!canWrite) return;
+
+        wifiForm.post(`/admin/network/genieacs/devices/${encodeURIComponent(device.id)}/wifi`, {
+            preserveScroll: true,
+            onSuccess: () => wifiForm.setData('password', ''),
+        });
     };
 
     return (
@@ -128,6 +169,10 @@ export default function Show({ device, ui_url }) {
                     )}
                     {device.online ? 'Online' : 'Offline'}
                 </span>
+                <span className="inline-flex items-center gap-1.5 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800">
+                    <Users className="h-3.5 w-3.5 text-sky-600" />
+                    {connectedCount} perangkat terhubung
+                </span>
                 {(device.tags || []).map((tag) => (
                     <span
                         key={tag}
@@ -165,32 +210,177 @@ export default function Show({ device, ui_url }) {
                     }}
                 />
                 <MetricCard
-                    label="Password SSID"
-                    value={
-                        device.ssid_password
-                            ? showPassword
-                                ? device.ssid_password
-                                : '••••••••'
-                            : '—'
-                    }
-                    icon={KeyRound}
+                    label="Klien terhubung"
+                    value={String(connectedCount)}
+                    icon={Users}
                     tone={{
-                        text: device.ssid_password ? 'text-violet-800' : 'text-ink-soft',
-                        card: 'border-violet-200 bg-violet-50/70',
-                        accent: 'from-violet-400 to-fuchsia-600',
+                        text: connectedCount > 0 ? 'text-teal-800' : 'text-ink-soft',
+                        card: 'border-teal-200 bg-teal-50/70',
+                        accent: 'from-teal-400 to-emerald-600',
                     }}
-                    hint={
-                        device.ssid_password ? (
+                    hint="WiFi / LAN aktif"
+                />
+            </div>
+
+            {canWrite && (
+                <form
+                    onSubmit={saveWifi}
+                    className="mb-4 space-y-4 border border-sky-200 bg-white p-5 sm:p-6"
+                >
+                    <div className="flex items-start gap-3">
+                        <span className="inline-flex h-9 w-9 items-center justify-center bg-gradient-to-br from-sky-400 to-cyan-600 text-white">
+                            <Wifi className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <h2 className="text-sm font-semibold text-ink">Ubah SSID & Password</h2>
+                            <p className="mt-0.5 text-xs text-ink-soft">
+                                Perubahan dikirim ke ONT melalui GenieACS (connection request). Kosongkan
+                                password jika hanya ingin mengganti nama SSID.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Nama SSID
+                            <input
+                                type="text"
+                                value={wifiForm.data.ssid}
+                                onChange={(e) => wifiForm.setData('ssid', e.target.value)}
+                                className={fieldClass}
+                                maxLength={32}
+                                placeholder={device.ssid || 'Nama WiFi'}
+                            />
+                            {wifiForm.errors.ssid && (
+                                <span className="mt-1 block text-xs text-rose-600">
+                                    {wifiForm.errors.ssid}
+                                </span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Password SSID baru
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                value={wifiForm.data.password}
+                                onChange={(e) => wifiForm.setData('password', e.target.value)}
+                                className={fieldClass}
+                                minLength={8}
+                                maxLength={63}
+                                placeholder="Minimal 8 karakter (opsional)"
+                                autoComplete="new-password"
+                            />
+                            {wifiForm.errors.password && (
+                                <span className="mt-1 block text-xs text-rose-600">
+                                    {wifiForm.errors.password}
+                                </span>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => setShowPassword((v) => !v)}
-                                className="font-semibold text-violet-700 hover:text-violet-900"
+                                className="mt-1.5 text-xs font-semibold text-sky-700 hover:text-ink"
                             >
-                                {showPassword ? 'Sembunyikan' : 'Tampilkan'}
+                                {showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                             </button>
-                        ) : null
-                    }
-                />
+                        </label>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        <button
+                            type="submit"
+                            disabled={wifiForm.processing}
+                            className="inline-flex items-center gap-2 bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                        >
+                            <Save className="h-4 w-4" />
+                            {wifiForm.processing ? 'Mengirim...' : 'Simpan ke ONT'}
+                        </button>
+                        <p className="text-xs text-ink-soft">
+                            Password saat ini:{' '}
+                            <span className="font-mono text-ink">
+                                {device.ssid_password || '—'}
+                            </span>
+                        </p>
+                    </div>
+                </form>
+            )}
+
+            <div className="mb-4 border border-ink/10 bg-white p-5 sm:p-6">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <span className="inline-flex h-8 w-8 items-center justify-center bg-gradient-to-br from-teal-400 to-emerald-600 text-white">
+                            <Users className="h-4 w-4" />
+                        </span>
+                        <div>
+                            <h2 className="text-sm font-semibold text-ink">Perangkat terhubung</h2>
+                            <p className="text-xs text-ink-soft">
+                                {connectedCount} perangkat · data dari AssociatedDevice / Hosts GenieACS
+                            </p>
+                        </div>
+                    </div>
+                    {canWrite && (
+                        <button
+                            type="button"
+                            onClick={summon}
+                            disabled={summoning}
+                            className="inline-flex items-center gap-1.5 border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 disabled:opacity-60"
+                        >
+                            <RefreshCw className={`h-3.5 w-3.5 ${summoning ? 'animate-spin' : ''}`} />
+                            Refresh klien
+                        </button>
+                    )}
+                </div>
+
+                <div className="admin-data-scroll border border-ink/10">
+                    <table className="w-full text-left text-sm">
+                        <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
+                            <tr>
+                                <th className="px-4 py-3 font-semibold">Nama perangkat</th>
+                                <th className="px-4 py-3 font-semibold">IP</th>
+                                <th className="px-4 py-3 font-semibold">MAC</th>
+                                <th className="px-4 py-3 font-semibold">SSID / Interface</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {clients.map((client) => {
+                                const Icon = clientIcon(client.name || client.hostname || '');
+                                return (
+                                    <tr
+                                        key={`${client.mac}-${client.ip || ''}`}
+                                        className="border-b border-ink/5 last:border-0"
+                                    >
+                                        <td className="px-4 py-3">
+                                            <span className="inline-flex items-center gap-2 font-medium text-ink">
+                                                <Icon className="h-4 w-4 shrink-0 text-teal-600" />
+                                                {client.name || client.hostname || client.mac}
+                                            </span>
+                                            {client.hostname && client.name !== client.hostname && (
+                                                <p className="mt-0.5 pl-6 text-xs text-ink-soft">
+                                                    {client.hostname}
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono text-xs text-ink-soft">
+                                            {client.ip || '—'}
+                                        </td>
+                                        <td className="px-4 py-3 font-mono text-xs text-ink-soft">
+                                            {client.mac || '—'}
+                                        </td>
+                                        <td className="px-4 py-3 text-ink-soft">
+                                            {client.ssid || client.interface || '—'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {clients.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="px-4 py-10 text-center text-ink-soft">
+                                        Belum ada klien terdeteksi. Coba Summon / Refresh agar ONT
+                                        melaporkan AssociatedDevice & Hosts.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="border border-ink/10 bg-white p-5 sm:p-6">
@@ -239,43 +429,6 @@ export default function Show({ device, ui_url }) {
                         value={device.last_inform_label}
                         icon={Activity}
                         iconClass={status.icon}
-                    />
-                </dl>
-            </div>
-
-            <div className="mt-4 border border-ink/10 bg-white p-5 sm:p-6">
-                <div className="mb-2 flex items-center gap-2">
-                    <span className="inline-flex h-8 w-8 items-center justify-center bg-gradient-to-br from-teal-400 to-emerald-600 text-white">
-                        <Signal className="h-4 w-4" />
-                    </span>
-                    <h2 className="text-sm font-semibold text-ink">Optik & WiFi</h2>
-                </div>
-                <dl>
-                    <Row
-                        label="Suhu"
-                        value={
-                            <span className={`font-semibold ${temp.text}`}>
-                                {device.temperature_label || '—'}
-                            </span>
-                        }
-                        icon={Thermometer}
-                        iconClass={temp.icon}
-                    />
-                    <Row
-                        label="RX Power"
-                        value={
-                            <span className={`font-semibold ${rx.text}`}>
-                                {device.rx_power_label || '—'}
-                            </span>
-                        }
-                        icon={Signal}
-                        iconClass={rx.icon}
-                    />
-                    <Row
-                        label="SSID"
-                        value={device.ssid}
-                        icon={Wifi}
-                        iconClass="text-sky-600"
                     />
                     <Row
                         label="Password SSID"

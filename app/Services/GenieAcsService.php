@@ -109,6 +109,7 @@ class GenieAcsService
                     'VirtualParameters.gettemp',
                     'VirtualParameters.RXPower',
                     'VirtualParameters.WlanPassword',
+                    'VirtualParameters.activedevices',
                     'InternetGatewayDevice.DeviceInfo.Manufacturer',
                     'InternetGatewayDevice.DeviceInfo.ModelName',
                     'InternetGatewayDevice.DeviceInfo.SerialNumber',
@@ -271,6 +272,114 @@ class GenieAcsService
     }
 
     /**
+     * Ubah SSID dan/atau password WiFi (WLANConfiguration.1) via setParameterValues.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function updateWifi(string $deviceId, ?string $ssid = null, ?string $password = null): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'ok' => false,
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
+            ];
+        }
+
+        $ssid = $ssid !== null ? trim($ssid) : null;
+        $password = $password !== null ? trim($password) : null;
+
+        if (($ssid === null || $ssid === '') && ($password === null || $password === '')) {
+            return [
+                'ok' => false,
+                'message' => 'Isi SSID dan/atau password baru.',
+            ];
+        }
+
+        if ($ssid !== null && $ssid !== '' && (strlen($ssid) < 1 || strlen($ssid) > 32)) {
+            return [
+                'ok' => false,
+                'message' => 'SSID harus 1–32 karakter.',
+            ];
+        }
+
+        if ($password !== null && $password !== '' && (strlen($password) < 8 || strlen($password) > 63)) {
+            return [
+                'ok' => false,
+                'message' => 'Password WiFi harus 8–63 karakter.',
+            ];
+        }
+
+        $parameterValues = [];
+
+        if ($ssid !== null && $ssid !== '') {
+            $parameterValues[] = [
+                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+                $ssid,
+                'xsd:string',
+            ];
+        }
+
+        if ($password !== null && $password !== '') {
+            // Path yang dipakai mayoritas ONT ZTE/CMHI di jaringan ini.
+            $parameterValues[] = [
+                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+                $password,
+                'xsd:string',
+            ];
+        }
+
+        try {
+            $response = $this->client()
+                ->timeout(35)
+                ->withQueryParameters(['connection_request' => ''])
+                ->post('/devices/'.rawurlencode($deviceId).'/tasks', [
+                    'name' => 'setParameterValues',
+                    'parameterValues' => $parameterValues,
+                ]);
+
+            if (! in_array($response->status(), [200, 202], true)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Gagal mengubah WiFi (HTTP '.$response->status().'). '.$response->body(),
+                ];
+            }
+
+            // Refresh objek WLAN agar nilai baru terbaca di inform berikutnya.
+            try {
+                $this->client()
+                    ->timeout(20)
+                    ->withQueryParameters(['connection_request' => ''])
+                    ->post('/devices/'.rawurlencode($deviceId).'/tasks', [
+                        'name' => 'refreshObject',
+                        'objectName' => 'InternetGatewayDevice.LANDevice.1.WLANConfiguration',
+                    ]);
+            } catch (Throwable) {
+                // Non-fatal.
+            }
+
+            $parts = [];
+            if ($ssid !== null && $ssid !== '') {
+                $parts[] = 'SSID';
+            }
+            if ($password !== null && $password !== '') {
+                $parts[] = 'password';
+            }
+
+            return [
+                'ok' => true,
+                'message' => $response->status() === 200
+                    ? 'Berhasil mengubah '.implode(' & ', $parts).' WiFi pada perangkat.'
+                    : 'Perubahan '.implode(' & ', $parts).' WiFi diantrikan. Akan diterapkan saat perangkat merespons connection request / inform.',
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal mengubah WiFi: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message?: string, count?: int}
      */
     public function countFaults(): array
@@ -366,6 +475,7 @@ class GenieAcsService
         $rxPower = $this->extractRxPower($device);
         $ssid = $this->extractSsid($device);
         $ssidPassword = $this->extractSsidPassword($device);
+        $connectedCount = $this->extractConnectedCount($device);
 
         return [
             'id' => (string) ($device['_id'] ?? ''),
@@ -395,6 +505,7 @@ class GenieAcsService
             'rx_power_label' => $rxPower !== null ? $rxPower.' dBm' : '—',
             'ssid' => $ssid,
             'ssid_password' => $ssidPassword,
+            'connected_count' => $connectedCount,
             'tags' => $this->normalizeTags($device['_tags'] ?? []),
             'last_inform' => $lastInform,
             'last_inform_label' => $lastInform ? $this->formatDate($lastInform) : '—',
@@ -410,9 +521,12 @@ class GenieAcsService
     {
         $summary = $this->summarizeDevice($device);
         $deviceId = is_array($device['_deviceId'] ?? null) ? $device['_deviceId'] : [];
+        $clients = $this->extractConnectedClients($device);
 
         return [
             ...$summary,
+            'connected_count' => max((int) ($summary['connected_count'] ?? 0), count($clients)),
+            'connected_clients' => $clients,
             'product_class' => $this->firstParam($device, [
                 'InternetGatewayDevice.DeviceInfo.ProductClass',
                 'Device.DeviceInfo.ProductClass',
@@ -558,6 +672,148 @@ class GenieAcsService
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
             'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractConnectedCount(array $device): int
+    {
+        $virtual = $this->firstParam($device, ['VirtualParameters.activedevices']);
+        if ($virtual !== null && is_numeric($virtual)) {
+            return max(0, (int) $virtual);
+        }
+
+        return count($this->extractConnectedClients($device));
+    }
+
+    /**
+     * Daftar klien WiFi/LAN terhubung (AssociatedDevice + Hosts untuk nama).
+     *
+     * @param  array<string, mixed>  $device
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractConnectedClients(array $device): array
+    {
+        $hostsByMac = [];
+        $hostNode = data_get($device, 'InternetGatewayDevice.LANDevice.1.Hosts.Host');
+        if (is_array($hostNode)) {
+            foreach ($hostNode as $index => $host) {
+                if (! is_numeric((string) $index) || ! is_array($host)) {
+                    continue;
+                }
+
+                $mac = strtolower((string) ($this->nodeValue($host, 'MACAddress') ?? ''));
+                if ($mac === '') {
+                    continue;
+                }
+
+                $hostsByMac[$mac] = [
+                    'hostname' => $this->scalarOrNull($this->nodeValue($host, 'HostName')),
+                    'ip' => $this->scalarOrNull($this->nodeValue($host, 'IPAddress')),
+                    'active' => $this->truthy($this->nodeValue($host, 'Active')),
+                ];
+            }
+        }
+
+        $clients = [];
+        $seenMacs = [];
+        $wlanNode = data_get($device, 'InternetGatewayDevice.LANDevice.1.WLANConfiguration');
+        if (is_array($wlanNode)) {
+            foreach ($wlanNode as $wlanIndex => $wlan) {
+                if (! is_numeric((string) $wlanIndex) || ! is_array($wlan)) {
+                    continue;
+                }
+
+                $ssid = $this->scalarOrNull($this->nodeValue($wlan, 'SSID'));
+                $assoc = $wlan['AssociatedDevice'] ?? null;
+                if (! is_array($assoc)) {
+                    continue;
+                }
+
+                foreach ($assoc as $assocIndex => $client) {
+                    if (! is_numeric((string) $assocIndex) || ! is_array($client)) {
+                        continue;
+                    }
+
+                    $mac = strtolower((string) ($this->nodeValue($client, 'AssociatedDeviceMACAddress') ?? ''));
+                    if ($mac === '' || isset($seenMacs[$mac])) {
+                        continue;
+                    }
+
+                    $host = $hostsByMac[$mac] ?? null;
+                    $hostname = $this->scalarOrNull($this->nodeValue($client, 'X_CU_Hostname'))
+                        ?: $this->scalarOrNull($this->nodeValue($client, 'HostName'))
+                        ?: $this->scalarOrNull($this->nodeValue($client, 'AssociatedDeviceName'))
+                        ?: ($host['hostname'] ?? null);
+
+                    $ip = $this->scalarOrNull($this->nodeValue($client, 'AssociatedDeviceIPAddress'))
+                        ?: ($host['ip'] ?? null);
+
+                    $seenMacs[$mac] = true;
+                    $clients[] = [
+                        'name' => $hostname ?: strtoupper($mac),
+                        'hostname' => $hostname,
+                        'mac' => strtoupper($mac),
+                        'ip' => $ip,
+                        'ssid' => $ssid,
+                        'interface' => 'WiFi '.$wlanIndex,
+                    ];
+                }
+            }
+        }
+
+        // Fallback: host aktif di LAN jika AssociatedDevice kosong.
+        if ($clients === []) {
+            foreach ($hostsByMac as $mac => $host) {
+                if (($host['active'] ?? false) === false && ($host['ip'] ?? null) === null) {
+                    continue;
+                }
+
+                $clients[] = [
+                    'name' => $host['hostname'] ?: strtoupper($mac),
+                    'hostname' => $host['hostname'],
+                    'mac' => strtoupper($mac),
+                    'ip' => $host['ip'],
+                    'ssid' => null,
+                    'interface' => 'LAN/WiFi',
+                ];
+            }
+        }
+
+        usort($clients, static fn (array $a, array $b) => strcmp((string) $a['name'], (string) $b['name']));
+
+        return array_values($clients);
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     */
+    private function nodeValue(array $node, string $key): mixed
+    {
+        if (! array_key_exists($key, $node)) {
+            return null;
+        }
+
+        $value = $node[$key];
+        if (is_array($value) && array_key_exists('_value', $value)) {
+            return $value['_value'];
+        }
+
+        return is_scalar($value) ? $value : null;
+    }
+
+    private function truthy(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value === 1;
+        }
+
+        return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
     }
 
     /**
