@@ -230,7 +230,7 @@ export default function AdminLayout({ children, title, subtitle }) {
     const page = usePage();
     const pathname = String(page.url || '').split('?')[0];
     const user = page.props.auth?.user;
-    const companyName = page.props.app?.company_name || '3R Solusi Media';
+    const companyName = page.props.app?.company_name || 'Perusahaan';
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileVisible, setMobileVisible] = useState(false);
     const [collapsed, setCollapsed] = useState(false);

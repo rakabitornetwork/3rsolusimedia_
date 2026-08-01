@@ -108,7 +108,7 @@ function canWriteButtons(disabled) {
 export default function Settings({ settings, branding, timezones }) {
     const { auth, app } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
-    const companyName = app?.company_name || '3R Solusi Media';
+    const companyName = app?.company_name || 'Perusahaan';
 
     const [markPreview, setMarkPreview] = useState(branding?.logo_mark || '');
     const [fullPreview, setFullPreview] = useState(branding?.logo_full || '');

@@ -33,7 +33,7 @@ export default function HeroSection({ section, settings, whatsappUrl }) {
                         className="animate-rise font-hero mt-5 text-5xl leading-[1.05] font-normal tracking-[-0.02em] text-white sm:text-6xl lg:text-7xl"
                         style={{ animationDelay: '100ms' }}
                     >
-                        {settings.company_name || '3R Solusi Media'}
+                        {settings.company_name || 'Perusahaan'}
                     </h1>
                     <p
                         className="animate-rise mt-6 max-w-xl text-xl font-medium text-white/90 sm:text-2xl"

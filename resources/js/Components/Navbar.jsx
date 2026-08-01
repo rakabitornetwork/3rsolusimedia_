@@ -4,7 +4,7 @@ import Logo from '../Icons/Logo';
 
 export default function Navbar({ settings, whatsappUrl }) {
     const [open, setOpen] = useState(false);
-    const company = settings.company_name || '3R Solusi Media';
+    const company = settings.company_name || 'Perusahaan';
 
     const links = [
         { href: '#layanan', label: 'Layanan' },

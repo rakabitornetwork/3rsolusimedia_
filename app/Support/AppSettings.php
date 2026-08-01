@@ -75,9 +75,9 @@ class AppSettings
 
     public static function companyName(): string
     {
-        $name = trim((string) SiteSetting::getValue('company_name', '3R Solusi Media'));
+        $name = trim((string) SiteSetting::getValue('company_name', ''));
 
-        return $name !== '' ? $name : '3R Solusi Media';
+        return $name !== '' ? $name : 'Perusahaan';
     }
 
     public static function branding(): array

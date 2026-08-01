@@ -1,16 +1,17 @@
 import { ArrowUpRight } from 'lucide-react';
 import Reveal from '../Components/Reveal';
 
-export default function PricingSection({ section, whatsappUrl }) {
+export default function PricingSection({ section, whatsappUrl, settings = {} }) {
     if (!section) return null;
 
     const plans = section.content?.plans || [];
     const note = section.content?.note || null;
+    const company = settings.company_name || 'Perusahaan';
 
     const planUrl = (plan) => {
         if (plan.cta_url === 'whatsapp' || !plan.cta_url) {
             const text = encodeURIComponent(
-                `Halo 3R Solusi Media, saya tertarik dengan paket ${plan.name}.`,
+                `Halo ${company}, saya tertarik dengan paket ${plan.name}.`,
             );
             return `${whatsappUrl}?text=${text}`;
         }

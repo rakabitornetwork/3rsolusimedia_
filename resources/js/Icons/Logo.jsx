@@ -54,7 +54,7 @@ export default function Logo({
 }) {
     const page = usePage();
     const branding = page.props.app || {};
-    const label = alt || branding.company_name || '3R Solusi Media';
+    const label = alt || branding.company_name || 'Perusahaan';
     const imageSrc =
         src || (markOnly ? branding.logo_mark : branding.logo_full) || branding.logo_mark;
 

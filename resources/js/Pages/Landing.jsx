@@ -45,7 +45,11 @@ export default function Landing({ sections, settings }) {
                     <AboutSection section={sections.about} />
                     <BenefitsSection section={sections.benefits} />
                     <ProcessSection section={sections.process} />
-                    <PricingSection section={sections.pricing} whatsappUrl={whatsappUrl} />
+                    <PricingSection
+                        section={sections.pricing}
+                        whatsappUrl={whatsappUrl}
+                        settings={settings}
+                    />
                     <TestimonialsSection section={sections.testimonials} />
                     <CtaSection section={sections.cta} whatsappUrl={whatsappUrl} />
                     <ContactSection

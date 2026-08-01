@@ -9,7 +9,8 @@ export default function FooterSection({ section, settings }) {
         { label: 'Terms of Service', url: '/terms-of-service' },
     ];
     const year = new Date().getFullYear();
-    const copyright = (section.content?.copyright || `© ${year} 3R Solusi Media`).replace(
+    const company = settings?.company_name || 'Perusahaan';
+    const copyright = (section.content?.copyright || `© ${year} ${company}`).replace(
         '{year}',
         String(year),
     );

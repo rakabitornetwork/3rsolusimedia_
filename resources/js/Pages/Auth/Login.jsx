@@ -2,7 +2,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import Logo from '../../Icons/Logo';
 
 export default function Login() {
-    const companyName = usePage().props.app?.company_name || '3R Solusi Media';
+    const companyName = usePage().props.app?.company_name || 'Perusahaan';
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',

@@ -7,9 +7,9 @@ use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
-use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
 use App\Services\GitUpdateService;
+use App\Support\AppSettings;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -89,7 +89,7 @@ class DashboardController extends Controller
             ->values();
 
         return Inertia::render('Admin/Dashboard', [
-            'company' => SiteSetting::getValue('company_name', '3R Solusi Media'),
+            'company' => AppSettings::companyName(),
             'traffic_routers' => $trafficRouters,
             'update_notice' => $this->git->dashboardNotice(),
             'stats' => [

@@ -8,10 +8,12 @@ export default function ContactSection({ section, settings, whatsappUrl }) {
     const [name, setName] = useState('');
     const [message, setMessage] = useState('');
 
+    const company = settings?.company_name || 'Perusahaan';
+
     const sendWhatsApp = (e) => {
         e.preventDefault();
         const text = encodeURIComponent(
-            `Halo 3R Solusi Media,\nSaya ${name || 'calon pelanggan'}.\n${message || 'Saya ingin konsultasi pemasangan WiFi rumahan.'}`,
+            `Halo ${company},\nSaya ${name || 'calon pelanggan'}.\n${message || 'Saya ingin konsultasi pemasangan WiFi rumahan.'}`,
         );
         window.open(`${whatsappUrl}?text=${text}`, '_blank', 'noopener,noreferrer');
     };

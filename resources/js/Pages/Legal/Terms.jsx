@@ -5,7 +5,8 @@ export default function Terms({ section, footer, settings }) {
     const paragraphs = section.content?.paragraphs || [];
     const updatedAt = section.content?.updated_at || null;
     const year = new Date().getFullYear();
-    const copyright = (footer?.content?.copyright || `© ${year} 3R Solusi Media`).replace(
+    const company = settings?.company_name || 'Perusahaan';
+    const copyright = (footer?.content?.copyright || `© ${year} ${company}`).replace(
         '{year}',
         String(year),
     );
