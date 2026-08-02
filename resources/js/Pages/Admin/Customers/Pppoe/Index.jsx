@@ -304,7 +304,7 @@ export default function Index({ customers, filters, routers, stats }) {
                         <button
                             type="button"
                             onClick={() => setShowBulkDelete((v) => !v)}
-                            className="border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                            className="btn-action btn-action-xs btn-danger"
                         >
                             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                             Hapus masal ({selected.length})
@@ -312,7 +312,7 @@ export default function Index({ customers, filters, routers, stats }) {
                     )}
                     <Link
                         href="/admin/customers/pppoe/create"
-                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                        className="btn-action btn-action-sm btn-primary"
                     >
                         <Plus className="mr-1.5 h-4 w-4" />
                         Tambah Pelanggan
@@ -388,7 +388,7 @@ export default function Index({ customers, filters, routers, stats }) {
                             type="button"
                             onClick={submitBulkDelete}
                             disabled={processing}
-                            className="bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                            className="btn-action btn-action-sm btn-danger-solid"
                         >
                             {processing ? 'Menghapus...' : 'Konfirmasi hapus'}
                         </button>
@@ -398,7 +398,7 @@ export default function Index({ customers, filters, routers, stats }) {
                                 setShowBulkDelete(false);
                                 setRemoveSecret(false);
                             }}
-                            className="border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist"
+                            className="btn-action btn-action-sm btn-secondary"
                         >
                             Batal
                         </button>
@@ -565,14 +565,14 @@ export default function Index({ customers, filters, routers, stats }) {
                                         <button
                                             type="button"
                                             onClick={() => sync(customer.id)}
-                                            className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                            className="btn-action btn-action-xs btn-sync"
                                         >
                                             <RefreshCw className="h-3.5 w-3.5" />
                                             Sync
                                         </button>
                                         <Link
                                             href={`/admin/customers/pppoe/${customer.id}/edit`}
-                                            className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-mist"
+                                            className="btn-action btn-action-xs btn-edit"
                                         >
                                             Edit
                                         </Link>
@@ -580,7 +580,7 @@ export default function Index({ customers, filters, routers, stats }) {
                                             <button
                                                 type="button"
                                                 onClick={() => remove(customer.id)}
-                                                className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                                className="btn-action btn-action-xs btn-danger"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" />
                                                 Hapus

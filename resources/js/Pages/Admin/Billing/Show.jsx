@@ -103,7 +103,7 @@ export default function Show({ invoice, payment_methods }) {
                     href={`/admin/billing/invoices/${invoice.id}/print`}
                     target="_blank"
                     rel="noreferrer"
-                    className="border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                    className="btn-action btn-action-xs btn-print"
                 >
                     Cetak invoice (½ A4)
                 </a>
@@ -234,7 +234,7 @@ export default function Show({ invoice, payment_methods }) {
                                         key={days}
                                         type="button"
                                         onClick={() => grantGrace(days)}
-                                        className="border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+                                        className="btn-action btn-action-xs btn-warn"
                                     >
                                         +{days} hari
                                     </button>
@@ -243,7 +243,7 @@ export default function Show({ invoice, payment_methods }) {
                                     <button
                                         type="button"
                                         onClick={clearGrace}
-                                        className="border border-red-100 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                        className="btn-action btn-action-xs btn-danger"
                                     >
                                         Cabut toleransi
                                     </button>
@@ -262,7 +262,7 @@ export default function Show({ invoice, payment_methods }) {
                                     <button
                                         type="button"
                                         onClick={combineBilling}
-                                        className="mt-3 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                                        className="mt-3 btn-action btn-action-xs btn-warn"
                                     >
                                         Buat tagihan gabungan 2 bulan
                                     </button>
@@ -324,7 +324,7 @@ export default function Show({ invoice, payment_methods }) {
                                     <button
                                         type="submit"
                                         disabled={processing}
-                                        className="w-full bg-signal-deep px-5 py-3 text-sm font-bold text-white hover:bg-ink disabled:opacity-60"
+                                        className="w-full btn-action btn-action-sm btn-primary"
                                     >
                                         {processing
                                             ? 'Memproses...'
@@ -335,7 +335,7 @@ export default function Show({ invoice, payment_methods }) {
                                 <button
                                     type="button"
                                     onClick={remove}
-                                    className="mt-4 w-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                                    className="mt-4 w-full btn-action btn-action-sm btn-danger"
                                 >
                                     Hapus tagihan
                                 </button>
@@ -358,7 +358,7 @@ export default function Show({ invoice, payment_methods }) {
                                     <button
                                         type="button"
                                         onClick={voidInvoice}
-                                        className="mt-4 w-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                                        className="mt-4 w-full btn-action btn-action-sm btn-danger"
                                     >
                                         Batalkan (void)
                                     </button>
@@ -367,7 +367,7 @@ export default function Show({ invoice, payment_methods }) {
                                     <button
                                         type="button"
                                         onClick={remove}
-                                        className="mt-4 w-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+                                        className="mt-4 w-full btn-action btn-action-sm btn-danger"
                                     >
                                         Hapus tagihan
                                     </button>

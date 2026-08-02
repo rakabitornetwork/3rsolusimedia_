@@ -98,7 +98,7 @@ export default function Show({ router: item, info }) {
                 <button
                     type="button"
                     onClick={refresh}
-                    className="inline-flex items-center gap-2 border border-ink/10 bg-white px-3 py-2 text-sm font-semibold text-ink hover:bg-mist"
+                    className="btn-action btn-action-sm btn-sync"
                 >
                     <RefreshCw className="h-4 w-4" />
                     Refresh data

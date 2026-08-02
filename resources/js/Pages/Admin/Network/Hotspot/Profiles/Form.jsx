@@ -147,7 +147,7 @@ export default function Form({ profile, routers, selected_router_id }) {
                     <button
                         type="submit"
                         disabled={processing}
-                        className="bg-signal-deep px-5 py-3 text-sm font-bold text-white hover:bg-ink disabled:opacity-60"
+                        className="btn-action btn-action-sm btn-primary"
                     >
                         {processing ? 'Menyimpan...' : editing ? 'Simpan Perubahan' : 'Simpan ke MikroTik'}
                     </button>
@@ -155,7 +155,7 @@ export default function Form({ profile, routers, selected_router_id }) {
                         href={`/admin/network/hotspot/profiles${
                             selected_router_id ? `?router_id=${selected_router_id}` : ''
                         }`}
-                        className="border border-ink/15 px-5 py-3 text-sm font-semibold text-ink-soft hover:bg-mist"
+                        className="btn-action btn-action-sm btn-secondary"
                     >
                         Batal
                     </Link>

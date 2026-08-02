@@ -104,14 +104,14 @@ export default function Index({
                             <button
                                 type="button"
                                 onClick={copyGenerated}
-                                className="border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist"
+                                className="btn-action btn-action-xs btn-secondary"
                             >
                                 Salin semua
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setShowGenerated(false)}
-                                className="border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                className="btn-action btn-action-xs btn-secondary"
                             >
                                 Tutup
                             </button>
@@ -213,7 +213,7 @@ export default function Index({
                         href={`/admin/network/hotspot/generate${
                             selected_router_id ? `?router_id=${selected_router_id}` : ''
                         }`}
-                        className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                        className="btn-action btn-action-sm btn-primary"
                     >
                         <Plus className="mr-1.5 h-4 w-4" />
                         Generate Voucher
@@ -274,7 +274,7 @@ export default function Index({
                                         <button
                                             type="button"
                                             onClick={() => toggle(user)}
-                                            className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                            className="btn-action btn-action-xs btn-warn"
                                         >
                                             <Power className="h-3.5 w-3.5" />
                                             {user.disabled ? 'Aktifkan' : 'Nonaktif'}
@@ -282,7 +282,7 @@ export default function Index({
                                         <button
                                             type="button"
                                             onClick={() => remove(user)}
-                                            className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            className="btn-action btn-action-xs btn-danger"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
                                             Hapus

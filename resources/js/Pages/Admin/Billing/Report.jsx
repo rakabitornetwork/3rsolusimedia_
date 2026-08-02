@@ -140,7 +140,7 @@ export default function Report({
                     </label>
                     <button
                         type="submit"
-                        className="border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-mist"
+                        className="btn-action btn-action-sm btn-secondary"
                     >
                         Terapkan
                     </button>

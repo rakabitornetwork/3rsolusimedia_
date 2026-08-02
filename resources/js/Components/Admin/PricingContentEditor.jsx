@@ -252,7 +252,7 @@ export default function PricingContentEditor({ value, onChange, error }) {
             <button
                 type="button"
                 onClick={addPlan}
-                className="inline-flex items-center gap-2 border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist"
+                className="btn-action btn-action-sm btn-primary"
             >
                 <Plus className="h-4 w-4" />
                 Tambah paket

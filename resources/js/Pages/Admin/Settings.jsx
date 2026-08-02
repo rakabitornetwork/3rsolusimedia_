@@ -63,7 +63,7 @@ export default function Settings({ settings }) {
                 <button
                     type="submit"
                     disabled={processing}
-                    className="rounded-md bg-signal-deep px-5 py-3 text-sm font-bold text-white hover:bg-ink disabled:opacity-60"
+                    className="btn-action btn-action-sm btn-primary"
                 >
                     {processing ? 'Menyimpan...' : 'Simpan Pengaturan'}
                 </button>

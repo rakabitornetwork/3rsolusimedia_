@@ -207,7 +207,7 @@ export default function GpsMapPicker({
                         type="button"
                         onClick={useMyLocation}
                         disabled={locating}
-                        className="inline-flex items-center gap-1.5 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
+                        className="btn-action btn-action-xs btn-secondary"
                     >
                         <Crosshair className="h-3.5 w-3.5" />
                         {locating ? 'Mengambil...' : 'Lokasi saya'}
@@ -216,7 +216,7 @@ export default function GpsMapPicker({
                         <button
                             type="button"
                             onClick={clearPoint}
-                            className="inline-flex items-center gap-1.5 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink-soft hover:bg-mist"
+                            className="btn-action btn-action-xs btn-danger"
                         >
                             <Trash2 className="h-3.5 w-3.5" />
                             Hapus titik

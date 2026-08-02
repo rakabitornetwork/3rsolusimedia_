@@ -259,7 +259,7 @@ export default function Sessions({
                             <button
                                 type="button"
                                 onClick={() => openImport(selected.length ? selected : unknownUsernames)}
-                                className="border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                                className="btn-action btn-action-xs btn-warn"
                             >
                                 <Users className="mr-1.5 h-3.5 w-3.5 text-amber-700" />
                                 {selected.length
@@ -271,7 +271,7 @@ export default function Sessions({
                     <button
                         type="button"
                         onClick={refresh}
-                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
+                        className="btn-action btn-action-xs btn-sync"
                     >
                         <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                         Refresh
@@ -445,7 +445,7 @@ export default function Sessions({
                     <button
                         type="submit"
                         disabled={importForm.processing || loadingSecret}
-                        className="bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                        className="btn-action btn-action-sm btn-warn-solid"
                     >
                         {importForm.processing
                             ? 'Mengimpor...'
@@ -532,7 +532,7 @@ export default function Sessions({
                                         {!session.customer_id && (
                                             <Link
                                                 href={registerUrl(session.name)}
-                                                className="inline-flex items-center gap-1 border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                                                className="btn-action btn-action-xs btn-warn"
                                             >
                                                 <UserPlus className="h-3.5 w-3.5 text-amber-700" />
                                                 Daftarkan
@@ -541,7 +541,7 @@ export default function Sessions({
                                         <button
                                             type="button"
                                             onClick={() => disconnect(session)}
-                                            className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            className="btn-action btn-action-xs btn-danger"
                                         >
                                             <Unplug className="h-3.5 w-3.5" />
                                             Putus

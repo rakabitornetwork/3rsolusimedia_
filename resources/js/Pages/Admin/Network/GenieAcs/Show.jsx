@@ -136,7 +136,7 @@ export default function Show({ device, ui_url }) {
                             href={`${ui_url.replace(/\/$/, '')}/#!/devices/${encodeURIComponent(device.id)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100"
+                            className="btn-action btn-action-xs btn-edit"
                         >
                             <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-600" />
                             Buka di GenieACS UI
@@ -147,7 +147,7 @@ export default function Show({ device, ui_url }) {
                             type="button"
                             onClick={summon}
                             disabled={summoning}
-                            className="bg-teal-600 px-3 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-60"
+                            className="btn-action btn-action-xs btn-sync"
                         >
                             <RefreshCw
                                 className={`mr-1.5 h-3.5 w-3.5 ${summoning ? 'animate-spin' : ''}`}
@@ -288,7 +288,7 @@ export default function Show({ device, ui_url }) {
                         <button
                             type="submit"
                             disabled={wifiForm.processing}
-                            className="inline-flex items-center gap-2 bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                            className="btn-action btn-action-sm btn-primary"
                         >
                             <Save className="h-4 w-4" />
                             {wifiForm.processing ? 'Mengirim...' : 'Simpan ke ONT'}
@@ -321,7 +321,7 @@ export default function Show({ device, ui_url }) {
                             type="button"
                             onClick={summon}
                             disabled={summoning}
-                            className="inline-flex items-center gap-1.5 border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 disabled:opacity-60"
+                            className="btn-action btn-action-xs btn-sync"
                         >
                             <RefreshCw className={`h-3.5 w-3.5 ${summoning ? 'animate-spin' : ''}`} />
                             Refresh klien

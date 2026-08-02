@@ -71,7 +71,7 @@ function BrandUpload({
                     <p className="mt-0.5 text-xs text-ink-soft">{hint}</p>
                     {canWriteButtons(disabled) && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                            <label className="inline-flex cursor-pointer items-center gap-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist">
+                            <label className="btn-action btn-action-xs btn-secondary">
                                 <ImagePlus className="h-3.5 w-3.5" />
                                 Pilih file
                                 <input
@@ -86,7 +86,7 @@ function BrandUpload({
                                 <button
                                     type="button"
                                     onClick={onReset}
-                                    className="inline-flex items-center gap-1 border border-red-100 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                    className="btn-action btn-action-xs btn-danger"
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
                                     Reset default
@@ -452,7 +452,7 @@ export default function Settings({ settings, branding, timezones }) {
                         <button
                             type="submit"
                             disabled={processing}
-                            className="bg-signal-deep px-5 py-2.5 text-sm font-semibold text-white hover:bg-ink disabled:opacity-60"
+                            className="btn-action btn-action-sm btn-primary"
                         >
                             {processing ? 'Menyimpan...' : 'Simpan Pengaturan'}
                         </button>

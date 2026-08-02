@@ -175,7 +175,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                             href={config.ui_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
+                            className="btn-action btn-action-xs btn-edit"
                         >
                             <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-600" />
                             Buka UI GenieACS
@@ -184,7 +184,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                     <button
                         type="button"
                         onClick={() => setShowSettings((v) => !v)}
-                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist"
+                        className="btn-action btn-action-xs btn-secondary"
                     >
                         <Settings2 className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
                         {showSettings ? 'Sembunyikan pengaturan' : 'Pengaturan koneksi'}
@@ -193,7 +193,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                         <button
                             type="button"
                             onClick={() => router.post('/admin/network/genieacs/test')}
-                            className="bg-signal-deep px-3 text-xs font-semibold text-white hover:bg-ink"
+                            className="btn-action btn-action-xs btn-primary"
                         >
                             <Wifi className="mr-1.5 h-3.5 w-3.5" />
                             Tes koneksi
@@ -310,7 +310,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                         <button
                             type="submit"
                             disabled={processing}
-                            className="bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink disabled:opacity-60"
+                            className="btn-action btn-action-sm btn-primary"
                         >
                             {processing ? 'Menyimpan...' : 'Simpan pengaturan'}
                         </button>
@@ -405,7 +405,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                     </label>
                     <button
                         type="submit"
-                        className="inline-flex items-center justify-center gap-1.5 border border-ink/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist"
+                        className="btn-action btn-action-sm btn-secondary"
                     >
                         <Search className="h-3.5 w-3.5 text-sky-600" />
                         Cari
@@ -416,7 +416,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                         type="button"
                         onClick={refreshList}
                         disabled={refreshing}
-                        className="border border-cyan-200 bg-cyan-50 px-3 text-xs font-semibold text-cyan-800 hover:bg-cyan-100 disabled:opacity-60"
+                        className="btn-action btn-action-xs btn-sync"
                     >
                         <RefreshCw
                             className={`mr-1.5 h-3.5 w-3.5 text-cyan-600 ${refreshing ? 'animate-spin' : ''}`}
@@ -512,7 +512,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                         <div className="admin-actions">
                                             <Link
                                                 href={`/admin/network/genieacs/devices/${encodeURIComponent(item.id)}`}
-                                                className="inline-flex items-center gap-1 border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100"
+                                                className="btn-action btn-action-xs btn-edit"
                                             >
                                                 <Eye className="h-3.5 w-3.5 text-sky-600" />
                                                 Detail
@@ -525,7 +525,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                                             `/admin/network/genieacs/devices/${encodeURIComponent(item.id)}/summon`,
                                                         )
                                                     }
-                                                    className="inline-flex items-center gap-1 border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100"
+                                                    className="btn-action btn-action-xs btn-sync"
                                                 >
                                                     <RefreshCw className="h-3.5 w-3.5 text-teal-600" />
                                                     Summon

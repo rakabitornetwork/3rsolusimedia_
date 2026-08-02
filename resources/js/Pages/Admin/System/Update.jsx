@@ -177,7 +177,7 @@ export default function Update({ repo }) {
                         type="button"
                         onClick={checkUpdate}
                         disabled={checking || busy}
-                        className="border border-ink/15 bg-white px-3 text-xs font-semibold text-ink hover:bg-mist disabled:opacity-60"
+                        className="btn-action btn-action-xs btn-sync"
                     >
                         <RefreshCw
                             className={`mr-1.5 h-3.5 w-3.5 ${checking ? 'animate-spin' : ''}`}
@@ -193,7 +193,7 @@ export default function Update({ repo }) {
                                 ? 'Pull update terbaru dari GitHub (tanpa npm)'
                                 : 'Tidak ada update terbaru dari GitHub, atau pull belum aman'
                         }
-                        className="bg-signal-deep px-3 text-xs font-semibold text-white hover:bg-ink disabled:cursor-not-allowed disabled:bg-ink/25 disabled:hover:bg-ink/25"
+                        className="btn-action btn-action-xs btn-primary disabled:cursor-not-allowed"
                     >
                         <ArrowDownToLine className="mr-1.5 h-3.5 w-3.5" />
                         Pull dari GitHub

@@ -48,7 +48,7 @@ export default function Index({ routers }) {
                     <div className="admin-toolbar-actions">
                         <Link
                             href="/admin/network/routeros/create"
-                            className="bg-signal-deep px-4 text-sm font-semibold text-white hover:bg-ink"
+                            className="btn-action btn-action-sm btn-primary"
                         >
                             <Plus className="mr-1.5 h-4 w-4" />
                             Tambah Router
@@ -69,7 +69,7 @@ export default function Index({ routers }) {
                     {canManageRouter && (
                         <Link
                             href="/admin/network/routeros/create"
-                            className="mt-5 inline-flex bg-signal-deep px-4 py-2.5 text-sm font-semibold text-white"
+                            className="mt-5 btn-action btn-action-sm btn-primary"
                         >
                             Tambah Router
                         </Link>
@@ -116,14 +116,14 @@ export default function Index({ routers }) {
                                             <button
                                                 type="button"
                                                 onClick={() => test(item.id)}
-                                                className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                                className="btn-action btn-action-xs btn-sync"
                                             >
                                                 <RefreshCw className="h-3.5 w-3.5" />
                                                 Tes
                                             </button>
                                             <Link
                                                 href={`/admin/network/routeros/${item.id}`}
-                                                className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-signal-deep hover:bg-mist"
+                                                className="btn-action btn-action-xs btn-edit"
                                             >
                                                 <Eye className="h-3.5 w-3.5" />
                                                 Buka
@@ -132,7 +132,7 @@ export default function Index({ routers }) {
                                                 <>
                                                     <Link
                                                         href={`/admin/network/routeros/${item.id}/edit`}
-                                                        className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                                        className="btn-action btn-action-xs btn-edit"
                                                     >
                                                         <Pencil className="h-3.5 w-3.5" />
                                                         Edit
@@ -140,7 +140,7 @@ export default function Index({ routers }) {
                                                     <button
                                                         type="button"
                                                         onClick={() => remove(item.id, item.name)}
-                                                        className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                                        className="btn-action btn-action-xs btn-danger"
                                                     >
                                                         <Trash2 className="h-3.5 w-3.5" />
                                                         Hapus

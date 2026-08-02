@@ -133,7 +133,7 @@ export default function Sessions({
                     <button
                         type="button"
                         onClick={refresh}
-                        className="border border-ink/15 px-4 text-sm font-semibold text-ink hover:bg-mist"
+                        className="btn-action btn-action-sm btn-sync"
                     >
                         <RefreshCw className="mr-1.5 h-4 w-4" />
                         Refresh
@@ -190,7 +190,7 @@ export default function Sessions({
                                         <button
                                             type="button"
                                             onClick={() => disconnect(session)}
-                                            className="border border-red-100 px-2.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            className="btn-action btn-action-xs btn-danger"
                                         >
                                             <Unplug className="mr-1 h-3.5 w-3.5" />
                                             Putus
