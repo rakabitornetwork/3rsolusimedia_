@@ -30,22 +30,24 @@ class BillingService
             return null;
         }
 
-        $existing = Invoice::query()
-            ->where('pppoe_customer_id', $customer->id)
-            ->where('type', 'prorata')
-            ->where('status', '!=', 'void')
-            ->exists();
-
-        if ($existing) {
+        // Jangan buat ulang: sudah ada prorata (termasuk void diganti gabungan),
+        // atau siklus pertama sudah pernah dilunasi.
+        if ($this->hasProrataInvoiceHistory($customer) || $this->hasPaidInvoice($customer)) {
             return null;
         }
+
+        // Periode pertama selalu start → due pertama (bukan due yang sudah dimajukan bayar).
+        $firstDue = $this->cycle->nextDueDate(
+            $customer->start_date,
+            (int) $customer->billing_day,
+        );
 
         return $this->createInvoice(
             customer: $customer,
             type: 'prorata',
             periodStart: $customer->start_date->toDateString(),
-            periodEnd: $customer->due_date->toDateString(),
-            dueDate: $customer->due_date->toDateString(),
+            periodEnd: $firstDue->toDateString(),
+            dueDate: $firstDue->toDateString(),
             amount: $amount,
             notes: 'Tagihan pertama (prorata)',
         );
@@ -54,10 +56,15 @@ class BillingService
     /**
      * Samakan invoice prorata unpaid dengan hitungan pelanggan terkini
      * (setelah ubah start_date / billing_day / paket).
+     * Tidak dijalankan setelah siklus pertama selesai (sudah ada pembayaran).
      */
     public function syncUnpaidProrataInvoice(PppoeCustomer $customer): ?Invoice
     {
         $customer->loadMissing('package');
+
+        if ($this->hasPaidInvoice($customer)) {
+            return null;
+        }
 
         $invoice = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
@@ -71,15 +78,22 @@ class BillingService
         }
 
         $amount = (int) ($customer->first_bill_amount ?? 0);
-        if ($amount <= 0 || ! $customer->due_date || ! $customer->start_date) {
+        if ($amount <= 0 || ! $customer->start_date) {
             return $invoice;
         }
+
+        // Samakan ke due pertama dari start/billing_day, bukan due berjalan
+        // yang bisa sudah dimajukan (penyebab tagihan "62 hari" / dobel).
+        $firstDue = $this->cycle->nextDueDate(
+            $customer->start_date,
+            (int) $customer->billing_day,
+        );
 
         $invoice->update([
             'subscription_package_id' => $customer->subscription_package_id,
             'period_start' => $customer->start_date->toDateString(),
-            'period_end' => $customer->due_date->toDateString(),
-            'due_date' => $customer->due_date->toDateString(),
+            'period_end' => $firstDue->toDateString(),
+            'due_date' => $firstDue->toDateString(),
             'amount' => $amount,
             'discount' => 0,
             'total' => $amount,
@@ -89,6 +103,38 @@ class BillingService
         ]);
 
         return $invoice->fresh();
+    }
+
+    public function hasPaidInvoice(PppoeCustomer $customer): bool
+    {
+        return Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->exists();
+    }
+
+    public function hasProrataInvoiceHistory(PppoeCustomer $customer): bool
+    {
+        return Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('type', 'prorata')
+            ->exists();
+    }
+
+    /**
+     * Siklus pertama selesai: sudah ada pembayaran, atau prorata diganti (void).
+     */
+    public function hasCompletedFirstBillingCycle(PppoeCustomer $customer): bool
+    {
+        if ($this->hasPaidInvoice($customer)) {
+            return true;
+        }
+
+        return Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('type', 'prorata')
+            ->where('status', 'void')
+            ->exists();
     }
 
     /**
@@ -137,13 +183,12 @@ class BillingService
                 continue;
             }
 
-            $hasPaidInvoice = Invoice::query()
-                ->where('pppoe_customer_id', $customer->id)
-                ->where('status', 'paid')
-                ->exists();
-
             // Siklus pertama: pakai jumlah prorata (sudah dibulatkan), bukan harga penuh.
-            if (! $hasPaidInvoice && (int) ($customer->first_bill_amount ?? 0) > 0) {
+            // createProrataInvoice sendiri menolak jika sudah ada riwayat prorata/pembayaran.
+            if (
+                ! $this->hasCompletedFirstBillingCycle($customer)
+                && (int) ($customer->first_bill_amount ?? 0) > 0
+            ) {
                 $invoice = $this->createProrataInvoice($customer);
             } else {
                 $price = (int) ($customer->package?->price ?? 0);

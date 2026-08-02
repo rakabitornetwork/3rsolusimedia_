@@ -232,13 +232,17 @@ class PppoeCustomerController extends Controller
         $this->billingService->syncUnpaidProrataInvoice($customer);
         $this->sync->sync($customer);
 
+        $message = 'Pelanggan PPPoE berhasil diperbarui.';
+        if (! $this->billingService->hasCompletedFirstBillingCycle($customer)
+            && (int) ($customer->first_bill_amount ?? 0) > 0
+        ) {
+            $message .= ' Tagihan pertama (prorata): Rp '.
+                number_format((int) $customer->first_bill_amount, 0, ',', '.').'.';
+        }
+
         return redirect()
             ->route('admin.customers.pppoe')
-            ->with(
-                'success',
-                'Pelanggan PPPoE berhasil diperbarui. Tagihan pertama (prorata): Rp '.
-                number_format((int) $customer->first_bill_amount, 0, ',', '.').'.'
-            );
+            ->with('success', $message);
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
@@ -670,8 +674,36 @@ class PppoeCustomerController extends Controller
 
         $startChanged = $existing->start_date?->toDateString() !== $validated['start_date'];
         $dayChanged = (int) $existing->billing_day !== (int) $validated['billing_day'];
+        $firstCycleDone = $this->billingService->hasCompletedFirstBillingCycle($existing);
 
-        // Jangan menimpa due_date berjalan kecuali siklus diubah.
+        // Setelah siklus pertama selesai (sudah bayar / prorata diganti),
+        // jangan hitung ulang first_bill dari start → due berjalan
+        // (itu yang membuat "62 hari" / nominal dobel).
+        if ($firstCycleDone && ! $startChanged && ! $dayChanged) {
+            $validated['billing_day'] = $this->billing->normalizeBillingDay(
+                (int) $validated['billing_day']
+            );
+            $validated['due_date'] = $existing->due_date?->toDateString();
+            $validated['first_bill_amount'] = $existing->first_bill_amount;
+            $validated['first_bill_days'] = $existing->first_bill_days;
+
+            return $validated;
+        }
+
+        if ($firstCycleDone && ($startChanged || $dayChanged)) {
+            // Ubah pola billing setelah bayar: pertahankan first_bill historis
+            // dan due_date berjalan (koreksi due tetap manual bila perlu).
+            $validated['billing_day'] = $this->billing->normalizeBillingDay(
+                (int) $validated['billing_day']
+            );
+            $validated['due_date'] = $existing->due_date?->toDateString();
+            $validated['first_bill_amount'] = $existing->first_bill_amount;
+            $validated['first_bill_days'] = $existing->first_bill_days;
+
+            return $validated;
+        }
+
+        // Jangan menimpa due_date berjalan kecuali siklus diubah (sebelum bayar pertama).
         $dueDate = ($startChanged || $dayChanged)
             ? null
             : $existing->due_date?->toDateString();
