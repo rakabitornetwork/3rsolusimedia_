@@ -193,22 +193,6 @@ export default function Index({ customers, filters, routers, stats }) {
         router.post(`/admin/customers/pppoe/${id}/sync`);
     };
 
-    const grantGrace = (id, days) => {
-        if (!canWrite) return;
-        const note = window.prompt(
-            `Toleransi isolir +${days} hari (jatuh tempo tidak digeser).\nCatatan opsional:`,
-            '',
-        );
-        if (note === null) return;
-        router.post(`/admin/customers/pppoe/${id}/grace`, { days, note: note || undefined });
-    };
-
-    const clearGrace = (id) => {
-        if (!canWrite) return;
-        if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
-        router.delete(`/admin/customers/pppoe/${id}/grace`);
-    };
-
     const combineBilling = (customer) => {
         if (!canWrite) return;
         const price = customer.package?.price || 0;
@@ -620,41 +604,6 @@ export default function Index({ customers, filters, routers, stats }) {
                                         </Link>
                                         {canWrite && (
                                             <>
-                                                <div className="relative inline-flex">
-                                                    <details className="group">
-                                                        <summary className="cursor-pointer list-none border border-sky-100 px-2.5 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 [&::-webkit-details-marker]:hidden">
-                                                            Toleransi
-                                                        </summary>
-                                                        <div className="absolute right-0 z-20 mt-1 min-w-[140px] border border-ink/10 bg-white py-1 shadow-sm">
-                                                            {[3, 7, 14].map((days) => (
-                                                                <button
-                                                                    key={days}
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        grantGrace(
-                                                                            customer.id,
-                                                                            days,
-                                                                        )
-                                                                    }
-                                                                    className="block w-full px-3 py-1.5 text-left text-xs text-ink hover:bg-mist"
-                                                                >
-                                                                    +{days} hari
-                                                                </button>
-                                                            ))}
-                                                            {customer.has_active_grace && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        clearGrace(customer.id)
-                                                                    }
-                                                                    className="block w-full border-t border-ink/5 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
-                                                                >
-                                                                    Cabut toleransi
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </details>
-                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => combineBilling(customer)}

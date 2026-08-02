@@ -28,7 +28,15 @@ function StatWidget({ label, value, gradient, icon: Icon }) {
     );
 }
 
-function StatusBadge({ status, overdue }) {
+function StatusBadge({ status, overdue, graceUntil }) {
+    if (graceUntil && status === 'unpaid') {
+        return (
+            <span className="bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">
+                Grace s/d {graceUntil}
+            </span>
+        );
+    }
+
     if (overdue && status === 'unpaid') {
         return (
             <span className="bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
@@ -53,6 +61,58 @@ function StatusBadge({ status, overdue }) {
         <span className={`px-2 py-1 text-xs font-semibold ${map[status] || map.unpaid}`}>
             {label[status] || status}
         </span>
+    );
+}
+
+function GraceMenu({ customer }) {
+    if (!customer?.id) return null;
+
+    const grantGrace = (days) => {
+        const note = window.prompt(
+            `Toleransi isolir +${days} hari (jatuh tempo tidak digeser).\nCatatan opsional:`,
+            customer.grace_note || '',
+        );
+        if (note === null) return;
+        router.post(`/admin/billing/customers/${customer.id}/grace`, {
+            days,
+            note: note || undefined,
+        });
+    };
+
+    const clearGrace = () => {
+        if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
+        router.delete(`/admin/billing/customers/${customer.id}/grace`);
+    };
+
+    return (
+        <div className="relative inline-flex">
+            <details className="group">
+                <summary className="cursor-pointer list-none border border-sky-100 px-2.5 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 [&::-webkit-details-marker]:hidden">
+                    Toleransi
+                </summary>
+                <div className="absolute right-0 z-20 mt-1 min-w-[140px] border border-ink/10 bg-white py-1 shadow-sm">
+                    {[3, 7, 14].map((days) => (
+                        <button
+                            key={days}
+                            type="button"
+                            onClick={() => grantGrace(days)}
+                            className="block w-full px-3 py-1.5 text-left text-xs text-ink hover:bg-mist"
+                        >
+                            +{days} hari
+                        </button>
+                    ))}
+                    {customer.has_active_grace && (
+                        <button
+                            type="button"
+                            onClick={clearGrace}
+                            className="block w-full border-t border-ink/5 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+                        >
+                            Cabut toleransi
+                        </button>
+                    )}
+                </div>
+            </details>
+        </div>
     );
 }
 
@@ -261,11 +321,20 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                 <td className="px-4 py-3 text-ink-soft">{item.due_date}</td>
                                 <td className="px-4 py-3 font-medium text-ink">{item.total_label}</td>
                                 <td className="px-4 py-3">
-                                    <StatusBadge status={item.status} overdue={item.is_overdue} />
+                                    <StatusBadge
+                                        status={item.status}
+                                        overdue={item.is_overdue}
+                                        graceUntil={
+                                            item.customer?.has_active_grace
+                                                ? item.customer.grace_until
+                                                : null
+                                        }
+                                    />
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
                                         <QuickPayButton invoice={item} methods={payment_methods} />
+                                        <GraceMenu customer={item.customer} />
                                         <Link
                                             href={`/admin/billing/invoices/${item.id}`}
                                             className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"

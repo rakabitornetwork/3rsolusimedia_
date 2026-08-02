@@ -437,59 +437,17 @@ export default function Form({
                 {editing && (
                     <div className="space-y-3 border border-ink/10 bg-mist/30 p-4">
                         <div>
-                            <p className="text-sm font-semibold text-ink">Toleransi isolir (grace)</p>
-                            <p className="mt-1 text-xs text-ink-soft">
-                                Jatuh tempo tetap {customer.due_date}. Isolir ditunda sampai tanggal
-                                toleransi. Saat ini:{' '}
-                                {customer.has_active_grace
-                                    ? `aktif s/d ${customer.grace_until}`
-                                    : 'tidak ada'}
-                                {customer.grace_note ? ` — ${customer.grace_note}` : ''}
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {[3, 7, 14].map((days) => (
-                                <button
-                                    key={days}
-                                    type="button"
-                                    onClick={() => {
-                                        const note = window.prompt(
-                                            `Toleransi +${days} hari. Catatan opsional:`,
-                                            customer.grace_note || '',
-                                        );
-                                        if (note === null) return;
-                                        router.post(`/admin/customers/pppoe/${customer.id}/grace`, {
-                                            days,
-                                            note: note || undefined,
-                                        });
-                                    }}
-                                    className="border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-50"
-                                >
-                                    +{days} hari
-                                </button>
-                            ))}
-                            {customer.has_active_grace && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (!window.confirm('Cabut toleransi isolir?')) return;
-                                        router.delete(
-                                            `/admin/customers/pppoe/${customer.id}/grace`,
-                                        );
-                                    }}
-                                    className="border border-red-100 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                >
-                                    Cabut toleransi
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="border-t border-ink/10 pt-3">
                             <p className="text-sm font-semibold text-ink">Gabung bayar 2 bulan</p>
                             <p className="mt-1 text-xs text-ink-soft">
                                 Buat satu tagihan 2× harga paket. Saat lunas, jatuh tempo maju 2
-                                bulan.
+                                bulan. Toleransi isolir diatur dari Tagihan &amp; Pembayaran.
                             </p>
+                            {customer.has_active_grace && (
+                                <p className="mt-1 text-xs text-sky-700">
+                                    Grace aktif s/d {customer.grace_until}
+                                    {customer.grace_note ? ` — ${customer.grace_note}` : ''}
+                                </p>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => {

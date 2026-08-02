@@ -115,6 +115,9 @@ class Invoice extends Model
                 'due_date' => $this->customer->due_date?->format('Y-m-d'),
                 'status' => $this->customer->status,
                 'billing_day' => $this->customer->billing_day,
+                'grace_until' => $this->customer->grace_until?->format('Y-m-d'),
+                'grace_note' => $this->customer->grace_note,
+                'has_active_grace' => $this->customer->hasActiveGrace(),
             ] : null,
             'payments' => $this->relationLoaded('payments')
                 ? $this->payments->map(fn (Payment $payment) => $payment->toAdminArray())->values()->all()

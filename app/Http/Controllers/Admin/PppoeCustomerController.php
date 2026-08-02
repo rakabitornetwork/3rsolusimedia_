@@ -327,45 +327,6 @@ class PppoeCustomerController extends Controller
         );
     }
 
-    public function grantGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse
-    {
-        $validated = $request->validate([
-            'days' => ['nullable', 'integer', Rule::in([3, 7, 14])],
-            'grace_until' => ['nullable', 'date', 'after_or_equal:today'],
-            'note' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        if (empty($validated['days']) && empty($validated['grace_until'])) {
-            return back()->with('error', 'Pilih durasi toleransi atau tanggal akhir.');
-        }
-
-        $until = ! empty($validated['grace_until'])
-            ? \Carbon\Carbon::parse($validated['grace_until'])->startOfDay()
-            : now()->startOfDay()->addDays((int) $validated['days']);
-
-        try {
-            $this->billingService->grantGrace(
-                $pppoe,
-                $until,
-                $validated['note'] ?? null,
-            );
-        } catch (\InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        return back()->with(
-            'success',
-            'Toleransi isolir aktif sampai '.$until->format('d M Y').'. Jatuh tempo tidak digeser.'
-        );
-    }
-
-    public function clearGrace(PppoeCustomer $pppoe): RedirectResponse
-    {
-        $this->billingService->clearGrace($pppoe);
-
-        return back()->with('success', 'Toleransi isolir dicabut.');
-    }
-
     public function combineBilling(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         $validated = $request->validate([
