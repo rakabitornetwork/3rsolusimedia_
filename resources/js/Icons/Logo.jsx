@@ -10,22 +10,25 @@ function FallbackLogo({ className, markOnly, label }) {
             aria-label={label}
             role="img"
         >
-            <rect width="40" height="40" rx="10" fill="#0F5C5A" />
+            <rect width="40" height="40" rx="10" fill="#0A2D82" />
+            {/* Left T */}
+            <rect x="7.2" y="12" width="12" height="4.4" rx="0.6" fill="#F5F8FC" />
+            <rect x="11" y="13.5" width="4" height="15.2" rx="0.6" fill="#F5F8FC" />
+            {/* Right T */}
+            <rect x="20.8" y="12" width="12" height="4.4" rx="0.6" fill="#F5F8FC" />
+            <rect x="24.6" y="13.5" width="4" height="15.2" rx="0.6" fill="#F5F8FC" />
+            {/* WiFi */}
+            <circle cx="30.5" cy="10.5" r="1.7" fill="#00B7FF" />
             <path
-                d="M10 26V14h7.2c2.4 0 4 1.35 4 3.35 0 1.35-.8 2.45-2.1 2.95L21.5 26h-3.15l-2-5.05H13.1V26H10Zm3.1-7.55h3.85c.95 0 1.5-.5 1.5-1.2s-.55-1.15-1.5-1.15H13.1v2.35Z"
-                fill="#F5F8FA"
-            />
-            <circle cx="28.5" cy="14.5" r="2.2" fill="#14B8A6" />
-            <path
-                d="M25.2 18.2c1.7 1.55 4.9 1.55 6.6 0"
-                stroke="#14B8A6"
-                strokeWidth="1.6"
+                d="M27.6 13.4c1.5 1.35 4.3 1.35 5.8 0"
+                stroke="#00B7FF"
+                strokeWidth="1.5"
                 strokeLinecap="round"
             />
             <path
-                d="M23.4 20.8c2.7 2.4 7.5 2.4 10.2 0"
-                stroke="#14B8A6"
-                strokeWidth="1.6"
+                d="M26 15.6c2.4 2.1 6.6 2.1 9 0"
+                stroke="#00B7FF"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 opacity="0.7"
             />
@@ -37,7 +40,7 @@ function FallbackLogo({ className, markOnly, label }) {
                     fontFamily="Syne, sans-serif"
                     fontSize="16"
                     fontWeight="700"
-                    letterSpacing="0.02em"
+                    letterSpacing="-0.01em"
                 >
                     {label}
                 </text>
@@ -54,7 +57,7 @@ export default function Logo({
 }) {
     const page = usePage();
     const branding = page.props.app || {};
-    const label = alt || branding.company_name || 'Perusahaan';
+    const label = alt || branding.company_name || 'Teslatech';
     const imageSrc =
         src || (markOnly ? branding.logo_mark : branding.logo_full) || branding.logo_mark;
 

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect x="31" y="31" width="450" height="450" rx="112" fill="#0A2D82"/>
+  <!-- Left T -->
+  <rect x="92" y="154" width="154" height="56" rx="4" fill="#F5F8FC"/>
+  <rect x="145" y="174" width="51" height="194" rx="4" fill="#F5F8FC"/>
+  <!-- Right T -->
+  <rect x="266" y="154" width="154" height="56" rx="4" fill="#F5F8FC"/>
+  <rect x="318" y="174" width="51" height="194" rx="4" fill="#F5F8FC"/>
+  <!-- WiFi signal -->
+  <circle cx="379" cy="133" r="15" fill="#00B7FF"/>
+  <path d="M348 158c17 16 49 16 66 0" stroke="#00B7FF" stroke-width="16" stroke-linecap="round" opacity="0.9"/>
+  <path d="M330 182c27 24 75 24 102 0" stroke="#00B7FF" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+</svg>
