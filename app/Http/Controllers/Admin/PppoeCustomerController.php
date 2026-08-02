@@ -71,6 +71,12 @@ class PppoeCustomerController extends Controller
             if ($status === 'grace') {
                 $query->whereNotNull('pppoe_customers.grace_until')
                     ->whereDate('pppoe_customers.grace_until', '>=', now()->toDateString());
+            } elseif ($status === 'active') {
+                $query->where('pppoe_customers.status', 'active')
+                    ->where(function ($builder) {
+                        $builder->whereNull('pppoe_customers.grace_until')
+                            ->orWhereDate('pppoe_customers.grace_until', '<', now()->toDateString());
+                    });
             } else {
                 $query->where('pppoe_customers.status', $status);
             }
@@ -114,7 +120,13 @@ class PppoeCustomerController extends Controller
 
         return [
             'total' => (clone $statsQuery)->count(),
-            'active' => (clone $statsQuery)->where('status', 'active')->count(),
+            'active' => (clone $statsQuery)
+                ->where('status', 'active')
+                ->where(function ($builder) {
+                    $builder->whereNull('grace_until')
+                        ->orWhereDate('grace_until', '<', now()->toDateString());
+                })
+                ->count(),
             'isolated' => (clone $statsQuery)->where('status', 'isolated')->count(),
             'grace' => (clone $statsQuery)
                 ->whereNotNull('grace_until')
