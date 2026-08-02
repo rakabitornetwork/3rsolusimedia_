@@ -13,6 +13,18 @@ import {
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 
+function whatsappHref(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return '#';
+    let normalized = digits;
+    if (normalized.startsWith('0')) {
+        normalized = `62${normalized.slice(1)}`;
+    } else if (!normalized.startsWith('62')) {
+        normalized = `62${normalized}`;
+    }
+    return `https://wa.me/${normalized}`;
+}
+
 function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
     const active = sort === column;
 
@@ -435,6 +447,9 @@ export default function Index({ customers, filters, routers, stats }) {
                                 direction={filters.direction}
                                 onSort={applySort}
                             />
+                            <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                Telepon / WhatsApp
+                            </th>
                             <SortableHeader
                                 label="Paket"
                                 column="package"
@@ -488,8 +503,36 @@ export default function Index({ customers, filters, routers, stats }) {
                                     <p className="text-xs text-ink-soft">
                                         {customer.router?.name || '—'}
                                     </p>
+                                    {customer.phone && (
+                                        <p className="mt-1 text-xs text-ink-soft md:hidden">
+                                            <span className="text-ink/45">Telepon / WA:</span>{' '}
+                                            <a
+                                                href={whatsappHref(customer.phone)}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="font-medium text-signal-deep hover:underline"
+                                            >
+                                                {customer.phone}
+                                            </a>
+                                        </p>
+                                    )}
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">{customer.username}</td>
+                                <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                                    {customer.phone ? (
+                                        <a
+                                            href={whatsappHref(customer.phone)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="font-medium text-signal-deep hover:underline"
+                                            title="Buka WhatsApp"
+                                        >
+                                            {customer.phone}
+                                        </a>
+                                    ) : (
+                                        '—'
+                                    )}
+                                </td>
                                 <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {customer.package?.name || '—'}
                                 </td>
@@ -605,7 +648,7 @@ export default function Index({ customers, filters, routers, stats }) {
                         ))}
                         {customers.data.length === 0 && (
                             <tr>
-                                <td colSpan={9} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
                                     Belum ada pelanggan PPPoE.
                                 </td>
                             </tr>
