@@ -95,13 +95,24 @@ class PppoeCustomerController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'host']),
-            'stats' => [
-                'total' => PppoeCustomer::query()->count(),
-                'active' => PppoeCustomer::query()->where('status', 'active')->count(),
-                'isolated' => PppoeCustomer::query()->where('status', 'isolated')->count(),
-                'overdue' => PppoeCustomer::query()->whereDate('due_date', '<', now()->toDateString())->count(),
-            ],
+            'stats' => $this->customerStats($request->get('router_id')),
         ]);
+    }
+
+    private function customerStats(mixed $routerId): array
+    {
+        $statsQuery = PppoeCustomer::query();
+
+        if ($routerId) {
+            $statsQuery->where('mikrotik_router_id', $routerId);
+        }
+
+        return [
+            'total' => (clone $statsQuery)->count(),
+            'active' => (clone $statsQuery)->where('status', 'active')->count(),
+            'isolated' => (clone $statsQuery)->where('status', 'isolated')->count(),
+            'overdue' => (clone $statsQuery)->whereDate('due_date', '<', now()->toDateString())->count(),
+        ];
     }
 
     public function create(Request $request): Response|RedirectResponse
