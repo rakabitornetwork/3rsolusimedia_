@@ -44,7 +44,13 @@
         <div class="block-body">
             <div>Jatuh tempo: <strong>{{ $fmtDate($invoice->due_date) }}</strong></div>
             <div class="muted">Periode: {{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->period_end) }}</div>
-            <div class="muted">Tipe: {{ $typeLabel }}@if ((int) ($invoice->billing_months ?: 1) > 1) · {{ (int) $invoice->billing_months }} bulan@endif</div>
+            <div class="muted">
+                Tipe: {{ $typeLabel }}
+                @php($billingMonths = max(1, (int) ($invoice->billing_months ?? 1)))
+                @if ($billingMonths > 1)
+                    · {{ $billingMonths }} bulan
+                @endif
+            </div>
         </div>
     </div>
 </div>
