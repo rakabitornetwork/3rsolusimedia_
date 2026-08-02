@@ -96,11 +96,11 @@ export default function Form({
                     <select
                         value={data.mikrotik_router_id || ''}
                         onChange={(e) => {
-                            setData({
-                                ...data,
+                            setData((current) => ({
+                                ...current,
                                 mikrotik_router_id: e.target.value,
                                 mikrotik_profile: '',
-                            });
+                            }));
                         }}
                         className={fieldClass}
                         required
@@ -177,6 +177,12 @@ export default function Form({
                                   ? 'Pilih RouterOS dulu'
                                   : 'Pilih profile RouterOS'}
                         </option>
+                        {data.mikrotik_profile &&
+                            !profiles.some((profile) => profile.name === data.mikrotik_profile) && (
+                                <option value={data.mikrotik_profile}>
+                                    {data.mikrotik_profile} (tersimpan)
+                                </option>
+                            )}
                         {profiles.map((profile) => (
                             <option key={profile.name} value={profile.name}>
                                 {profile.name}
