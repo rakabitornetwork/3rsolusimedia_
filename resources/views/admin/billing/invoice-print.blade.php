@@ -216,8 +216,8 @@
         }
 
         .inv-logo {
-            height: 34px;
-            width: auto;
+            height: 40px;
+            width: 40px;
             object-fit: contain;
             flex-shrink: 0;
         }

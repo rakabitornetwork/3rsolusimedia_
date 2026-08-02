@@ -146,7 +146,7 @@ class BillingController extends Controller
             'half' => $half,
             'company' => [
                 'name' => AppSettings::companyName(),
-                'logo' => AppSettings::branding()['logo_full'] ?? AppSettings::branding()['logo_mark'],
+                'logo' => AppSettings::branding()['logo_mark'] ?? AppSettings::branding()['logo_full'],
                 'address' => trim((string) \App\Models\SiteSetting::getValue('address', '')),
                 'phone' => trim((string) \App\Models\SiteSetting::getValue('phone', '')),
                 'whatsapp' => trim((string) \App\Models\SiteSetting::getValue('whatsapp', '')),
