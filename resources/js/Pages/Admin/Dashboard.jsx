@@ -17,6 +17,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import LiveTrafficCard from '../../Components/Admin/LiveTrafficCard';
+import RevenueChartCard from '../../Components/Admin/RevenueChartCard';
 import AdminLayout from '../../Layouts/AdminLayout';
 
 function StatWidget({ label, value, hint, href, gradient, icon: Icon }) {
@@ -59,6 +60,7 @@ export default function Dashboard({
     stats,
     traffic_routers: trafficRouters = [],
     update_notice: updateNotice = null,
+    revenue_charts: revenueCharts = null,
     due_soon: dueSoon,
     attention_invoices: attentionInvoices,
     quick_actions: quickActions,
@@ -222,6 +224,15 @@ export default function Dashboard({
                 </h3>
                 <LiveTrafficCard routers={trafficRouters} />
             </section>
+
+            {revenueCharts && (
+                <section className="mb-8">
+                    <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        Pendapatan
+                    </h3>
+                    <RevenueChartCard charts={revenueCharts} />
+                </section>
+            )}
 
             <section className="mb-8">
                 <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">

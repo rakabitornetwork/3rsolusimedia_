@@ -170,7 +170,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-CgXIMPip.css",
+    "file": "assets/app-D2GoZNSN.css",
     "name": "app",
     "names": [
       "app.css"
@@ -384,11 +384,12 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard.jsx": {
-    "file": "assets/Dashboard-Dr3u8m3e.js",
+    "file": "assets/Dashboard-DGPLcKC2.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.jsx",
     "isDynamicEntry": true,
     "imports": [
+      "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-DhC7OpaJ.js",
       "_vendor-react-Dyo4ernH.js",
       "_AdminLayout-C-NZqhKH.js",
@@ -735,7 +736,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-CeIg05WP.js",
+    "file": "assets/app-fuu05K3X.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -782,7 +783,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-CgXIMPip.css"
+      "assets/app-D2GoZNSN.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

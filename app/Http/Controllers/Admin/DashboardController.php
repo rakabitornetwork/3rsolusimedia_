@@ -10,6 +10,8 @@ use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
 use App\Services\GitUpdateService;
 use App\Support\AppSettings;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -108,6 +110,7 @@ class DashboardController extends Controller
                 'routers_active' => $routersActive,
                 'packages_active' => $packagesActive,
             ],
+            'revenue_charts' => $this->revenueCharts(),
             'due_soon' => $dueSoon,
             'attention_invoices' => $attentionInvoices,
             'quick_actions' => collect([
@@ -157,5 +160,169 @@ class DashboardController extends Controller
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * @return array{
+     *     daily: array<string, mixed>,
+     *     monthly: array<string, mixed>,
+     *     half_year: array<string, mixed>
+     * }
+     */
+    private function revenueCharts(): array
+    {
+        return [
+            'daily' => [
+                'key' => 'daily',
+                'title' => 'Harian',
+                'subtitle' => '14 hari terakhir',
+                'x_label' => 'Tanggal',
+                'y_label' => 'Pendapatan (Rp)',
+                'points' => $this->dailyRevenue(14),
+            ],
+            'monthly' => [
+                'key' => 'monthly',
+                'title' => 'Bulanan',
+                'subtitle' => '6 bulan terakhir',
+                'x_label' => 'Bulan',
+                'y_label' => 'Pendapatan (Rp)',
+                'points' => $this->monthlyRevenue(6),
+            ],
+            'half_year' => [
+                'key' => 'half_year',
+                'title' => 'Per 6 bulan',
+                'subtitle' => '4 periode semester',
+                'x_label' => 'Periode',
+                'y_label' => 'Pendapatan (Rp)',
+                'points' => $this->halfYearRevenue(4),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function dailyRevenue(int $days): array
+    {
+        $start = now()->copy()->subDays($days - 1)->startOfDay();
+        $end = now()->copy()->endOfDay();
+
+        $driver = DB::connection()->getDriverName();
+        $dayExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m-%d', paid_at)",
+            'pgsql' => "to_char(paid_at, 'YYYY-MM-DD')",
+            default => 'DATE(paid_at)',
+        };
+
+        $rows = Payment::query()
+            ->select(DB::raw("{$dayExpr} as day_key"), DB::raw('SUM(amount) as total'))
+            ->whereBetween('paid_at', [$start, $end])
+            ->groupBy(DB::raw($dayExpr))
+            ->pluck('total', 'day_key');
+
+        $series = [];
+        for ($i = 0; $i < $days; $i++) {
+            $day = $start->copy()->addDays($i);
+            $key = $day->format('Y-m-d');
+            $total = (int) ($rows[$key] ?? 0);
+            $series[] = [
+                'key' => $key,
+                'label' => $day->copy()->locale('id')->translatedFormat('d M'),
+                'total' => $total,
+                'total_label' => $this->rupiah($total),
+            ];
+        }
+
+        return $series;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function monthlyRevenue(int $months): array
+    {
+        $start = now()->copy()->subMonthsNoOverflow($months - 1)->startOfMonth();
+        $end = now()->copy()->endOfMonth();
+
+        $driver = DB::connection()->getDriverName();
+        $monthExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', paid_at)",
+            'pgsql' => "to_char(paid_at, 'YYYY-MM')",
+            default => "DATE_FORMAT(paid_at, '%Y-%m')",
+        };
+
+        $rows = Payment::query()
+            ->select(DB::raw("{$monthExpr} as month_key"), DB::raw('SUM(amount) as total'))
+            ->whereBetween('paid_at', [$start, $end])
+            ->groupBy(DB::raw($monthExpr))
+            ->pluck('total', 'month_key');
+
+        $series = [];
+        for ($i = 0; $i < $months; $i++) {
+            $month = $start->copy()->addMonthsNoOverflow($i);
+            $key = $month->format('Y-m');
+            $total = (int) ($rows[$key] ?? 0);
+            $series[] = [
+                'key' => $key,
+                'label' => $month->copy()->locale('id')->translatedFormat('M Y'),
+                'total' => $total,
+                'total_label' => $this->rupiah($total),
+            ];
+        }
+
+        return $series;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function halfYearRevenue(int $periods): array
+    {
+        // Periode semester: Jan–Jun / Jul–Des. Ambil $periods semester terakhir termasuk semester berjalan.
+        $current = now()->copy()->startOfMonth();
+        $semesterStartMonth = $current->month <= 6 ? 1 : 7;
+        $latestStart = $current->copy()->month($semesterStartMonth)->startOfMonth();
+
+        $starts = [];
+        for ($i = $periods - 1; $i >= 0; $i--) {
+            $starts[] = $latestStart->copy()->subMonthsNoOverflow($i * 6);
+        }
+
+        $rangeStart = $starts[0]->copy();
+        $rangeEnd = $latestStart->copy()->addMonthsNoOverflow(5)->endOfMonth();
+
+        $payments = Payment::query()
+            ->whereBetween('paid_at', [$rangeStart, $rangeEnd])
+            ->get(['amount', 'paid_at']);
+
+        $series = [];
+        foreach ($starts as $start) {
+            $end = $start->copy()->addMonthsNoOverflow(5)->endOfMonth();
+            $total = (int) $payments
+                ->filter(function ($payment) use ($start, $end) {
+                    $paidAt = Carbon::parse($payment->paid_at);
+
+                    return $paidAt->betweenIncluded($start, $end);
+                })
+                ->sum('amount');
+
+            $endMonth = $start->copy()->addMonthsNoOverflow(5);
+            $label = $start->copy()->locale('id')->translatedFormat('M')
+                .'–'.$endMonth->copy()->locale('id')->translatedFormat('M Y');
+
+            $series[] = [
+                'key' => $start->format('Y-m'),
+                'label' => $label,
+                'total' => $total,
+                'total_label' => $this->rupiah($total),
+            ];
+        }
+
+        return $series;
+    }
+
+    private function rupiah(int $amount): string
+    {
+        return 'Rp '.number_format($amount, 0, ',', '.');
     }
 }
