@@ -10,24 +10,8 @@ import {
     Wallet,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
-
-function StatCard({ label, value, hint, icon: Icon, tone }) {
-    return (
-        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-xl font-bold leading-snug break-words sm:text-2xl">
-                {value}
-            </p>
-            <p className="mt-auto pt-2 text-xs text-white/75">{hint}</p>
-        </div>
-    );
-}
 
 function MethodBar({ item }) {
     return (
@@ -154,34 +138,34 @@ export default function Report({
                 <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
                     Ringkasan
                 </h3>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard
                         label="Omzet periode"
                         value={summary.collected_label}
                         hint={`${summary.transactions} pembayaran masuk`}
                         icon={Coins}
-                        tone="bg-gradient-to-br from-teal-400 to-cyan-600"
+                        tone="teal"
                     />
                     <StatCard
                         label="Transaksi"
                         value={summary.transactions}
                         hint="Jumlah pembayaran dalam periode"
                         icon={Receipt}
-                        tone="bg-gradient-to-br from-indigo-400 to-blue-600"
+                        tone="indigo"
                     />
                     <StatCard
                         label="Piutang aktif"
                         value={summary.unpaid_total_label}
                         hint={`${summary.unpaid_count} tagihan belum lunas`}
                         icon={Wallet}
-                        tone="bg-gradient-to-br from-amber-300 to-orange-500"
+                        tone="amber"
                     />
                     <StatCard
                         label="Jatuh tempo"
                         value={summary.overdue_total_label}
                         hint={`${summary.overdue_count} tagihan lewat jatuh tempo`}
                         icon={AlertTriangle}
-                        tone="bg-gradient-to-br from-rose-400 to-pink-600"
+                        tone="rose"
                     />
                 </div>
             </section>

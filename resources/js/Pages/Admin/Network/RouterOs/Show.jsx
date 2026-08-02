@@ -20,6 +20,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import LiveTrafficCard from '../../../../Components/Admin/LiveTrafficCard';
+import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 
 function formatBytes(bytes) {
@@ -43,22 +44,6 @@ function formatUptime(uptime) {
         .replace(/(\d+[wdhms])/gi, '$1 ')
         .replace(/\s+/g, ' ')
         .trim();
-}
-
-function Stat({ label, value, icon: Icon, tone }) {
-    return (
-        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-xs tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-lg font-bold leading-snug break-words">
-                {value ?? '—'}
-            </p>
-        </div>
-    );
 }
 
 function SummaryRow({ label, value, icon: Icon }) {
@@ -105,38 +90,38 @@ export default function Show({ router: item, info }) {
                 </button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Stat
+            <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
                     label="Identity"
                     value={info.identity}
                     icon={BadgeInfo}
-                    tone="bg-gradient-to-br from-slate-400 to-slate-600"
+                    tone="slate"
                 />
-                <Stat
+                <StatCard
                     label="Board"
                     value={info.board}
                     icon={CircuitBoard}
-                    tone="bg-gradient-to-br from-cyan-400 to-sky-600"
+                    tone="cyan"
                 />
-                <Stat
+                <StatCard
                     label="Version"
                     value={info.version}
                     icon={Layers}
-                    tone="bg-gradient-to-br from-indigo-400 to-blue-600"
+                    tone="indigo"
                 />
-                <Stat
+                <StatCard
                     label="Uptime"
                     value={formatUptime(info.uptime)}
                     icon={Timer}
-                    tone="bg-gradient-to-br from-emerald-400 to-teal-600"
+                    tone="emerald"
                 />
-                <Stat
+                <StatCard
                     label="CPU Load"
                     value={info.cpu_load != null ? `${info.cpu_load}%` : null}
                     icon={Cpu}
-                    tone="bg-gradient-to-br from-amber-300 to-orange-500"
+                    tone="amber"
                 />
-                <Stat
+                <StatCard
                     label="Memory"
                     value={
                         info.free_memory != null
@@ -144,19 +129,19 @@ export default function Show({ router: item, info }) {
                             : null
                     }
                     icon={MemoryStick}
-                    tone="bg-gradient-to-br from-violet-400 to-fuchsia-600"
+                    tone="violet"
                 />
-                <Stat
+                <StatCard
                     label="PPPoE Aktif"
                     value={info.ppp_active}
                     icon={Cable}
-                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
+                    tone="teal"
                 />
-                <Stat
+                <StatCard
                     label="Hotspot Aktif"
                     value={info.hotspot_active}
                     icon={Wifi}
-                    tone="bg-gradient-to-br from-rose-400 to-pink-600"
+                    tone="rose"
                 />
             </div>
 

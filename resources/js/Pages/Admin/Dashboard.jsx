@@ -18,32 +18,8 @@ import {
 } from 'lucide-react';
 import LiveTrafficCard from '../../Components/Admin/LiveTrafficCard';
 import RevenueChartCard from '../../Components/Admin/RevenueChartCard';
+import StatCard from '../../Components/Admin/StatCard';
 import AdminLayout from '../../Layouts/AdminLayout';
-
-function StatWidget({ label, value, hint, href, gradient, icon: Icon }) {
-    const content = (
-        <div
-            className={`flex h-full min-h-[132px] flex-col p-4 text-white shadow-sm transition hover:brightness-105 ${gradient}`}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-2xl font-bold text-white">{value}</p>
-            <p className="mt-auto pt-2 text-xs text-white/70">{hint || '\u00a0'}</p>
-        </div>
-    );
-
-    if (!href) return content;
-
-    return (
-        <Link href={href} className="block h-full">
-            {content}
-        </Link>
-    );
-}
 
 function actionIcon(label) {
     if (label.includes('Pelanggan')) return Users;
@@ -183,36 +159,36 @@ export default function Dashboard({
                     Pelanggan PPPoE
                 </h3>
                 <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatWidget
+                    <StatCard
                         label="Total pelanggan"
                         value={stats.customers_total}
                         hint={`${stats.customers_disabled} nonaktif`}
                         href="/admin/customers/pppoe"
-                        gradient="bg-gradient-to-br from-cyan-400 to-sky-600"
+                        tone="cyan"
                         icon={Coins}
                     />
-                    <StatWidget
+                    <StatCard
                         label="Aktif"
                         value={stats.customers_active}
                         hint="Koneksi berjalan normal"
                         href="/admin/customers/pppoe?status=active"
-                        gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
+                        tone="emerald"
                         icon={ShieldCheck}
                     />
-                    <StatWidget
+                    <StatCard
                         label="Isolir"
                         value={stats.customers_isolated}
                         hint="Perlu pembayaran / restore"
                         href="/admin/customers/pppoe?status=isolated"
-                        gradient="bg-gradient-to-br from-rose-400 to-pink-600"
+                        tone="rose"
                         icon={WalletCards}
                     />
-                    <StatWidget
+                    <StatCard
                         label="Lewat tempo"
                         value={stats.customers_overdue}
                         hint="Melewati jatuh tempo"
                         href="/admin/customers/pppoe"
-                        gradient="bg-gradient-to-br from-amber-300 to-orange-500"
+                        tone="amber"
                         icon={Hourglass}
                     />
                 </div>

@@ -12,6 +12,7 @@ import {
     Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
@@ -62,20 +63,6 @@ function SortableHeader({ label, column, sort, direction, onSort, className = ''
                 </span>
             </span>
         </th>
-    );
-}
-
-function StatCard({ label, value, icon: Icon, tone }) {
-    return (
-        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-2xl font-bold">{value}</p>
-        </div>
     );
 }
 
@@ -226,36 +213,36 @@ export default function Index({ customers, filters, routers, stats }) {
         >
             <Head title="Pelanggan PPPoE" />
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatCard
                     label="Total"
                     value={stats.total}
                     icon={Users}
-                    tone="bg-gradient-to-br from-slate-400 to-slate-600"
+                    tone="slate"
                 />
                 <StatCard
                     label="Aktif"
                     value={stats.active}
                     icon={Activity}
-                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
+                    tone="teal"
                 />
                 <StatCard
                     label="Isolir"
                     value={stats.isolated}
                     icon={ShieldOff}
-                    tone="bg-gradient-to-br from-rose-400 to-pink-600"
+                    tone="rose"
                 />
                 <StatCard
                     label="Grace"
                     value={stats.grace ?? 0}
                     icon={Clock}
-                    tone="bg-gradient-to-br from-sky-400 to-blue-600"
+                    tone="sky"
                 />
                 <StatCard
                     label="Lewat tempo"
                     value={stats.overdue}
                     icon={AlertTriangle}
-                    tone="bg-gradient-to-br from-amber-300 to-orange-500"
+                    tone="amber"
                 />
             </div>
 

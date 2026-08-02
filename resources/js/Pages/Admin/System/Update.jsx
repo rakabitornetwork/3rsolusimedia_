@@ -7,6 +7,7 @@ import {
     TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import StatCard from '../../../Components/Admin/StatCard';
 import UpdateTerminal from '../../../Components/Admin/UpdateTerminal';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -249,38 +250,32 @@ export default function Update({ repo }) {
                 </div>
             </div>
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-teal-400 to-cyan-600 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">Status sync</p>
-                    <div className="mt-3">
-                        <StatusBadge status={repo?.sync_status} label={repo?.sync_label || '—'} />
-                    </div>
-                    <p className="mt-auto pt-3 text-xs text-white/75">{repo?.message}</p>
-                </div>
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-slate-400 to-slate-600 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">
-                        Commit lokal
-                    </p>
-                    <p className="font-display mt-2 text-2xl font-bold tracking-tight">
-                        {repo?.local_commit_short || '—'}
-                    </p>
-                    <p className="mt-auto pt-2 text-xs text-white/75">
-                        Versi {repo?.local_version ? `v${repo.local_version}` : '—'}
-                        {repo?.dirty ? ' · Ada perubahan belum di-commit' : ''}
-                    </p>
-                </div>
-                <div className="flex min-h-[122px] flex-col bg-gradient-to-br from-cyan-400 to-sky-600 p-4 text-white shadow-sm sm:col-span-2 xl:col-span-1">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">
-                        Commit remote
-                    </p>
-                    <p className="font-display mt-2 text-2xl font-bold tracking-tight">
-                        {repo?.remote_commit_short || '—'}
-                    </p>
-                    <p className="mt-auto pt-2 text-xs text-white/75">
-                        Versi {repo?.remote_version ? `v${repo.remote_version}` : '—'} · Ahead{' '}
-                        {repo?.ahead ?? 0} · Behind {repo?.behind ?? 0}
-                    </p>
-                </div>
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <StatCard
+                    label="Status sync"
+                    tone="teal"
+                    icon={RefreshCw}
+                    hint={repo?.message}
+                >
+                    <StatusBadge status={repo?.sync_status} label={repo?.sync_label || '—'} />
+                </StatCard>
+                <StatCard
+                    label="Commit lokal"
+                    value={repo?.local_commit_short || '—'}
+                    tone="slate"
+                    icon={GitBranch}
+                    hint={`Versi ${repo?.local_version ? `v${repo.local_version}` : '—'}${
+                        repo?.dirty ? ' · Ada perubahan belum di-commit' : ''
+                    }`}
+                />
+                <StatCard
+                    label="Commit remote"
+                    value={repo?.remote_commit_short || '—'}
+                    tone="cyan"
+                    icon={Tag}
+                    hint={`Versi ${repo?.remote_version ? `v${repo.remote_version}` : '—'} · Ahead ${repo?.ahead ?? 0} · Behind ${repo?.behind ?? 0}`}
+                    className="sm:col-span-2 xl:col-span-1"
+                />
             </div>
 
             {!repo?.available && (

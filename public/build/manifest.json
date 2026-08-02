@@ -42,6 +42,14 @@
       "_vendor-react-Dyo4ernH.js"
     ]
   },
+  "_StatCard-BLjBy1V2.js": {
+    "file": "assets/StatCard-BLjBy1V2.js",
+    "name": "StatCard",
+    "imports": [
+      "_vendor-ui-Bf18iN0N.js",
+      "_vendor-react-Dyo4ernH.js"
+    ]
+  },
   "_genieacsMetrics-Ba_bFl71.js": {
     "file": "assets/genieacsMetrics-Ba_bFl71.js",
     "name": "genieacsMetrics"
@@ -178,7 +186,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-1G6kQp3H.css",
+    "file": "assets/app-D_AwZAR3.css",
     "name": "app",
     "names": [
       "app.css"
@@ -206,19 +214,20 @@
     ]
   },
   "resources/js/Pages/Admin/Billing/Index.jsx": {
-    "file": "assets/Index-CUG1nWk-.js",
+    "file": "assets/Index-D5KWQVEU.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Billing/Index.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js"
     ]
   },
   "resources/js/Pages/Admin/Billing/Report.jsx": {
-    "file": "assets/Report-DEJbvTW5.js",
+    "file": "assets/Report-BnyisTvY.js",
     "name": "Report",
     "src": "resources/js/Pages/Admin/Billing/Report.jsx",
     "isDynamicEntry": true,
@@ -226,6 +235,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js"
     ]
   },
@@ -346,7 +356,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx": {
-    "file": "assets/Index-B7TjJH2V.js",
+    "file": "assets/Index-rHAdLc7j.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx",
     "isDynamicEntry": true,
@@ -354,12 +364,13 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js"
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Sessions.jsx": {
-    "file": "assets/Sessions-CkO3jXTs.js",
+    "file": "assets/Sessions-CWNAC7jy.js",
     "name": "Sessions",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Sessions.jsx",
     "isDynamicEntry": true,
@@ -367,6 +378,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js"
     ]
@@ -395,7 +407,7 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard.jsx": {
-    "file": "assets/Dashboard-DGVOy4u5.js",
+    "file": "assets/Dashboard-CtcChwh3.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -403,12 +415,13 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_LiveTrafficCard-Bqm3Lef0.js"
     ]
   },
   "resources/js/Pages/Admin/Network/GenieAcs/Index.jsx": {
-    "file": "assets/Index-uPf2pptK.js",
+    "file": "assets/Index-DK_JmcZH.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/GenieAcs/Index.jsx",
     "isDynamicEntry": true,
@@ -416,6 +429,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js",
       "_genieacsMetrics-Ba_bFl71.js"
@@ -481,13 +495,14 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Sessions.jsx": {
-    "file": "assets/Sessions-aoPsJXV0.js",
+    "file": "assets/Sessions-BStjZlc-.js",
     "name": "Sessions",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Sessions.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js"
     ]
@@ -504,7 +519,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Index.jsx": {
-    "file": "assets/Index-DSFKNRar.js",
+    "file": "assets/Index-DSFKNRar2.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Index.jsx",
     "isDynamicEntry": true,
@@ -515,13 +530,14 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Show.jsx": {
-    "file": "assets/Show-Bw_fX5dc.js",
+    "file": "assets/Show-BYK5WAcK.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_LiveTrafficCard-Bqm3Lef0.js"
     ]
@@ -562,7 +578,7 @@
     ]
   },
   "resources/js/Pages/Admin/System/Update.jsx": {
-    "file": "assets/Update-CimLE9x3.js",
+    "file": "assets/Update-dEzcXI7f.js",
     "name": "Update",
     "src": "resources/js/Pages/Admin/System/Update.jsx",
     "isDynamicEntry": true,
@@ -570,6 +586,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js"
     ]
   },
@@ -586,7 +603,7 @@
     ]
   },
   "resources/js/Pages/Admin/Users/Index.jsx": {
-    "file": "assets/Index-CwmndUEg2.js",
+    "file": "assets/Index-DTGX7hdW2.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Users/Index.jsx",
     "isDynamicEntry": true,
@@ -594,6 +611,7 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-Bf18iN0N.js",
       "_vendor-react-Dyo4ernH.js",
+      "_StatCard-BLjBy1V2.js",
       "_AdminLayout-Cwr5HVG-.js",
       "_useDebouncedCallback-CBSc0MUO.js"
     ]
@@ -751,7 +769,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-mhMUtKrW.js",
+    "file": "assets/app-BKBG6PnU.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -798,7 +816,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-1G6kQp3H.css"
+      "assets/app-D_AwZAR3.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

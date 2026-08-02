@@ -1,5 +1,6 @@
 import { Head, router } from '@inertiajs/react';
-import { RefreshCw, Search, Unplug } from 'lucide-react';
+import { Activity, RefreshCw, Search, Unplug, UserPlus, Users } from 'lucide-react';
+import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
@@ -82,18 +83,24 @@ export default function Sessions({
             )}
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-3">
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-emerald-400 to-teal-600 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">Online sekarang</p>
-                    <p className="font-display mt-3 text-2xl font-bold">{stats.online}</p>
-                </div>
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-cyan-400 to-sky-600 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">Terdaftar di user</p>
-                    <p className="font-display mt-3 text-2xl font-bold">{stats.matched}</p>
-                </div>
-                <div className="flex min-h-[100px] flex-col bg-gradient-to-br from-amber-300 to-orange-500 p-4 text-white shadow-sm">
-                    <p className="text-[11px] tracking-wide text-white/75 uppercase">Belum terdaftar</p>
-                    <p className="font-display mt-3 text-2xl font-bold">{stats.unknown}</p>
-                </div>
+                <StatCard
+                    label="Online sekarang"
+                    value={stats.online}
+                    tone="emerald"
+                    icon={Activity}
+                />
+                <StatCard
+                    label="Terdaftar di user"
+                    value={stats.matched}
+                    tone="cyan"
+                    icon={Users}
+                />
+                <StatCard
+                    label="Belum terdaftar"
+                    value={stats.unknown}
+                    tone="amber"
+                    icon={UserPlus}
+                />
             </div>
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">

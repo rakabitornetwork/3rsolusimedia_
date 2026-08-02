@@ -10,6 +10,7 @@ import {
     Wrench,
 } from 'lucide-react';
 import { useState } from 'react';
+import StatCard from '../../../Components/Admin/StatCard';
 import UserAvatar from '../../../Components/UserAvatar';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
@@ -19,20 +20,6 @@ const roleBadge = {
     admin: 'bg-signal/15 text-signal-deep',
     teknisi: 'bg-amber-100 text-amber-900',
 };
-
-function StatWidget({ label, value, gradient, icon: Icon }) {
-    return (
-        <div className={`flex h-full min-h-[120px] flex-col p-4 text-white shadow-sm ${gradient}`}>
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-2xl font-bold text-white">{value}</p>
-        </div>
-    );
-}
 
 export default function Index({ users, filters, role_options, stats, can_manage }) {
     const { auth } = usePage().props;
@@ -67,29 +54,29 @@ export default function Index({ users, filters, role_options, stats, can_manage 
         >
             <Head title="Manajemen Pengguna" />
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatWidget
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
                     label="Total User"
                     value={stats.total}
-                    gradient="bg-gradient-to-br from-slate-400 to-slate-600"
+                    tone="slate"
                     icon={Users}
                 />
-                <StatWidget
+                <StatCard
                     label="Superadmin"
                     value={stats.superadmin}
-                    gradient="bg-gradient-to-br from-indigo-400 to-blue-600"
+                    tone="indigo"
                     icon={ShieldCheck}
                 />
-                <StatWidget
+                <StatCard
                     label="Admin"
                     value={stats.admin}
-                    gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
+                    tone="emerald"
                     icon={UserCog}
                 />
-                <StatWidget
+                <StatCard
                     label="Teknisi"
                     value={stats.teknisi}
-                    gradient="bg-gradient-to-br from-amber-300 to-orange-500"
+                    tone="amber"
                     icon={Wrench}
                 />
             </div>

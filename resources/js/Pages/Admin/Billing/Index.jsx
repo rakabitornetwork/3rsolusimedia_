@@ -10,25 +10,9 @@ import {
     Trash2,
     WalletCards,
 } from 'lucide-react';
+import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
-
-function StatWidget({ label, value, gradient, icon: Icon }) {
-    return (
-        <div
-            className={`flex h-full min-h-[132px] flex-col p-4 text-white shadow-sm ${gradient}`}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-2xl font-bold text-white">{value}</p>
-            <p className="mt-auto pt-2 text-xs text-white/70">{'\u00a0'}</p>
-        </div>
-    );
-}
 
 function StatusBadge({ status, overdue, graceUntil }) {
     if (graceUntil && status === 'unpaid') {
@@ -253,28 +237,28 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
             <Head title="Tagihan & Pembayaran" />
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatWidget
+                <StatCard
                     label="Belum bayar"
                     value={stats.unpaid}
-                    gradient="bg-gradient-to-br from-rose-400 to-pink-600"
+                    tone="rose"
                     icon={WalletCards}
                 />
-                <StatWidget
+                <StatCard
                     label="Jatuh tempo"
                     value={stats.overdue}
-                    gradient="bg-gradient-to-br from-amber-300 to-orange-500"
+                    tone="amber"
                     icon={Hourglass}
                 />
-                <StatWidget
+                <StatCard
                     label="Lunas bulan ini"
                     value={stats.paid_this_month}
-                    gradient="bg-gradient-to-br from-emerald-400 to-teal-600"
+                    tone="emerald"
                     icon={ShieldCheck}
                 />
-                <StatWidget
+                <StatCard
                     label="Omzet bulan ini"
                     value={stats.collected_this_month_label}
-                    gradient="bg-gradient-to-br from-indigo-400 to-blue-600"
+                    tone="indigo"
                     icon={Coins}
                 />
             </div>

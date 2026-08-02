@@ -17,6 +17,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import { useState } from 'react';
+import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import {
@@ -28,22 +29,14 @@ import {
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
+const FAULT_STAT_TONES = {
+    good: 'emerald',
+    warn: 'amber',
+    bad: 'rose',
+};
+
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal disabled:bg-mist';
-
-function StatCard({ label, value, icon: Icon, tone }) {
-    return (
-        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
-            <div className="flex items-start justify-between gap-3">
-                <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
-                <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </span>
-            </div>
-            <p className="font-display mt-3 text-2xl font-bold">{value}</p>
-        </div>
-    );
-}
 
 function MetricPill({ icon: Icon, label, tone, title }) {
     return (
@@ -318,34 +311,30 @@ export default function Index({ config, connection, devices, devices_error, stat
                 </form>
             )}
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     label="Status Koneksi"
                     value={connection?.ok ? 'Terhubung' : 'Terputus'}
                     icon={connection?.ok ? Wifi : ServerCrash}
-                    tone={
-                        connection?.ok
-                            ? 'bg-gradient-to-br from-emerald-400 to-teal-600'
-                            : 'bg-gradient-to-br from-rose-400 to-pink-600'
-                    }
+                    tone={connection?.ok ? 'emerald' : 'rose'}
                 />
                 <StatCard
                     label="Perangkat"
                     value={stats?.devices ?? 0}
                     icon={Radio}
-                    tone="bg-gradient-to-br from-cyan-400 to-sky-600"
+                    tone="cyan"
                 />
                 <StatCard
                     label="Online (~15 mnt)"
                     value={stats?.online ?? 0}
                     icon={Activity}
-                    tone="bg-gradient-to-br from-teal-400 to-cyan-600"
+                    tone="teal"
                 />
                 <StatCard
                     label="Faults"
                     value={stats?.faults ?? 0}
                     icon={ShieldAlert}
-                    tone={`bg-gradient-to-br ${faultAccent.accent}`}
+                    tone={FAULT_STAT_TONES[faultAccent.key] || 'emerald'}
                 />
             </div>
 
