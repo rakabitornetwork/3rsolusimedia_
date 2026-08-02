@@ -65,7 +65,15 @@ function StatCard({ label, value, icon: Icon, tone }) {
     );
 }
 
-function StatusBadge({ status, overdue }) {
+function StatusBadge({ status, overdue, graceUntil }) {
+    if (graceUntil) {
+        return (
+            <span className="bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">
+                Grace s/d {graceUntil}
+            </span>
+        );
+    }
+
     if (overdue && status !== 'isolated') {
         return (
             <span className="bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
@@ -156,6 +164,37 @@ export default function Index({ customers, filters, routers, stats }) {
 
     const sync = (id) => {
         router.post(`/admin/customers/pppoe/${id}/sync`);
+    };
+
+    const grantGrace = (id, days) => {
+        if (!canWrite) return;
+        const note = window.prompt(
+            `Toleransi isolir +${days} hari (jatuh tempo tidak digeser).\nCatatan opsional:`,
+            '',
+        );
+        if (note === null) return;
+        router.post(`/admin/customers/pppoe/${id}/grace`, { days, note: note || undefined });
+    };
+
+    const clearGrace = (id) => {
+        if (!canWrite) return;
+        if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
+        router.delete(`/admin/customers/pppoe/${id}/grace`);
+    };
+
+    const combineBilling = (customer) => {
+        if (!canWrite) return;
+        const price = customer.package?.price || 0;
+        const total = price * 2;
+        const totalLabel = `Rp ${Number(total).toLocaleString('id-ID')}`;
+        if (
+            !window.confirm(
+                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan yang ada akan diganti.`,
+            )
+        ) {
+            return;
+        }
+        router.post(`/admin/customers/pppoe/${customer.id}/combine-billing`, { months: 2 });
     };
 
     const submitBulkDelete = () => {
@@ -478,7 +517,17 @@ export default function Index({ customers, filters, routers, stats }) {
                                     <StatusBadge
                                         status={customer.status}
                                         overdue={customer.is_overdue}
+                                        graceUntil={
+                                            customer.has_active_grace
+                                                ? customer.grace_until
+                                                : null
+                                        }
                                     />
+                                    {customer.has_active_grace && customer.grace_note && (
+                                        <p className="mt-1 max-w-[140px] truncate text-[10px] text-ink-soft">
+                                            {customer.grace_note}
+                                        </p>
+                                    )}
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
@@ -497,14 +546,58 @@ export default function Index({ customers, filters, routers, stats }) {
                                             Edit
                                         </Link>
                                         {canWrite && (
-                                            <button
-                                                type="button"
-                                                onClick={() => remove(customer.id)}
-                                                className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                                Hapus
-                                            </button>
+                                            <>
+                                                <div className="relative inline-flex">
+                                                    <details className="group">
+                                                        <summary className="cursor-pointer list-none border border-sky-100 px-2.5 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 [&::-webkit-details-marker]:hidden">
+                                                            Toleransi
+                                                        </summary>
+                                                        <div className="absolute right-0 z-20 mt-1 min-w-[140px] border border-ink/10 bg-white py-1 shadow-sm">
+                                                            {[3, 7, 14].map((days) => (
+                                                                <button
+                                                                    key={days}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        grantGrace(
+                                                                            customer.id,
+                                                                            days,
+                                                                        )
+                                                                    }
+                                                                    className="block w-full px-3 py-1.5 text-left text-xs text-ink hover:bg-mist"
+                                                                >
+                                                                    +{days} hari
+                                                                </button>
+                                                            ))}
+                                                            {customer.has_active_grace && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        clearGrace(customer.id)
+                                                                    }
+                                                                    className="block w-full border-t border-ink/5 px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+                                                                >
+                                                                    Cabut toleransi
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </details>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => combineBilling(customer)}
+                                                    className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                                >
+                                                    Gabung 2 bln
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => remove(customer.id)}
+                                                    className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Hapus
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </td>

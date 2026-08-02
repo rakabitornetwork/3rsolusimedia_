@@ -13,6 +13,7 @@ class Invoice extends Model
         'pppoe_customer_id',
         'subscription_package_id',
         'type',
+        'billing_months',
         'period_start',
         'period_end',
         'due_date',
@@ -36,6 +37,7 @@ class Invoice extends Model
             'discount' => 'integer',
             'total' => 'integer',
             'package_price' => 'integer',
+            'billing_months' => 'integer',
             'paid_at' => 'datetime',
         ];
     }
@@ -75,9 +77,11 @@ class Invoice extends Model
             'pppoe_customer_id' => $this->pppoe_customer_id,
             'subscription_package_id' => $this->subscription_package_id,
             'type' => $this->type,
+            'billing_months' => (int) ($this->billing_months ?: 1),
             'type_label' => match ($this->type) {
                 'prorata' => 'Prorata',
                 'monthly' => 'Bulanan',
+                'multi_month' => 'Gabungan '.((int) ($this->billing_months ?: 2)).' bulan',
                 'adjustment' => 'Penyesuaian',
                 default => $this->type,
             },

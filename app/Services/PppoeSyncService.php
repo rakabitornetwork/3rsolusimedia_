@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\PppoeCustomer;
-use App\Support\AppSettings;
 
 class PppoeSyncService
 {
@@ -33,11 +32,7 @@ class PppoeSyncService
 
         if ($disabled) {
             $status = 'disabled';
-        } elseif (
-            AppSettings::bool('app_auto_isolir', true)
-            && $customer->isOverdue()
-            && $customer->overdue_action === 'isolir'
-        ) {
+        } elseif ($customer->shouldIsolir()) {
             if (! $customer->isolir_profile) {
                 $customer->update([
                     'sync_status' => 'error',

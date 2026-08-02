@@ -117,6 +117,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::put('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'update'])->name('customers.pppoe.update');
     Route::delete('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'destroy'])->name('customers.pppoe.destroy');
     Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->name('customers.pppoe.sync');
+    Route::post('/customers/pppoe/{pppoe}/grace', [PppoeCustomerController::class, 'grantGrace'])->name('customers.pppoe.grace');
+    Route::delete('/customers/pppoe/{pppoe}/grace', [PppoeCustomerController::class, 'clearGrace'])->name('customers.pppoe.grace.clear');
+    Route::post('/customers/pppoe/{pppoe}/combine-billing', [PppoeCustomerController::class, 'combineBilling'])->name('customers.pppoe.combine-billing');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');

@@ -108,7 +108,12 @@ export default function Show({ invoice, payment_methods }) {
                             </div>
                             <div>
                                 <dt className="text-xs text-ink-soft uppercase">Tipe</dt>
-                                <dd className="mt-1 text-sm text-ink">{invoice.type_label}</dd>
+                                <dd className="mt-1 text-sm text-ink">
+                                    {invoice.type_label}
+                                    {invoice.billing_months > 1
+                                        ? ` · ${invoice.billing_months} bulan`
+                                        : ''}
+                                </dd>
                             </div>
                             <div>
                                 <dt className="text-xs text-ink-soft uppercase">Total</dt>

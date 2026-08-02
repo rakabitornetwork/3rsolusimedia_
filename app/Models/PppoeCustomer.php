@@ -24,6 +24,8 @@ class PppoeCustomer extends Model
         'start_date',
         'billing_day',
         'due_date',
+        'grace_until',
+        'grace_note',
         'first_bill_amount',
         'first_bill_days',
         'overdue_action',
@@ -42,6 +44,7 @@ class PppoeCustomer extends Model
             'start_date' => 'date',
             'billing_day' => 'integer',
             'due_date' => 'date',
+            'grace_until' => 'date',
             'first_bill_amount' => 'integer',
             'first_bill_days' => 'integer',
             'latitude' => 'float',
@@ -78,7 +81,39 @@ class PppoeCustomer extends Model
 
     public function isOverdue(): bool
     {
-        return $this->due_date->isPast() && ! $this->due_date->isToday();
+        return $this->due_date && $this->due_date->isPast() && ! $this->due_date->isToday();
+    }
+
+    public function hasActiveGrace(): bool
+    {
+        if (! $this->grace_until) {
+            return false;
+        }
+
+        $until = $this->grace_until->copy()->startOfDay();
+        $today = now()->startOfDay();
+
+        return $until->greaterThanOrEqualTo($today);
+    }
+
+    /**
+     * Apakah pelanggan harus diisolir saat sync (menghormati grace + pengaturan auto isolir).
+     */
+    public function shouldIsolir(): bool
+    {
+        if (! \App\Support\AppSettings::bool('app_auto_isolir', true)) {
+            return false;
+        }
+
+        if ($this->overdue_action !== 'isolir') {
+            return false;
+        }
+
+        if (! $this->due_date || ! $this->isOverdue()) {
+            return false;
+        }
+
+        return ! $this->hasActiveGrace();
     }
 
     public function toSafeArray(): array
@@ -97,6 +132,9 @@ class PppoeCustomer extends Model
             'start_date' => $this->start_date?->format('Y-m-d'),
             'billing_day' => $this->billing_day,
             'due_date' => $this->due_date?->format('Y-m-d'),
+            'grace_until' => $this->grace_until?->format('Y-m-d'),
+            'grace_note' => $this->grace_note,
+            'has_active_grace' => $this->hasActiveGrace(),
             'first_bill_amount' => $this->first_bill_amount,
             'first_bill_amount_label' => $this->first_bill_amount !== null
                 ? 'Rp '.number_format($this->first_bill_amount, 0, ',', '.')

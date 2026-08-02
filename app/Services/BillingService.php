@@ -212,18 +212,30 @@ class BillingService
             $nextDueDate = null;
 
             if ($customer) {
-                $paidThrough = $invoice->due_date->toDateString();
-                $nextDue = $this->cycle->advanceDueDate($paidThrough, (int) $customer->billing_day);
-                $nextDueDate = $nextDue->toDateString();
+                $months = max(1, (int) ($invoice->billing_months ?: 1));
+                $cursor = $invoice->due_date->copy()->startOfDay();
+                $billingDay = (int) $customer->billing_day;
+
+                for ($i = 0; $i < $months; $i++) {
+                    $cursor = $this->cycle->advanceDueDate($cursor, $billingDay);
+                }
+
+                $nextDueDate = $cursor->toDateString();
 
                 $customer->update([
                     'due_date' => $nextDueDate,
+                    'grace_until' => null,
+                    'grace_note' => null,
                 ]);
 
                 // Tagihan berikutnya tidak dibuat di sini — baru muncul
                 // lewat generate saat jatuh tempo ≤ 7 hari.
 
-                $this->sync->sync($customer->fresh(['router', 'package']));
+                try {
+                    $this->sync->sync($customer->fresh(['router', 'package']));
+                } catch (\Throwable) {
+                    // Pembayaran tetap sah meski sync RouterOS gagal.
+                }
             }
 
             return [
@@ -284,6 +296,105 @@ class BillingService
         return $invoice->fresh(['customer', 'payments.receiver', 'package']);
     }
 
+    public function grantGrace(PppoeCustomer $customer, Carbon $until, ?string $note = null): PppoeCustomer
+    {
+        $until = $until->copy()->startOfDay();
+        $today = now()->startOfDay();
+
+        if ($until->lessThan($today)) {
+            throw new InvalidArgumentException('Tanggal toleransi tidak boleh sebelum hari ini.');
+        }
+
+        $customer->update([
+            'grace_until' => $until->toDateString(),
+            'grace_note' => $note !== null && trim($note) !== '' ? trim($note) : null,
+        ]);
+
+        try {
+            $this->sync->sync($customer->fresh(['router', 'package']));
+        } catch (\Throwable) {
+            // Toleransi tetap tersimpan meski sync RouterOS gagal.
+        }
+
+        return $customer->fresh(['router', 'package']);
+    }
+
+    public function clearGrace(PppoeCustomer $customer, bool $sync = true): PppoeCustomer
+    {
+        $customer->update([
+            'grace_until' => null,
+            'grace_note' => null,
+        ]);
+
+        if ($sync) {
+            try {
+                $this->sync->sync($customer->fresh(['router', 'package']));
+            } catch (\Throwable) {
+                // Cabut grace tetap tersimpan meski sync gagal.
+            }
+        }
+
+        return $customer->fresh(['router', 'package']);
+    }
+
+    /**
+     * Buat tagihan gabungan N bulan (default 2).
+     * Invoice unpaid bulanan/prorata untuk due yang sama diganti (void) agar tidak dobel.
+     */
+    public function createCombinedMonthlyInvoice(PppoeCustomer $customer, int $months = 2): Invoice
+    {
+        $months = max(2, min(6, $months));
+        $customer->loadMissing('package');
+
+        $price = (int) ($customer->package?->price ?? 0);
+        if ($price <= 0) {
+            throw new InvalidArgumentException('Pelanggan belum punya paket berharga valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        }
+
+        $unpaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->get();
+
+        foreach ($unpaid as $existing) {
+            if ((int) ($existing->billing_months ?: 1) > 1 || $existing->type === 'multi_month') {
+                throw new InvalidArgumentException(
+                    'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu.'
+                );
+            }
+        }
+
+        foreach ($unpaid as $existing) {
+            $this->voidInvoice(
+                $existing,
+                'Diganti tagihan gabungan '.$months.' bulan.'
+            );
+        }
+
+        $due = $customer->due_date->copy()->startOfDay();
+        $periodEnd = $due->copy();
+        for ($i = 1; $i < $months; $i++) {
+            $periodEnd = $this->cycle->advanceDueDate($periodEnd, (int) $customer->billing_day);
+        }
+
+        $amount = $price * $months;
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: 'multi_month',
+            periodStart: $this->periodStartBeforeDue($customer),
+            periodEnd: $periodEnd->toDateString(),
+            dueDate: $due->toDateString(),
+            amount: $amount,
+            notes: 'Tagihan gabungan '.$months.' bulan ('.$customer->package?->name.')',
+            billingMonths: $months,
+        );
+    }
+
     private function createInvoice(
         PppoeCustomer $customer,
         string $type,
@@ -292,6 +403,7 @@ class BillingService
         string $dueDate,
         int $amount,
         ?string $notes = null,
+        int $billingMonths = 1,
     ): Invoice {
         $package = $customer->relationLoaded('package')
             ? $customer->package
@@ -305,6 +417,7 @@ class BillingService
             'pppoe_customer_id' => $customer->id,
             'subscription_package_id' => $customer->subscription_package_id,
             'type' => $type,
+            'billing_months' => max(1, $billingMonths),
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
             'due_date' => $dueDate,
