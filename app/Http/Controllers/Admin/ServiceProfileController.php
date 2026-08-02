@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Models\SubscriptionPackage;
-use App\Services\MikrotikApiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -14,10 +13,6 @@ use Inertia\Response;
 
 class ServiceProfileController extends Controller
 {
-    public function __construct(private readonly MikrotikApiService $api)
-    {
-    }
-
     public function index(Request $request): Response
     {
         $routers = MikrotikRouter::query()
@@ -83,8 +78,9 @@ class ServiceProfileController extends Controller
 
     public function edit(Request $request, SubscriptionPackage $service_profile): Response
     {
-        $routerId = $request->integer('router_id')
-            ?: $service_profile->mikrotik_router_id;
+        $routerId = $request->filled('router_id')
+            ? $request->integer('router_id')
+            : ($service_profile->mikrotik_router_id ? (int) $service_profile->mikrotik_router_id : null);
 
         return Inertia::render('Admin/Customers/ServiceProfiles/Form', [
             'package' => [
@@ -138,22 +134,13 @@ class ServiceProfileController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'host']);
 
-        $selectedRouterId = $routerId
-            ?: $routers->first()?->id;
+        $selectedRouterId = $routerId ?: $routers->first()?->id;
 
-        $routerProfiles = [];
-
-        if ($selectedRouterId) {
-            $router = MikrotikRouter::query()->find($selectedRouterId);
-            if ($router) {
-                $result = $this->api->listPppProfiles($router);
-                $routerProfiles = $result['profiles'] ?? [];
-            }
-        }
-
+        // Profile di-load di browser via /profiles agar halaman edit
+        // tidak gagal jika koneksi RouterOS bermasalah.
         return [
             'routers' => $routers,
-            'router_profiles' => $routerProfiles,
+            'router_profiles' => [],
             'default_router_id' => $selectedRouterId,
         ];
     }

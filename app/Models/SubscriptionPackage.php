@@ -21,6 +21,7 @@ class SubscriptionPackage extends Model
     protected function casts(): array
     {
         return [
+            'mikrotik_router_id' => 'integer',
             'price' => 'integer',
             'is_active' => 'boolean',
         ];
