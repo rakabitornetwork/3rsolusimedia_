@@ -15,6 +15,7 @@ class ServiceProfileController extends Controller
 {
     public function index(Request $request): Response
     {
+        $this->debugLog('index', $request);
         $routers = MikrotikRouter::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -51,6 +52,7 @@ class ServiceProfileController extends Controller
 
     public function create(Request $request): Response
     {
+        $this->debugLog('create', $request);
         $routerId = $request->integer('router_id') ?: null;
 
         return Inertia::render('Admin/Customers/ServiceProfiles/Form', [
@@ -61,6 +63,7 @@ class ServiceProfileController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->debugLog('store', $request);
         $validated = $this->validatePackage($request);
 
         SubscriptionPackage::create([
@@ -78,6 +81,7 @@ class ServiceProfileController extends Controller
 
     public function edit(Request $request, SubscriptionPackage $service_profile): Response
     {
+        $this->debugLog('edit', $request, $service_profile);
         $routerId = $request->filled('router_id')
             ? $request->integer('router_id')
             : ($service_profile->mikrotik_router_id ? (int) $service_profile->mikrotik_router_id : null);
@@ -93,6 +97,7 @@ class ServiceProfileController extends Controller
 
     public function update(Request $request, SubscriptionPackage $service_profile): RedirectResponse
     {
+        $this->debugLog('update', $request, $service_profile);
         $validated = $this->validatePackage($request, $service_profile);
 
         $service_profile->update([
@@ -110,6 +115,7 @@ class ServiceProfileController extends Controller
 
     public function destroy(Request $request, SubscriptionPackage $service_profile): RedirectResponse
     {
+        $this->debugLog('destroy', $request, $service_profile);
         if ($service_profile->customers()->exists()) {
             return back()->with(
                 'error',
@@ -143,6 +149,21 @@ class ServiceProfileController extends Controller
             'router_profiles' => [],
             'default_router_id' => $selectedRouterId,
         ];
+    }
+
+
+    private function debugLog(string $event, Request $request, ?SubscriptionPackage $package = null): void
+    {
+        @file_put_contents(
+            storage_path('logs/service-profiles-debug.log'),
+            date('c')." {$event} ".$request->method().' '.$request->fullUrl()
+            .' user='.($request->user()?->id ?? 'guest')
+            .' package='.($package?->id ?? '-')
+            .' inertia='.($request->header('X-Inertia') ? '1' : '0')
+            .' input='.json_encode($request->except(['password', '_token']))
+            ."\n",
+            FILE_APPEND
+        );
     }
 
     private function validatePackage(Request $request, ?SubscriptionPackage $package = null): array

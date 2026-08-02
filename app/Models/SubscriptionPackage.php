@@ -45,7 +45,7 @@ class SubscriptionPackage extends Model
             'router_name' => $this->router?->name,
             'name' => $this->name,
             'price' => $this->price,
-            'price_label' => 'Rp '.number_format($this->price, 0, ',', '.'),
+            'price_label' => 'Rp '.number_format((int) $this->price, 0, ',', '.'),
             'mikrotik_profile' => $this->mikrotik_profile,
             'description' => $this->description,
             'is_active' => $this->is_active,

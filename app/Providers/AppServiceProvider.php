@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Support\AppSettings;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Throwable;
 
@@ -22,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $appUrl = (string) config('app.url');
+        if (str_starts_with($appUrl, 'https://')) {
+            URL::forceScheme('https');
+        }
         try {
             if (Schema::hasTable('site_settings')) {
                 $timezone = AppSettings::get('app_timezone', config('app.timezone'));
