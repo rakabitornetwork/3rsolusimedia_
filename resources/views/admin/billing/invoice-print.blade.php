@@ -29,7 +29,7 @@
     <title>Cetak {{ $invoice->number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
     <style>
         @page {
             size: A4 portrait;
@@ -39,25 +39,13 @@
         * { box-sizing: border-box; }
 
         :root {
-            --ink: #101820;
-            --ink-soft: #3a4652;
-            --muted: #6b7785;
-            --line: #d7dee5;
+            --ink: #111111;
+            --ink-soft: #444444;
+            --muted: #777777;
             --paper: #ffffff;
-            --surface: #f4f7f8;
-            --signal: #0d9488;
-            --signal-deep: #0f5c5a;
-            --signal-bright: #14b8a6;
-            --gold: #b08d57;
-            --gold-soft: #e8d9bc;
-            --amber: #b45309;
-            --amber-bg: #fff8ed;
-            --green: #047857;
-            --green-bg: #ecfdf5;
-            --red: #b91c1c;
-            --red-bg: #fef2f2;
-            --font-body: "Source Sans 3", "Segoe UI", sans-serif;
-            --font-display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+            --surface: #ffffff;
+            --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
+            --font-display: "Syne", "Manrope", system-ui, sans-serif;
         }
 
         html, body {
@@ -115,8 +103,8 @@
 
         .toolbar a.active,
         .toolbar button.primary {
-            background: var(--signal);
-            border-color: var(--signal);
+            background: #333;
+            border-color: #333;
             color: #fff;
         }
 
@@ -150,7 +138,7 @@
             left: 10mm;
             right: 10mm;
             top: 148.5mm;
-            border-top: 1px dashed rgba(176, 141, 87, 0.7);
+            border-top: 1px dashed #bbbbbb;
             transform: translateY(-50%);
             z-index: 2;
             pointer-events: none;
@@ -162,7 +150,7 @@
             top: 148.5mm;
             transform: translate(-50%, -50%);
             background: #fff;
-            color: var(--gold);
+            color: var(--muted);
             font-size: 7.5pt;
             font-weight: 700;
             letter-spacing: 0.14em;
@@ -177,22 +165,10 @@
             display: flex;
             flex-direction: column;
             background: var(--paper);
-            border: 1px solid var(--line);
+            border: none;
             position: relative;
             overflow: hidden;
             padding: 0;
-        }
-
-        .inv::after {
-            content: "";
-            position: absolute;
-            right: -18mm;
-            top: -18mm;
-            width: 54mm;
-            height: 54mm;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(13,148,136,0.10), transparent 68%);
-            pointer-events: none;
         }
 
         .inv-top {
@@ -201,9 +177,8 @@
             gap: 12px;
             align-items: flex-start;
             padding: 6.5mm 7mm 5mm;
-            background:
-                linear-gradient(180deg, #f7fbfb 0%, #ffffff 100%);
-            border-bottom: 1px solid var(--line);
+            background: transparent;
+            border: none;
             position: relative;
             z-index: 1;
         }
@@ -235,8 +210,9 @@
         .inv-tagline {
             margin: 2px 0 0;
             font-size: 8.5pt;
-            font-style: italic;
-            color: var(--signal-deep);
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            color: var(--muted);
         }
 
         .inv-contact {
@@ -257,7 +233,7 @@
             font-weight: 700;
             letter-spacing: 0.22em;
             text-transform: uppercase;
-            color: var(--gold);
+            color: var(--muted);
         }
 
         .inv-doc-number {
@@ -276,33 +252,22 @@
             font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            padding: 3px 8px;
-            border: 1px solid transparent;
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: var(--ink-soft);
         }
 
-        .status-unpaid {
-            background: var(--amber-bg);
-            color: var(--amber);
-            border-color: #f0c998;
-        }
-
-        .status-paid {
-            background: var(--green-bg);
-            color: var(--green);
-            border-color: #a7f3d0;
-        }
-
+        .status-unpaid,
+        .status-paid,
         .status-void {
-            background: var(--red-bg);
-            color: var(--red);
-            border-color: #fecaca;
+            background: transparent;
+            color: var(--ink-soft);
+            border: none;
         }
 
         .inv-rule {
-            height: 3px;
-            background: linear-gradient(90deg, var(--signal-deep) 0%, var(--signal) 42%, var(--gold) 100%);
-            position: relative;
-            z-index: 1;
+            display: none;
         }
 
         .inv-meta {
@@ -320,7 +285,7 @@
             font-weight: 700;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: var(--gold);
+            color: var(--muted);
         }
 
         .inv-name {
@@ -337,10 +302,9 @@
         }
 
         .inv-meta-right {
-            background: var(--surface);
-            border: 1px solid var(--line);
-            border-left: 3px solid var(--signal);
-            padding: 5px 8px;
+            background: transparent;
+            border: none;
+            padding: 0;
         }
 
         .inv-meta-row {
@@ -350,10 +314,8 @@
             align-items: baseline;
             padding: 2.5px 0;
             font-size: 8.5pt;
-            border-bottom: 1px solid rgba(215, 222, 229, 0.8);
+            border: none;
         }
-
-        .inv-meta-row:last-child { border-bottom: 0; }
 
         .inv-meta-row span {
             color: var(--muted);
@@ -382,16 +344,18 @@
         }
 
         .inv-table th {
-            background: var(--ink);
-            color: #fff;
+            background: transparent;
+            color: var(--muted);
             font-size: 7.5pt;
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
+            border: none;
+            padding-bottom: 8px;
         }
 
         .inv-table td {
-            border-bottom: 1px solid var(--line);
+            border: none;
             font-size: 10pt;
         }
 
@@ -430,7 +394,7 @@
             font-family: var(--font-display);
             font-size: 13pt;
             font-weight: 700;
-            color: var(--signal-deep);
+            color: var(--ink);
         }
 
         .inv-thanks-copy {
@@ -441,8 +405,8 @@
         }
 
         .inv-totals {
-            background: var(--surface);
-            border: 1px solid var(--line);
+            background: transparent;
+            border: none;
             padding: 5px 0 0;
         }
 
@@ -450,7 +414,7 @@
             display: flex;
             justify-content: space-between;
             gap: 12px;
-            padding: 3px 10px;
+            padding: 3px 0;
             font-size: 9pt;
             color: var(--ink-soft);
         }
@@ -460,10 +424,10 @@
             justify-content: space-between;
             align-items: baseline;
             gap: 12px;
-            margin-top: 4px;
-            padding: 8px 10px;
-            background: linear-gradient(135deg, var(--signal-deep), #12706c 55%, var(--signal));
-            color: #fff;
+            margin-top: 6px;
+            padding: 6px 0 0;
+            background: transparent;
+            color: var(--ink);
         }
 
         .inv-total-grand span {
@@ -471,7 +435,7 @@
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
-            opacity: 0.9;
+            color: var(--muted);
         }
 
         .inv-total-grand strong {
@@ -479,6 +443,7 @@
             font-size: 15pt;
             font-weight: 700;
             letter-spacing: 0.01em;
+            color: var(--ink);
         }
 
         .inv-foot {
@@ -487,7 +452,7 @@
             gap: 10px;
             margin: 0 7mm 5mm;
             padding-top: 3.5mm;
-            border-top: 1px solid var(--line);
+            border: none;
             font-size: 7.5pt;
             color: var(--muted);
             letter-spacing: 0.02em;
@@ -522,7 +487,7 @@
 
             .half.empty { background: #fff; }
             .empty-hint { display: none; }
-            .cut-label { color: var(--gold); }
+            .cut-label { color: var(--muted); }
         }
     </style>
 </head>

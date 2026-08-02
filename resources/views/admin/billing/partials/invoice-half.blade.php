@@ -32,7 +32,6 @@
         </div>
     </header>
 
-    <div class="inv-rule" aria-hidden="true"></div>
 
     <section class="inv-meta">
         <div>
