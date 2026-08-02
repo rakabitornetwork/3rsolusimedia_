@@ -247,11 +247,11 @@
 
         .inv-doc-number {
             margin: 4px 0 0;
-            font-family: var(--font-serif);
-            font-size: 18pt;
-            font-weight: 400;
-            line-height: 1.05;
-            letter-spacing: -0.01em;
+            font-family: var(--font-display);
+            font-size: 12pt;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: 0.02em;
             color: var(--ink);
         }
 
