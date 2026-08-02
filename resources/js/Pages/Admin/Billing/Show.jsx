@@ -92,13 +92,21 @@ export default function Show({ invoice, payment_methods }) {
         >
             <Head title={`Tagihan ${invoice.number}`} />
 
-            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <Link
                     href="/admin/billing"
                     className="text-sm font-semibold text-signal-deep hover:underline"
                 >
                     ← Kembali ke daftar tagihan
                 </Link>
+                <a
+                    href={`/admin/billing/invoices/${invoice.id}/print`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                >
+                    Cetak invoice (½ A4)
+                </a>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">

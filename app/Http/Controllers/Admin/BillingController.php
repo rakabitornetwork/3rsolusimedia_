@@ -132,6 +132,29 @@ class BillingController extends Controller
         ]);
     }
 
+    public function print(Request $request, Invoice $invoice)
+    {
+        $half = (string) $request->get('half', 'top');
+        if (! in_array($half, ['top', 'bottom'], true)) {
+            $half = 'top';
+        }
+
+        $invoice->load(['customer.package', 'package']);
+
+        return response()->view('admin.billing.invoice-print', [
+            'invoice' => $invoice,
+            'half' => $half,
+            'company' => [
+                'name' => AppSettings::companyName(),
+                'logo' => AppSettings::branding()['logo_full'] ?? AppSettings::branding()['logo_mark'],
+                'address' => trim((string) \App\Models\SiteSetting::getValue('address', '')),
+                'phone' => trim((string) \App\Models\SiteSetting::getValue('phone', '')),
+                'whatsapp' => trim((string) \App\Models\SiteSetting::getValue('whatsapp', '')),
+                'tagline' => trim((string) \App\Models\SiteSetting::getValue('tagline', '')),
+            ],
+        ]);
+    }
+
     public function pay(Request $request, Invoice $invoice): RedirectResponse
     {
         $validated = $request->validate([

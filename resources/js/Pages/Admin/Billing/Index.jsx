@@ -4,6 +4,7 @@ import {
     Coins,
     FilePlus2,
     Hourglass,
+    Printer,
     Search,
     ShieldCheck,
     Trash2,
@@ -378,6 +379,16 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                         <QuickPayButton invoice={item} methods={payment_methods} />
                                         <GraceMenu customer={item.customer} />
                                         <CombineBillingButton customer={item.customer} invoice={item} />
+                                        <a
+                                            href={`/admin/billing/invoices/${item.id}/print`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+                                            title="Cetak invoice setengah A4"
+                                        >
+                                            <Printer className="h-3.5 w-3.5" />
+                                            Cetak
+                                        </a>
                                         <Link
                                             href={`/admin/billing/invoices/${item.id}`}
                                             className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
