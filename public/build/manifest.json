@@ -361,7 +361,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/ServiceProfiles/Form.jsx": {
-    "file": "assets/Form-D4SOQYNZ.js",
+    "file": "assets/Form-BKg48aR6.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Customers/ServiceProfiles/Form.jsx",
     "isDynamicEntry": true,
@@ -373,7 +373,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/ServiceProfiles/Index.jsx": {
-    "file": "assets/Index-CmdMAN1y.js",
+    "file": "assets/Index-BM8gofEB.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Customers/ServiceProfiles/Index.jsx",
     "isDynamicEntry": true,
@@ -735,7 +735,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-BfCVaxxU.js",
+    "file": "assets/app-D1SOcF8K.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

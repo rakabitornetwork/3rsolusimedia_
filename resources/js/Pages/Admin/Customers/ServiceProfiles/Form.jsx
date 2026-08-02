@@ -13,11 +13,12 @@ export default function Form({
 }) {
     const editing = Boolean(item);
     const [profiles, setProfiles] = useState(initialProfiles || []);
-    const [routerId, setRouterId] = useState(default_router_id || routers[0]?.id || '');
     const [loadingProfiles, setLoadingProfiles] = useState(false);
     const [profileError, setProfileError] = useState('');
 
     const { data, setData, post, put, processing, errors } = useForm({
+        mikrotik_router_id:
+            item?.mikrotik_router_id || default_router_id || routers[0]?.id || '',
         name: item?.name || '',
         price: item?.price ?? 120000,
         mikrotik_profile: item?.mikrotik_profile || '',
@@ -64,9 +65,11 @@ export default function Form({
     };
 
     useEffect(() => {
-        if (routerId) loadProfiles(routerId);
+        if (data.mikrotik_router_id) {
+            loadProfiles(data.mikrotik_router_id);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [routerId]);
+    }, [data.mikrotik_router_id]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -88,6 +91,34 @@ export default function Form({
                 onSubmit={submit}
                 className="max-w-2xl space-y-4 border border-ink/10 bg-white p-6 sm:p-8"
             >
+                <label className="block text-sm font-medium text-ink">
+                    RouterOS
+                    <select
+                        value={data.mikrotik_router_id || ''}
+                        onChange={(e) => {
+                            setData({
+                                ...data,
+                                mikrotik_router_id: e.target.value,
+                                mikrotik_profile: '',
+                            });
+                        }}
+                        className={fieldClass}
+                        required
+                    >
+                        <option value="">Pilih router</option>
+                        {routers.map((routerItem) => (
+                            <option key={routerItem.id} value={routerItem.id}>
+                                {routerItem.name} ({routerItem.host})
+                            </option>
+                        ))}
+                    </select>
+                    {errors.mikrotik_router_id && (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {errors.mikrotik_router_id}
+                        </span>
+                    )}
+                </label>
+
                 <label className="block text-sm font-medium text-ink">
                     Nama paket
                     <input
@@ -131,32 +162,20 @@ export default function Form({
                 </div>
 
                 <label className="block text-sm font-medium text-ink">
-                    Ambil daftar profile dari router
-                    <select
-                        value={routerId || ''}
-                        onChange={(e) => setRouterId(e.target.value)}
-                        className={fieldClass}
-                    >
-                        <option value="">Pilih router</option>
-                        {routers.map((routerItem) => (
-                            <option key={routerItem.id} value={routerItem.id}>
-                                {routerItem.name} ({routerItem.host})
-                            </option>
-                        ))}
-                    </select>
-                </label>
-
-                <label className="block text-sm font-medium text-ink">
                     Profile PPPoE
                     <select
                         value={data.mikrotik_profile || ''}
                         onChange={(e) => setData('mikrotik_profile', e.target.value)}
                         className={fieldClass}
                         required
-                        disabled={loadingProfiles}
+                        disabled={loadingProfiles || !data.mikrotik_router_id}
                     >
                         <option value="">
-                            {loadingProfiles ? 'Memuat profile...' : 'Pilih profile RouterOS'}
+                            {loadingProfiles
+                                ? 'Memuat profile...'
+                                : !data.mikrotik_router_id
+                                  ? 'Pilih RouterOS dulu'
+                                  : 'Pilih profile RouterOS'}
                         </option>
                         {profiles.map((profile) => (
                             <option key={profile.name} value={profile.name}>
@@ -213,7 +232,11 @@ export default function Form({
                         {processing ? 'Menyimpan...' : editing ? 'Simpan Perubahan' : 'Simpan Paket'}
                     </button>
                     <Link
-                        href="/admin/customers/pppoe/service-profiles"
+                        href={`/admin/customers/pppoe/service-profiles${
+                            data.mikrotik_router_id
+                                ? `?router_id=${data.mikrotik_router_id}`
+                                : ''
+                        }`}
                         className="border border-ink/15 px-5 py-3 text-sm font-semibold text-ink-soft hover:bg-mist"
                     >
                         Batal

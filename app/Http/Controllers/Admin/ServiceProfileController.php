@@ -18,12 +18,26 @@ class ServiceProfileController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $packages = SubscriptionPackage::query()
+        $routers = MikrotikRouter::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'host']);
+
+        $routerId = $request->get('router_id');
+
+        $packagesQuery = SubscriptionPackage::query()
+            ->with('router')
             ->withCount('customers')
             ->orderBy('sort_order')
-            ->orderBy('price')
+            ->orderBy('price');
+
+        if ($routerId) {
+            $packagesQuery->where('mikrotik_router_id', $routerId);
+        }
+
+        $packages = $packagesQuery
             ->get()
             ->map(fn (SubscriptionPackage $package) => [
                 ...$package->toOptionArray(),
@@ -33,14 +47,20 @@ class ServiceProfileController extends Controller
 
         return Inertia::render('Admin/Customers/ServiceProfiles/Index', [
             'packages' => $packages,
+            'routers' => $routers,
+            'filters' => [
+                'router_id' => $routerId ?: '',
+            ],
         ]);
     }
 
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        $routerId = $request->integer('router_id') ?: null;
+
         return Inertia::render('Admin/Customers/ServiceProfiles/Form', [
             'package' => null,
-            ...$this->formOptions(),
+            ...$this->formOptions($routerId),
         ]);
     }
 
@@ -55,18 +75,23 @@ class ServiceProfileController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.customers.pppoe.service-profiles')
+            ->route('admin.customers.pppoe.service-profiles', array_filter([
+                'router_id' => $validated['mikrotik_router_id'] ?? null,
+            ]))
             ->with('success', 'Paket layanan berhasil ditambahkan.');
     }
 
-    public function edit(SubscriptionPackage $service_profile): Response
+    public function edit(Request $request, SubscriptionPackage $service_profile): Response
     {
+        $routerId = $request->integer('router_id')
+            ?: $service_profile->mikrotik_router_id;
+
         return Inertia::render('Admin/Customers/ServiceProfiles/Form', [
             'package' => [
                 ...$service_profile->toOptionArray(),
                 'sort_order' => $service_profile->sort_order,
             ],
-            ...$this->formOptions(),
+            ...$this->formOptions($routerId),
         ]);
     }
 
@@ -81,11 +106,13 @@ class ServiceProfileController extends Controller
         ]);
 
         return redirect()
-            ->route('admin.customers.pppoe.service-profiles')
+            ->route('admin.customers.pppoe.service-profiles', array_filter([
+                'router_id' => $validated['mikrotik_router_id'] ?? null,
+            ]))
             ->with('success', 'Paket layanan berhasil diperbarui.');
     }
 
-    public function destroy(SubscriptionPackage $service_profile): RedirectResponse
+    public function destroy(Request $request, SubscriptionPackage $service_profile): RedirectResponse
     {
         if ($service_profile->customers()->exists()) {
             return back()->with(
@@ -94,44 +121,57 @@ class ServiceProfileController extends Controller
             );
         }
 
+        $routerId = $service_profile->mikrotik_router_id;
         $service_profile->delete();
 
         return redirect()
-            ->route('admin.customers.pppoe.service-profiles')
+            ->route('admin.customers.pppoe.service-profiles', array_filter([
+                'router_id' => $request->get('router_id', $routerId),
+            ]))
             ->with('success', 'Paket layanan berhasil dihapus.');
     }
 
-    private function formOptions(): array
+    private function formOptions(?int $routerId = null): array
     {
         $routers = MikrotikRouter::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'host']);
 
-        $routerProfiles = [];
-        $firstRouter = $routers->first();
+        $selectedRouterId = $routerId
+            ?: $routers->first()?->id;
 
-        if ($firstRouter) {
-            $router = MikrotikRouter::query()->find($firstRouter->id);
-            $result = $this->api->listPppProfiles($router);
-            $routerProfiles = $result['profiles'] ?? [];
+        $routerProfiles = [];
+
+        if ($selectedRouterId) {
+            $router = MikrotikRouter::query()->find($selectedRouterId);
+            if ($router) {
+                $result = $this->api->listPppProfiles($router);
+                $routerProfiles = $result['profiles'] ?? [];
+            }
         }
 
         return [
             'routers' => $routers,
             'router_profiles' => $routerProfiles,
-            'default_router_id' => $firstRouter?->id,
+            'default_router_id' => $selectedRouterId,
         ];
     }
 
     private function validatePackage(Request $request, ?SubscriptionPackage $package = null): array
     {
         return $request->validate([
+            'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
             'name' => [
                 'required',
                 'string',
                 'max:120',
-                Rule::unique('subscription_packages', 'name')->ignore($package?->id),
+                Rule::unique('subscription_packages', 'name')
+                    ->where(fn ($query) => $query->where(
+                        'mikrotik_router_id',
+                        $request->integer('mikrotik_router_id')
+                    ))
+                    ->ignore($package?->id),
             ],
             'price' => ['required', 'integer', 'min:0'],
             'mikrotik_profile' => ['required', 'string', 'max:120'],

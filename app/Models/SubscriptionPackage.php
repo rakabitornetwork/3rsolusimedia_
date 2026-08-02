@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SubscriptionPackage extends Model
 {
     protected $fillable = [
+        'mikrotik_router_id',
         'name',
         'price',
         'mikrotik_profile',
@@ -24,6 +26,11 @@ class SubscriptionPackage extends Model
         ];
     }
 
+    public function router(): BelongsTo
+    {
+        return $this->belongsTo(MikrotikRouter::class, 'mikrotik_router_id');
+    }
+
     public function customers(): HasMany
     {
         return $this->hasMany(PppoeCustomer::class);
@@ -33,6 +40,8 @@ class SubscriptionPackage extends Model
     {
         return [
             'id' => $this->id,
+            'mikrotik_router_id' => $this->mikrotik_router_id,
+            'router_name' => $this->router?->name,
             'name' => $this->name,
             'price' => $this->price,
             'price_label' => 'Rp '.number_format($this->price, 0, ',', '.'),
