@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { RefreshCw, Search, Unplug } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
 function formatBytes(value) {
     if (value == null) return '—';
@@ -43,6 +44,10 @@ export default function Sessions({
             { preserveState: true, replace: true },
         );
     };
+
+    const searchLive = useDebouncedCallback((value) => {
+        applySearch(value);
+    });
 
     const refresh = () => {
         router.get(
@@ -112,8 +117,12 @@ export default function Sessions({
                             type="search"
                             defaultValue={filters.q}
                             placeholder="Cari user / IP / MAC..."
+                            onChange={(e) => searchLive(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') applySearch(e.target.value);
+                                if (e.key === 'Enter') {
+                                    searchLive.cancel();
+                                    applySearch(e.target.value);
+                                }
                             }}
                             className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                         />

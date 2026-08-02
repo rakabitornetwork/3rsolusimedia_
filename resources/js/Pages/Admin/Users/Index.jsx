@@ -12,6 +12,7 @@ import {
 import { useState } from 'react';
 import UserAvatar from '../../../Components/UserAvatar';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 
 const roleBadge = {
     superadmin: 'bg-indigo-100 text-indigo-800',
@@ -49,6 +50,10 @@ export default function Index({ users, filters, role_options, stats, can_manage 
             { preserveState: true, replace: true },
         );
     };
+
+    const searchLive = useDebouncedCallback((value) => {
+        applyFilters({ q: value });
+    });
 
     const remove = (user) => {
         if (!window.confirm(`Hapus pengguna "${user.name}"?`)) return;
@@ -104,7 +109,11 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                             <input
                                 type="search"
                                 value={q}
-                                onChange={(e) => setQ(e.target.value)}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setQ(value);
+                                    searchLive(value);
+                                }}
                                 placeholder="Nama atau email"
                                 className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-56"
                             />

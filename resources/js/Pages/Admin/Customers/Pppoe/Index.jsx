@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
 function whatsappHref(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
@@ -153,6 +154,10 @@ export default function Index({ customers, filters, routers, stats }) {
         );
     };
 
+    const searchLive = useDebouncedCallback((value) => {
+        applyFilters('q', value);
+    });
+
     const applySort = (column, direction) => {
         setSelected([]);
         setShowBulkDelete(false);
@@ -281,8 +286,12 @@ export default function Index({ customers, filters, routers, stats }) {
                         defaultValue={filters.q}
                         placeholder="Cari nama / username / telepon"
                         className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:min-w-[220px] sm:w-auto"
+                        onChange={(e) => searchLive(e.currentTarget.value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') applyFilters('q', e.currentTarget.value);
+                            if (e.key === 'Enter') {
+                                searchLive.cancel();
+                                applyFilters('q', e.currentTarget.value);
+                            }
                         }}
                     />
                     <select

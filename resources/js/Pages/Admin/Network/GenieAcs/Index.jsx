@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import {
     faultsTone,
     onlineTone,
@@ -140,6 +141,10 @@ export default function Index({ config, connection, devices, devices_error, stat
         e.preventDefault();
         browse({ page: 1, q });
     };
+
+    const searchLive = useDebouncedCallback((value) => {
+        browse({ page: 1, q: value || undefined });
+    });
 
     const refreshList = () => {
         if (refreshing) return;
@@ -374,7 +379,11 @@ export default function Index({ config, connection, devices, devices_error, stat
                             <input
                                 type="search"
                                 value={q}
-                                onChange={(e) => setQ(e.target.value)}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setQ(value);
+                                    searchLive(value);
+                                }}
                                 placeholder="ID, serial, SSID, manufacturer"
                                 className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                             />

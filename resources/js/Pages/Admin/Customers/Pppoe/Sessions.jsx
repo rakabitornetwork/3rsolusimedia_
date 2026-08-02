@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { UserPlus, RefreshCw, Search, Unplug, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal';
@@ -68,6 +69,10 @@ export default function Sessions({
             { preserveState: true, replace: true },
         );
     };
+
+    const searchLive = useDebouncedCallback((value) => {
+        applySearch(value);
+    });
 
     const refresh = () => {
         router.get(
@@ -226,8 +231,12 @@ export default function Sessions({
                             type="search"
                             defaultValue={filters.q}
                             placeholder="Cari username / nama / IP..."
+                            onChange={(e) => searchLive(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') applySearch(e.target.value);
+                                if (e.key === 'Enter') {
+                                    searchLive.cancel();
+                                    applySearch(e.target.value);
+                                }
                             }}
                             className="w-64 border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal"
                         />

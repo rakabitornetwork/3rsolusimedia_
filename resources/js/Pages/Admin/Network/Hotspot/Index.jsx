@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Plus, Power, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
 function formatBytes(value) {
     if (value == null) return '—';
@@ -34,6 +35,10 @@ export default function Index({
             { preserveState: true, replace: true },
         );
     };
+
+    const searchLive = useDebouncedCallback((value) => {
+        changeFilter('q', value);
+    });
 
     const changeRouter = (routerId) => {
         router.get(
@@ -170,8 +175,12 @@ export default function Index({
                         type="search"
                         defaultValue={filters.q}
                         placeholder="Cari username / comment"
+                        onChange={(e) => searchLive(e.currentTarget.value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') changeFilter('q', e.currentTarget.value);
+                            if (e.key === 'Enter') {
+                                searchLive.cancel();
+                                changeFilter('q', e.currentTarget.value);
+                            }
                         }}
                         className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     />

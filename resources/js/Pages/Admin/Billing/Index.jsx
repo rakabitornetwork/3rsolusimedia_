@@ -11,6 +11,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 
 function StatWidget({ label, value, gradient, icon: Icon }) {
     return (
@@ -206,6 +207,10 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
         );
     };
 
+    const searchLive = useDebouncedCallback((value) => {
+        applyFilters('q', value);
+    });
+
     const generate = () => {
         if (
             !window.confirm(
@@ -282,8 +287,12 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                             type="search"
                             defaultValue={filters.q}
                             placeholder="Cari invoice / pelanggan..."
+                            onChange={(e) => searchLive(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') applyFilters('q', e.target.value);
+                                if (e.key === 'Enter') {
+                                    searchLive.cancel();
+                                    applyFilters('q', e.target.value);
+                                }
                             }}
                             className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                         />
