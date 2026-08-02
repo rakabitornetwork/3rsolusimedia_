@@ -65,13 +65,9 @@ function SortableHeader({ label, column, sort, direction, onSort, className = ''
     );
 }
 
-function StatCard({ label, value, icon: Icon, tone, active = false, onClick }) {
-    const content = (
-        <div
-            className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone} ${
-                onClick ? 'cursor-pointer transition hover:brightness-105' : ''
-            } ${active ? 'ring-2 ring-ink/30 ring-offset-2' : ''}`}
-        >
+function StatCard({ label, value, icon: Icon, tone }) {
+    return (
+        <div className={`flex min-h-[110px] flex-col p-4 text-white shadow-sm ${tone}`}>
             <div className="flex items-start justify-between gap-3">
                 <p className="text-[11px] tracking-wide text-white/75 uppercase">{label}</p>
                 <span className="inline-flex h-9 w-9 items-center justify-center bg-white/15">
@@ -80,14 +76,6 @@ function StatCard({ label, value, icon: Icon, tone, active = false, onClick }) {
             </div>
             <p className="font-display mt-3 text-2xl font-bold">{value}</p>
         </div>
-    );
-
-    if (!onClick) return content;
-
-    return (
-        <button type="button" onClick={onClick} className="block h-full w-full text-left">
-            {content}
-        </button>
     );
 }
 
@@ -244,32 +232,24 @@ export default function Index({ customers, filters, routers, stats }) {
                     value={stats.total}
                     icon={Users}
                     tone="bg-gradient-to-br from-slate-400 to-slate-600"
-                    active={!filters.status}
-                    onClick={() => applyFilters('status', '')}
                 />
                 <StatCard
                     label="Aktif"
                     value={stats.active}
                     icon={Activity}
                     tone="bg-gradient-to-br from-teal-400 to-cyan-600"
-                    active={filters.status === 'active'}
-                    onClick={() => applyFilters('status', 'active')}
                 />
                 <StatCard
                     label="Isolir"
                     value={stats.isolated}
                     icon={ShieldOff}
                     tone="bg-gradient-to-br from-rose-400 to-pink-600"
-                    active={filters.status === 'isolated'}
-                    onClick={() => applyFilters('status', 'isolated')}
                 />
                 <StatCard
                     label="Grace"
                     value={stats.grace ?? 0}
                     icon={Clock}
                     tone="bg-gradient-to-br from-sky-400 to-blue-600"
-                    active={filters.status === 'grace'}
-                    onClick={() => applyFilters('status', 'grace')}
                 />
                 <StatCard
                     label="Lewat tempo"
