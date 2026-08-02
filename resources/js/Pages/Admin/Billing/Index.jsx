@@ -199,6 +199,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                 ...filters,
                 [key]: value,
                 overdue: key === 'overdue' ? value : filters.overdue || false,
+                grace: key === 'grace' ? value : filters.grace || '',
             },
             { preserveState: true, replace: true },
         );
@@ -295,6 +296,15 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                         <option value="unpaid">Belum bayar</option>
                         <option value="paid">Lunas</option>
                         <option value="void">Dibatalkan</option>
+                    </select>
+                    <select
+                        value={filters.grace || ''}
+                        onChange={(e) => applyFilters('grace', e.target.value)}
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
+                    >
+                        <option value="">Semua grace</option>
+                        <option value="active">Grace aktif</option>
+                        <option value="none">Tanpa grace</option>
                     </select>
                     <label className="inline-flex items-center gap-2 border border-ink/15 px-3 py-2 text-sm text-ink">
                         <input

@@ -54,6 +54,24 @@ class BillingController extends Controller
                 ->whereDate('due_date', '<', now()->toDateString());
         }
 
+        $grace = (string) $request->get('grace', '');
+        if ($grace === 'active') {
+            $query->whereHas('customer', function ($customer) {
+                $customer->whereNotNull('grace_until')
+                    ->whereDate('grace_until', '>=', now()->toDateString());
+            });
+        } elseif ($grace === 'none') {
+            $query->where(function ($builder) {
+                $builder->whereDoesntHave('customer')
+                    ->orWhereHas('customer', function ($customer) {
+                        $customer->where(function ($inner) {
+                            $inner->whereNull('grace_until')
+                                ->orWhereDate('grace_until', '<', now()->toDateString());
+                        });
+                    });
+            });
+        }
+
         $invoices = $query->paginate(20)->withQueryString()->through(
             fn (Invoice $invoice) => $invoice->toAdminArray()
         );
@@ -67,6 +85,7 @@ class BillingController extends Controller
                 'q' => $request->get('q', ''),
                 'status' => $request->get('status', ''),
                 'overdue' => $request->boolean('overdue'),
+                'grace' => in_array($grace, ['active', 'none'], true) ? $grace : '',
             ],
             'stats' => [
                 'unpaid' => Invoice::query()->where('status', 'unpaid')->count(),
