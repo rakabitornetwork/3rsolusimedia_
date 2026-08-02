@@ -37,14 +37,34 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --ink: #0f172a;
+            --ink-soft: #334155;
+            --muted: #64748b;
+            --line: #cbd5e1;
+            --paper: #ffffff;
+            --mist: #f0fdfa;
+            --signal: #0d9488;
+            --signal-deep: #0f5c5a;
+            --signal-bright: #14b8a6;
+            --amber: #d97706;
+            --amber-bg: #fff7ed;
+            --green: #047857;
+            --green-bg: #ecfdf5;
+            --red: #b91c1c;
+            --red-bg: #fef2f2;
+        }
+
         html, body {
             margin: 0;
             padding: 0;
-            background: #e8e8e8;
-            color: #111;
+            background: #dbe7e6;
+            color: var(--ink);
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             font-size: 11pt;
             line-height: 1.35;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .toolbar {
@@ -57,14 +77,14 @@
             align-items: center;
             justify-content: space-between;
             padding: 12px 16px;
-            background: #111;
+            background: linear-gradient(135deg, var(--signal-deep), var(--signal));
             color: #fff;
         }
 
         .toolbar p {
             margin: 0;
             font-size: 13px;
-            opacity: 0.9;
+            opacity: 0.95;
         }
 
         .toolbar-actions {
@@ -77,8 +97,8 @@
         .toolbar a,
         .toolbar button {
             appearance: none;
-            border: 1px solid rgba(255,255,255,0.25);
-            background: transparent;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.08);
             color: #fff;
             padding: 8px 12px;
             font-size: 13px;
@@ -90,7 +110,7 @@
         .toolbar a.active,
         .toolbar button.primary {
             background: #fff;
-            color: #111;
+            color: var(--signal-deep);
             border-color: #fff;
         }
 
@@ -102,15 +122,15 @@
             width: 210mm;
             height: 297mm;
             margin: 0 auto;
-            background: #fff;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            background: var(--paper);
+            box-shadow: 0 10px 36px rgba(15, 92, 90, 0.18);
             position: relative;
             overflow: hidden;
         }
 
         .half {
             height: 148.5mm;
-            padding: 10mm 12mm 8mm;
+            padding: 8mm 11mm 7mm;
             position: relative;
             overflow: hidden;
         }
@@ -120,8 +140,8 @@
                 -45deg,
                 #fff,
                 #fff 8px,
-                #f7f7f7 8px,
-                #f7f7f7 16px
+                #f0fdfa 8px,
+                #f0fdfa 16px
             );
         }
 
@@ -130,10 +150,11 @@
             left: 8mm;
             right: 8mm;
             top: 148.5mm;
-            border-top: 1px dashed #999;
+            border-top: 1.5px dashed var(--signal);
             transform: translateY(-50%);
             z-index: 2;
             pointer-events: none;
+            opacity: 0.55;
         }
 
         .cut-label {
@@ -142,12 +163,35 @@
             top: 148.5mm;
             transform: translate(-50%, -50%);
             background: #fff;
-            color: #777;
+            color: var(--signal-deep);
             font-size: 8pt;
+            font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             padding: 0 8px;
             z-index: 3;
+        }
+
+        .invoice-card {
+            height: 100%;
+            border: 1.5px solid color-mix(in srgb, var(--signal) 45%, #94a3b8);
+            background:
+                linear-gradient(180deg, rgba(13,148,136,0.08) 0%, rgba(13,148,136,0.02) 42px, #fff 42px);
+            display: flex;
+            flex-direction: column;
+            padding: 7mm 8mm 6mm;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .invoice-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4.5px;
+            background: linear-gradient(180deg, var(--signal-bright), var(--signal-deep));
         }
 
         .invoice-header {
@@ -155,7 +199,7 @@
             justify-content: space-between;
             gap: 12px;
             align-items: flex-start;
-            border-bottom: 2px solid #111;
+            border-bottom: 2.5px solid var(--signal-deep);
             padding-bottom: 8px;
             margin-bottom: 10px;
         }
@@ -168,21 +212,22 @@
         }
 
         .brand img {
-            height: 36px;
+            height: 38px;
             width: auto;
             object-fit: contain;
         }
 
         .brand h1 {
             margin: 0;
-            font-size: 14pt;
-            line-height: 1.2;
+            font-size: 14.5pt;
+            line-height: 1.15;
+            color: var(--signal-deep);
         }
 
         .brand .meta {
             margin-top: 2px;
             font-size: 8.5pt;
-            color: #444;
+            color: var(--ink-soft);
         }
 
         .doc-title {
@@ -192,76 +237,111 @@
 
         .doc-title .label {
             font-size: 8pt;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: #666;
+            color: var(--signal);
+            font-weight: 700;
         }
 
         .doc-title .number {
             font-size: 13pt;
-            font-weight: 700;
+            font-weight: 800;
             margin-top: 2px;
+            color: var(--ink);
         }
 
         .doc-title .status {
             display: inline-block;
-            margin-top: 4px;
+            margin-top: 5px;
             font-size: 8pt;
-            font-weight: 700;
-            padding: 2px 6px;
-            border: 1px solid #111;
+            font-weight: 800;
+            padding: 3px 8px;
+            border: 1px solid transparent;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .status-unpaid {
+            background: var(--amber-bg);
+            color: var(--amber);
+            border-color: #fdba74;
+        }
+
+        .status-paid {
+            background: var(--green-bg);
+            color: var(--green);
+            border-color: #6ee7b7;
+        }
+
+        .status-void {
+            background: var(--red-bg);
+            color: var(--red);
+            border-color: #fca5a5;
         }
 
         .grid {
             display: grid;
             grid-template-columns: 1.15fr 0.85fr;
-            gap: 10px 16px;
+            gap: 10px 14px;
             margin-bottom: 10px;
+        }
+
+        .info-box {
+            background: var(--mist);
+            border: 1px solid color-mix(in srgb, var(--signal) 28%, #e2e8f0);
+            padding: 7px 9px;
         }
 
         .block-title {
             font-size: 8pt;
             letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: #666;
-            margin-bottom: 3px;
+            color: var(--signal-deep);
+            font-weight: 800;
+            margin-bottom: 4px;
         }
 
         .block-body {
             font-size: 10.5pt;
+            color: var(--ink);
         }
 
         .block-body strong {
             font-size: 11.5pt;
+            color: var(--ink);
         }
 
         .muted {
-            color: #555;
+            color: var(--ink-soft);
             font-size: 9.5pt;
         }
 
         table.lines {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
         table.lines th,
         table.lines td {
-            border-top: 1px solid #ddd;
-            border-bottom: 1px solid #ddd;
-            padding: 7px 6px;
+            border-bottom: 1px solid var(--line);
+            padding: 7px 8px;
             text-align: left;
             vertical-align: top;
             font-size: 10pt;
         }
 
         table.lines th {
-            background: #f3f3f3;
+            background: linear-gradient(135deg, var(--signal-deep), var(--signal));
+            color: #fff;
             font-size: 8pt;
             letter-spacing: 0.06em;
             text-transform: uppercase;
-            color: #444;
+            border-bottom: none;
+        }
+
+        table.lines tbody tr:nth-child(even) td {
+            background: #f8fffe;
         }
 
         table.lines td.num,
@@ -277,7 +357,10 @@
         }
 
         .totals-box {
-            min-width: 52%;
+            min-width: 54%;
+            border: 1px solid color-mix(in srgb, var(--signal) 30%, #e2e8f0);
+            background: #f8fffe;
+            padding: 6px 10px;
         }
 
         .totals-row {
@@ -286,25 +369,31 @@
             gap: 16px;
             padding: 3px 0;
             font-size: 10pt;
+            color: var(--ink-soft);
         }
 
         .totals-row.grand {
-            border-top: 2px solid #111;
             margin-top: 4px;
-            padding-top: 6px;
+            padding: 7px 8px;
             font-size: 13pt;
-            font-weight: 700;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, var(--signal-deep), var(--signal));
         }
 
         .footer-note {
-            margin-top: 10px;
+            margin-top: auto;
             padding-top: 8px;
-            border-top: 1px solid #ddd;
+            border-top: 2px solid color-mix(in srgb, var(--signal) 35%, #e2e8f0);
             font-size: 8.5pt;
-            color: #555;
+            color: var(--ink-soft);
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
+        }
+
+        .footer-note strong {
+            color: var(--signal-deep);
         }
 
         .empty-hint {
@@ -312,10 +401,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #999;
+            color: var(--signal-deep);
             font-size: 10pt;
             text-align: center;
             padding: 16px;
+            opacity: 0.55;
         }
 
         @media print {
@@ -347,7 +437,7 @@
             }
 
             .cut-label {
-                color: #bbb;
+                color: var(--signal);
             }
         }
     </style>

@@ -1,3 +1,11 @@
+@php
+    $statusClass = match ($invoice->status) {
+        'paid' => 'status-paid',
+        'void' => 'status-void',
+        default => 'status-unpaid',
+    };
+@endphp
+<div class="invoice-card">
 <div class="invoice-header">
     <div class="brand">
         @if (! empty($company['logo']))
@@ -19,12 +27,12 @@
     <div class="doc-title">
         <div class="label">Invoice</div>
         <div class="number">{{ $invoice->number }}</div>
-        <div class="status">{{ $statusLabel }}</div>
+        <div class="status {{ $statusClass }}">{{ $statusLabel }}</div>
     </div>
 </div>
 
 <div class="grid">
-    <div>
+    <div class="info-box">
         <div class="block-title">Tagihan kepada</div>
         <div class="block-body">
             <strong>{{ $customer?->name ?: '—' }}</strong>
@@ -39,7 +47,7 @@
             @endif
         </div>
     </div>
-    <div>
+    <div class="info-box">
         <div class="block-title">Rincian jadwal</div>
         <div class="block-body">
             <div>Jatuh tempo: <strong>{{ $fmtDate($invoice->due_date) }}</strong></div>
@@ -102,10 +110,11 @@
 
 <div class="footer-note">
     <div>
-        Harap lunasi sebelum jatuh tempo agar layanan tetap aktif.
+        <strong>Catatan:</strong> Harap lunasi sebelum jatuh tempo agar layanan tetap aktif.
         Simpan bukti transfer bila pembayaran non-tunai.
     </div>
     <div style="text-align:right">
         Dicetak {{ now()->format('d/m/Y H:i') }}
     </div>
+</div>
 </div>
