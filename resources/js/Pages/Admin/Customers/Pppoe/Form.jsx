@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import DatePickerField from '../../../../Components/Admin/DatePickerField';
 import GpsMapPicker from '../../../../Components/Admin/GpsMapPicker';
@@ -434,42 +434,11 @@ export default function Form({
                     </label>
                 </div>
 
-                {editing && (
-                    <div className="space-y-3 border border-ink/10 bg-mist/30 p-4">
-                        <div>
-                            <p className="text-sm font-semibold text-ink">Gabung bayar 2 bulan</p>
-                            <p className="mt-1 text-xs text-ink-soft">
-                                Buat satu tagihan 2× harga paket. Saat lunas, jatuh tempo maju 2
-                                bulan. Toleransi isolir diatur dari Tagihan &amp; Pembayaran.
-                            </p>
-                            {customer.has_active_grace && (
-                                <p className="mt-1 text-xs text-sky-700">
-                                    Grace aktif s/d {customer.grace_until}
-                                    {customer.grace_note ? ` — ${customer.grace_note}` : ''}
-                                </p>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const price = customer.package?.price || 0;
-                                    const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
-                                    if (
-                                        !window.confirm(
-                                            `Buat tagihan gabungan 2 bulan?\nTotal: ${totalLabel}`,
-                                        )
-                                    ) {
-                                        return;
-                                    }
-                                    router.post(
-                                        `/admin/customers/pppoe/${customer.id}/combine-billing`,
-                                        { months: 2 },
-                                    );
-                                }}
-                                className="mt-2 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
-                            >
-                                Buat tagihan gabungan 2 bulan
-                            </button>
-                        </div>
+                {editing && customer.has_active_grace && (
+                    <div className="border border-sky-100 bg-sky-50/60 px-4 py-3 text-xs text-sky-800">
+                        Grace aktif s/d {customer.grace_until}
+                        {customer.grace_note ? ` — ${customer.grace_note}` : ''}. Aksi toleransi &amp;
+                        gabung 2 bulan ada di Tagihan &amp; Pembayaran.
                     </div>
                 )}
 

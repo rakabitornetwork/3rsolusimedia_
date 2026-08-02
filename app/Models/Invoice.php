@@ -118,6 +118,9 @@ class Invoice extends Model
                 'grace_until' => $this->customer->grace_until?->format('Y-m-d'),
                 'grace_note' => $this->customer->grace_note,
                 'has_active_grace' => $this->customer->hasActiveGrace(),
+                'package_price' => $this->customer->relationLoaded('package')
+                    ? $this->customer->package?->price
+                    : ($this->package_price ?? null),
             ] : null,
             'payments' => $this->relationLoaded('payments')
                 ? $this->payments->map(fn (Payment $payment) => $payment->toAdminArray())->values()->all()

@@ -226,4 +226,27 @@ class BillingController extends Controller
 
         return back()->with('success', 'Toleransi isolir dicabut.');
     }
+
+    public function combineBilling(Request $request, PppoeCustomer $pppoe): RedirectResponse
+    {
+        $validated = $request->validate([
+            'months' => ['nullable', 'integer', 'min:2', 'max:6'],
+        ]);
+
+        try {
+            $invoice = $this->billing->createCombinedMonthlyInvoice(
+                $pppoe->load('package'),
+                (int) ($validated['months'] ?? 2),
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.billing.show', $invoice)
+            ->with(
+                'success',
+                'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number
+            );
+    }
 }

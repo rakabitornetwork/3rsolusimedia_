@@ -193,21 +193,6 @@ export default function Index({ customers, filters, routers, stats }) {
         router.post(`/admin/customers/pppoe/${id}/sync`);
     };
 
-    const combineBilling = (customer) => {
-        if (!canWrite) return;
-        const price = customer.package?.price || 0;
-        const total = price * 2;
-        const totalLabel = `Rp ${Number(total).toLocaleString('id-ID')}`;
-        if (
-            !window.confirm(
-                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan yang ada akan diganti.`,
-            )
-        ) {
-            return;
-        }
-        router.post(`/admin/customers/pppoe/${customer.id}/combine-billing`, { months: 2 });
-    };
-
     const submitBulkDelete = () => {
         if (!canWrite || selected.length === 0) return;
 
@@ -603,23 +588,14 @@ export default function Index({ customers, filters, routers, stats }) {
                                             Edit
                                         </Link>
                                         {canWrite && (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => combineBilling(customer)}
-                                                    className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
-                                                >
-                                                    Gabung 2 bln
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => remove(customer.id)}
-                                                    className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                    Hapus
-                                                </button>
-                                            </>
+                                            <button
+                                                type="button"
+                                                onClick={() => remove(customer.id)}
+                                                className="inline-flex items-center gap-1 border border-red-100 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                                Hapus
+                                            </button>
                                         )}
                                     </div>
                                 </td>

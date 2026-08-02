@@ -116,6 +116,38 @@ function GraceMenu({ customer }) {
     );
 }
 
+function CombineBillingButton({ customer, invoice }) {
+    if (!customer?.id) return null;
+
+    // Sudah tagihan gabungan unpaid — jangan tawarkan lagi di baris yang sama.
+    if (invoice?.status === 'unpaid' && (invoice.billing_months > 1 || invoice.type === 'multi_month')) {
+        return null;
+    }
+
+    const combine = () => {
+        const price = Number(customer.package_price || invoice?.package_price || 0);
+        const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
+        if (
+            !window.confirm(
+                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
+            )
+        ) {
+            return;
+        }
+        router.post(`/admin/billing/customers/${customer.id}/combine-billing`, { months: 2 });
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={combine}
+            className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"
+        >
+            Gabung 2 bln
+        </button>
+    );
+}
+
 function QuickPayButton({ invoice, methods }) {
     const { data, setData, post, processing } = useForm({
         method: 'cash',
@@ -335,6 +367,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                     <div className="admin-actions">
                                         <QuickPayButton invoice={item} methods={payment_methods} />
                                         <GraceMenu customer={item.customer} />
+                                        <CombineBillingButton customer={item.customer} invoice={item} />
                                         <Link
                                             href={`/admin/billing/invoices/${item.id}`}
                                             className="border border-ink/10 px-2.5 py-1.5 text-xs font-semibold text-ink-soft hover:bg-mist"

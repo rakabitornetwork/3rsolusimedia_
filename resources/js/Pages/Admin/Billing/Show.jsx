@@ -60,6 +60,31 @@ export default function Show({ invoice, payment_methods }) {
         router.delete(`/admin/billing/customers/${invoice.customer.id}/grace`);
     };
 
+    const combineBilling = () => {
+        if (!invoice.customer?.id) return;
+        const price = Number(
+            invoice.customer.package_price || invoice.package_price || 0,
+        );
+        const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
+        if (
+            !window.confirm(
+                `Buat tagihan gabungan 2 bulan untuk ${invoice.customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
+            )
+        ) {
+            return;
+        }
+        router.post(`/admin/billing/customers/${invoice.customer.id}/combine-billing`, {
+            months: 2,
+        });
+    };
+
+    const canCombine =
+        invoice.customer &&
+        !(
+            invoice.status === 'unpaid' &&
+            (invoice.billing_months > 1 || invoice.type === 'multi_month')
+        );
+
     return (
         <AdminLayout
             title={invoice.number}
@@ -216,6 +241,25 @@ export default function Show({ invoice, payment_methods }) {
                                     </button>
                                 )}
                             </div>
+
+                            {canCombine && (
+                                <div className="mt-5 border-t border-ink/10 pt-4">
+                                    <h3 className="text-sm font-semibold text-ink">
+                                        Gabung bayar 2 bulan
+                                    </h3>
+                                    <p className="mt-1 text-sm text-ink-soft">
+                                        Satu tagihan 2× harga paket. Saat lunas, jatuh tempo maju 2
+                                        bulan. Tagihan unpaid bulanan/prorata diganti.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={combineBilling}
+                                        className="mt-3 border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink hover:bg-mist"
+                                    >
+                                        Buat tagihan gabungan 2 bulan
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
