@@ -29,7 +29,7 @@
     <title>Cetak {{ $invoice->number }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
     <style>
         @page {
             size: A4 portrait;
@@ -39,23 +39,34 @@
         * { box-sizing: border-box; }
 
         :root {
-            --ink: #111111;
-            --ink-soft: #444444;
-            --muted: #777777;
+            --ink: #0b1526;
+            --ink-soft: #3a4658;
+            --muted: #6b7789;
             --paper: #ffffff;
-            --surface: #ffffff;
+            --mist: #f3f6fa;
+            --line-soft: #e6ebf2;
+            --signal: #1a6eff;
+            --signal-deep: #0a2d82;
+            --signal-bright: #00b7ff;
+            --amber: #b45309;
+            --amber-bg: #fff7ed;
+            --green: #047857;
+            --green-bg: #ecfdf5;
+            --red: #b91c1c;
+            --red-bg: #fef2f2;
             --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
             --font-display: "Syne", "Manrope", system-ui, sans-serif;
+            --font-serif: "Instrument Serif", Georgia, serif;
         }
 
         html, body {
             margin: 0;
             padding: 0;
-            background: #cfd8dc;
+            background: #d5dee6;
             color: var(--ink);
             font-family: var(--font-body);
             font-size: 10.5pt;
-            line-height: 1.4;
+            line-height: 1.45;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -103,8 +114,8 @@
 
         .toolbar a.active,
         .toolbar button.primary {
-            background: #333;
-            border-color: #333;
+            background: var(--signal);
+            border-color: var(--signal);
             color: #fff;
         }
 
@@ -115,7 +126,7 @@
             height: 297mm;
             margin: 0 auto;
             background: var(--paper);
-            box-shadow: 0 18px 50px rgba(16, 24, 32, 0.18);
+            box-shadow: 0 18px 50px rgba(11, 21, 38, 0.16);
             position: relative;
             overflow: hidden;
         }
@@ -129,7 +140,7 @@
 
         .half.empty {
             background:
-                linear-gradient(180deg, rgba(16,24,32,0.02), transparent 40%),
+                linear-gradient(180deg, rgba(11,21,38,0.02), transparent 40%),
                 repeating-linear-gradient(-45deg, #fff, #fff 10px, #f7fafb 10px, #f7fafb 20px);
         }
 
@@ -138,7 +149,7 @@
             left: 10mm;
             right: 10mm;
             top: 148.5mm;
-            border-top: 1px dashed #bbbbbb;
+            border-top: 1px dashed rgba(26, 110, 255, 0.35);
             transform: translateY(-50%);
             z-index: 2;
             pointer-events: none;
@@ -150,22 +161,22 @@
             top: 148.5mm;
             transform: translate(-50%, -50%);
             background: #fff;
-            color: var(--muted);
-            font-size: 7.5pt;
+            color: var(--signal-deep);
+            font-family: var(--font-display);
+            font-size: 7pt;
             font-weight: 700;
-            letter-spacing: 0.14em;
+            letter-spacing: 0.16em;
             text-transform: uppercase;
             padding: 0 10px;
             z-index: 3;
         }
 
-        /* —— Invoice card —— */
+        /* —— Invoice —— */
         .inv {
             height: 100%;
             display: flex;
             flex-direction: column;
             background: var(--paper);
-            border: none;
             position: relative;
             overflow: hidden;
             padding: 0;
@@ -174,25 +185,23 @@
         .inv-top {
             display: flex;
             justify-content: space-between;
-            gap: 12px;
+            gap: 14px;
             align-items: flex-start;
-            padding: 6.5mm 7mm 5mm;
-            background: transparent;
-            border: none;
+            padding: 5.5mm 6.5mm 4.5mm;
             position: relative;
             z-index: 1;
         }
 
         .inv-brand {
             display: flex;
-            gap: 9px;
+            gap: 10px;
             align-items: flex-start;
             min-width: 0;
         }
 
         .inv-logo {
-            height: 40px;
-            width: 40px;
+            height: 42px;
+            width: 42px;
             object-fit: contain;
             flex-shrink: 0;
         }
@@ -200,26 +209,25 @@
         .inv-company {
             margin: 0;
             font-family: var(--font-display);
-            font-size: 17pt;
+            font-size: 16.5pt;
             font-weight: 700;
             line-height: 1.05;
-            letter-spacing: 0.01em;
+            letter-spacing: -0.02em;
             color: var(--ink);
         }
 
         .inv-tagline {
-            margin: 2px 0 0;
+            margin: 3px 0 0;
             font-size: 8.5pt;
             font-weight: 500;
-            letter-spacing: 0.01em;
-            color: var(--muted);
+            color: var(--signal-deep);
         }
 
         .inv-contact {
             margin: 2px 0 0;
             font-size: 8pt;
             color: var(--muted);
-            max-width: 95mm;
+            max-width: 98mm;
         }
 
         .inv-doc {
@@ -229,69 +237,82 @@
 
         .inv-doc-kicker {
             margin: 0;
+            font-family: var(--font-display);
             font-size: 8pt;
             font-weight: 700;
-            letter-spacing: 0.22em;
+            letter-spacing: 0.24em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--signal);
         }
 
         .inv-doc-number {
-            margin: 3px 0 0;
-            font-family: var(--font-display);
-            font-size: 15pt;
-            font-weight: 700;
-            line-height: 1.1;
+            margin: 4px 0 0;
+            font-family: var(--font-serif);
+            font-size: 18pt;
+            font-weight: 400;
+            line-height: 1.05;
+            letter-spacing: -0.01em;
             color: var(--ink);
         }
 
         .inv-status {
             display: inline-block;
-            margin-top: 6px;
-            font-size: 7.5pt;
+            margin-top: 7px;
+            font-family: var(--font-display);
+            font-size: 7pt;
             font-weight: 700;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            padding: 0;
-            border: none;
-            background: transparent;
-            color: var(--ink-soft);
+            padding: 4px 9px;
         }
 
-        .status-unpaid,
-        .status-paid,
+        .status-unpaid {
+            background: var(--amber-bg);
+            color: var(--amber);
+        }
+
+        .status-paid {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
         .status-void {
-            background: transparent;
-            color: var(--ink-soft);
-            border: none;
+            background: var(--red-bg);
+            color: var(--red);
         }
 
-        .inv-rule {
-            display: none;
+        .inv-accent {
+            height: 2.5px;
+            margin: 0 6.5mm;
+            background: linear-gradient(90deg, var(--signal-deep) 0%, var(--signal) 55%, var(--signal-bright) 100%);
+            border-radius: 999px;
         }
 
         .inv-meta {
             display: grid;
-            grid-template-columns: 1.2fr 0.95fr;
-            gap: 10px 14px;
-            padding: 5mm 7mm 4mm;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 12px 16px;
+            padding: 5mm 6.5mm 4mm;
             position: relative;
             z-index: 1;
         }
 
         .inv-label {
-            margin: 0 0 3px;
-            font-size: 7.5pt;
+            margin: 0 0 4px;
+            font-family: var(--font-display);
+            font-size: 7pt;
             font-weight: 700;
-            letter-spacing: 0.14em;
+            letter-spacing: 0.16em;
             text-transform: uppercase;
-            color: var(--muted);
+            color: var(--signal);
         }
 
         .inv-name {
             margin: 0;
-            font-size: 12pt;
+            font-family: var(--font-display);
+            font-size: 12.5pt;
             font-weight: 700;
+            letter-spacing: -0.01em;
             color: var(--ink);
         }
 
@@ -302,9 +323,9 @@
         }
 
         .inv-meta-right {
-            background: transparent;
-            border: none;
-            padding: 0;
+            background: var(--mist);
+            padding: 7px 10px;
+            border-left: 3px solid var(--signal);
         }
 
         .inv-meta-row {
@@ -312,13 +333,21 @@
             justify-content: space-between;
             gap: 10px;
             align-items: baseline;
-            padding: 2.5px 0;
+            padding: 3.5px 0;
             font-size: 8.5pt;
-            border: none;
+        }
+
+        .inv-meta-row + .inv-meta-row {
+            border-top: 1px solid rgba(230, 235, 242, 0.95);
         }
 
         .inv-meta-row span {
-            color: var(--muted);
+            font-family: var(--font-display);
+            font-size: 7pt;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--signal-deep);
             flex-shrink: 0;
         }
 
@@ -329,8 +358,8 @@
         }
 
         .inv-table {
-            width: calc(100% - 14mm);
-            margin: 0 7mm;
+            width: calc(100% - 13mm);
+            margin: 0 6.5mm;
             border-collapse: collapse;
             position: relative;
             z-index: 1;
@@ -338,32 +367,38 @@
 
         .inv-table th,
         .inv-table td {
-            padding: 6px 8px;
+            padding: 7px 8px;
             text-align: left;
             vertical-align: top;
         }
 
         .inv-table th {
             background: transparent;
-            color: var(--muted);
-            font-size: 7.5pt;
+            color: var(--signal-deep);
+            font-family: var(--font-display);
+            font-size: 7pt;
             font-weight: 700;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            border: none;
-            padding-bottom: 8px;
+            border-bottom: 1.5px solid var(--signal-deep);
+            padding-bottom: 7px;
         }
 
         .inv-table td {
-            border: none;
+            border-bottom: 1px solid var(--line-soft);
             font-size: 10pt;
+        }
+
+        .inv-table tbody tr:last-child td {
+            border-bottom: none;
         }
 
         .inv-table .num {
             text-align: right;
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
-            font-weight: 600;
+            font-weight: 700;
+            color: var(--ink);
         }
 
         .inv-item-title {
@@ -381,9 +416,9 @@
 
         .inv-summary {
             display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 10px;
-            padding: 4mm 7mm 3mm;
+            grid-template-columns: 1.1fr 0.95fr;
+            gap: 12px;
+            padding: 4mm 6.5mm 3mm;
             margin-top: auto;
             position: relative;
             z-index: 1;
@@ -391,30 +426,31 @@
 
         .inv-thanks-title {
             margin: 0;
-            font-family: var(--font-display);
-            font-size: 13pt;
-            font-weight: 700;
-            color: var(--ink);
+            font-family: var(--font-serif);
+            font-size: 16pt;
+            font-weight: 400;
+            font-style: italic;
+            color: var(--signal-deep);
         }
 
         .inv-thanks-copy {
-            margin: 3px 0 0;
+            margin: 4px 0 0;
             font-size: 8pt;
+            line-height: 1.5;
             color: var(--muted);
             max-width: 78mm;
         }
 
         .inv-totals {
-            background: transparent;
-            border: none;
-            padding: 5px 0 0;
+            background: var(--mist);
+            padding: 6px 0 0;
         }
 
         .inv-total-row {
             display: flex;
             justify-content: space-between;
             gap: 12px;
-            padding: 3px 0;
+            padding: 3px 11px;
             font-size: 9pt;
             color: var(--ink-soft);
         }
@@ -424,35 +460,35 @@
             justify-content: space-between;
             align-items: baseline;
             gap: 12px;
-            margin-top: 6px;
-            padding: 6px 0 0;
-            background: transparent;
-            color: var(--ink);
+            margin-top: 5px;
+            padding: 9px 11px;
+            background: linear-gradient(135deg, var(--signal-deep) 0%, #0f47b8 52%, var(--signal) 100%);
+            color: #fff;
         }
 
         .inv-total-grand span {
-            font-size: 8pt;
+            font-family: var(--font-display);
+            font-size: 7.5pt;
             font-weight: 700;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
-            color: var(--muted);
+            opacity: 0.92;
         }
 
         .inv-total-grand strong {
-            font-family: var(--font-display);
-            font-size: 15pt;
-            font-weight: 700;
-            letter-spacing: 0.01em;
-            color: var(--ink);
+            font-family: var(--font-serif);
+            font-size: 17pt;
+            font-weight: 400;
+            letter-spacing: -0.01em;
         }
 
         .inv-foot {
             display: flex;
             justify-content: space-between;
             gap: 10px;
-            margin: 0 7mm 5mm;
-            padding-top: 3.5mm;
-            border: none;
+            margin: 0 6.5mm 4.5mm;
+            padding-top: 3mm;
+            border-top: 1px solid var(--line-soft);
             font-size: 7.5pt;
             color: var(--muted);
             letter-spacing: 0.02em;
@@ -487,7 +523,7 @@
 
             .half.empty { background: #fff; }
             .empty-hint { display: none; }
-            .cut-label { color: var(--muted); }
+            .cut-label { color: var(--signal-deep); }
         }
     </style>
 </head>

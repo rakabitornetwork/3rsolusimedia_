@@ -32,9 +32,10 @@
         </div>
     </header>
 
+    <div class="inv-accent" aria-hidden="true"></div>
 
     <section class="inv-meta">
-        <div>
+        <div class="inv-billto">
             <p class="inv-label">Ditagihkan kepada</p>
             <p class="inv-name">{{ $customer?->name ?: '—' }}</p>
             @if ($customer?->username)
