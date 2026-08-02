@@ -108,6 +108,7 @@ class MikrotikApiService
                         'name' => $name,
                         'running' => ($iface['running'] ?? 'false') === 'true',
                         'comment' => $iface['comment'] ?? null,
+                        'is_wan' => false,
                     ];
                 }
 
@@ -131,7 +132,8 @@ class MikrotikApiService
             }
 
             usort($ifaceRows, fn ($a, $b) => strcmp($a['name'], $b['name']));
-            usort($physicalInterfaces, fn ($a, $b) => strnatcasecmp($a['name'], $b['name']));
+            $wanNames = $this->defaultRouteInterfaceNames($client);
+            $physicalInterfaces = $this->enrichPhysicalInterfaces($physicalInterfaces, $wanNames);
 
             return [
                 'ok' => true,
@@ -187,10 +189,13 @@ class MikrotikApiService
                     'name' => (string) $iface['name'],
                     'running' => ($iface['running'] ?? 'false') === 'true',
                     'comment' => $iface['comment'] ?? null,
+                    'is_wan' => false,
                 ])
-                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
                 ->values()
                 ->all();
+
+            $wanNames = $this->defaultRouteInterfaceNames($client);
+            $physicalInterfaces = $this->enrichPhysicalInterfaces($physicalInterfaces, $wanNames);
 
             return [
                 'ok' => true,
@@ -1315,6 +1320,96 @@ class MikrotikApiService
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Nama interface yang dipakai default route (0.0.0.0/0).
+     *
+     * @return array<int, string>
+     */
+    private function defaultRouteInterfaceNames($client): array
+    {
+        try {
+            $routes = $client->query(new Query('/ip/route/print'))->read();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $names = [];
+        foreach ($routes as $route) {
+            $dst = (string) ($route['dst-address'] ?? '');
+            if ($dst !== '0.0.0.0/0') {
+                continue;
+            }
+
+            foreach (['immediate-gw', 'gateway'] as $field) {
+                $gw = (string) ($route[$field] ?? '');
+                if ($gw === '') {
+                    continue;
+                }
+                if (str_contains($gw, '%')) {
+                    $names[] = explode('%', $gw, 2)[1];
+                } elseif (! preg_match('/^\d/', $gw)) {
+                    $names[] = $gw;
+                }
+            }
+
+            foreach (['vrf-interface', 'gateway-interface'] as $field) {
+                $iface = trim((string) ($route[$field] ?? ''));
+                if ($iface !== '') {
+                    $names[] = $iface;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($names)));
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $interfaces
+     * @param  array<int, string>  $wanNames
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichPhysicalInterfaces(array $interfaces, array $wanNames): array
+    {
+        $wanLookup = array_fill_keys(array_map('strtolower', $wanNames), true);
+
+        $enriched = array_map(function (array $iface) use ($wanLookup) {
+            $name = (string) ($iface['name'] ?? '');
+            $comment = strtolower((string) ($iface['comment'] ?? ''));
+            $haystack = strtolower($name.' '.$comment);
+            $hintWan = str_contains($haystack, 'wan')
+                || str_contains($haystack, 'isp')
+                || str_contains($haystack, 'internet')
+                || str_contains($haystack, 'uplink');
+
+            $iface['is_wan'] = isset($wanLookup[strtolower($name)]) || $hintWan;
+
+            return $iface;
+        }, $interfaces);
+
+        usort($enriched, function (array $a, array $b) {
+            $score = static function (array $iface): int {
+                $score = 0;
+                if (! empty($iface['is_wan'])) {
+                    $score += 4;
+                }
+                if (! empty($iface['running'])) {
+                    $score += 2;
+                }
+
+                return $score;
+            };
+
+            $diff = $score($b) <=> $score($a);
+            if ($diff !== 0) {
+                return $diff;
+            }
+
+            return strnatcasecmp((string) $a['name'], (string) $b['name']);
+        });
+
+        return array_values($enriched);
+    }
+
     private function first(Client $client, string $path): array
     {
         $rows = $client->query(new Query($path))->read();

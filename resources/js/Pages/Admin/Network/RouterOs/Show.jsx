@@ -160,7 +160,7 @@ export default function Show({ router: item, info }) {
                 />
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 min-w-0">
                 <LiveTrafficCard
                     routerId={item.id}
                     physicalInterfaces={info.physical_interfaces || []}

@@ -12,6 +12,39 @@ const YMAX_UP = 0.22;
 const YMAX_DOWN = 0.035;
 const PEAK_SOFTEN = 0.42;
 
+function storageKey(routerId) {
+    return `live-traffic-iface:${routerId}`;
+}
+
+function readStoredInterface(routerId) {
+    try {
+        return window.localStorage.getItem(storageKey(routerId)) || '';
+    } catch {
+        return '';
+    }
+}
+
+function writeStoredInterface(routerId, name) {
+    try {
+        if (name) window.localStorage.setItem(storageKey(routerId), name);
+    } catch {
+        // ignore
+    }
+}
+
+function pickDefaultInterface(list, routerId) {
+    if (!list?.length) return '';
+    const stored = readStoredInterface(routerId);
+    if (stored && list.some((item) => item.name === stored)) return stored;
+    const wanRunning = list.find((item) => item.is_wan && item.running);
+    if (wanRunning) return wanRunning.name;
+    const wan = list.find((item) => item.is_wan);
+    if (wan) return wan.name;
+    const running = list.find((item) => item.running);
+    if (running) return running.name;
+    return list[0].name;
+}
+
 function formatBitrate(bps) {
     if (bps == null || Number.isNaN(Number(bps))) return '0 bps';
     const value = Number(bps);
@@ -70,7 +103,6 @@ function toPoints(values, max, plotW, plotH) {
     }));
 }
 
-/** Haluskan puncak agar zig-zag tidak terlalu lancip. */
 function softenPeaks(values, amount = PEAK_SOFTEN) {
     if (values.length < 3) return values;
     return values.map((value, index) => {
@@ -80,7 +112,6 @@ function softenPeaks(values, amount = PEAK_SOFTEN) {
     });
 }
 
-/** Path kurva kuadratik lewat titik tengah — tetap zig-zag tapi lebih lembut. */
 function buildSmoothPath(values, max, plotW, plotH) {
     const points = toPoints(softenPeaks(values), max, plotW, plotH);
     if (points.length === 0) return '';
@@ -109,8 +140,16 @@ function buildAreaPath(values, max, plotW, plotH) {
     return `${line} L ${(MARGIN.left + plotW).toFixed(2)} ${baseY.toFixed(2)} L ${MARGIN.left.toFixed(2)} ${baseY.toFixed(2)} Z`;
 }
 
+function interfaceOptionLabel(iface) {
+    const bits = [iface.name];
+    if (iface.is_wan) bits.push('WAN');
+    bits.push(iface.running ? 'up' : 'down');
+    if (iface.comment) bits.push(iface.comment);
+    return bits.join(' · ');
+}
+
 /** Zig-zag line chart with stable Y scale and continuous smooth chase. */
-function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
+function TrafficChart({ values, strokeColor, axisColor }) {
     const sampleCount = values.length;
     const target = useMemo(() => padHistory(values), [values]);
     const [display, setDisplay] = useState(target);
@@ -134,7 +173,6 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
         sampleCountRef.current = sampleCount;
         targetRef.current = target;
 
-        // Reset when history cleared (ganti router/interface)
         if (sampleCount <= 1) {
             displayRef.current = [...target];
             yMaxRef.current = niceMax(Math.max(...target, 1));
@@ -143,7 +181,6 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
             return;
         }
 
-        // Geser kiri hanya saat buffer penuh + sample baru (efek scroll mulus)
         if (prevCount >= SPARK_POINTS && sampleCount >= SPARK_POINTS) {
             const prev = displayRef.current;
             displayRef.current = [
@@ -193,7 +230,6 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
             const areaPath = buildAreaPath(next, yMaxRef.current, plotW, plotH);
             paint(linePath, areaPath, yMaxRef.current);
 
-            // Sinkronisasi React lebih jarang agar animasi SVG tetap 60fps
             setDisplay((prev) => {
                 const drifted = prev.some((value, index) => Math.abs(value - next[index]) > 1);
                 return drifted ? next : prev;
@@ -221,11 +257,11 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
     ];
 
     return (
-        <div className="mt-2 -mx-1 sm:-mx-2">
+        <div className="mt-2 w-full min-w-0 overflow-visible">
             <svg
                 viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-                className={`block w-full ${strokeClass}`}
-                style={{ aspectRatio: `${CHART_WIDTH} / ${CHART_HEIGHT}`, maxHeight: 140 }}
+                className="block h-auto w-full"
+                style={{ aspectRatio: `${CHART_WIDTH} / ${CHART_HEIGHT}`, minHeight: 120, maxHeight: 148 }}
                 preserveAspectRatio="xMidYMid meet"
                 role="img"
                 aria-label="Grafik traffic live"
@@ -242,10 +278,9 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                                 y1={y}
                                 x2={MARGIN.left + plotW}
                                 y2={y}
-                                className={axisClass}
-                                stroke="currentColor"
+                                stroke={axisColor}
                                 strokeWidth="1"
-                                strokeOpacity={ratio === 0 ? 0.35 : 0.14}
+                                strokeOpacity={ratio === 0 ? 0.45 : 0.18}
                             />
                             <text
                                 ref={(node) => {
@@ -254,7 +289,7 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                                 x={MARGIN.left - 8}
                                 y={y + 3}
                                 textAnchor="end"
-                                className={`fill-current ${axisClass}`}
+                                fill={axisColor}
                                 style={{ fontSize: 10 }}
                             >
                                 {formatAxisBitrate(yMax * ratio)}
@@ -268,10 +303,9 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                     y1={MARGIN.top + plotH}
                     x2={MARGIN.left + plotW}
                     y2={MARGIN.top + plotH}
-                    className={axisClass}
-                    stroke="currentColor"
-                    strokeWidth="1"
-                    strokeOpacity="0.35"
+                    stroke={axisColor}
+                    strokeWidth="1.25"
+                    strokeOpacity="0.45"
                 />
                 {xTicks.map((tick) => (
                     <text
@@ -279,31 +313,25 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
                         x={tick.x}
                         y={CHART_HEIGHT - 8}
                         textAnchor={tick.anchor}
-                        className={`fill-current ${axisClass}`}
+                        fill={axisColor}
                         style={{ fontSize: 10 }}
                     >
                         {tick.label}
                     </text>
                 ))}
 
-                <path
-                    ref={fillRef}
-                    d={areaPath}
-                    fill="currentColor"
-                    stroke="none"
-                    opacity="0.14"
-                />
+                <path ref={fillRef} d={areaPath} fill={strokeColor} stroke="none" opacity="0.16" />
                 <path
                     ref={lineRef}
                     d={linePath}
                     fill="none"
-                    stroke="currentColor"
+                    stroke={strokeColor}
                     strokeWidth="2.25"
                     strokeLinejoin="round"
                     strokeLinecap="round"
                 />
             </svg>
-            <div className="mt-0.5 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">
+            <div className="mt-0.5 flex items-center justify-between px-0.5 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">
                 <span>Y: Bitrate</span>
                 <span>X: Waktu (interval {POLL_SECONDS}s)</span>
             </div>
@@ -314,7 +342,7 @@ function TrafficChart({ values, strokeClass, axisClass = 'text-ink/45' }) {
 /**
  * @param {{
  *   routerId?: number|string|null,
- *   physicalInterfaces?: Array<{name: string, running?: boolean, comment?: string|null}>,
+ *   physicalInterfaces?: Array<{name: string, running?: boolean, comment?: string|null, is_wan?: boolean}>,
  *   routers?: Array<{id: number, name: string, host?: string}>|null,
  * }} props
  */
@@ -328,33 +356,25 @@ export default function LiveTrafficCard({
         () => initialRouterId || routers?.[0]?.id || null,
     );
     const [physicalInterfaces, setPhysicalInterfaces] = useState(initialInterfaces);
-    const [selected, setSelected] = useState(initialInterfaces[0]?.name || '');
+    const [selected, setSelected] = useState(() =>
+        pickDefaultInterface(initialInterfaces, initialRouterId || routers?.[0]?.id),
+    );
     const [traffic, setTraffic] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadingInterfaces, setLoadingInterfaces] = useState(false);
     const [history, setHistory] = useState({ rx: [], tx: [] });
 
+    // Selalu muat daftar Ethernet dari API agar dropdown multi-WAN akurat
+    // di Dashboard maupun halaman detail RouterOS.
     useEffect(() => {
-        if (multiRouter) return;
-        setPhysicalInterfaces(initialInterfaces);
-        if (!selected && initialInterfaces[0]?.name) {
-            setSelected(initialInterfaces[0].name);
-        }
-    }, [initialInterfaces, multiRouter, selected]);
-
-    useEffect(() => {
-        if (!multiRouter || !routerId) return undefined;
+        if (!routerId) return undefined;
 
         let cancelled = false;
 
         const loadInterfaces = async () => {
             setLoadingInterfaces(true);
             setError('');
-            setPhysicalInterfaces([]);
-            setSelected('');
-            setTraffic(null);
-            setHistory({ rx: [], tx: [] });
 
             try {
                 const response = await fetch(
@@ -371,15 +391,39 @@ export default function LiveTrafficCard({
                 if (cancelled) return;
 
                 if (!payload.ok) {
+                    // Tetap pakai data awal halaman jika API gagal.
+                    if (initialInterfaces?.length && !multiRouter) {
+                        setPhysicalInterfaces(initialInterfaces);
+                        setSelected((prev) =>
+                            prev && initialInterfaces.some((i) => i.name === prev)
+                                ? prev
+                                : pickDefaultInterface(initialInterfaces, routerId),
+                        );
+                    } else {
+                        setPhysicalInterfaces([]);
+                        setSelected('');
+                    }
                     setError(payload.message || 'Gagal mengambil daftar interface');
                     return;
                 }
 
                 const list = payload.interfaces || [];
                 setPhysicalInterfaces(list);
-                setSelected(list[0]?.name || '');
+                setSelected((prev) => {
+                    if (prev && list.some((item) => item.name === prev)) return prev;
+                    return pickDefaultInterface(list, routerId);
+                });
+                setError('');
             } catch {
                 if (!cancelled) {
+                    if (initialInterfaces?.length && !multiRouter) {
+                        setPhysicalInterfaces(initialInterfaces);
+                        setSelected((prev) =>
+                            prev && initialInterfaces.some((i) => i.name === prev)
+                                ? prev
+                                : pickDefaultInterface(initialInterfaces, routerId),
+                        );
+                    }
                     setError('Tidak bisa mengambil daftar interface');
                 }
             } finally {
@@ -392,10 +436,14 @@ export default function LiveTrafficCard({
         return () => {
             cancelled = true;
         };
-    }, [multiRouter, routerId]);
+        // initialInterfaces hanya seed; jangan re-fetch tiap render parent
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [routerId, multiRouter]);
 
     useEffect(() => {
         if (!selected || !routerId) return undefined;
+
+        writeStoredInterface(routerId, selected);
 
         let cancelled = false;
         let busy = false;
@@ -428,8 +476,8 @@ export default function LiveTrafficCard({
                 setError('');
                 setTraffic(payload.data);
                 setHistory((prev) => ({
-                    rx: [...prev.rx, payload.data.rx_bps].slice(-24),
-                    tx: [...prev.tx, payload.data.tx_bps].slice(-24),
+                    rx: [...prev.rx, payload.data.rx_bps].slice(-SPARK_POINTS),
+                    tx: [...prev.tx, payload.data.tx_bps].slice(-SPARK_POINTS),
                 }));
             } catch {
                 if (!cancelled) {
@@ -455,6 +503,11 @@ export default function LiveTrafficCard({
     const selectedMeta = useMemo(
         () => physicalInterfaces.find((item) => item.name === selected),
         [physicalInterfaces, selected],
+    );
+
+    const wanCount = useMemo(
+        () => physicalInterfaces.filter((item) => item.is_wan).length,
+        [physicalInterfaces],
     );
 
     const { auth } = usePage().props;
@@ -485,75 +538,80 @@ export default function LiveTrafficCard({
         );
     }
 
-    if (!multiRouter && !physicalInterfaces.length) {
-        return (
-            <div className="border border-ink/10 bg-white p-5">
-                <h2 className="font-display flex items-center gap-2 text-base font-bold text-ink">
-                    <Activity className="h-4 w-4 text-signal-deep" strokeWidth={1.75} />
-                    Live Traffic
-                </h2>
-                <p className="mt-3 text-sm text-ink-soft">Tidak ada interface Ethernet fisik.</p>
-            </div>
-        );
-    }
-
     return (
-        <div className="border border-ink/10 bg-white p-5">
+        <div className="min-w-0 border border-ink/10 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                     <h2 className="font-display flex items-center gap-2 text-base font-bold text-ink">
                         <Activity className="h-4 w-4 text-signal-deep" strokeWidth={1.75} />
                         Live Traffic
                     </h2>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Update tiap {POLL_SECONDS} detik dari API monitor-traffic
+                        Pilih Ethernet sumber internet (WAN). Update tiap {POLL_SECONDS} detik.
+                        {wanCount > 1 ? ` · ${wanCount} interface terdeteksi sebagai WAN` : ''}
                     </p>
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-end">
                     {(loading || loadingInterfaces) && (
                         <LoaderCircle
-                            className="hidden h-4 w-4 animate-spin text-signal-deep sm:block"
+                            className="mb-2 hidden h-4 w-4 animate-spin text-signal-deep sm:block"
                             aria-hidden
                         />
                     )}
                     {multiRouter && (
+                        <label className="block min-w-0 text-xs font-semibold text-ink-soft">
+                            RouterOS
+                            <select
+                                value={routerId || ''}
+                                onChange={(e) => {
+                                    setRouterId(Number(e.target.value) || e.target.value);
+                                    setSelected('');
+                                    setPhysicalInterfaces([]);
+                                    setHistory({ rx: [], tx: [] });
+                                    setTraffic(null);
+                                }}
+                                className="mt-1 block w-full border border-ink/15 bg-paper px-3 py-2 text-sm font-medium text-ink outline-none focus:border-signal sm:min-w-[200px]"
+                            >
+                                {routers.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.name}
+                                        {item.host ? ` (${item.host})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                    <label className="block min-w-0 text-xs font-semibold text-ink-soft">
+                        Ethernet
                         <select
-                            value={routerId || ''}
-                            onChange={(e) => setRouterId(Number(e.target.value) || e.target.value)}
-                            className="w-full border border-ink/15 bg-paper px-3 py-2 text-sm outline-none focus:border-signal sm:min-w-[180px] sm:w-auto"
+                            value={selected}
+                            onChange={(e) => setSelected(e.target.value)}
+                            disabled={loadingInterfaces || physicalInterfaces.length === 0}
+                            className="mt-1 block w-full border border-ink/15 bg-paper px-3 py-2 text-sm font-medium text-ink outline-none focus:border-signal disabled:opacity-60 sm:min-w-[220px]"
                         >
-                            {routers.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.name}
-                                    {item.host ? ` (${item.host})` : ''}
+                            {physicalInterfaces.length === 0 && (
+                                <option value="">
+                                    {loadingInterfaces
+                                        ? 'Memuat ethernet...'
+                                        : 'Tidak ada ethernet'}
+                                </option>
+                            )}
+                            {physicalInterfaces.map((iface) => (
+                                <option key={iface.name} value={iface.name}>
+                                    {interfaceOptionLabel(iface)}
                                 </option>
                             ))}
                         </select>
-                    )}
-                    <select
-                        value={selected}
-                        onChange={(e) => setSelected(e.target.value)}
-                        disabled={loadingInterfaces || !physicalInterfaces.length}
-                        className="w-full border border-ink/15 bg-paper px-3 py-2 text-sm outline-none focus:border-signal disabled:opacity-60 sm:min-w-[140px] sm:w-auto"
-                    >
-                        {physicalInterfaces.length === 0 && (
-                            <option value="">
-                                {loadingInterfaces ? 'Memuat interface...' : 'Tidak ada interface'}
-                            </option>
-                        )}
-                        {physicalInterfaces.map((iface) => (
-                            <option key={iface.name} value={iface.name}>
-                                {iface.name}
-                                {iface.running ? '' : ' (down)'}
-                            </option>
-                        ))}
-                    </select>
+                    </label>
                 </div>
             </div>
 
             {selectedMeta && (
-                <p className="mt-3 text-xs text-ink/45">
-                    Status: {selectedMeta.running ? 'Running' : 'Down'}
+                <p className="mt-3 text-xs text-ink/55">
+                    Memantau <span className="font-semibold text-ink">{selectedMeta.name}</span>
+                    {selectedMeta.is_wan ? ' (WAN)' : ''}
+                    {' · '}
+                    {selectedMeta.running ? 'Running' : 'Down'}
                     {selectedMeta.comment ? ` · ${selectedMeta.comment}` : ''}
                 </p>
             )}
@@ -564,8 +622,8 @@ export default function LiveTrafficCard({
                 </div>
             )}
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-2">
-                <div className="border border-sky-200/80 bg-sky-50/70 p-3 sm:p-4">
+            <div className="mt-4 grid min-w-0 gap-3 xl:grid-cols-2">
+                <div className="min-w-0 overflow-visible border border-sky-200/80 bg-sky-50/70 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-sky-700 uppercase">
                             <ArrowDownToLine className="h-3.5 w-3.5 text-sky-600" />
@@ -579,13 +637,14 @@ export default function LiveTrafficCard({
                         {formatBitrate(traffic?.rx_bps)}
                     </p>
                     <TrafficChart
+                        key={`rx-${routerId}-${selected}`}
                         values={history.rx}
-                        strokeClass="text-sky-500"
-                        axisClass="text-sky-800/55"
+                        strokeColor="#0ea5e9"
+                        axisColor="rgba(7, 89, 133, 0.55)"
                     />
                 </div>
 
-                <div className="border border-orange-200/80 bg-orange-50/70 p-3 sm:p-4">
+                <div className="min-w-0 overflow-visible border border-orange-200/80 bg-orange-50/70 p-3 sm:p-4">
                     <div className="flex items-start justify-between gap-2">
                         <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-orange-700 uppercase">
                             <ArrowUpFromLine className="h-3.5 w-3.5 text-orange-600" />
@@ -599,9 +658,10 @@ export default function LiveTrafficCard({
                         {formatBitrate(traffic?.tx_bps)}
                     </p>
                     <TrafficChart
+                        key={`tx-${routerId}-${selected}`}
                         values={history.tx}
-                        strokeClass="text-orange-500"
-                        axisClass="text-orange-800/55"
+                        strokeColor="#f97316"
+                        axisColor="rgba(154, 52, 18, 0.55)"
                     />
                 </div>
             </div>
