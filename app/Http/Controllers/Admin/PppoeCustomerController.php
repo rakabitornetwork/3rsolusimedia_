@@ -68,7 +68,12 @@ class PppoeCustomerController extends Controller
         }
 
         if ($status = $request->get('status')) {
-            $query->where('pppoe_customers.status', $status);
+            if ($status === 'grace') {
+                $query->whereNotNull('pppoe_customers.grace_until')
+                    ->whereDate('pppoe_customers.grace_until', '>=', now()->toDateString());
+            } else {
+                $query->where('pppoe_customers.status', $status);
+            }
         }
 
         if ($routerId = $request->get('router_id')) {
@@ -111,6 +116,10 @@ class PppoeCustomerController extends Controller
             'total' => (clone $statsQuery)->count(),
             'active' => (clone $statsQuery)->where('status', 'active')->count(),
             'isolated' => (clone $statsQuery)->where('status', 'isolated')->count(),
+            'grace' => (clone $statsQuery)
+                ->whereNotNull('grace_until')
+                ->whereDate('grace_until', '>=', now()->toDateString())
+                ->count(),
             'overdue' => (clone $statsQuery)->whereDate('due_date', '<', now()->toDateString())->count(),
         ];
     }
