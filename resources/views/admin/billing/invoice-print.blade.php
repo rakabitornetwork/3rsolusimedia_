@@ -472,23 +472,24 @@
             margin: 0;
             padding: 0;
             line-height: 1;
-            font-family: var(--font-display);
-            font-weight: 700;
+            font-family: var(--font-body);
             color: #fff;
             display: flex;
             align-items: center;
         }
 
         .inv-total-grand span {
-            font-size: 8pt;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
+            font-size: 9pt;
+            font-weight: 500;
+            letter-spacing: normal;
+            text-transform: none;
             opacity: 0.95;
         }
 
         .inv-total-grand strong {
-            font-size: 13pt;
-            letter-spacing: 0.01em;
+            font-size: 11pt;
+            font-weight: 700;
+            letter-spacing: normal;
             font-variant-numeric: tabular-nums;
         }
 
