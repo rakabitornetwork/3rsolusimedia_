@@ -4,117 +4,125 @@
         'void' => 'status-void',
         default => 'status-unpaid',
     };
+    $billingMonths = max(1, (int) ($invoice->billing_months ?? 1));
 @endphp
-<div class="invoice-card">
-<div class="invoice-header">
-    <div class="brand">
-        @if (! empty($company['logo']))
-            <img src="{{ $company['logo'] }}" alt="{{ $company['name'] }}">
-        @endif
-        <div>
-            <h1>{{ $company['name'] }}</h1>
-            @if (! empty($company['tagline']))
-                <div class="meta">{{ $company['tagline'] }}</div>
+<article class="inv">
+    <header class="inv-top">
+        <div class="inv-brand">
+            @if (! empty($company['logo']))
+                <img class="inv-logo" src="{{ $company['logo'] }}" alt="{{ $company['name'] }}">
             @endif
-            @if (! empty($company['address']))
-                <div class="meta">{{ $company['address'] }}</div>
-            @endif
-            @if ($contact)
-                <div class="meta">{{ $contact }}</div>
-            @endif
+            <div class="inv-brand-text">
+                <p class="inv-company">{{ $company['name'] }}</p>
+                @if (! empty($company['tagline']))
+                    <p class="inv-tagline">{{ $company['tagline'] }}</p>
+                @endif
+                @if (! empty($company['address']))
+                    <p class="inv-contact">{{ $company['address'] }}</p>
+                @endif
+                @if ($contact)
+                    <p class="inv-contact">{{ $contact }}</p>
+                @endif
+            </div>
         </div>
-    </div>
-    <div class="doc-title">
-        <div class="label">Invoice</div>
-        <div class="number">{{ $invoice->number }}</div>
-        <div class="status {{ $statusClass }}">{{ $statusLabel }}</div>
-    </div>
-</div>
+        <div class="inv-doc">
+            <p class="inv-doc-kicker">Invoice</p>
+            <p class="inv-doc-number">{{ $invoice->number }}</p>
+            <span class="inv-status {{ $statusClass }}">{{ $statusLabel }}</span>
+        </div>
+    </header>
 
-<div class="grid">
-    <div class="info-box">
-        <div class="block-title">Tagihan kepada</div>
-        <div class="block-body">
-            <strong>{{ $customer?->name ?: '—' }}</strong>
+    <div class="inv-rule" aria-hidden="true"></div>
+
+    <section class="inv-meta">
+        <div>
+            <p class="inv-label">Ditagihkan kepada</p>
+            <p class="inv-name">{{ $customer?->name ?: '—' }}</p>
             @if ($customer?->username)
-                <div class="muted">PPPoE: {{ $customer->username }}</div>
+                <p class="inv-sub">Akun PPPoE · {{ $customer->username }}</p>
             @endif
             @if ($customer?->phone)
-                <div class="muted">Telp: {{ $customer->phone }}</div>
+                <p class="inv-sub">Telepon · {{ $customer->phone }}</p>
             @endif
             @if ($customer?->address)
-                <div class="muted">{{ $customer->address }}</div>
+                <p class="inv-sub">{{ $customer->address }}</p>
             @endif
         </div>
-    </div>
-    <div class="info-box">
-        <div class="block-title">Rincian jadwal</div>
-        <div class="block-body">
-            <div>Jatuh tempo: <strong>{{ $fmtDate($invoice->due_date) }}</strong></div>
-            <div class="muted">Periode: {{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->period_end) }}</div>
-            <div class="muted">
-                Tipe: {{ $typeLabel }}
-                @php($billingMonths = max(1, (int) ($invoice->billing_months ?? 1)))
-                @if ($billingMonths > 1)
-                    · {{ $billingMonths }} bulan
-                @endif
+        <div class="inv-meta-right">
+            <div class="inv-meta-row">
+                <span>Jatuh tempo</span>
+                <strong>{{ $fmtDate($invoice->due_date) }}</strong>
+            </div>
+            <div class="inv-meta-row">
+                <span>Periode</span>
+                <strong>{{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->period_end) }}</strong>
+            </div>
+            <div class="inv-meta-row">
+                <span>Jenis</span>
+                <strong>
+                    {{ $typeLabel }}
+                    @if ($billingMonths > 1)
+                        · {{ $billingMonths }} bulan
+                    @endif
+                </strong>
             </div>
         </div>
-    </div>
-</div>
+    </section>
 
-<table class="lines">
-    <thead>
-        <tr>
-            <th>Uraian</th>
-            <th class="num">Jumlah</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-                {{ $invoice->package_name ?: 'Paket layanan' }}
-                @if ($invoice->notes)
-                    <div class="muted">{{ \Illuminate\Support\Str::limit($invoice->notes, 120) }}</div>
-                @endif
-            </td>
-            <td class="num">{{ $money($invoice->amount) }}</td>
-        </tr>
-        @if ((int) $invoice->discount > 0)
+    <table class="inv-table">
+        <thead>
             <tr>
-                <td>Diskon</td>
-                <td class="num">- {{ $money($invoice->discount) }}</td>
+                <th>Uraian layanan</th>
+                <th class="num">Nominal</th>
             </tr>
-        @endif
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <span class="inv-item-title">{{ $invoice->package_name ?: 'Paket layanan' }}</span>
+                    @if ($invoice->notes)
+                        <span class="inv-item-note">{{ \Illuminate\Support\Str::limit($invoice->notes, 100) }}</span>
+                    @endif
+                </td>
+                <td class="num">{{ $money($invoice->amount) }}</td>
+            </tr>
+            @if ((int) $invoice->discount > 0)
+                <tr>
+                    <td><span class="inv-item-title">Diskon</span></td>
+                    <td class="num">− {{ $money($invoice->discount) }}</td>
+                </tr>
+            @endif
+        </tbody>
+    </table>
 
-<div class="totals">
-    <div class="totals-box">
-        <div class="totals-row">
-            <span>Subtotal</span>
-            <span>{{ $money($invoice->amount) }}</span>
+    <section class="inv-summary">
+        <div class="inv-thanks">
+            <p class="inv-thanks-title">Terima kasih</p>
+            <p class="inv-thanks-copy">
+                Mohon lunasi sebelum jatuh tempo agar layanan tetap aktif.
+                Simpan bukti pembayaran non-tunai.
+            </p>
         </div>
-        @if ((int) $invoice->discount > 0)
-            <div class="totals-row">
-                <span>Diskon</span>
-                <span>- {{ $money($invoice->discount) }}</span>
+        <div class="inv-totals">
+            <div class="inv-total-row">
+                <span>Subtotal</span>
+                <span>{{ $money($invoice->amount) }}</span>
             </div>
-        @endif
-        <div class="totals-row grand">
-            <span>Total</span>
-            <span>{{ $money($invoice->total) }}</span>
+            @if ((int) $invoice->discount > 0)
+                <div class="inv-total-row">
+                    <span>Diskon</span>
+                    <span>− {{ $money($invoice->discount) }}</span>
+                </div>
+            @endif
+            <div class="inv-total-grand">
+                <span>Total tagihan</span>
+                <strong>{{ $money($invoice->total) }}</strong>
+            </div>
         </div>
-    </div>
-</div>
+    </section>
 
-<div class="footer-note">
-    <div>
-        <strong>Catatan:</strong> Harap lunasi sebelum jatuh tempo agar layanan tetap aktif.
-        Simpan bukti transfer bila pembayaran non-tunai.
-    </div>
-    <div style="text-align:right">
-        Dicetak {{ now()->format('d/m/Y H:i') }}
-    </div>
-</div>
-</div>
+    <footer class="inv-foot">
+        <span>Dokumen resmi {{ $company['name'] }}</span>
+        <span>Dicetak {{ now()->format('d/m/Y H:i') }}</span>
+    </footer>
+</article>
