@@ -458,28 +458,38 @@
         .inv-total-grand {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
             gap: 12px;
             margin-top: 5px;
-            padding: 9px 11px;
+            min-height: 38px;
+            padding: 0 12px;
             background: linear-gradient(135deg, var(--signal-deep) 0%, #0f47b8 52%, var(--signal) 100%);
             color: #fff;
         }
 
-        .inv-total-grand span {
+        .inv-total-grand span,
+        .inv-total-grand strong {
+            margin: 0;
+            padding: 0;
+            line-height: 1;
             font-family: var(--font-display);
-            font-size: 7.5pt;
             font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+        }
+
+        .inv-total-grand span {
+            font-size: 8pt;
             letter-spacing: 0.14em;
             text-transform: uppercase;
-            opacity: 0.92;
+            opacity: 0.95;
         }
 
         .inv-total-grand strong {
-            font-family: var(--font-serif);
-            font-size: 17pt;
-            font-weight: 400;
-            letter-spacing: -0.01em;
+            font-size: 13pt;
+            letter-spacing: 0.01em;
+            font-variant-numeric: tabular-nums;
         }
 
         .inv-foot {
