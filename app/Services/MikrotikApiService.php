@@ -15,8 +15,10 @@ use Throwable;
 
 class MikrotikApiService
 {
-    public function makeClient(MikrotikRouter $router, int $timeout = 8): Client
+    public function makeClient(MikrotikRouter $router, ?int $timeout = null): Client
     {
+        $timeout = $timeout ?? (int) env('MIKROTIK_API_TIMEOUT', 15);
+
         // Always cast to expected types — partial Eloquent selects can leave
         // username/password null and trigger ConfigException in the SDK.
         $config = (new Config())
@@ -72,19 +74,19 @@ class MikrotikApiService
             $identity = $this->first($client, '/system/identity/print');
             $resource = $this->first($client, '/system/resource/print');
             $clock = $this->first($client, '/system/clock/print');
-            $interfaces = $client->query(new Query('/interface/print'))->read();
+            $interfaces = $client->query((new Query('/interface/print'))->equal('.propertyset', 'name,type,disabled,running,rx-byte,tx-byte,comment'))->read();
 
             $pppActive = [];
             $hotspotActive = [];
 
             try {
-                $pppActive = $client->query(new Query('/ppp/active/print'))->read();
+                $pppActive = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
             } catch (Throwable) {
                 $pppActive = [];
             }
 
             try {
-                $hotspotActive = $client->query(new Query('/ip/hotspot/active/print'))->read();
+                $hotspotActive = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
             } catch (Throwable) {
                 $hotspotActive = [];
             }
@@ -177,7 +179,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $interfaces = $client->query(new Query('/interface/print'))->read();
+            $interfaces = $client->query((new Query('/interface/print'))->equal('.propertyset', 'name,type,disabled,running,comment'))->read();
 
             $physicalInterfaces = collect($interfaces)
                 ->filter(function (array $iface) {
@@ -967,7 +969,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query(new Query('/ppp/active/print'))->read();
+            $rows = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
 
             $sessions = collect($rows)
                 ->map(fn (array $row) => $this->mapPppActiveSession($row))
@@ -995,7 +997,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query(new Query('/ppp/active/print'))->read();
+            $rows = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
             $existing = collect($rows)->first(
                 fn (array $row) => (string) ($row['.id'] ?? '') === (string) $sessionId
             );
@@ -1026,7 +1028,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
+            $rows = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
 
             $userProfiles = [];
             try {
@@ -1084,7 +1086,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
+            $rows = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
             $existing = collect($rows)->first(
                 fn (array $row) => (string) ($row['.id'] ?? '') === (string) $sessionId
             );
@@ -1328,7 +1330,7 @@ class MikrotikApiService
     private function defaultRouteInterfaceNames($client): array
     {
         try {
-            $routes = $client->query(new Query('/ip/route/print'))->read();
+            $routes = $client->query((new Query('/ip/route/print'))->equal('.propertyset', 'dst-address,immediate-gw,gateway,vrf-interface,gateway-interface'))->read();
         } catch (Throwable) {
             return [];
         }

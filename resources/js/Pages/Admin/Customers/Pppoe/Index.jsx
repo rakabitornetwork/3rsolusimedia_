@@ -297,6 +297,25 @@ export default function Index({ customers, filters, routers, stats }) {
                             Hapus masal ({selected.length})
                         </button>
                     )}
+                    {canWrite && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (confirm('Jalankan proses auto isolir untuk semua pelanggan yang lewat jatuh tempo?')) {
+                                    setProcessing(true);
+                                    router.post('/admin/customers/pppoe/sync-overdue', {}, {
+                                        onFinish: () => setProcessing(false),
+                                    });
+                                }
+                            }}
+                            disabled={processing}
+                            className="btn-action btn-action-sm btn-secondary"
+                            title="Proses isolir otomatis untuk semua pelanggan yang lewat jatuh tempo"
+                        >
+                            <RefreshCw className={`mr-1.5 h-4 w-4 ${processing ? 'animate-spin' : ''}`} />
+                            Sync Jatuh Tempo
+                        </button>
+                    )}
                     <Link
                         href="/admin/customers/pppoe/create"
                         className="btn-action btn-action-sm btn-primary"

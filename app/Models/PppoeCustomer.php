@@ -57,7 +57,17 @@ class PppoeCustomer extends Model
     protected function password(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value) => $value ? Crypt::decryptString($value) : '',
+            get: function (?string $value) {
+                if (! $value) {
+                    return '';
+                }
+
+                try {
+                    return Crypt::decryptString($value);
+                } catch (\Throwable) {
+                    return $value;
+                }
+            },
             set: fn (?string $value) => $value !== null && $value !== ''
                 ? Crypt::encryptString($value)
                 : $value,

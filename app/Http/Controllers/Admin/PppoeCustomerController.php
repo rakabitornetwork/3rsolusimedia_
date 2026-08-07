@@ -339,6 +339,63 @@ class PppoeCustomerController extends Controller
         );
     }
 
+    public function syncOverdue(): RedirectResponse
+    {
+        $today = now()->toDateString();
+
+        $customers = PppoeCustomer::query()
+            ->with(['router', 'package'])
+            ->where('is_active', true)
+            ->where(function ($q) use ($today) {
+                $q->where(function ($q2) use ($today) {
+                    $q2->where('status', 'active')
+                        ->whereDate('due_date', '<', $today)
+                        ->where('overdue_action', 'isolir')
+                        ->where(function ($g) use ($today) {
+                            $g->whereNull('grace_until')
+                                ->orWhereDate('grace_until', '<', $today);
+                        });
+                })->orWhere(function ($q2) use ($today) {
+                    $q2->where('status', 'isolated')
+                        ->where(function ($g) use ($today) {
+                            $g->whereDate('due_date', '>=', $today)
+                                ->orWhereDate('grace_until', '>=', $today)
+                                ->orWhere('overdue_action', '!=', 'isolir');
+                        });
+                });
+            })
+            ->get();
+
+        $isolatedCount = 0;
+        $restoredCount = 0;
+        $errorCount = 0;
+
+        foreach ($customers as $customer) {
+            $this->sync->sync($customer);
+            $fresh = $customer->fresh();
+
+            if ($fresh->sync_status === 'error') {
+                $errorCount++;
+            } elseif ($fresh->status === 'isolated') {
+                $isolatedCount++;
+            } else {
+                $restoredCount++;
+            }
+        }
+
+        $message = "Proses auto isolir selesai. {$isolatedCount} diisolir, {$restoredCount} dikembalikan aktif";
+        if ($errorCount > 0) {
+            $message .= ", {$errorCount} gagal";
+        }
+        $message .= '.';
+
+        return back()->with(
+            $errorCount > 0 && $isolatedCount === 0 && $restoredCount === 0 ? 'error' : 'success',
+            $message
+        );
+    }
+
+
     public function profiles(Request $request): JsonResponse
     {
         $validated = $request->validate([
