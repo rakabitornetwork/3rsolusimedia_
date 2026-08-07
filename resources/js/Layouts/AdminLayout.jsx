@@ -3,7 +3,7 @@ import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-reac
 import { useEffect, useRef, useState } from 'react';
 import FlashToast from '../Components/FlashToast';
 import UserAvatar from '../Components/UserAvatar';
-import { adminNav, isNavActive } from '../Config/adminNav';
+import { adminNav, filterNavForUser, isNavActive } from '../Config/adminNav';
 import Logo from '../Icons/Logo';
 
 function NavItem({ item, pathname, showLabels, onNavigate }) {
@@ -149,7 +149,7 @@ function SidebarNavBody({ companyName, user, pathname, showLabels, onNavigate })
                 onScroll={revealScrollbar}
                 onTouchMove={revealScrollbar}
             >
-                {adminNav.map((group) => (
+                {filterNavForUser(adminNav, user).map((group) => (
                     <div key={group.title}>
                         {showLabels && (
                             <p className="mb-2 px-2 text-[10px] font-semibold tracking-[0.16em] text-white/35 uppercase">

@@ -12,6 +12,7 @@ class PppoeCustomer extends Model
 {
     protected $fillable = [
         'mikrotik_router_id',
+        'agent_id',
         'subscription_package_id',
         'name',
         'phone',
@@ -79,6 +80,11 @@ class PppoeCustomer extends Model
         return $this->belongsTo(MikrotikRouter::class, 'mikrotik_router_id');
     }
 
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'agent_id');
+    }
+
     public function package(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPackage::class, 'subscription_package_id');
@@ -131,6 +137,8 @@ class PppoeCustomer extends Model
         return [
             'id' => $this->id,
             'mikrotik_router_id' => $this->mikrotik_router_id,
+            'agent_id' => $this->agent_id,
+            'agent_name' => $this->agent?->name,
             'subscription_package_id' => $this->subscription_package_id,
             'name' => $this->name,
             'phone' => $this->phone,

@@ -52,6 +52,7 @@ class UserController extends Controller
                 'superadmin' => User::query()->where('role', User::ROLE_SUPERADMIN)->count(),
                 'admin' => User::query()->where('role', User::ROLE_ADMIN)->count(),
                 'teknisi' => User::query()->where('role', User::ROLE_TEKNISI)->count(),
+                'agen' => User::query()->where('role', User::ROLE_AGEN)->count(),
             ],
             'can_manage' => $actor->canManageUsers(),
         ]);
@@ -67,9 +68,14 @@ class UserController extends Controller
                 ->with('error', 'Anda tidak memiliki akses untuk menambah pengguna.');
         }
 
+        $pppoeCustomers = \App\Models\PppoeCustomer::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'username', 'phone', 'agent_id']);
+
         return Inertia::render('Admin/Users/Form', [
             'user' => null,
             'role_options' => User::roleOptions($actor),
+            'pppoe_customers' => $pppoeCustomers,
         ]);
     }
 
@@ -84,10 +90,19 @@ class UserController extends Controller
         $validated = $this->validateUser($request, $actor);
         $avatar = $this->storeAvatar($request);
 
-        User::query()->create([
-            ...collect($validated)->except(['password_confirmation', 'avatar', 'remove_avatar'])->all(),
+        $user = User::query()->create([
+            ...collect($validated)->except(['password_confirmation', 'avatar', 'remove_avatar', 'assigned_customer_ids'])->all(),
             'avatar' => $avatar,
         ]);
+
+        if ($user->isAgen()) {
+            $assignedIds = $request->input('assigned_customer_ids', []);
+            if (is_array($assignedIds)) {
+                \App\Models\PppoeCustomer::query()
+                    ->whereIn('id', $assignedIds)
+                    ->update(['agent_id' => $user->id]);
+            }
+        }
 
         return redirect()
             ->route('admin.users.index')
@@ -104,9 +119,14 @@ class UserController extends Controller
                 ->with('error', 'Anda tidak dapat mengedit akun ini.');
         }
 
+        $pppoeCustomers = \App\Models\PppoeCustomer::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'username', 'phone', 'agent_id']);
+
         return Inertia::render('Admin/Users/Form', [
             'user' => $user->toAdminArray(),
             'role_options' => User::roleOptions($actor),
+            'pppoe_customers' => $pppoeCustomers,
         ]);
     }
 
@@ -124,7 +144,7 @@ class UserController extends Controller
             unset($validated['password']);
         }
 
-        unset($validated['password_confirmation'], $validated['avatar'], $validated['remove_avatar']);
+        unset($validated['password_confirmation'], $validated['avatar'], $validated['remove_avatar'], $validated['assigned_customer_ids']);
 
         $avatar = $user->avatar;
 
@@ -145,6 +165,27 @@ class UserController extends Controller
             'avatar' => $avatar,
         ]);
 
+        if ($user->isAgen()) {
+            $assignedIds = (array) $request->input('assigned_customer_ids', []);
+            // Unassign customers no longer in array
+            \App\Models\PppoeCustomer::query()
+                ->where('agent_id', $user->id)
+                ->whereNotIn('id', $assignedIds)
+                ->update(['agent_id' => null]);
+
+            // Assign new customers
+            if (! empty($assignedIds)) {
+                \App\Models\PppoeCustomer::query()
+                    ->whereIn('id', $assignedIds)
+                    ->update(['agent_id' => $user->id]);
+            }
+        } else {
+            // If role changed from agen to something else, clear assigned customers
+            \App\Models\PppoeCustomer::query()
+                ->where('agent_id', $user->id)
+                ->update(['agent_id' => null]);
+        }
+
         return redirect()
             ->route('admin.users.index')
             ->with('success', 'Pengguna berhasil diperbarui.');
@@ -163,6 +204,10 @@ class UserController extends Controller
             );
         }
 
+        \App\Models\PppoeCustomer::query()
+            ->where('agent_id', $user->id)
+            ->update(['agent_id' => null]);
+
         $user->deleteAvatarFile();
         $user->delete();
 
@@ -175,8 +220,6 @@ class UserController extends Controller
     {
         $allowedRoles = $actor->assignableRoles();
 
-        // Pertahankan role saat ini agar edit Superadmin tidak gagal
-        // jika opsi role di UI/aktor sementara tidak lengkap.
         if ($existing?->role) {
             $allowedRoles = array_values(array_unique([
                 ...$allowedRoles,
@@ -193,6 +236,8 @@ class UserController extends Controller
                 Rule::unique('users', 'email')->ignore($existing?->id),
             ],
             'role' => ['required', Rule::in($allowedRoles)],
+            'assigned_customer_ids' => ['nullable', 'array'],
+            'assigned_customer_ids.*' => ['integer', 'exists:pppoe_customers,id'],
             'password' => [
                 $existing ? 'nullable' : 'required',
                 'confirmed',

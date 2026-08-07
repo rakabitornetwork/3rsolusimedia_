@@ -46,8 +46,15 @@ class PppoeSessionController extends Controller
             $error = 'Belum ada router aktif. Tambahkan router terlebih dahulu.';
         }
 
-        $customerMap = PppoeCustomer::query()
-            ->when($selectedRouterId, fn ($q) => $q->where('mikrotik_router_id', $selectedRouterId))
+        $user = $request->user();
+        $customerQuery = PppoeCustomer::query()
+            ->when($selectedRouterId, fn ($q) => $q->where('mikrotik_router_id', $selectedRouterId));
+
+        if ($user->isAgen()) {
+            $customerQuery->where('agent_id', $user->id);
+        }
+
+        $customerMap = $customerQuery
             ->get(['id', 'name', 'username', 'status', 'service_profile'])
             ->keyBy(fn (PppoeCustomer $customer) => strtolower($customer->username));
 
@@ -64,6 +71,10 @@ class PppoeSessionController extends Controller
                     'service_profile' => $customer?->service_profile,
                 ];
             });
+
+        if ($user->isAgen()) {
+            $sessions = $sessions->filter(fn (array $session) => ! empty($session['customer_id']));
+        }
 
         $stats = [
             'online' => $sessions->count(),

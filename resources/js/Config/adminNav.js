@@ -202,3 +202,23 @@ export function isNavActive(pathname, item) {
 
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
+
+export function filterNavForUser(nav, user) {
+    if (user?.role !== 'agen') {
+        return nav;
+    }
+
+    const allowedHrefs = [
+        '/admin',
+        '/admin/customers/pppoe',
+        '/admin/customers/pppoe/sessions',
+        '/admin/billing',
+    ];
+
+    return nav
+        .map((group) => ({
+            ...group,
+            items: group.items.filter((item) => allowedHrefs.includes(item.href)),
+        }))
+        .filter((group) => group.items.length > 0);
+}

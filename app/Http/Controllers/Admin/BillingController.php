@@ -24,6 +24,8 @@ class BillingController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
+
         // Generate tagihan bulanan dalam jendela hari yang dikonfigurasi.
         // Tidak membuat ulang prorata yang sengaja dihapus.
         $this->billing->generateOpenInvoices();
@@ -32,6 +34,10 @@ class BillingController extends Controller
             ->with(['customer'])
             ->latest('due_date')
             ->latest('id');
+
+        if ($user->isAgen()) {
+            $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+        }
 
         if ($search = trim((string) $request->get('q', ''))) {
             $query->where(function ($builder) use ($search) {
@@ -79,6 +85,22 @@ class BillingController extends Controller
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();
 
+        $unpaidQuery = Invoice::query()->where('status', 'unpaid');
+        $overdueQuery = Invoice::query()->where('status', 'unpaid')->whereDate('due_date', '<', $today);
+        $paidMonthQuery = Invoice::query()->where('status', 'paid')->whereDate('paid_at', '>=', $monthStart);
+        $paymentMonthQuery = Payment::query()->whereDate('paid_at', '>=', $monthStart);
+        $isolatedCustomerQuery = PppoeCustomer::query()->where('status', 'isolated');
+
+        if ($user->isAgen()) {
+            $unpaidQuery->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+            $overdueQuery->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+            $paidMonthQuery->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+            $paymentMonthQuery->whereHas('invoice.customer', fn ($c) => $c->where('agent_id', $user->id));
+            $isolatedCustomerQuery->where('agent_id', $user->id);
+        }
+
+        $collectedAmount = (int) $paymentMonthQuery->sum('amount');
+
         return Inertia::render('Admin/Billing/Index', [
             'invoices' => $invoices,
             'filters' => [
@@ -88,25 +110,12 @@ class BillingController extends Controller
                 'grace' => in_array($grace, ['active', 'none'], true) ? $grace : '',
             ],
             'stats' => [
-                'unpaid' => Invoice::query()->where('status', 'unpaid')->count(),
-                'overdue' => Invoice::query()
-                    ->where('status', 'unpaid')
-                    ->whereDate('due_date', '<', $today)
-                    ->count(),
-                'paid_this_month' => Invoice::query()
-                    ->where('status', 'paid')
-                    ->whereDate('paid_at', '>=', $monthStart)
-                    ->count(),
-                'collected_this_month' => (int) Payment::query()
-                    ->whereDate('paid_at', '>=', $monthStart)
-                    ->sum('amount'),
-                'collected_this_month_label' => 'Rp '.number_format(
-                    (int) Payment::query()->whereDate('paid_at', '>=', $monthStart)->sum('amount'),
-                    0,
-                    ',',
-                    '.'
-                ),
-                'isolated' => PppoeCustomer::query()->where('status', 'isolated')->count(),
+                'unpaid' => $unpaidQuery->count(),
+                'overdue' => $overdueQuery->count(),
+                'paid_this_month' => $paidMonthQuery->count(),
+                'collected_this_month' => $collectedAmount,
+                'collected_this_month_label' => 'Rp '.number_format($collectedAmount, 0, ',', '.'),
+                'isolated' => $isolatedCustomerQuery->count(),
             ],
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
@@ -117,8 +126,13 @@ class BillingController extends Controller
         ]);
     }
 
-    public function show(Invoice $invoice): Response
+    public function show(Request $request, Invoice $invoice): Response|RedirectResponse
     {
+        $user = $request->user();
+        if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
+            return redirect()->route('admin.billing')->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
+        }
+
         $invoice->load(['customer.package', 'customer.router', 'payments.receiver', 'package']);
 
         return Inertia::render('Admin/Billing/Show', [
@@ -134,6 +148,11 @@ class BillingController extends Controller
 
     public function print(Request $request, Invoice $invoice)
     {
+        $user = $request->user();
+        if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
+            return redirect()->route('admin.billing')->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
+        }
+
         $half = (string) $request->get('half', 'top');
         if (! in_array($half, ['top', 'bottom'], true)) {
             $half = 'top';
@@ -157,6 +176,10 @@ class BillingController extends Controller
 
     public function pay(Request $request, Invoice $invoice): RedirectResponse
     {
+        $user = $request->user();
+        if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk memproses pembayaran tagihan pelanggan ini.');
+        }
         $validated = $request->validate([
             'method' => ['required', Rule::in(['cash', 'transfer', 'qris', 'other'])],
             'reference' => ['nullable', 'string', 'max:120'],

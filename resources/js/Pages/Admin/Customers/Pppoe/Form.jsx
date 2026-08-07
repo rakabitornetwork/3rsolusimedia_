@@ -20,6 +20,7 @@ export default function Form({
     customer,
     prefill = null,
     routers,
+    agents = [],
     packages,
     profiles: initialProfiles,
     isolir_profiles: initialIsolirProfiles,
@@ -40,6 +41,7 @@ export default function Form({
             prefill?.mikrotik_router_id ||
             routers[0]?.id ||
             '',
+        agent_id: customer?.agent_id || '',
         subscription_package_id:
             customer?.subscription_package_id || prefill?.subscription_package_id || '',
         name: customer?.name || prefill?.name || '',
@@ -212,6 +214,29 @@ export default function Form({
                         )}
                     </label>
                 </div>
+
+                {agents.length > 0 && (
+                    <label className="block text-sm font-medium text-ink">
+                        Agen Penanggung Jawab <span className="font-normal text-ink-soft">(opsional)</span>
+                        <select
+                            value={data.agent_id || ''}
+                            onChange={(e) => setData('agent_id', e.target.value)}
+                            className={fieldClass}
+                        >
+                            <option value="">Tanpa agen (dikelola admin/superadmin)</option>
+                            {agents.map((ag) => (
+                                <option key={ag.id} value={ag.id}>
+                                    {ag.name}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.agent_id && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.agent_id}
+                            </span>
+                        )}
+                    </label>
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block text-sm font-medium text-ink">

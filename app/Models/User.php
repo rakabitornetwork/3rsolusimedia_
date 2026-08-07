@@ -24,10 +24,13 @@ class User extends Authenticatable
 
     public const ROLE_TEKNISI = 'teknisi';
 
+    public const ROLE_AGEN = 'agen';
+
     public const ROLES = [
         self::ROLE_SUPERADMIN,
         self::ROLE_ADMIN,
         self::ROLE_TEKNISI,
+        self::ROLE_AGEN,
     ];
 
     protected function casts(): array
@@ -53,6 +56,11 @@ class User extends Authenticatable
         return $this->role === self::ROLE_TEKNISI;
     }
 
+    public function isAgen(): bool
+    {
+        return $this->role === self::ROLE_AGEN;
+    }
+
     public function canWrite(): bool
     {
         return ! $this->isTeknisi();
@@ -61,6 +69,11 @@ class User extends Authenticatable
     public function canManageUsers(): bool
     {
         return $this->isSuperadmin() || $this->isAdmin();
+    }
+
+    public function agentCustomers()
+    {
+        return $this->hasMany(PppoeCustomer::class, 'agent_id');
     }
 
     public function canDeleteUser(self $target): bool
@@ -100,7 +113,7 @@ class User extends Authenticatable
         }
 
         if ($this->isAdmin()) {
-            return [self::ROLE_ADMIN, self::ROLE_TEKNISI];
+            return [self::ROLE_ADMIN, self::ROLE_TEKNISI, self::ROLE_AGEN];
         }
 
         return [];
@@ -112,6 +125,7 @@ class User extends Authenticatable
             self::ROLE_SUPERADMIN => 'Superadmin',
             self::ROLE_ADMIN => 'Admin',
             self::ROLE_TEKNISI => 'Teknisi',
+            self::ROLE_AGEN => 'Agen',
             default => $this->role,
         };
     }
@@ -157,6 +171,9 @@ class User extends Authenticatable
             'avatar' => $this->avatar,
             'avatar_url' => $this->avatarUrl(),
             'initials' => $this->initials(),
+            'assigned_customer_ids' => $this->isAgen()
+                ? $this->agentCustomers()->pluck('id')->all()
+                : [],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
@@ -182,6 +199,11 @@ class User extends Authenticatable
                 'value' => self::ROLE_TEKNISI,
                 'label' => 'Teknisi',
                 'description' => 'Hanya dapat melihat data (read only)',
+            ],
+            [
+                'value' => self::ROLE_AGEN,
+                'label' => 'Agen',
+                'description' => 'Melihat pelanggan & bayar tagihan khusus yang ditugaskan',
             ],
         ];
 

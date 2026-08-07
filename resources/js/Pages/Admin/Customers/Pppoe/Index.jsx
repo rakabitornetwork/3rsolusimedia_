@@ -106,7 +106,7 @@ function StatusBadge({ status, overdue, graceUntil }) {
 
 export default function Index({ customers, filters, routers, stats }) {
     const { auth } = usePage().props;
-    const canWrite = auth?.user?.can_write !== false;
+    const canWrite = auth?.user?.can_write !== false && auth?.user?.role !== 'agen';
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
     const [removeSecret, setRemoveSecret] = useState(false);

@@ -30,6 +30,7 @@ class PppoeCustomerController extends Controller
 
     public function index(Request $request): Response
     {
+        $user = $request->user();
         $sort = (string) $request->get('sort', 'name');
         $direction = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
@@ -47,8 +48,12 @@ class PppoeCustomerController extends Controller
         }
 
         $query = PppoeCustomer::query()
-            ->with(['router', 'package'])
+            ->with(['router', 'package', 'agent'])
             ->select('pppoe_customers.*');
+
+        if ($user->isAgen()) {
+            $query->where('pppoe_customers.agent_id', $user->id);
+        }
 
         if ($sort === 'package') {
             $query->leftJoin(
@@ -106,13 +111,18 @@ class PppoeCustomerController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'host']),
-            'stats' => $this->customerStats($request->get('router_id')),
+            'stats' => $this->customerStats($request->get('router_id'), $user),
+            'is_agen' => $user->isAgen(),
         ]);
     }
 
-    private function customerStats(mixed $routerId): array
+    private function customerStats(mixed $routerId, ?\App\Models\User $user = null): array
     {
         $statsQuery = PppoeCustomer::query();
+
+        if ($user?->isAgen()) {
+            $statsQuery->where('agent_id', $user->id);
+        }
 
         if ($routerId) {
             $statsQuery->where('mikrotik_router_id', $routerId);
@@ -138,6 +148,10 @@ class PppoeCustomerController extends Controller
 
     public function create(Request $request): Response|RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
+        }
+
         $routerId = $request->integer('router_id') ?: null;
         $username = trim((string) $request->get('username', ''));
 
@@ -165,6 +179,10 @@ class PppoeCustomerController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
+        }
+
         $validated = $this->validateCustomer($request);
         $package = isset($validated['subscription_package_id'])
             ? SubscriptionPackage::query()->find($validated['subscription_package_id'])
@@ -200,8 +218,12 @@ class PppoeCustomerController extends Controller
             ->with('success', $message);
     }
 
-    public function edit(PppoeCustomer $pppoe): Response
+    public function edit(Request $request, PppoeCustomer $pppoe): Response|RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
+        }
+
         $pppoe->load(['router', 'package']);
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
@@ -212,6 +234,10 @@ class PppoeCustomerController extends Controller
 
     public function update(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
+        }
+
         $validated = $this->validateCustomer($request, $pppoe);
         $package = isset($validated['subscription_package_id'])
             ? SubscriptionPackage::query()->find($validated['subscription_package_id'])
@@ -240,25 +266,19 @@ class PppoeCustomerController extends Controller
         }
 
         $pppoe->update($payload);
-        $customer = $pppoe->fresh(['router', 'package']);
-        $this->billingService->syncUnpaidProrataInvoice($customer);
-        $this->sync->sync($customer);
-
-        $message = 'Pelanggan PPPoE berhasil diperbarui.';
-        if (! $this->billingService->hasCompletedFirstBillingCycle($customer)
-            && (int) ($customer->first_bill_amount ?? 0) > 0
-        ) {
-            $message .= ' Tagihan pertama (prorata): Rp '.
-                number_format((int) $customer->first_bill_amount, 0, ',', '.').'.';
-        }
+        $this->sync->sync($pppoe->fresh(['router', 'package']));
 
         return redirect()
             ->route('admin.customers.pppoe')
-            ->with('success', $message);
+            ->with('success', 'Pelanggan PPPoE berhasil diperbarui.');
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
+        }
+
         $removeSecret = $request->boolean('remove_secret');
         $secretNote = '';
 
@@ -283,6 +303,10 @@ class PppoeCustomerController extends Controller
 
     public function bulkDestroy(Request $request): RedirectResponse
     {
+        if ($request->user()?->isAgen()) {
+            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
+        }
+
         $validated = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'exists:pppoe_customers,id'],
@@ -550,6 +574,11 @@ class PppoeCustomerController extends Controller
                 ->get()
                 ->map(fn (MikrotikRouter $router) => $router->only(['id', 'name', 'host', 'port']))
                 ->values(),
+            'agents' => \App\Models\User::query()
+                ->where('role', \App\Models\User::ROLE_AGEN)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->values(),
             'packages' => SubscriptionPackage::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
@@ -571,6 +600,7 @@ class PppoeCustomerController extends Controller
     {
         return $request->validate([
             'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
+            'agent_id' => ['nullable', 'exists:users,id'],
             'subscription_package_id' => ['required', 'exists:subscription_packages,id'],
             'name' => ['required', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:50'],

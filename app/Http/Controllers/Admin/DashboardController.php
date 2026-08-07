@@ -21,30 +21,41 @@ class DashboardController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(\Illuminate\Http\Request $request): Response
     {
+        $user = $request->user();
         $today = now()->toDateString();
         $monthStart = now()->copy()->startOfMonth();
 
-        $customersTotal = PppoeCustomer::query()->count();
-        $customersActive = PppoeCustomer::query()->where('status', 'active')->count();
-        $customersIsolated = PppoeCustomer::query()->where('status', 'isolated')->count();
-        $customersOverdue = PppoeCustomer::query()
+        $customerQuery = PppoeCustomer::query();
+        $invoiceQuery = Invoice::query();
+        $paymentQuery = Payment::query();
+
+        if ($user->isAgen()) {
+            $customerQuery->where('agent_id', $user->id);
+            $invoiceQuery->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+            $paymentQuery->whereHas('invoice.customer', fn ($c) => $c->where('agent_id', $user->id));
+        }
+
+        $customersTotal = (clone $customerQuery)->count();
+        $customersActive = (clone $customerQuery)->where('status', 'active')->count();
+        $customersIsolated = (clone $customerQuery)->where('status', 'isolated')->count();
+        $customersOverdue = (clone $customerQuery)
             ->whereDate('due_date', '<', $today)
             ->where('is_active', true)
             ->count();
-        $customersDisabled = PppoeCustomer::query()->where('status', 'disabled')->count();
-        $syncErrors = PppoeCustomer::query()->where('sync_status', 'error')->count();
+        $customersDisabled = (clone $customerQuery)->where('status', 'disabled')->count();
+        $syncErrors = (clone $customerQuery)->where('sync_status', 'error')->count();
 
-        $invoicesUnpaid = Invoice::query()->where('status', 'unpaid')->count();
-        $invoicesOverdue = Invoice::query()
+        $invoicesUnpaid = (clone $invoiceQuery)->where('status', 'unpaid')->count();
+        $invoicesOverdue = (clone $invoiceQuery)
             ->where('status', 'unpaid')
             ->whereDate('due_date', '<', $today)
             ->count();
-        $collectedThisMonth = (int) Payment::query()
+        $collectedThisMonth = (int) (clone $paymentQuery)
             ->where('paid_at', '>=', $monthStart)
             ->sum('amount');
-        $paidThisMonth = Invoice::query()
+        $paidThisMonth = (clone $invoiceQuery)
             ->where('status', 'paid')
             ->where('paid_at', '>=', $monthStart)
             ->count();
@@ -53,7 +64,7 @@ class DashboardController extends Controller
         $routersActive = MikrotikRouter::query()->where('is_active', true)->count();
         $packagesActive = SubscriptionPackage::query()->where('is_active', true)->count();
 
-        $dueSoon = PppoeCustomer::query()
+        $dueSoon = (clone $customerQuery)
             ->with('package')
             ->where('is_active', true)
             ->whereDate('due_date', '>=', $today)
@@ -70,7 +81,7 @@ class DashboardController extends Controller
                 'status' => $customer->status,
             ]);
 
-        $attentionInvoices = Invoice::query()
+        $attentionInvoices = (clone $invoiceQuery)
             ->with('customer')
             ->where('status', 'unpaid')
             ->whereDate('due_date', '<=', now()->copy()->addDays(7)->toDateString())
@@ -79,16 +90,18 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Invoice $invoice) => $invoice->toAdminArray());
 
-        $trafficRouters = MikrotikRouter::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'host'])
-            ->map(fn (MikrotikRouter $router) => [
-                'id' => $router->id,
-                'name' => $router->name,
-                'host' => $router->host,
-            ])
-            ->values();
+        $trafficRouters = $user->isAgen()
+            ? []
+            : MikrotikRouter::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'host'])
+                ->map(fn (MikrotikRouter $router) => [
+                    'id' => $router->id,
+                    'name' => $router->name,
+                    'host' => $router->host,
+                ])
+                ->values();
 
         return Inertia::render('Admin/Dashboard', [
             'company' => AppSettings::companyName(),
