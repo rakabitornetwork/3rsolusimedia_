@@ -114,10 +114,10 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/customers/pppoe/sessions', [PppoeSessionController::class, 'index'])->name('customers.pppoe.sessions');
     Route::delete('/customers/pppoe/sessions/{router}/{session}', [PppoeSessionController::class, 'disconnect'])->name('customers.pppoe.sessions.disconnect');
 
-    Route::get('/customers/pppoe/{pppoe}/edit', [PppoeCustomerController::class, 'edit'])->name('customers.pppoe.edit');
-    Route::put('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'update'])->name('customers.pppoe.update');
-    Route::delete('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'destroy'])->name('customers.pppoe.destroy');
-    Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->name('customers.pppoe.sync');
+    Route::get('/customers/pppoe/{pppoe}/edit', [PppoeCustomerController::class, 'edit'])->whereNumber('pppoe')->name('customers.pppoe.edit');
+    Route::put('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'update'])->whereNumber('pppoe')->name('customers.pppoe.update');
+    Route::delete('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'destroy'])->whereNumber('pppoe')->name('customers.pppoe.destroy');
+    Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->whereNumber('pppoe')->name('customers.pppoe.sync');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');

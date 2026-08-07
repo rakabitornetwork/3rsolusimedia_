@@ -74,19 +74,19 @@ class MikrotikApiService
             $identity = $this->first($client, '/system/identity/print');
             $resource = $this->first($client, '/system/resource/print');
             $clock = $this->first($client, '/system/clock/print');
-            $interfaces = $client->query((new Query('/interface/print'))->equal('.propertyset', 'name,type,disabled,running,rx-byte,tx-byte,comment'))->read();
+            $interfaces = $client->query((new Query('/interface/print'))->where('type', 'ether'))->read();
 
             $pppActive = [];
             $hotspotActive = [];
 
             try {
-                $pppActive = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
+                $pppActive = $client->query(new Query('/ppp/active/print'))->read();
             } catch (Throwable) {
                 $pppActive = [];
             }
 
             try {
-                $hotspotActive = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
+                $hotspotActive = $client->query(new Query('/ip/hotspot/active/print'))->read();
             } catch (Throwable) {
                 $hotspotActive = [];
             }
@@ -179,7 +179,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $interfaces = $client->query((new Query('/interface/print'))->equal('.propertyset', 'name,type,disabled,running,comment'))->read();
+            $interfaces = $client->query((new Query('/interface/print'))->where('type', 'ether'))->read();
 
             $physicalInterfaces = collect($interfaces)
                 ->filter(function (array $iface) {
@@ -969,7 +969,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
+            $rows = $client->query(new Query('/ppp/active/print'))->read();
 
             $sessions = collect($rows)
                 ->map(fn (array $row) => $this->mapPppActiveSession($row))
@@ -997,7 +997,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query((new Query('/ppp/active/print'))->equal('.propertyset', '.id,name,service,caller-id,address,uptime,encoding,session-id'))->read();
+            $rows = $client->query(new Query('/ppp/active/print'))->read();
             $existing = collect($rows)->first(
                 fn (array $row) => (string) ($row['.id'] ?? '') === (string) $sessionId
             );
@@ -1028,7 +1028,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
+            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
 
             $userProfiles = [];
             try {
@@ -1086,7 +1086,7 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $rows = $client->query((new Query('/ip/hotspot/active/print'))->equal('.propertyset', '.id,user,domain,address,mac-address,uptime,bytes-in,bytes-out,packets-in,packets-out,login-by'))->read();
+            $rows = $client->query(new Query('/ip/hotspot/active/print'))->read();
             $existing = collect($rows)->first(
                 fn (array $row) => (string) ($row['.id'] ?? '') === (string) $sessionId
             );
