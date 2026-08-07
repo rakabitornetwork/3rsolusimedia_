@@ -20,7 +20,7 @@ export default function Navbar({ settings, whatsappUrl }) {
             <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
                 <a
                     href="#top"
-                    className="flex items-center gap-3 text-white drop-shadow-sm"
+                    className="flex items-center gap-3 text-white drop-shadow-sm transition-transform duration-200 hover:scale-105"
                     aria-label={company}
                 >
                     <Logo className="h-9 w-9" markOnly />
@@ -47,33 +47,55 @@ export default function Navbar({ settings, whatsappUrl }) {
 
                 <button
                     type="button"
-                    className="rounded-md bg-white/10 p-2 text-white backdrop-blur lg:hidden"
+                    className="relative overflow-hidden rounded-xl border border-white/20 bg-white/10 p-2.5 text-white backdrop-blur-md transition-all duration-300 hover:bg-white/20 active:scale-95 lg:hidden"
                     onClick={() => setOpen((v) => !v)}
                     aria-label="Menu"
                 >
-                    {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                    <div
+                        className={`transition-all duration-300 ${
+                            open ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
+                        }`}
+                    >
+                        {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                    </div>
                 </button>
             </div>
 
-            {open && (
-                <div className="mx-5 rounded-2xl border border-white/15 bg-ink/90 p-5 backdrop-blur-xl lg:hidden">
-                    <div className="flex flex-col gap-4 text-sm font-medium text-white">
-                        {links.map((link) => (
-                            <a key={link.href} href={link.href} onClick={() => setOpen(false)}>
-                                {link.label}
-                            </a>
-                        ))}
+            {/* Popup Mobile Menu dengan animasi smooth & staggered links */}
+            <div
+                className={`mx-5 overflow-hidden rounded-2xl border border-white/20 bg-ink/95 shadow-2xl backdrop-blur-2xl transition-all duration-300 lg:hidden ${
+                    open
+                        ? 'max-h-[420px] translate-y-0 p-6 opacity-100 pointer-events-auto border-white/20'
+                        : 'max-h-0 -translate-y-3 p-0 opacity-0 pointer-events-none border-transparent'
+                }`}
+            >
+                <div className="flex flex-col gap-4 text-sm font-medium text-white">
+                    {links.map((link, idx) => (
                         <a
-                            href={whatsappUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="rounded-md bg-signal-bright px-4 py-3 text-center font-semibold text-ink"
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setOpen(false)}
+                            className={`transform transition-all duration-300 hover:translate-x-2 hover:text-signal-bright ${
+                                open ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
+                            }`}
+                            style={{ transitionDelay: open ? `${(idx + 1) * 35}ms` : '0ms' }}
                         >
-                            WhatsApp
+                            {link.label}
                         </a>
-                    </div>
+                    ))}
+                    <a
+                        href={whatsappUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`mt-2 block rounded-xl bg-gradient-to-r from-signal-bright to-signal px-4 py-3 text-center font-bold text-ink shadow-lg transition-all duration-300 hover:opacity-95 active:scale-[0.98] ${
+                            open ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+                        }`}
+                        style={{ transitionDelay: open ? `${(links.length + 1) * 35}ms` : '0ms' }}
+                    >
+                        WhatsApp
+                    </a>
                 </div>
-            )}
+            </div>
         </header>
     );
 }
