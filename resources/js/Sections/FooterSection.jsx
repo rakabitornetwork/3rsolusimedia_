@@ -19,7 +19,9 @@ export default function FooterSection({ section, settings }) {
         <footer className="border-t border-white/10 bg-ink text-white">
             <div className="mx-auto flex max-w-7xl flex-col gap-10 px-5 py-14 lg:flex-row lg:items-start lg:justify-between lg:px-8">
                 <div className="max-w-sm">
-                    <Logo className="h-9 w-auto text-white" />
+                    <div className="inline-flex items-center rounded-xl bg-white px-3.5 py-2 shadow-md border border-white/20">
+                        <Logo className="h-8 w-auto max-w-[200px] object-contain text-ink" />
+                    </div>
                     <p className="mt-4 text-sm leading-relaxed text-white/60">
                         {section.body || settings.tagline}
                     </p>
