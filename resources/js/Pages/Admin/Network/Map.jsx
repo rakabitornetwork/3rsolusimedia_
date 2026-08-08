@@ -297,8 +297,15 @@ function useCustomerTrafficPoll(customerId) {
     return { traffic, history, error, online, loading };
 }
 
-function NetworkMapView({ customers, selectedId, onSelect, filterActive = false }) {
+function NetworkMapView({
+    customers,
+    selectedId,
+    onSelect,
+    filterActive = false,
+    active = true,
+}) {
     const mapId = useId().replace(/:/g, '');
+    const containerRef = useRef(null);
     const mapRef = useRef(null);
     const markersRef = useRef(new Map());
     const leafletRef = useRef(null);
@@ -306,178 +313,267 @@ function NetworkMapView({ customers, selectedId, onSelect, filterActive = false 
     const [mapReady, setMapReady] = useState(false);
     const boundsKeyRef = useRef('');
     const focusTimerRef = useRef(null);
+    const sizeTimerRef = useRef(null);
+    const customersRef = useRef(customers);
+    const filterActiveRef = useRef(filterActive);
 
     useEffect(() => {
         onSelectRef.current = onSelect;
     }, [onSelect]);
 
     useEffect(() => {
+        customersRef.current = customers;
+        filterActiveRef.current = filterActive;
+    }, [customers, filterActive]);
+
+    const focusBounds = (bounds, withFilter) => {
+        const map = mapRef.current;
+        const L = leafletRef.current;
+        if (!map || !L || !bounds.length) return;
+
+        try {
+            map.invalidateSize();
+            if (bounds.length === 1) {
+                map.flyTo(bounds[0], withFilter ? 17 : 16, {
+                    animate: true,
+                    duration: 1.15,
+                    easeLinearity: 0.2,
+                });
+            } else {
+                const latLngBounds = L.latLngBounds(bounds);
+                if (latLngBounds.isValid()) {
+                    map.flyToBounds(latLngBounds, {
+                        padding: withFilter ? [56, 56] : [44, 44],
+                        maxZoom: withFilter && bounds.length <= 5 ? 16 : 15,
+                        animate: true,
+                        duration: 1.2,
+                        easeLinearity: 0.22,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Gagal fokususkan peta:', error);
+        }
+    };
+
+    useEffect(() => {
         ensureMarkerStyles();
         let cancelled = false;
 
         (async () => {
-            const leafletModule = await import('leaflet');
-            const L = leafletModule.default || leafletModule;
-            if (cancelled) return;
+            try {
+                const leafletModule = await import('leaflet');
+                const L = leafletModule.default || leafletModule;
+                if (cancelled || !containerRef.current) return;
 
-            leafletRef.current = L;
-            delete L.Icon.Default.prototype._getIconUrl;
-            L.Icon.Default.mergeOptions({
-                iconRetinaUrl: markerIcon2x,
-                iconUrl: markerIcon,
-                shadowUrl: markerShadow,
-            });
+                leafletRef.current = L;
+                delete L.Icon.Default.prototype._getIconUrl;
+                L.Icon.Default.mergeOptions({
+                    iconRetinaUrl: markerIcon2x,
+                    iconUrl: markerIcon,
+                    shadowUrl: markerShadow,
+                });
 
-            if (mapRef.current) {
+                if (mapRef.current) {
+                    setMapReady(true);
+                    return;
+                }
+
+                const map = L.map(containerRef.current, {
+                    center: DEFAULT_CENTER,
+                    zoom: DEFAULT_ZOOM,
+                    scrollWheelZoom: true,
+                    zoomAnimation: true,
+                    markerZoomAnimation: true,
+                    fadeAnimation: true,
+                });
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap',
+                    maxZoom: 19,
+                }).addTo(map);
+
+                mapRef.current = map;
                 setMapReady(true);
-                return;
+
+                sizeTimerRef.current = window.setTimeout(() => {
+                    try {
+                        map.invalidateSize();
+                    } catch {
+                        // ignore
+                    }
+                }, 120);
+            } catch (error) {
+                console.error('Gagal inisialisasi peta:', error);
             }
-
-            const map = L.map(mapId, {
-                center: DEFAULT_CENTER,
-                zoom: DEFAULT_ZOOM,
-                scrollWheelZoom: true,
-                zoomAnimation: true,
-                markerZoomAnimation: true,
-                fadeAnimation: true,
-            });
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap',
-                maxZoom: 19,
-            }).addTo(map);
-
-            mapRef.current = map;
-            setMapReady(true);
         })();
 
         return () => {
             cancelled = true;
             if (focusTimerRef.current) {
                 window.clearTimeout(focusTimerRef.current);
+                focusTimerRef.current = null;
+            }
+            if (sizeTimerRef.current) {
+                window.clearTimeout(sizeTimerRef.current);
+                sizeTimerRef.current = null;
             }
             if (mapRef.current) {
-                mapRef.current.remove();
+                try {
+                    mapRef.current.remove();
+                } catch {
+                    // ignore
+                }
                 mapRef.current = null;
                 markersRef.current = new Map();
             }
             setMapReady(false);
         };
-    }, [mapId]);
+    }, []);
+
+    // Saat panel peta kembali terlihat (tab mobile), perbaiki ukuran Leaflet.
+    useEffect(() => {
+        if (!mapReady || !active || !mapRef.current) return;
+
+        const timer = window.setTimeout(() => {
+            try {
+                mapRef.current?.invalidateSize();
+                const points = (customersRef.current || [])
+                    .filter((item) => item.on_map)
+                    .map((item) => [Number(item.latitude), Number(item.longitude)])
+                    .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+                if (points.length) {
+                    focusBounds(points, filterActiveRef.current);
+                }
+            } catch (error) {
+                console.error('Gagal refresh ukuran peta:', error);
+            }
+        }, 160);
+
+        return () => window.clearTimeout(timer);
+    }, [active, mapReady]);
 
     useEffect(() => {
         const map = mapRef.current;
         const L = leafletRef.current;
         if (!mapReady || !map || !L) return;
 
-        const nextIds = new Set();
-        const bounds = [];
+        try {
+            const nextIds = new Set();
+            const bounds = [];
 
-        customers.forEach((customer) => {
-            if (!customer.on_map) return;
-            nextIds.add(customer.id);
-            bounds.push([customer.latitude, customer.longitude]);
+            customers.forEach((customer) => {
+                if (!customer.on_map) return;
+                const lat = Number(customer.latitude);
+                const lng = Number(customer.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-            const color = markerColor(customer);
-            const selected = customer.id === selectedId;
-            const highlighted = filterActive || selected;
-            const html = buildMarkerHtml(color, { selected, highlighted });
+                nextIds.add(customer.id);
+                bounds.push([lat, lng]);
 
-            let marker = markersRef.current.get(customer.id);
-            if (!marker) {
-                marker = L.marker([customer.latitude, customer.longitude], {
-                    icon: L.divIcon({
-                        className: 'network-map-marker-wrap',
-                        html,
-                        iconSize: [0, 0],
-                        iconAnchor: [0, 0],
-                    }),
-                    zIndexOffset: selected ? 1000 : highlighted ? 500 : 0,
-                }).addTo(map);
+                const color = markerColor(customer);
+                const selected = customer.id === selectedId;
+                const highlighted = filterActive || selected;
+                const html = buildMarkerHtml(color, { selected, highlighted });
+                const icon = L.divIcon({
+                    className: 'network-map-marker-wrap',
+                    html,
+                    iconSize: [0, 0],
+                    iconAnchor: [0, 0],
+                });
 
-                marker.on('click', () => onSelectRef.current?.(customer.id));
-                markersRef.current.set(customer.id, marker);
-            } else {
-                marker.setLatLng([customer.latitude, customer.longitude]);
-                marker.setZIndexOffset(selected ? 1000 : highlighted ? 500 : 0);
-                marker.setIcon(
-                    L.divIcon({
-                        className: 'network-map-marker-wrap',
-                        html,
-                        iconSize: [0, 0],
-                        iconAnchor: [0, 0],
-                    }),
-                );
-            }
+                let marker = markersRef.current.get(customer.id);
+                if (!marker) {
+                    marker = L.marker([lat, lng], {
+                        icon,
+                        zIndexOffset: selected ? 1000 : highlighted ? 500 : 0,
+                    }).addTo(map);
 
-            marker.bindTooltip(
-                `<strong>${customer.name}</strong><br/><span style="opacity:.8">${customer.username}</span>`,
-                { direction: 'top', offset: [0, -14] },
-            );
-        });
-
-        for (const [id, marker] of markersRef.current.entries()) {
-            if (!nextIds.has(id)) {
-                map.removeLayer(marker);
-                markersRef.current.delete(id);
-            }
-        }
-
-        const nextBoundsKey = `${filterActive ? 'f1' : 'f0'}|${bounds.map((b) => b.join(',')).join('|')}`;
-        if (nextBoundsKey !== boundsKeyRef.current) {
-            boundsKeyRef.current = nextBoundsKey;
-
-            if (focusTimerRef.current) {
-                window.clearTimeout(focusTimerRef.current);
-            }
-
-            focusTimerRef.current = window.setTimeout(() => {
-                focusTimerRef.current = null;
-                if (!mapRef.current) return;
-
-                if (bounds.length === 1) {
-                    map.flyTo(bounds[0], filterActive ? 17 : 16, {
-                        animate: true,
-                        duration: 1.15,
-                        easeLinearity: 0.2,
-                    });
-                } else if (bounds.length > 1) {
-                    const latLngBounds = L.latLngBounds(bounds);
-                    map.flyToBounds(latLngBounds, {
-                        padding: filterActive ? [56, 56] : [44, 44],
-                        maxZoom: filterActive && bounds.length <= 5 ? 16 : 15,
-                        animate: true,
-                        duration: 1.2,
-                        easeLinearity: 0.22,
-                    });
+                    marker.on('click', () => onSelectRef.current?.(customer.id));
+                    markersRef.current.set(customer.id, marker);
+                } else {
+                    marker.setLatLng([lat, lng]);
+                    marker.setZIndexOffset(selected ? 1000 : highlighted ? 500 : 0);
+                    marker.setIcon(icon);
                 }
-            }, 80);
-        }
 
-        window.setTimeout(() => map.invalidateSize(), 50);
-    }, [customers, selectedId, mapReady, filterActive]);
+                const safeName = String(customer.name || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                const safeUser = String(customer.username || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                marker.bindTooltip(
+                    `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>`,
+                    { direction: 'top', offset: [0, -14] },
+                );
+            });
+
+            for (const [id, marker] of markersRef.current.entries()) {
+                if (!nextIds.has(id)) {
+                    map.removeLayer(marker);
+                    markersRef.current.delete(id);
+                }
+            }
+
+            const nextBoundsKey = `${filterActive ? 'f1' : 'f0'}|${bounds.map((b) => b.join(',')).join('|')}`;
+            if (nextBoundsKey !== boundsKeyRef.current) {
+                boundsKeyRef.current = nextBoundsKey;
+
+                if (focusTimerRef.current) {
+                    window.clearTimeout(focusTimerRef.current);
+                }
+
+                if (active) {
+                    focusTimerRef.current = window.setTimeout(() => {
+                        focusTimerRef.current = null;
+                        focusBounds(bounds, filterActive);
+                    }, 100);
+                }
+            } else if (active) {
+                try {
+                    map.invalidateSize();
+                } catch {
+                    // ignore
+                }
+            }
+        } catch (error) {
+            console.error('Gagal memperbarui marker peta:', error);
+        }
+    }, [customers, selectedId, mapReady, filterActive, active]);
 
     useEffect(() => {
         const map = mapRef.current;
-        if (!mapReady || !map || !selectedId) return;
+        if (!mapReady || !map || !selectedId || !active) return;
         const marker = markersRef.current.get(selectedId);
         if (!marker) return;
-
-        // Jangan ganggu flyToBounds filter yang baru saja dijalankan.
         if (focusTimerRef.current) return;
 
-        const targetZoom = Math.max(map.getZoom(), 15);
-        map.flyTo(marker.getLatLng(), targetZoom, {
-            animate: true,
-            duration: 0.9,
-            easeLinearity: 0.25,
-        });
-    }, [selectedId, mapReady]);
+        try {
+            const targetZoom = Math.max(map.getZoom() || DEFAULT_ZOOM, 15);
+            map.flyTo(marker.getLatLng(), targetZoom, {
+                animate: true,
+                duration: 0.9,
+                easeLinearity: 0.25,
+            });
+        } catch (error) {
+            console.error('Gagal fokususkan marker terpilih:', error);
+        }
+    }, [selectedId, mapReady, active]);
 
-    return <div id={mapId} className="h-full min-h-[320px] w-full bg-mist" />;
+    return (
+        <div
+            ref={containerRef}
+            id={mapId}
+            className="h-full min-h-[320px] w-full bg-mist"
+        />
+    );
 }
 
-function DetailPanel({ customer, onClose, mobileSheet = false }) {
+function DetailPanel({ customer, onClose }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
     const poll = useCustomerTrafficPoll(customer?.id);
@@ -510,7 +606,59 @@ function DetailPanel({ customer, onClose, mobileSheet = false }) {
         );
     };
 
-    const panel = (
+    return (
+        <>
+            {/* Mobile sheet */}
+            <div className="absolute inset-x-0 bottom-0 z-[500] flex max-h-[70%] flex-col border-t border-ink/10 bg-white shadow-[0_-8px_30px_rgba(0,0,0,.12)] lg:hidden">
+                <DetailPanelBody
+                    customer={customer}
+                    optical={optical}
+                    modelLabel={modelLabel}
+                    tempTone={tempTone}
+                    rxTone={rxTone}
+                    ontTone={ontTone}
+                    poll={poll}
+                    canWrite={canWrite}
+                    rebooting={rebooting}
+                    onClose={onClose}
+                    onReboot={rebootOnt}
+                />
+            </div>
+
+            {/* Desktop side panel */}
+            <aside className="hidden w-full flex-col border-t border-ink/10 bg-white lg:flex lg:w-[340px] lg:border-t-0 lg:border-l">
+                <DetailPanelBody
+                    customer={customer}
+                    optical={optical}
+                    modelLabel={modelLabel}
+                    tempTone={tempTone}
+                    rxTone={rxTone}
+                    ontTone={ontTone}
+                    poll={poll}
+                    canWrite={canWrite}
+                    rebooting={rebooting}
+                    onClose={onClose}
+                    onReboot={rebootOnt}
+                />
+            </aside>
+        </>
+    );
+}
+
+function DetailPanelBody({
+    customer,
+    optical,
+    modelLabel,
+    tempTone,
+    rxTone,
+    ontTone,
+    poll,
+    canWrite,
+    rebooting,
+    onClose,
+    onReboot,
+}) {
+    return (
         <>
             <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-3">
                 <div className="min-w-0">
@@ -608,7 +756,7 @@ function DetailPanel({ customer, onClose, mobileSheet = false }) {
                             {canWrite && (
                                 <button
                                     type="button"
-                                    onClick={rebootOnt}
+                                    onClick={onReboot}
                                     disabled={rebooting || !optical.device_id}
                                     className="btn-action btn-action-sm inline-flex w-full items-center justify-center gap-2 border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-60"
                                 >
@@ -675,20 +823,6 @@ function DetailPanel({ customer, onClose, mobileSheet = false }) {
             </div>
         </>
     );
-
-    if (mobileSheet) {
-        return (
-            <div className="absolute inset-x-0 bottom-0 z-[500] flex max-h-[70%] flex-col border-t border-ink/10 bg-white shadow-[0_-8px_30px_rgba(0,0,0,.12)] lg:hidden">
-                {panel}
-            </div>
-        );
-    }
-
-    return (
-        <aside className="hidden w-full flex-col border-t border-ink/10 bg-white lg:flex lg:w-[340px] lg:border-t-0 lg:border-l">
-            {panel}
-        </aside>
-    );
 }
 
 export default function MapPage({
@@ -701,8 +835,19 @@ export default function MapPage({
     const [status, setStatus] = useState(filters.status || 'all');
     const [selectedId, setSelectedId] = useState(null);
     const [mobileTab, setMobileTab] = useState('map'); // map | list
+    const [isDesktop, setIsDesktop] = useState(false);
     const filterActive = Boolean((filters.q || '').trim()) || (filters.status && filters.status !== 'all');
     const prevFilterKeyRef = useRef(`${filters.q || ''}|${filters.status || 'all'}`);
+    const mapActive = isDesktop || mobileTab === 'map';
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const media = window.matchMedia('(min-width: 1024px)');
+        const sync = () => setIsDesktop(media.matches);
+        sync();
+        media.addEventListener('change', sync);
+        return () => media.removeEventListener('change', sync);
+    }, []);
 
     const selected = useMemo(
         () => customers.find((item) => item.id === selectedId) || null,
@@ -749,118 +894,6 @@ export default function MapPage({
         }
     };
 
-    const listPanel = (
-        <aside className="flex h-full min-h-0 w-full flex-col lg:w-[340px] lg:shrink-0 lg:border-r lg:border-ink/10">
-            <div className="space-y-2 border-b border-ink/10 p-3">
-                <label className="relative block">
-                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-ink-soft" />
-                    <input
-                        type="search"
-                        value={q}
-                        onChange={(e) => {
-                            const value = e.target.value;
-                            setQ(value);
-                            applyFilters(value, status);
-                        }}
-                        placeholder="Cari nama / username / telepon"
-                        className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
-                    />
-                </label>
-                <select
-                    value={status}
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        setStatus(value);
-                        applyFilters(q, value);
-                    }}
-                    className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
-                >
-                    {STATUS_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
-
-            <ul className="min-h-0 flex-1 overflow-y-auto">
-                {customers.length === 0 && (
-                    <li className="px-4 py-8 text-center text-sm text-ink-soft">
-                        Tidak ada pelanggan.
-                    </li>
-                )}
-                {customers.map((customer) => {
-                    const active = customer.id === selectedId;
-                    return (
-                        <li key={customer.id}>
-                            <button
-                                type="button"
-                                onClick={() => selectCustomer(customer.id)}
-                                className={`flex w-full items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
-                                    active ? 'bg-signal/10' : 'hover:bg-mist/70'
-                                }`}
-                            >
-                                <span
-                                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ background: markerColor(customer) }}
-                                />
-                                <span className="min-w-0 flex-1">
-                                    <span className="flex items-center gap-2">
-                                        <span className="truncate text-sm font-semibold text-ink">
-                                            {customer.name}
-                                        </span>
-                                        {!customer.on_map && (
-                                            <MapPin className="h-3 w-3 shrink-0 text-amber-600" />
-                                        )}
-                                    </span>
-                                    <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
-                                        {customer.username}
-                                    </span>
-                                    <span className="mt-1 flex flex-wrap gap-1.5">
-                                        <span
-                                            className={`px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass(customer.status)}`}
-                                        >
-                                            {STATUS_LABEL[customer.status] || customer.status}
-                                        </span>
-                                        {customer.optical?.rx_power_label && (
-                                            <span className="bg-ink/5 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
-                                                RX {customer.optical.rx_power_label}
-                                            </span>
-                                        )}
-                                        {customer.session_online && (
-                                            <span className="inline-flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                                <Activity className="h-2.5 w-2.5" />
-                                                online
-                                            </span>
-                                        )}
-                                    </span>
-                                </span>
-                            </button>
-                        </li>
-                    );
-                })}
-            </ul>
-        </aside>
-    );
-
-    const mapPanel = (
-        <div className="relative min-h-0 min-w-0 flex-1">
-            <NetworkMapView
-                customers={mapCustomers}
-                selectedId={selectedId}
-                onSelect={selectCustomer}
-                filterActive={filterActive}
-            />
-            {mapCustomers.length === 0 && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
-                    <p className="max-w-sm border border-ink/10 bg-white px-4 py-3 text-center text-sm text-ink-soft shadow-sm">
-                        Belum ada pelanggan dengan koordinat GPS pada filter ini.
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-
     return (
         <AdminLayout title="Peta Jaringan" subtitle="Sebaran pelanggan, optik ONT, dan live trafik">
             <Head title="Peta Jaringan" />
@@ -898,7 +931,7 @@ export default function MapPage({
                     )}
                 </div>
 
-                {/* Mobile tabs: Peta | Daftar */}
+                {/* Mobile tabs */}
                 <div className="grid grid-cols-2 border-b border-ink/10 lg:hidden">
                     <button
                         type="button"
@@ -926,27 +959,117 @@ export default function MapPage({
                     </button>
                 </div>
 
-                {/* Mobile body */}
-                <div className="relative flex min-h-0 flex-1 flex-col lg:hidden">
-                    {mobileTab === 'map' ? mapPanel : listPanel}
-                    {selected && (
-                        <DetailPanel
-                            customer={selected}
-                            onClose={() => setSelectedId(null)}
-                            mobileSheet
-                        />
-                    )}
-                </div>
+                {/* Satu layout: list + map (tidak digandakan mobile/desktop) */}
+                <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
+                    <aside
+                        className={`${
+                            mobileTab === 'list' ? 'flex' : 'hidden'
+                        } h-full min-h-0 w-full flex-col border-ink/10 lg:flex lg:w-[340px] lg:shrink-0 lg:border-r`}
+                    >
+                        <div className="space-y-2 border-b border-ink/10 p-3">
+                            <label className="relative block">
+                                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-ink-soft" />
+                                <input
+                                    type="search"
+                                    value={q}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setQ(value);
+                                        applyFilters(value, status);
+                                    }}
+                                    placeholder="Cari nama / username / telepon"
+                                    className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
+                                />
+                            </label>
+                            <select
+                                value={status}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setStatus(value);
+                                    applyFilters(q, value);
+                                }}
+                                className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
+                            >
+                                {STATUS_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                {/* Desktop body */}
-                <div className="hidden min-h-0 flex-1 lg:flex">
-                    {listPanel}
-                    <div className="relative min-h-0 min-w-0 flex-1">
+                        <ul className="min-h-0 flex-1 overflow-y-auto">
+                            {customers.length === 0 && (
+                                <li className="px-4 py-8 text-center text-sm text-ink-soft">
+                                    Tidak ada pelanggan.
+                                </li>
+                            )}
+                            {customers.map((customer) => {
+                                const active = customer.id === selectedId;
+                                return (
+                                    <li key={customer.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => selectCustomer(customer.id)}
+                                            className={`flex w-full items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
+                                                active ? 'bg-signal/10' : 'hover:bg-mist/70'
+                                            }`}
+                                        >
+                                            <span
+                                                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                                                style={{ background: markerColor(customer) }}
+                                            />
+                                            <span className="min-w-0 flex-1">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="truncate text-sm font-semibold text-ink">
+                                                        {customer.name}
+                                                    </span>
+                                                    {!customer.on_map && (
+                                                        <MapPin className="h-3 w-3 shrink-0 text-amber-600" />
+                                                    )}
+                                                </span>
+                                                <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
+                                                    {customer.username}
+                                                </span>
+                                                <span className="mt-1 flex flex-wrap gap-1.5">
+                                                    <span
+                                                        className={`px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass(customer.status)}`}
+                                                    >
+                                                        {STATUS_LABEL[customer.status] || customer.status}
+                                                    </span>
+                                                    {customer.optical?.rx_power_label && (
+                                                        <span className="bg-ink/5 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
+                                                            RX {customer.optical.rx_power_label}
+                                                        </span>
+                                                    )}
+                                                    {customer.session_online && (
+                                                        <span className="inline-flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                            <Activity className="h-2.5 w-2.5" />
+                                                            online
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </span>
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </aside>
+
+                    <div
+                        className={`${
+                            mobileTab === 'map'
+                                ? 'relative flex min-h-0 flex-1 flex-col'
+                                : 'pointer-events-none invisible absolute inset-0 lg:pointer-events-auto lg:visible lg:relative lg:flex lg:min-h-0 lg:flex-1 lg:flex-col'
+                        } min-w-0`}
+                    >
                         <NetworkMapView
                             customers={mapCustomers}
                             selectedId={selectedId}
                             onSelect={selectCustomer}
                             filterActive={filterActive}
+                            active={mapActive}
                         />
                         {mapCustomers.length === 0 && (
                             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
@@ -956,8 +1079,12 @@ export default function MapPage({
                             </div>
                         )}
                     </div>
+
                     {selected && (
-                        <DetailPanel customer={selected} onClose={() => setSelectedId(null)} />
+                        <DetailPanel
+                            customer={selected}
+                            onClose={() => setSelectedId(null)}
+                        />
                     )}
                 </div>
             </div>

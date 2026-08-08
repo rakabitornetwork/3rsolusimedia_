@@ -69,19 +69,30 @@ class NetworkMapController extends Controller
 
         // Samakan perilaku halaman GenieACS: cukup URL NBI terisi (flag enabled sering terlewat).
         if ($configured) {
-            $opticalResult = $this->genie->opticalIndexByPppoeUsername();
-            $opticalMeta['ok'] = (bool) ($opticalResult['ok'] ?? false);
-            $opticalMeta['message'] = $opticalResult['message'] ?? null;
-            $opticalMeta['matched'] = (int) ($opticalResult['matched'] ?? 0);
-            $opticalMeta['total'] = (int) ($opticalResult['total'] ?? 0);
-            $opticalIndex = $opticalResult['index'] ?? [];
+            try {
+                $opticalResult = $this->genie->opticalIndexByPppoeUsername();
+                $opticalMeta['ok'] = (bool) ($opticalResult['ok'] ?? false);
+                $opticalMeta['message'] = $opticalResult['message'] ?? null;
+                $opticalMeta['matched'] = (int) ($opticalResult['matched'] ?? 0);
+                $opticalMeta['total'] = (int) ($opticalResult['total'] ?? 0);
+                $opticalIndex = $opticalResult['index'] ?? [];
+            } catch (\Throwable $e) {
+                $opticalMeta['ok'] = false;
+                $opticalMeta['message'] = 'Gagal mengambil data optik GenieACS.';
+                report($e);
+            }
         } else {
             $opticalMeta['message'] = 'URL NBI GenieACS belum dikonfigurasi.';
         }
 
-        $onlineByRouter = $this->activeSessionUsernamesByRouter(
-            $customers->pluck('mikrotik_router_id')->filter()->unique()->values()->all()
-        );
+        $onlineByRouter = [];
+        try {
+            $onlineByRouter = $this->activeSessionUsernamesByRouter(
+                $customers->pluck('mikrotik_router_id')->filter()->unique()->values()->all()
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         $items = $customers->map(function (PppoeCustomer $customer) use ($opticalIndex, $onlineByRouter) {
             $lat = $customer->latitude;
