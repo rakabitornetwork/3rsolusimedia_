@@ -93,6 +93,11 @@ class GenieAcsService
                     ['InternetGatewayDevice.DeviceInfo.Manufacturer._value' => ['$regex' => $search, '$options' => 'i']],
                     ['Device.DeviceInfo.Manufacturer._value' => ['$regex' => $search, '$options' => 'i']],
                     ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['VirtualParameters.pppoeUsername._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['VirtualParameters.PPPoEUsername._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username._value' => ['$regex' => $search, '$options' => 'i']],
+                    ['Device.PPP.Interface.1.Username._value' => ['$regex' => $search, '$options' => 'i']],
                 ],
             ];
         }
@@ -101,37 +106,7 @@ class GenieAcsService
             $params = [
                 'limit' => max(1, min(500, $limit)),
                 'skip' => max(0, $skip),
-                'projection' => implode(',', [
-                    '_id',
-                    '_lastInform',
-                    '_tags',
-                    '_deviceId',
-                    'VirtualParameters.gettemp',
-                    'VirtualParameters.RXPower',
-                    'VirtualParameters.WlanPassword',
-                    'VirtualParameters.activedevices',
-                    'InternetGatewayDevice.DeviceInfo.Manufacturer',
-                    'InternetGatewayDevice.DeviceInfo.ModelName',
-                    'InternetGatewayDevice.DeviceInfo.SerialNumber',
-                    'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
-                    'InternetGatewayDevice.DeviceInfo.HardwareVersion',
-                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
-                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
-                    'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
-                    'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.Temperature',
-                    'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower',
-                    'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TransceiverTemperature',
-                    'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.RXPower',
-                    'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TransceiverTemperature',
-                    'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.RXPower',
-                    'Device.DeviceInfo.Manufacturer',
-                    'Device.DeviceInfo.ModelName',
-                    'Device.DeviceInfo.SerialNumber',
-                    'Device.DeviceInfo.SoftwareVersion',
-                    'Device.DeviceInfo.HardwareVersion',
-                    'Device.WiFi.SSID.1.SSID',
-                    'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
-                ]),
+                'projection' => implode(',', $this->deviceListProjection()),
             ];
 
             if ($query !== []) {
@@ -464,6 +439,133 @@ class GenieAcsService
     }
 
     /**
+     * Index metrik optik GenieACS berdasarkan username PPPoE (lowercase).
+     *
+     * @return array{ok: bool, message?: string, index?: array<string, array<string, mixed>>, total?: int, matched?: int}
+     */
+    public function opticalIndexByPppoeUsername(int $limit = 500): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'ok' => false,
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
+                'index' => [],
+            ];
+        }
+
+        $result = $this->listDevices(null, $limit, 0);
+        if (! ($result['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => $result['message'] ?? 'Gagal mengambil perangkat GenieACS.',
+                'index' => [],
+            ];
+        }
+
+        $index = [];
+        foreach ($result['devices'] ?? [] as $device) {
+            if (! is_array($device)) {
+                continue;
+            }
+
+            $username = strtolower(trim((string) ($device['pppoe_username'] ?? '')));
+            if ($username === '') {
+                continue;
+            }
+
+            // Username pertama yang cocok menang (hindari overwrite tanpa alasan kuat).
+            if (isset($index[$username])) {
+                continue;
+            }
+
+            $index[$username] = [
+                'matched' => true,
+                'device_id' => $device['id'] ?? null,
+                'serial' => $device['serial'] ?? null,
+                'temperature' => $device['temperature'] ?? null,
+                'temperature_label' => $device['temperature_label'] ?? '—',
+                'rx_power' => $device['rx_power'] ?? null,
+                'rx_power_label' => $device['rx_power_label'] ?? '—',
+                'tx_power' => $device['tx_power'] ?? null,
+                'tx_power_label' => $device['tx_power_label'] ?? '—',
+                'redaman' => $device['redaman'] ?? null,
+                'redaman_label' => $device['redaman_label'] ?? '—',
+                'online_ont' => (bool) ($device['online'] ?? false),
+                'last_inform' => $device['last_inform'] ?? null,
+                'last_inform_label' => $device['last_inform_label'] ?? '—',
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'index' => $index,
+            'total' => (int) ($result['total'] ?? count($result['devices'] ?? [])),
+            'matched' => count($index),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function deviceListProjection(): array
+    {
+        $paths = [
+            '_id',
+            '_lastInform',
+            '_tags',
+            '_deviceId',
+            'VirtualParameters.gettemp',
+            'VirtualParameters.RXPower',
+            'VirtualParameters.TXPower',
+            'VirtualParameters.Redaman',
+            'VirtualParameters.Attenuation',
+            'VirtualParameters.pppoeUsername',
+            'VirtualParameters.PPPoEUsername',
+            'VirtualParameters.pppoe_username',
+            'VirtualParameters.WlanPassword',
+            'VirtualParameters.activedevices',
+            'InternetGatewayDevice.DeviceInfo.Manufacturer',
+            'InternetGatewayDevice.DeviceInfo.ModelName',
+            'InternetGatewayDevice.DeviceInfo.SerialNumber',
+            'InternetGatewayDevice.DeviceInfo.SoftwareVersion',
+            'InternetGatewayDevice.DeviceInfo.HardwareVersion',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.Temperature',
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.RXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.TXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TransceiverTemperature',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.RXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TransceiverTemperature',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.RXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TXPower',
+            'Device.DeviceInfo.Manufacturer',
+            'Device.DeviceInfo.ModelName',
+            'Device.DeviceInfo.SerialNumber',
+            'Device.DeviceInfo.SoftwareVersion',
+            'Device.DeviceInfo.HardwareVersion',
+            'Device.WiFi.SSID.1.SSID',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ];
+
+        for ($wan = 1; $wan <= 2; $wan++) {
+            for ($conn = 1; $conn <= 4; $conn++) {
+                for ($ppp = 1; $ppp <= 2; $ppp++) {
+                    $paths[] = "InternetGatewayDevice.WANDevice.{$wan}.WANConnectionDevice.{$conn}.WANPPPConnection.{$ppp}.Username";
+                }
+            }
+        }
+
+        for ($i = 1; $i <= 4; $i++) {
+            $paths[] = "Device.PPP.Interface.{$i}.Username";
+        }
+
+        return $paths;
+    }
+
+    /**
      * @param  array<string, mixed>  $device
      * @return array<string, mixed>
      */
@@ -473,6 +575,9 @@ class GenieAcsService
         $deviceId = is_array($device['_deviceId'] ?? null) ? $device['_deviceId'] : [];
         $temperature = $this->extractTemperature($device);
         $rxPower = $this->extractRxPower($device);
+        $txPower = $this->extractTxPower($device);
+        $redaman = $this->extractRedaman($device, $rxPower, $txPower);
+        $pppoeUsername = $this->extractPppoeUsername($device);
         $ssid = $this->extractSsid($device);
         $ssidPassword = $this->extractSsidPassword($device);
         $connectedCount = $this->extractConnectedCount($device);
@@ -499,10 +604,15 @@ class GenieAcsService
                 'InternetGatewayDevice.DeviceInfo.HardwareVersion',
                 'Device.DeviceInfo.HardwareVersion',
             ]),
+            'pppoe_username' => $pppoeUsername,
             'temperature' => $temperature,
             'temperature_label' => $temperature !== null ? $temperature.' °C' : '—',
             'rx_power' => $rxPower,
             'rx_power_label' => $rxPower !== null ? $rxPower.' dBm' : '—',
+            'tx_power' => $txPower,
+            'tx_power_label' => $txPower !== null ? $txPower.' dBm' : '—',
+            'redaman' => $redaman,
+            'redaman_label' => $redaman !== null ? $redaman.' dB' : '—',
             'ssid' => $ssid,
             'ssid_password' => $ssidPassword,
             'connected_count' => $connectedCount,
@@ -638,16 +748,155 @@ class GenieAcsService
                 continue;
             }
 
-            $value = (float) $raw;
-            // Nilai mentah optik vendor sering perlu dikonversi ke dBm.
-            if ($value > 0 && $value < 10000) {
-                $value = round(($value * 0.002) - 30, 2);
-            }
-
-            return round($value, 2);
+            return $this->normalizeOpticalDbm((float) $raw);
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractTxPower(array $device): ?float
+    {
+        $virtual = $this->firstParam($device, ['VirtualParameters.TXPower']);
+        if ($virtual !== null && is_numeric($virtual)) {
+            return round((float) $virtual, 2);
+        }
+
+        foreach ([
+            'InternetGatewayDevice.WANDevice.1.X_CU_WANEPONInterfaceConfig.OpticalTransceiver.TXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CMCC_EponInterfaceConfig.TXPower',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TXPower',
+        ] as $path) {
+            $raw = $this->paramValue($device, $path);
+            if ($raw === null || $raw === '' || ! is_numeric($raw)) {
+                continue;
+            }
+
+            return $this->normalizeOpticalDbm((float) $raw);
+        }
+
+        return null;
+    }
+
+    /**
+     * Redaman (dB): VirtualParameters bila ada, else TX − RX.
+     *
+     * @param  array<string, mixed>  $device
+     */
+    private function extractRedaman(array $device, ?float $rxPower, ?float $txPower): ?float
+    {
+        $virtual = $this->firstParam($device, [
+            'VirtualParameters.Redaman',
+            'VirtualParameters.Attenuation',
+        ]);
+        if ($virtual !== null && is_numeric($virtual)) {
+            return round(abs((float) $virtual), 2);
+        }
+
+        if ($rxPower === null || $txPower === null) {
+            return null;
+        }
+
+        return round(abs($txPower - $rxPower), 2);
+    }
+
+    private function normalizeOpticalDbm(float $value): float
+    {
+        // Raw vendor (uint) biasanya >> 40; dBm ONT nyata sekitar -40 s/d +10.
+        if ($value > 40) {
+            $value = ($value * 0.002) - 30;
+        }
+
+        return round($value, 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function extractPppoeUsername(array $device): ?string
+    {
+        $virtual = $this->firstParam($device, [
+            'VirtualParameters.pppoeUsername',
+            'VirtualParameters.PPPoEUsername',
+            'VirtualParameters.pppoe_username',
+        ]);
+        if ($virtual !== null && trim($virtual) !== '') {
+            return trim($virtual);
+        }
+
+        $fixedPaths = [];
+        for ($wan = 1; $wan <= 2; $wan++) {
+            for ($conn = 1; $conn <= 4; $conn++) {
+                for ($ppp = 1; $ppp <= 2; $ppp++) {
+                    $fixedPaths[] = "InternetGatewayDevice.WANDevice.{$wan}.WANConnectionDevice.{$conn}.WANPPPConnection.{$ppp}.Username";
+                }
+            }
+        }
+        for ($i = 1; $i <= 4; $i++) {
+            $fixedPaths[] = "Device.PPP.Interface.{$i}.Username";
+        }
+
+        $fixed = $this->firstParam($device, $fixedPaths);
+        if ($fixed !== null && trim($fixed) !== '') {
+            return trim($fixed);
+        }
+
+        $found = $this->findPppoeUsernamesRecursive($device);
+        foreach ($found as $username) {
+            if ($username !== '') {
+                return $username;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cari Username di bawah node WANPPPConnection / PPP.Interface.
+     *
+     * @param  array<string, mixed>  $node
+     * @return array<int, string>
+     */
+    private function findPppoeUsernamesRecursive(array $node, string $path = ''): array
+    {
+        $found = [];
+
+        foreach ($node as $key => $value) {
+            if (! is_string($key) && ! is_int($key)) {
+                continue;
+            }
+
+            $segment = (string) $key;
+            if (str_starts_with($segment, '_')) {
+                continue;
+            }
+
+            $nextPath = $path === '' ? $segment : $path.'.'.$segment;
+
+            if ($segment === 'Username' || $segment === 'username') {
+                $isPppContext = str_contains($path, 'WANPPPConnection')
+                    || str_contains($path, 'PPP.Interface')
+                    || str_contains($path, '.PPP.');
+
+                if ($isPppContext) {
+                    $raw = is_array($value) && array_key_exists('_value', $value)
+                        ? $value['_value']
+                        : (is_scalar($value) ? $value : null);
+                    $username = trim((string) ($raw ?? ''));
+                    if ($username !== '') {
+                        $found[] = $username;
+                    }
+                }
+            }
+
+            if (is_array($value)) {
+                $found = array_merge($found, $this->findPppoeUsernamesRecursive($value, $nextPath));
+            }
+        }
+
+        return $found;
     }
 
     /**

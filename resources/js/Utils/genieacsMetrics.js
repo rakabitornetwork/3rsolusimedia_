@@ -99,6 +99,55 @@ export function rxPowerTone(value) {
     };
 }
 
+/** Redaman (dB). Ideal umum akses FTTH: sekitar 15–28 dB. */
+export function redamanTone(value) {
+    if (value == null || Number.isNaN(Number(value))) {
+        return {
+            key: 'empty',
+            text: 'text-ink-soft',
+            bg: 'bg-ink/5',
+            icon: 'text-ink-soft',
+            badge: 'bg-ink/5 text-ink-soft',
+            card: 'border-ink/10 bg-mist/40',
+            accent: 'from-slate-300 to-slate-500',
+        };
+    }
+
+    const n = Number(value);
+    if (n < 12 || n > 32) {
+        return {
+            key: 'bad',
+            text: 'text-rose-700',
+            bg: 'bg-rose-50',
+            icon: 'text-rose-600',
+            badge: 'bg-rose-50 text-rose-700',
+            card: 'border-rose-200 bg-rose-50/70',
+            accent: 'from-rose-400 to-pink-600',
+        };
+    }
+    if (n < 15 || n > 28) {
+        return {
+            key: 'warn',
+            text: 'text-amber-700',
+            bg: 'bg-amber-50',
+            icon: 'text-amber-600',
+            badge: 'bg-amber-50 text-amber-700',
+            card: 'border-amber-200 bg-amber-50/70',
+            accent: 'from-amber-300 to-orange-500',
+        };
+    }
+
+    return {
+        key: 'good',
+        text: 'text-emerald-700',
+        bg: 'bg-emerald-50',
+        icon: 'text-emerald-600',
+        badge: 'bg-emerald-50 text-emerald-700',
+        card: 'border-emerald-200 bg-emerald-50/70',
+        accent: 'from-emerald-400 to-teal-600',
+    };
+}
+
 export function onlineTone(online) {
     if (online) {
         return {

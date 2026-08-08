@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\HotspotSessionController;
 use App\Http\Controllers\Admin\HotspotVoucherController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
 use App\Http\Controllers\Admin\ModuleController;
+use App\Http\Controllers\Admin\NetworkMapController;
 use App\Http\Controllers\Admin\PppoeCustomerController;
 use App\Http\Controllers\Admin\PppoeSessionController;
 use App\Http\Controllers\Admin\RouterOsController;
@@ -53,7 +54,10 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/network/routeros/{router}/interfaces', [RouterOsController::class, 'interfaces'])->name('network.routeros.interfaces');
     Route::get('/network/routeros/{router}/traffic', [RouterOsController::class, 'traffic'])->name('network.routeros.traffic');
 
-    Route::get('/network/map', [ModuleController::class, 'show'])->defaults('module', 'map')->name('network.map');
+    Route::get('/network/map', [NetworkMapController::class, 'index'])->name('network.map');
+    Route::get('/network/map/customers/{pppoe}/traffic', [NetworkMapController::class, 'customerTraffic'])
+        ->whereNumber('pppoe')
+        ->name('network.map.traffic');
 
     Route::get('/network/genieacs', [GenieAcsController::class, 'index'])->name('network.genieacs');
     Route::post('/network/genieacs/settings', [GenieAcsController::class, 'updateSettings'])->name('network.genieacs.settings');

@@ -131,7 +131,7 @@ export const adminNav = [
                 label: 'Peta Jaringan',
                 href: '/admin/network/map',
                 icon: Map,
-                soon: true,
+                match: ['/admin/network/map'],
             },
         ],
     },

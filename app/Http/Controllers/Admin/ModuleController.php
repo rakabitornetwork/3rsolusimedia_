@@ -16,11 +16,6 @@ class ModuleController extends Controller
                 'subtitle' => 'Jaringan',
                 'description' => 'Kelola koneksi API RouterOS, monitoring interface, secret PPPoE, queue, dan script otomasi isolir.',
             ],
-            'map' => [
-                'title' => 'Peta Jaringan',
-                'subtitle' => 'Jaringan',
-                'description' => 'Lihat sebaran ODP, jalur kabel, dan lokasi pelanggan dalam satu peta operasional.',
-            ],
             'hotspot' => [
                 'title' => 'Manajemen Hotspot',
                 'subtitle' => 'Jaringan',

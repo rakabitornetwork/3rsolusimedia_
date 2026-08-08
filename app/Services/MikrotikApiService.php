@@ -256,6 +256,60 @@ class MikrotikApiService
     }
 
     /**
+     * Live traffic untuk sesi PPPoE aktif (interface dinamis <pppoe-username>).
+     *
+     * @return array{ok: bool, online: bool, message?: string, data?: array<string, mixed>}
+     */
+    public function monitorPppoeUserTraffic(MikrotikRouter $router, string $username): array
+    {
+        $username = trim($username);
+        if ($username === '') {
+            return [
+                'ok' => false,
+                'online' => false,
+                'message' => 'Username PPPoE kosong.',
+            ];
+        }
+
+        $sessions = $this->listPppActiveSessions($router);
+        if (! ($sessions['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'online' => false,
+                'message' => $sessions['message'] ?? 'Gagal membaca sesi PPPoE aktif.',
+            ];
+        }
+
+        $online = collect($sessions['sessions'] ?? [])
+            ->contains(fn (array $session) => strcasecmp((string) ($session['name'] ?? ''), $username) === 0);
+
+        if (! $online) {
+            return [
+                'ok' => false,
+                'online' => false,
+                'message' => 'Sesi PPPoE tidak online.',
+            ];
+        }
+
+        $interface = '<pppoe-'.$username.'>';
+        $traffic = $this->monitorTraffic($router, $interface);
+
+        if (! ($traffic['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'online' => true,
+                'message' => $traffic['message'] ?? 'Gagal membaca traffic interface '.$interface,
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'online' => true,
+            'data' => $traffic['data'],
+        ];
+    }
+
+    /**
      * @return array{ok: bool, message?: string, profiles?: array<int, array<string, mixed>>, isolir_profiles?: array<int, array<string, mixed>>}
      */
     public function listPppProfiles(MikrotikRouter $router): array
