@@ -58,6 +58,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/network/map/customers/{pppoe}/traffic', [NetworkMapController::class, 'customerTraffic'])
         ->whereNumber('pppoe')
         ->name('network.map.traffic');
+    Route::post('/network/map/customers/{pppoe}/reboot', [NetworkMapController::class, 'customerReboot'])
+        ->whereNumber('pppoe')
+        ->name('network.map.reboot');
 
     Route::get('/network/genieacs', [GenieAcsController::class, 'index'])->name('network.genieacs');
     Route::post('/network/genieacs/settings', [GenieAcsController::class, 'updateSettings'])->name('network.genieacs.settings');

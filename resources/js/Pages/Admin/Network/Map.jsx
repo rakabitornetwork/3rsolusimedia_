@@ -1,14 +1,15 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     Activity,
     ArrowDownToLine,
     ArrowUpFromLine,
-    Gauge,
+    Cpu,
     List,
     LoaderCircle,
     Map as MapIcon,
     MapPin,
-    Radio,
+    Power,
+    RefreshCw,
     Search,
     Signal,
     Thermometer,
@@ -24,7 +25,6 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 import {
     onlineTone,
-    redamanTone,
     rxPowerTone,
     temperatureTone,
 } from '../../../Utils/genieacsMetrics';
@@ -336,14 +336,37 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
 }
 
 function DetailPanel({ customer, onClose, mobileSheet = false }) {
+    const { auth } = usePage().props;
+    const canWrite = auth?.user?.can_write !== false;
     const poll = useCustomerTrafficPoll(customer?.id);
+    const [rebooting, setRebooting] = useState(false);
     const optical = customer?.optical;
     const tempTone = temperatureTone(optical?.temperature);
     const rxTone = rxPowerTone(optical?.rx_power);
-    const redTone = redamanTone(optical?.redaman);
     const ontTone = onlineTone(optical?.online_ont);
+    const modelLabel = [optical?.manufacturer, optical?.model]
+        .filter(Boolean)
+        .join(' ') || optical?.model || '—';
 
     if (!customer) return null;
+
+    const rebootOnt = () => {
+        if (!canWrite || rebooting || !optical?.device_id) return;
+        if (!window.confirm(`Reboot ONT pelanggan ${customer.name}? Perangkat akan restart via GenieACS.`)) {
+            return;
+        }
+
+        setRebooting(true);
+        router.post(
+            `/admin/network/map/customers/${customer.id}/reboot`,
+            { device_id: optical.device_id },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setRebooting(false),
+            },
+        );
+    };
 
     const panel = (
         <>
@@ -409,42 +432,52 @@ function DetailPanel({ customer, onClose, mobileSheet = false }) {
                         Optik ONT
                     </h3>
                     {optical?.matched ? (
-                        <div className="mt-2 grid grid-cols-2 gap-2">
-                            <MetricBox
-                                icon={Thermometer}
-                                label="Suhu"
-                                value={optical.temperature_label || '—'}
-                                tone={tempTone}
-                            />
-                            <MetricBox
-                                icon={Signal}
-                                label="RX Power"
-                                value={optical.rx_power_label || '—'}
-                                tone={rxTone}
-                            />
-                            <MetricBox
-                                icon={Radio}
-                                label="TX Power"
-                                value={optical.tx_power_label || '—'}
-                                tone={{
-                                    text: 'text-ink',
-                                    icon: 'text-sky-600',
-                                    card: 'border-sky-100 bg-sky-50/60',
-                                }}
-                            />
-                            <MetricBox
-                                icon={Gauge}
-                                label="Redaman"
-                                value={optical.redaman_label || '—'}
-                                tone={redTone}
-                            />
-                            <div className="col-span-2 flex items-center justify-between border border-ink/10 px-3 py-2 text-xs">
+                        <div className="mt-2 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                                <MetricBox
+                                    icon={Thermometer}
+                                    label="Suhu"
+                                    value={optical.temperature_label || '—'}
+                                    tone={tempTone}
+                                />
+                                <MetricBox
+                                    icon={Signal}
+                                    label="RX Power"
+                                    value={optical.rx_power_label || '—'}
+                                    tone={rxTone}
+                                />
+                            </div>
+                            <div className="flex items-start justify-between gap-3 border border-ink/10 px-3 py-2.5 text-xs">
+                                <span className="inline-flex items-center gap-1.5 text-ink-soft">
+                                    <Cpu className="h-3.5 w-3.5 shrink-0" />
+                                    Model
+                                </span>
+                                <span className="max-w-[65%] text-right font-semibold text-ink">
+                                    {modelLabel}
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between border border-ink/10 px-3 py-2 text-xs">
                                 <span className="text-ink-soft">Serial / ONT</span>
                                 <span className={`font-semibold ${ontTone.text}`}>
                                     {optical.serial || '—'}
                                     {optical.online_ont ? ' · online' : ' · offline'}
                                 </span>
                             </div>
+                            {canWrite && (
+                                <button
+                                    type="button"
+                                    onClick={rebootOnt}
+                                    disabled={rebooting || !optical.device_id}
+                                    className="btn-action btn-action-sm inline-flex w-full items-center justify-center gap-2 border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-60"
+                                >
+                                    {rebooting ? (
+                                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                        <Power className="h-3.5 w-3.5" />
+                                    )}
+                                    {rebooting ? 'Mengirim reboot...' : 'Reboot ONT'}
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <p className="mt-2 border border-dashed border-ink/15 bg-mist/50 px-3 py-3 text-xs leading-relaxed text-ink-soft">

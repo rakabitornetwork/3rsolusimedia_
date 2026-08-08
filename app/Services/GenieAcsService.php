@@ -247,6 +247,49 @@ class GenieAcsService
     }
 
     /**
+     * Antrikan task reboot ONT/CPE melalui GenieACS NBI.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function rebootDevice(string $deviceId): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'ok' => false,
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
+            ];
+        }
+
+        try {
+            $response = $this->client()
+                ->timeout(25)
+                ->withQueryParameters(['connection_request' => ''])
+                ->post('/devices/'.rawurlencode($deviceId).'/tasks', [
+                    'name' => 'reboot',
+                ]);
+
+            if (in_array($response->status(), [200, 202], true)) {
+                return [
+                    'ok' => true,
+                    'message' => $response->status() === 200
+                        ? 'Perintah reboot berhasil dikirim ke perangkat.'
+                        : 'Task reboot diantrikan. Perangkat akan reboot pada connection request / inform berikutnya.',
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => 'Gagal reboot perangkat (HTTP '.$response->status().'). '.$response->body(),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal reboot perangkat: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Ubah SSID dan/atau password WiFi (WLANConfiguration.1) via setParameterValues.
      *
      * @return array{ok: bool, message: string}
@@ -481,15 +524,13 @@ class GenieAcsService
             $index[$username] = [
                 'matched' => true,
                 'device_id' => $device['id'] ?? null,
+                'manufacturer' => $device['manufacturer'] ?? null,
+                'model' => $device['model'] ?? null,
                 'serial' => $device['serial'] ?? null,
                 'temperature' => $device['temperature'] ?? null,
                 'temperature_label' => $device['temperature_label'] ?? '—',
                 'rx_power' => $device['rx_power'] ?? null,
                 'rx_power_label' => $device['rx_power_label'] ?? '—',
-                'tx_power' => $device['tx_power'] ?? null,
-                'tx_power_label' => $device['tx_power_label'] ?? '—',
-                'redaman' => $device['redaman'] ?? null,
-                'redaman_label' => $device['redaman_label'] ?? '—',
                 'online_ont' => (bool) ($device['online'] ?? false),
                 'last_inform' => $device['last_inform'] ?? null,
                 'last_inform_label' => $device['last_inform_label'] ?? '—',

@@ -8,6 +8,7 @@ use App\Models\PppoeCustomer;
 use App\Services\GenieAcsService;
 use App\Services\MikrotikApiService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -156,6 +157,49 @@ class NetworkMapController extends Controller
         $result = $this->api->monitorPppoeUserTraffic($router, (string) $pppoe->username);
 
         return response()->json($result);
+    }
+
+    public function customerReboot(Request $request, PppoeCustomer $pppoe): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user?->isAgen() && (int) $pppoe->agent_id !== (int) $user->id) {
+            abort(403);
+        }
+
+        if (! $this->genie->isConfigured()) {
+            return back()->with('error', 'URL NBI GenieACS belum dikonfigurasi.');
+        }
+
+        $validated = $request->validate([
+            'device_id' => ['required', 'string', 'max:255'],
+        ]);
+
+        $deviceId = trim($validated['device_id']);
+        $deviceResult = $this->genie->getDevice($deviceId);
+
+        if (! ($deviceResult['ok'] ?? false)) {
+            return back()->with(
+                'error',
+                $deviceResult['message'] ?? 'Perangkat GenieACS tidak ditemukan.'
+            );
+        }
+
+        $deviceUsername = strtolower(trim((string) ($deviceResult['device']['pppoe_username'] ?? '')));
+        $customerUsername = strtolower(trim((string) $pppoe->username));
+
+        if ($deviceUsername === '' || $deviceUsername !== $customerUsername) {
+            return back()->with(
+                'error',
+                'Perangkat GenieACS tidak cocok dengan username PPPoE pelanggan ini.'
+            );
+        }
+
+        $result = $this->genie->rebootDevice($deviceId);
+
+        return back()->with(
+            $result['ok'] ? 'success' : 'error',
+            $result['message']
+        );
     }
 
     /**
