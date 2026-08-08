@@ -805,6 +805,7 @@ class MikrotikApiService
         ?string $comment = null,
         bool $disabled = false,
         bool $disconnectActive = false,
+        bool $updatePassword = true,
     ): array {
         try {
             $client = $this->makeClient($router);
@@ -815,8 +816,13 @@ class MikrotikApiService
             if (! empty($existing[0]['.id'])) {
                 $query = (new Query('/ppp/secret/set'))
                     ->equal('.id', $existing[0]['.id'])
-                    ->equal('password', $password)
                     ->equal('disabled', $disabled ? 'yes' : 'no');
+
+                // Jangan timpa password RouterOS saat sync status (isolir/lunas)
+                // atau bila password kosong — biarkan secret yang sudah ada.
+                if ($updatePassword && $password !== '') {
+                    $query->equal('password', $password);
+                }
 
                 if ($profile) {
                     $query->equal('profile', $profile);
@@ -836,6 +842,13 @@ class MikrotikApiService
                     'message' => $disabled
                         ? 'Secret PPPoE dinonaktifkan di RouterOS.'
                         : 'Secret PPPoE berhasil diperbarui di RouterOS.',
+                ];
+            }
+
+            if ($password === '') {
+                return [
+                    'ok' => false,
+                    'message' => 'Password PPPoE wajib diisi untuk membuat secret baru di RouterOS.',
                 ];
             }
 

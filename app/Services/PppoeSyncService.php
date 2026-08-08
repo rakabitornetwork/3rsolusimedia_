@@ -10,7 +10,14 @@ class PppoeSyncService
     {
     }
 
-    public function sync(PppoeCustomer $customer): void
+    /**
+     * Sinkronkan status/profile pelanggan ke RouterOS.
+     *
+     * @param  bool  $pushPassword  true hanya saat create/update password sengaja diganti.
+     *                              Isolir, lunas, grace, dan sync rutin tidak boleh
+     *                              menimpa password secret yang sudah ada di MikroTik.
+     */
+    public function sync(PppoeCustomer $customer, bool $pushPassword = false): void
     {
         $customer->loadMissing(['router', 'package']);
 
@@ -53,14 +60,17 @@ class PppoeSyncService
         $disconnectActive = $status === 'isolated'
             || ($wasIsolated && $status === 'active');
 
+        $password = (string) ($customer->password ?? '');
+
         $result = $this->api->upsertPppSecret(
             $router,
             $customer->username,
-            $customer->password,
+            $password,
             $targetProfile,
             $customer->name,
             $disabled,
             disconnectActive: $disconnectActive,
+            updatePassword: $pushPassword && $password !== '',
         );
 
         $customer->update([

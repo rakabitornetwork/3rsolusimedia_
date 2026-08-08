@@ -204,7 +204,7 @@ class PppoeCustomerController extends Controller
         ]);
 
         $invoice = $this->billingService->createProrataInvoice($customer->fresh('package'));
-        $this->sync->sync($customer->fresh(['router', 'package']));
+        $this->sync->sync($customer->fresh(['router', 'package']), pushPassword: true);
 
         $message = 'Pelanggan PPPoE berhasil ditambahkan. Tagihan pertama (prorata): Rp '.
             number_format((int) $customer->first_bill_amount, 0, ',', '.').'.';
@@ -261,12 +261,14 @@ class PppoeCustomerController extends Controller
             $payload['status'] = 'active';
         }
 
-        if (empty($validated['password'])) {
+        $passwordChanged = ! empty($validated['password']);
+
+        if (! $passwordChanged) {
             unset($payload['password']);
         }
 
         $pppoe->update($payload);
-        $this->sync->sync($pppoe->fresh(['router', 'package']));
+        $this->sync->sync($pppoe->fresh(['router', 'package']), pushPassword: $passwordChanged);
 
         return redirect()
             ->route('admin.customers.pppoe')
@@ -532,7 +534,8 @@ class PppoeCustomerController extends Controller
                 ]);
 
                 $this->billingService->createProrataInvoice($customer->fresh('package'));
-                $this->sync->sync($customer->fresh(['router', 'package']));
+                // Secret sudah ada di RouterOS (impor dari sesi) — jangan timpa password.
+                $this->sync->sync($customer->fresh(['router', 'package']), pushPassword: false);
                 $created++;
             } catch (\Throwable) {
                 $failed++;
