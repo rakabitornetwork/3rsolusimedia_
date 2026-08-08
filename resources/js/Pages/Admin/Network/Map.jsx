@@ -34,6 +34,113 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
+const MARKER_STYLE_ID = 'network-map-marker-style';
+
+function ensureMarkerStyles() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(MARKER_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = MARKER_STYLE_ID;
+    style.textContent = `
+      @keyframes network-map-pulse {
+        0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.7; }
+        70% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+      }
+      @keyframes network-map-bounce {
+        0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+        50% { transform: translate(-50%, -50%) translateY(-3px); }
+      }
+      .network-map-marker {
+        position: relative;
+        display: block;
+        width: 0;
+        height: 0;
+        pointer-events: auto;
+      }
+      .network-map-marker__pulse {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 34px;
+        height: 34px;
+        border-radius: 9999px;
+        border: 2px solid currentColor;
+        background: currentColor;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.55);
+        pointer-events: none;
+      }
+      .network-map-marker.is-hit .network-map-marker__pulse {
+        opacity: 0.35;
+        animation: network-map-pulse 1.6s ease-out infinite;
+      }
+      .network-map-marker.is-selected .network-map-marker__pulse {
+        width: 42px;
+        height: 42px;
+        opacity: 0.45;
+        animation: network-map-pulse 1.15s ease-out infinite;
+      }
+      .network-map-marker__dot {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 5px rgba(0,0,0,.4);
+        transform: translate(-50%, -50%);
+      }
+      .network-map-marker.is-hit .network-map-marker__dot {
+        width: 18px;
+        height: 18px;
+        box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 10px rgba(0,0,0,.45);
+        animation: network-map-bounce 1.4s ease-in-out infinite;
+      }
+      .network-map-marker.is-selected .network-map-marker__dot {
+        width: 20px;
+        height: 20px;
+        box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 3px 12px rgba(0,0,0,.5);
+        animation: network-map-bounce 1.1s ease-in-out infinite;
+      }
+      .network-map-marker__ring {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 26px;
+        height: 26px;
+        border-radius: 9999px;
+        border: 2px dashed currentColor;
+        opacity: 0;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .network-map-marker.is-hit .network-map-marker__ring,
+      .network-map-marker.is-selected .network-map-marker__ring {
+        opacity: 0.55;
+      }
+    `;
+    document.head.appendChild(style);
+}
+
+function buildMarkerHtml(color, { selected = false, highlighted = false } = {}) {
+    const classes = [
+        'network-map-marker',
+        highlighted ? 'is-hit' : '',
+        selected ? 'is-selected' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    return `<span class="${classes}" style="color:${color}">
+      <span class="network-map-marker__pulse"></span>
+      <span class="network-map-marker__ring"></span>
+      <span class="network-map-marker__dot" style="background:${color}"></span>
+    </span>`;
+}
+
 const STATUS_OPTIONS = [
     { value: 'all', label: 'Semua status' },
     { value: 'active', label: 'Aktif' },
@@ -190,7 +297,7 @@ function useCustomerTrafficPoll(customerId) {
     return { traffic, history, error, online, loading };
 }
 
-function NetworkMapView({ customers, selectedId, onSelect }) {
+function NetworkMapView({ customers, selectedId, onSelect, filterActive = false }) {
     const mapId = useId().replace(/:/g, '');
     const mapRef = useRef(null);
     const markersRef = useRef(new Map());
@@ -198,12 +305,14 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
     const onSelectRef = useRef(onSelect);
     const [mapReady, setMapReady] = useState(false);
     const boundsKeyRef = useRef('');
+    const focusTimerRef = useRef(null);
 
     useEffect(() => {
         onSelectRef.current = onSelect;
     }, [onSelect]);
 
     useEffect(() => {
+        ensureMarkerStyles();
         let cancelled = false;
 
         (async () => {
@@ -228,6 +337,9 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
                 center: DEFAULT_CENTER,
                 zoom: DEFAULT_ZOOM,
                 scrollWheelZoom: true,
+                zoomAnimation: true,
+                markerZoomAnimation: true,
+                fadeAnimation: true,
             });
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -241,6 +353,9 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
 
         return () => {
             cancelled = true;
+            if (focusTimerRef.current) {
+                window.clearTimeout(focusTimerRef.current);
+            }
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
@@ -265,31 +380,29 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
 
             const color = markerColor(customer);
             const selected = customer.id === selectedId;
-            const html = `<span style="
-                display:block;width:${selected ? 18 : 14}px;height:${selected ? 18 : 14}px;
-                border-radius:9999px;background:${color};
-                border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35);
-                transform:translate(-50%,-50%);
-            "></span>`;
+            const highlighted = filterActive || selected;
+            const html = buildMarkerHtml(color, { selected, highlighted });
 
             let marker = markersRef.current.get(customer.id);
             if (!marker) {
                 marker = L.marker([customer.latitude, customer.longitude], {
                     icon: L.divIcon({
-                        className: '',
+                        className: 'network-map-marker-wrap',
                         html,
                         iconSize: [0, 0],
                         iconAnchor: [0, 0],
                     }),
+                    zIndexOffset: selected ? 1000 : highlighted ? 500 : 0,
                 }).addTo(map);
 
                 marker.on('click', () => onSelectRef.current?.(customer.id));
                 markersRef.current.set(customer.id, marker);
             } else {
                 marker.setLatLng([customer.latitude, customer.longitude]);
+                marker.setZIndexOffset(selected ? 1000 : highlighted ? 500 : 0);
                 marker.setIcon(
                     L.divIcon({
-                        className: '',
+                        className: 'network-map-marker-wrap',
                         html,
                         iconSize: [0, 0],
                         iconAnchor: [0, 0],
@@ -299,7 +412,7 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
 
             marker.bindTooltip(
                 `<strong>${customer.name}</strong><br/><span style="opacity:.8">${customer.username}</span>`,
-                { direction: 'top', offset: [0, -10] },
+                { direction: 'top', offset: [0, -14] },
             );
         });
 
@@ -310,26 +423,55 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
             }
         }
 
-        const nextBoundsKey = bounds.map((b) => b.join(',')).join('|');
+        const nextBoundsKey = `${filterActive ? 'f1' : 'f0'}|${bounds.map((b) => b.join(',')).join('|')}`;
         if (nextBoundsKey !== boundsKeyRef.current) {
             boundsKeyRef.current = nextBoundsKey;
-            if (bounds.length === 1) {
-                map.setView(bounds[0], 16);
-            } else if (bounds.length > 1) {
-                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+
+            if (focusTimerRef.current) {
+                window.clearTimeout(focusTimerRef.current);
             }
+
+            focusTimerRef.current = window.setTimeout(() => {
+                focusTimerRef.current = null;
+                if (!mapRef.current) return;
+
+                if (bounds.length === 1) {
+                    map.flyTo(bounds[0], filterActive ? 17 : 16, {
+                        animate: true,
+                        duration: 1.15,
+                        easeLinearity: 0.2,
+                    });
+                } else if (bounds.length > 1) {
+                    const latLngBounds = L.latLngBounds(bounds);
+                    map.flyToBounds(latLngBounds, {
+                        padding: filterActive ? [56, 56] : [44, 44],
+                        maxZoom: filterActive && bounds.length <= 5 ? 16 : 15,
+                        animate: true,
+                        duration: 1.2,
+                        easeLinearity: 0.22,
+                    });
+                }
+            }, 80);
         }
 
         window.setTimeout(() => map.invalidateSize(), 50);
-    }, [customers, selectedId, mapReady]);
+    }, [customers, selectedId, mapReady, filterActive]);
 
     useEffect(() => {
         const map = mapRef.current;
         if (!mapReady || !map || !selectedId) return;
         const marker = markersRef.current.get(selectedId);
-        if (marker) {
-            map.panTo(marker.getLatLng(), { animate: true });
-        }
+        if (!marker) return;
+
+        // Jangan ganggu flyToBounds filter yang baru saja dijalankan.
+        if (focusTimerRef.current) return;
+
+        const targetZoom = Math.max(map.getZoom(), 15);
+        map.flyTo(marker.getLatLng(), targetZoom, {
+            animate: true,
+            duration: 0.9,
+            easeLinearity: 0.25,
+        });
     }, [selectedId, mapReady]);
 
     return <div id={mapId} className="h-full min-h-[320px] w-full bg-mist" />;
@@ -559,6 +701,8 @@ export default function MapPage({
     const [status, setStatus] = useState(filters.status || 'all');
     const [selectedId, setSelectedId] = useState(null);
     const [mobileTab, setMobileTab] = useState('map'); // map | list
+    const filterActive = Boolean((filters.q || '').trim()) || (filters.status && filters.status !== 'all');
+    const prevFilterKeyRef = useRef(`${filters.q || ''}|${filters.status || 'all'}`);
 
     const selected = useMemo(
         () => customers.find((item) => item.id === selectedId) || null,
@@ -585,6 +729,17 @@ export default function MapPage({
         setQ(filters.q || '');
         setStatus(filters.status || 'all');
     }, [filters.q, filters.status]);
+
+    // Saat filter berubah dan ada titik di peta, fokus ke tab peta (mobile).
+    useEffect(() => {
+        const key = `${filters.q || ''}|${filters.status || 'all'}`;
+        if (key === prevFilterKeyRef.current) return;
+        prevFilterKeyRef.current = key;
+
+        if (mapCustomers.length > 0) {
+            setMobileTab('map');
+        }
+    }, [filters.q, filters.status, mapCustomers.length]);
 
     const selectCustomer = (id) => {
         setSelectedId(id);
@@ -694,6 +849,7 @@ export default function MapPage({
                 customers={mapCustomers}
                 selectedId={selectedId}
                 onSelect={selectCustomer}
+                filterActive={filterActive}
             />
             {mapCustomers.length === 0 && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
@@ -790,6 +946,7 @@ export default function MapPage({
                             customers={mapCustomers}
                             selectedId={selectedId}
                             onSelect={selectCustomer}
+                            filterActive={filterActive}
                         />
                         {mapCustomers.length === 0 && (
                             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
