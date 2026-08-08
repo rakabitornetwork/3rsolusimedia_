@@ -1,0 +1,1 @@
+import{F as e,Y as t,b as n,i as r,it as i,j as a,t as o,x as s}from"./vendor-ui-Ci6Zy6K3.js";import{d as c}from"./vendor-react-Dyo4ernH.js";var l=c(),u={wifi:r,signal:n,router:a,shield:s,zap:o,radar:e,lock:t,headphones:i};function d({name:e,className:t=`h-5 w-5`}){let n=u[e]||r;return(0,l.jsx)(n,{className:t,strokeWidth:1.75,"aria-hidden":!0})}export{d as t};

@@ -4,7 +4,9 @@ import {
     ArrowDownToLine,
     ArrowUpFromLine,
     Gauge,
+    List,
     LoaderCircle,
+    Map as MapIcon,
     MapPin,
     Radio,
     Search,
@@ -333,7 +335,7 @@ function NetworkMapView({ customers, selectedId, onSelect }) {
     return <div id={mapId} className="h-full min-h-[320px] w-full bg-mist" />;
 }
 
-function DetailPanel({ customer, onClose }) {
+function DetailPanel({ customer, onClose, mobileSheet = false }) {
     const poll = useCustomerTrafficPoll(customer?.id);
     const optical = customer?.optical;
     const tempTone = temperatureTone(optical?.temperature);
@@ -343,8 +345,8 @@ function DetailPanel({ customer, onClose }) {
 
     if (!customer) return null;
 
-    return (
-        <aside className="flex w-full flex-col border-t border-ink/10 bg-white lg:w-[340px] lg:border-t-0 lg:border-l">
+    const panel = (
+        <>
             <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-3">
                 <div className="min-w-0">
                     <p className="truncate font-display text-base font-bold text-ink">{customer.name}</p>
@@ -496,6 +498,20 @@ function DetailPanel({ customer, onClose }) {
                     )}
                 </div>
             </div>
+        </>
+    );
+
+    if (mobileSheet) {
+        return (
+            <div className="absolute inset-x-0 bottom-0 z-[500] flex max-h-[70%] flex-col border-t border-ink/10 bg-white shadow-[0_-8px_30px_rgba(0,0,0,.12)] lg:hidden">
+                {panel}
+            </div>
+        );
+    }
+
+    return (
+        <aside className="hidden w-full flex-col border-t border-ink/10 bg-white lg:flex lg:w-[340px] lg:border-t-0 lg:border-l">
+            {panel}
         </aside>
     );
 }
@@ -509,6 +525,7 @@ export default function MapPage({
     const [q, setQ] = useState(filters.q || '');
     const [status, setStatus] = useState(filters.status || 'all');
     const [selectedId, setSelectedId] = useState(null);
+    const [mobileTab, setMobileTab] = useState('map'); // map | list
 
     const selected = useMemo(
         () => customers.find((item) => item.id === selectedId) || null,
@@ -536,11 +553,130 @@ export default function MapPage({
         setStatus(filters.status || 'all');
     }, [filters.q, filters.status]);
 
+    const selectCustomer = (id) => {
+        setSelectedId(id);
+        const customer = customers.find((item) => item.id === id);
+        if (customer?.on_map) {
+            setMobileTab('map');
+        }
+    };
+
+    const listPanel = (
+        <aside className="flex h-full min-h-0 w-full flex-col lg:w-[340px] lg:shrink-0 lg:border-r lg:border-ink/10">
+            <div className="space-y-2 border-b border-ink/10 p-3">
+                <label className="relative block">
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-ink-soft" />
+                    <input
+                        type="search"
+                        value={q}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setQ(value);
+                            applyFilters(value, status);
+                        }}
+                        placeholder="Cari nama / username / telepon"
+                        className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
+                    />
+                </label>
+                <select
+                    value={status}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        setStatus(value);
+                        applyFilters(q, value);
+                    }}
+                    className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
+                >
+                    {STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <ul className="min-h-0 flex-1 overflow-y-auto">
+                {customers.length === 0 && (
+                    <li className="px-4 py-8 text-center text-sm text-ink-soft">
+                        Tidak ada pelanggan.
+                    </li>
+                )}
+                {customers.map((customer) => {
+                    const active = customer.id === selectedId;
+                    return (
+                        <li key={customer.id}>
+                            <button
+                                type="button"
+                                onClick={() => selectCustomer(customer.id)}
+                                className={`flex w-full items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
+                                    active ? 'bg-signal/10' : 'hover:bg-mist/70'
+                                }`}
+                            >
+                                <span
+                                    className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{ background: markerColor(customer) }}
+                                />
+                                <span className="min-w-0 flex-1">
+                                    <span className="flex items-center gap-2">
+                                        <span className="truncate text-sm font-semibold text-ink">
+                                            {customer.name}
+                                        </span>
+                                        {!customer.on_map && (
+                                            <MapPin className="h-3 w-3 shrink-0 text-amber-600" />
+                                        )}
+                                    </span>
+                                    <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
+                                        {customer.username}
+                                    </span>
+                                    <span className="mt-1 flex flex-wrap gap-1.5">
+                                        <span
+                                            className={`px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass(customer.status)}`}
+                                        >
+                                            {STATUS_LABEL[customer.status] || customer.status}
+                                        </span>
+                                        {customer.optical?.rx_power_label && (
+                                            <span className="bg-ink/5 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
+                                                RX {customer.optical.rx_power_label}
+                                            </span>
+                                        )}
+                                        {customer.session_online && (
+                                            <span className="inline-flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                <Activity className="h-2.5 w-2.5" />
+                                                online
+                                            </span>
+                                        )}
+                                    </span>
+                                </span>
+                            </button>
+                        </li>
+                    );
+                })}
+            </ul>
+        </aside>
+    );
+
+    const mapPanel = (
+        <div className="relative min-h-0 min-w-0 flex-1">
+            <NetworkMapView
+                customers={mapCustomers}
+                selectedId={selectedId}
+                onSelect={selectCustomer}
+            />
+            {mapCustomers.length === 0 && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
+                    <p className="max-w-sm border border-ink/10 bg-white px-4 py-3 text-center text-sm text-ink-soft shadow-sm">
+                        Belum ada pelanggan dengan koordinat GPS pada filter ini.
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <AdminLayout title="Peta Jaringan" subtitle="Sebaran pelanggan, optik ONT, dan live trafik">
             <Head title="Peta Jaringan" />
 
-            <div className="-mx-4 -my-6 flex h-[calc(100dvh-7.5rem)] min-h-[560px] flex-col overflow-hidden border-y border-ink/10 bg-white sm:-mx-6 lg:-mx-8">
+            <div className="-mx-4 -my-6 flex h-[calc(100dvh-7.5rem)] min-h-[480px] flex-col overflow-hidden border-y border-ink/10 bg-white sm:-mx-6 lg:-mx-8">
                 <div className="flex flex-wrap items-center gap-3 border-b border-ink/10 bg-mist/40 px-4 py-2.5 text-xs text-ink-soft sm:px-5">
                     <span>
                         <strong className="text-ink">{stats.total ?? 0}</strong> pelanggan
@@ -560,7 +696,9 @@ export default function MapPage({
                     {!opticalMeta.enabled && (
                         <>
                             <span className="text-ink/20">·</span>
-                            <span className="text-amber-700">GenieACS nonaktif</span>
+                            <span className="text-amber-700">
+                                {opticalMeta.message || 'GenieACS belum dikonfigurasi'}
+                            </span>
                         </>
                     )}
                     {opticalMeta.enabled && opticalMeta.ok === false && opticalMeta.message && (
@@ -571,106 +709,54 @@ export default function MapPage({
                     )}
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-                    <aside className="flex w-full shrink-0 flex-col border-b border-ink/10 lg:w-[340px] lg:border-r lg:border-b-0">
-                        <div className="space-y-2 border-b border-ink/10 p-3">
-                            <label className="relative block">
-                                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-ink-soft" />
-                                <input
-                                    type="search"
-                                    value={q}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        setQ(value);
-                                        applyFilters(value, status);
-                                    }}
-                                    placeholder="Cari nama / username / telepon"
-                                    className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
-                                />
-                            </label>
-                            <select
-                                value={status}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setStatus(value);
-                                    applyFilters(q, value);
-                                }}
-                                className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
-                            >
-                                {STATUS_OPTIONS.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+                {/* Mobile tabs: Peta | Daftar */}
+                <div className="grid grid-cols-2 border-b border-ink/10 lg:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setMobileTab('map')}
+                        className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold transition ${
+                            mobileTab === 'map'
+                                ? 'border-b-2 border-signal text-signal-deep'
+                                : 'text-ink-soft'
+                        }`}
+                    >
+                        <MapIcon className="h-4 w-4" />
+                        Peta
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMobileTab('list')}
+                        className={`inline-flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-semibold transition ${
+                            mobileTab === 'list'
+                                ? 'border-b-2 border-signal text-signal-deep'
+                                : 'text-ink-soft'
+                        }`}
+                    >
+                        <List className="h-4 w-4" />
+                        Daftar
+                    </button>
+                </div>
 
-                        <ul className="min-h-0 flex-1 overflow-y-auto">
-                            {customers.length === 0 && (
-                                <li className="px-4 py-8 text-center text-sm text-ink-soft">
-                                    Tidak ada pelanggan.
-                                </li>
-                            )}
-                            {customers.map((customer) => {
-                                const active = customer.id === selectedId;
-                                return (
-                                    <li key={customer.id}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelectedId(customer.id)}
-                                            className={`flex w-full items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
-                                                active
-                                                    ? 'bg-signal/10'
-                                                    : 'hover:bg-mist/70'
-                                            }`}
-                                        >
-                                            <span
-                                                className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                                                style={{ background: markerColor(customer) }}
-                                            />
-                                            <span className="min-w-0 flex-1">
-                                                <span className="flex items-center gap-2">
-                                                    <span className="truncate text-sm font-semibold text-ink">
-                                                        {customer.name}
-                                                    </span>
-                                                    {!customer.on_map && (
-                                                        <MapPin className="h-3 w-3 shrink-0 text-amber-600" />
-                                                    )}
-                                                </span>
-                                                <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
-                                                    {customer.username}
-                                                </span>
-                                                <span className="mt-1 flex flex-wrap gap-1.5">
-                                                    <span
-                                                        className={`px-1.5 py-0.5 text-[10px] font-semibold ${statusBadgeClass(customer.status)}`}
-                                                    >
-                                                        {STATUS_LABEL[customer.status] || customer.status}
-                                                    </span>
-                                                    {customer.optical?.rx_power_label && (
-                                                        <span className="bg-ink/5 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
-                                                            RX {customer.optical.rx_power_label}
-                                                        </span>
-                                                    )}
-                                                    {customer.session_online && (
-                                                        <span className="inline-flex items-center gap-0.5 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                                            <Activity className="h-2.5 w-2.5" />
-                                                            online
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </span>
-                                        </button>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    </aside>
+                {/* Mobile body */}
+                <div className="relative flex min-h-0 flex-1 flex-col lg:hidden">
+                    {mobileTab === 'map' ? mapPanel : listPanel}
+                    {selected && (
+                        <DetailPanel
+                            customer={selected}
+                            onClose={() => setSelectedId(null)}
+                            mobileSheet
+                        />
+                    )}
+                </div>
 
-                    <div className="relative min-h-[280px] min-w-0 flex-1">
+                {/* Desktop body */}
+                <div className="hidden min-h-0 flex-1 lg:flex">
+                    {listPanel}
+                    <div className="relative min-h-0 min-w-0 flex-1">
                         <NetworkMapView
                             customers={mapCustomers}
                             selectedId={selectedId}
-                            onSelect={setSelectedId}
+                            onSelect={selectCustomer}
                         />
                         {mapCustomers.length === 0 && (
                             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
@@ -680,7 +766,6 @@ export default function MapPage({
                             </div>
                         )}
                     </div>
-
                     {selected && (
                         <DetailPanel customer={selected} onClose={() => setSelectedId(null)} />
                     )}

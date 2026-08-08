@@ -57,15 +57,17 @@ class NetworkMapController extends Controller
         $customers = $query->get();
 
         $opticalIndex = [];
+        $configured = $this->genie->isConfigured();
         $opticalMeta = [
-            'enabled' => $this->genie->isEnabled(),
+            'enabled' => $configured,
             'ok' => false,
             'message' => null,
             'matched' => 0,
             'total' => 0,
         ];
 
-        if ($this->genie->isEnabled()) {
+        // Samakan perilaku halaman GenieACS: cukup URL NBI terisi (flag enabled sering terlewat).
+        if ($configured) {
             $opticalResult = $this->genie->opticalIndexByPppoeUsername();
             $opticalMeta['ok'] = (bool) ($opticalResult['ok'] ?? false);
             $opticalMeta['message'] = $opticalResult['message'] ?? null;
@@ -73,7 +75,7 @@ class NetworkMapController extends Controller
             $opticalMeta['total'] = (int) ($opticalResult['total'] ?? 0);
             $opticalIndex = $opticalResult['index'] ?? [];
         } else {
-            $opticalMeta['message'] = 'GenieACS belum diaktifkan.';
+            $opticalMeta['message'] = 'URL NBI GenieACS belum dikonfigurasi.';
         }
 
         $onlineByRouter = $this->activeSessionUsernamesByRouter(
