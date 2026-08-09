@@ -5,6 +5,8 @@ import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
+const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
+
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal';
 
@@ -20,6 +22,7 @@ export default function Sessions({
     routers,
     selected_router_id,
     sessions,
+    unknown_usernames = [],
     filters,
     stats,
     error,
@@ -30,17 +33,17 @@ export default function Sessions({
     const [selected, setSelected] = useState([]);
     const [showImport, setShowImport] = useState(false);
     const [loadingSecret, setLoadingSecret] = useState(false);
-    const [onlyUnknown, setOnlyUnknown] = useState(false);
 
-    const visibleSessions = useMemo(() => {
-        if (!onlyUnknown) return sessions;
-        return sessions.filter((s) => !s.customer_id);
-    }, [sessions, onlyUnknown]);
+    const rows = sessions?.data ?? [];
 
-    const unknownUsernames = useMemo(
-        () => sessions.filter((s) => !s.customer_id).map((s) => s.name).filter(Boolean),
-        [sessions],
+    const pageUnknownUsernames = useMemo(
+        () => rows.filter((s) => !s.customer_id).map((s) => s.name).filter(Boolean),
+        [rows],
     );
+
+    const allPageUnknownSelected =
+        pageUnknownUsernames.length > 0 &&
+        pageUnknownUsernames.every((name) => selected.includes(name));
 
     const importForm = useForm({
         mikrotik_router_id: selected_router_id || '',
@@ -53,22 +56,29 @@ export default function Sessions({
         isolir_profile: isolir_profiles[0]?.name || '',
     });
 
-    const changeRouter = (routerId) => {
+    const browse = (overrides = {}) => {
         setSelected([]);
-        setShowImport(false);
         router.get(
             '/admin/customers/pppoe/sessions',
-            { router_id: routerId, q: filters.q || '' },
+            {
+                router_id: selected_router_id,
+                q: filters.q || '',
+                only_unknown: filters.only_unknown ? 1 : undefined,
+                per_page: filters.per_page || 25,
+                page: 1,
+                ...overrides,
+            },
             { preserveState: true, replace: true },
         );
     };
 
+    const changeRouter = (routerId) => {
+        setShowImport(false);
+        browse({ router_id: routerId, q: '', only_unknown: undefined, page: 1 });
+    };
+
     const applySearch = (value) => {
-        router.get(
-            '/admin/customers/pppoe/sessions',
-            { router_id: selected_router_id, q: value },
-            { preserveState: true, replace: true },
-        );
+        browse({ q: value, page: 1 });
     };
 
     const searchLive = useDebouncedCallback((value) => {
@@ -76,11 +86,13 @@ export default function Sessions({
     });
 
     const refresh = () => {
-        router.get(
-            '/admin/customers/pppoe/sessions',
-            { router_id: selected_router_id, q: filters.q || '' },
-            { preserveState: true, replace: true },
-        );
+        browse({ page: sessions?.current_page || 1 });
+    };
+
+    const goToPage = (url) => {
+        if (!url) return;
+        setSelected([]);
+        router.get(url, {}, { preserveState: true });
     };
 
     const disconnect = (session) => {
@@ -115,11 +127,11 @@ export default function Sessions({
     };
 
     const toggleAllUnknown = () => {
-        if (selected.length === unknownUsernames.length) {
-            setSelected([]);
+        if (allPageUnknownSelected) {
+            setSelected((prev) => prev.filter((name) => !pageUnknownUsernames.includes(name)));
             return;
         }
-        setSelected([...unknownUsernames]);
+        setSelected((prev) => [...new Set([...prev, ...pageUnknownUsernames])]);
     };
 
     const openImport = async (usernames) => {
@@ -249,11 +261,34 @@ export default function Sessions({
                         />
                     </div>
 
+                    <label className="block text-sm text-ink">
+                        <span className="sr-only">Baris / halaman</span>
+                        <select
+                            value={filters.per_page || 25}
+                            onChange={(e) =>
+                                browse({ per_page: Number(e.target.value), page: 1 })
+                            }
+                            className="border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
+                            title="Baris / halaman"
+                        >
+                            {PER_PAGE_OPTIONS.map((n) => (
+                                <option key={n} value={n}>
+                                    {n} / halaman
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
                     <label className="inline-flex items-center gap-2 border border-ink/10 bg-white px-3 py-2 text-xs font-semibold text-ink">
                         <input
                             type="checkbox"
-                            checked={onlyUnknown}
-                            onChange={(e) => setOnlyUnknown(e.target.checked)}
+                            checked={Boolean(filters.only_unknown)}
+                            onChange={(e) =>
+                                browse({
+                                    only_unknown: e.target.checked ? 1 : undefined,
+                                    page: 1,
+                                })
+                            }
                             className="accent-signal-deep"
                         />
                         Hanya belum terdaftar
@@ -261,19 +296,19 @@ export default function Sessions({
                 </div>
 
                 <div className="admin-toolbar-actions">
-                    {unknownUsernames.length > 0 && (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => openImport(selected.length ? selected : unknownUsernames)}
-                                className="btn-action btn-action-xs btn-warn"
-                            >
-                                <Users className="mr-1.5 h-3.5 w-3.5 text-amber-700" />
-                                {selected.length
-                                    ? `Daftarkan terpilih (${selected.length})`
-                                    : `Daftarkan semua (${unknownUsernames.length})`}
-                            </button>
-                        </>
+                    {unknown_usernames.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                openImport(selected.length ? selected : unknown_usernames)
+                            }
+                            className="btn-action btn-action-xs btn-warn"
+                        >
+                            <Users className="mr-1.5 h-3.5 w-3.5 text-amber-700" />
+                            {selected.length
+                                ? `Daftarkan terpilih (${selected.length})`
+                                : `Daftarkan semua (${unknown_usernames.length})`}
+                        </button>
                     )}
                     <button
                         type="button"
@@ -466,16 +501,13 @@ export default function Sessions({
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
                             <th className="px-3 py-3 font-semibold">
-                                {unknownUsernames.length > 0 && (
+                                {pageUnknownUsernames.length > 0 && (
                                     <input
                                         type="checkbox"
-                                        checked={
-                                            selected.length > 0 &&
-                                            selected.length === unknownUsernames.length
-                                        }
+                                        checked={allPageUnknownSelected}
                                         onChange={toggleAllUnknown}
                                         className="accent-signal-deep"
-                                        title="Pilih semua belum terdaftar"
+                                        title="Pilih semua belum terdaftar di halaman ini"
                                     />
                                 )}
                             </th>
@@ -489,7 +521,7 @@ export default function Sessions({
                         </tr>
                     </thead>
                     <tbody>
-                        {visibleSessions.map((session) => (
+                        {rows.map((session) => (
                             <tr key={session.id} className="border-b border-ink/5 last:border-0">
                                 <td className="px-3 py-3">
                                     {!session.customer_id && (
@@ -557,18 +589,43 @@ export default function Sessions({
                                 </td>
                             </tr>
                         ))}
-                        {visibleSessions.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     Tidak ada sesi PPPoE aktif
                                     {filters.q ? ' untuk pencarian ini' : ' di router ini'}
-                                    {onlyUnknown ? ' yang belum terdaftar' : ''}.
+                                    {filters.only_unknown ? ' yang belum terdaftar' : ''}.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {sessions?.last_page > 1 && (
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-ink-soft">
+                        Menampilkan {sessions.from ?? 0}–{sessions.to ?? 0} dari {sessions.total}{' '}
+                        sesi
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {sessions.links.map((link, index) => (
+                            <button
+                                key={`${link.label}-${index}`}
+                                type="button"
+                                disabled={!link.url}
+                                onClick={() => goToPage(link.url)}
+                                className={`px-3 py-1.5 text-xs font-semibold ${
+                                    link.active
+                                        ? 'bg-signal-deep text-white'
+                                        : 'border border-ink/10 text-ink-soft hover:bg-mist'
+                                } disabled:opacity-40`}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }
