@@ -652,15 +652,16 @@ class MikrotikApiService
         $quantity = max(1, min(100, (int) ($options['quantity'] ?? 1)));
         $prefix = (string) ($options['prefix'] ?? 'VC');
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
+        $format = (string) ($options['code_format'] ?? 'alphanumeric');
         $passwordMode = ($options['password_mode'] ?? 'same') === 'random' ? 'random' : 'same';
         $created = [];
         $errors = [];
 
         for ($i = 0; $i < $quantity; $i++) {
-            $code = $this->randomVoucherCode($length);
+            $code = $this->generateVoucherCode($length, $format);
             $name = $prefix !== '' ? $prefix.$code : $code;
             $password = $passwordMode === 'random'
-                ? $this->randomVoucherCode($length)
+                ? $this->generateVoucherCode($length, $format)
                 : $name;
 
             $result = $this->createHotspotUser($router, [
@@ -698,6 +699,11 @@ class MikrotikApiService
             'message' => $message,
             'vouchers' => $created,
         ];
+    }
+
+    public function generateVoucherCode(int $length, string $format = 'alphanumeric'): string
+    {
+        return $this->randomVoucherCode($length, $format);
     }
 
     /**
@@ -739,9 +745,15 @@ class MikrotikApiService
         }
     }
 
-    private function randomVoucherCode(int $length): string
+    private function randomVoucherCode(int $length, string $format = 'alphanumeric'): string
     {
-        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $chars = match ($format) {
+            'numeric' => '23456789',
+            'letters' => 'ABCDEFGHJKLMNPQRSTUVWXYZ',
+            'hex' => '0123456789ABCDEF',
+            default => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+        };
+
         $max = strlen($chars) - 1;
         $code = '';
 

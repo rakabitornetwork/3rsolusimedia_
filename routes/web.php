@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\GenieAcsController;
 use App\Http\Controllers\Admin\HotspotProfileController;
 use App\Http\Controllers\Admin\HotspotSessionController;
 use App\Http\Controllers\Admin\HotspotVoucherController;
+use App\Http\Controllers\Admin\HotspotVoucherReportController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\NetworkMapController;
@@ -77,7 +78,10 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/network/hotspot', [HotspotVoucherController::class, 'index'])->name('network.hotspot');
     Route::get('/network/hotspot/generate', [HotspotVoucherController::class, 'create'])->name('network.hotspot.generate');
+    Route::get('/network/hotspot/reports', [HotspotVoucherReportController::class, 'index'])->name('network.hotspot.reports');
+    Route::get('/network/hotspot/print', [HotspotVoucherController::class, 'printCards'])->name('network.hotspot.print');
     Route::post('/network/hotspot', [HotspotVoucherController::class, 'store'])->name('network.hotspot.store');
+    Route::post('/network/hotspot/purge', [HotspotVoucherController::class, 'purge'])->name('network.hotspot.purge');
 
     Route::get('/network/hotspot/sessions', [HotspotSessionController::class, 'index'])->name('network.hotspot.sessions');
     Route::delete('/network/hotspot/sessions/{router}/{session}', [HotspotSessionController::class, 'disconnect'])

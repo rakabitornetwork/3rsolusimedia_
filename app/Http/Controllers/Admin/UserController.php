@@ -227,7 +227,7 @@ class UserController extends Controller
             ]));
         }
 
-        return $request->validate([
+        $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => [
                 'required',
@@ -236,6 +236,7 @@ class UserController extends Controller
                 Rule::unique('users', 'email')->ignore($existing?->id),
             ],
             'role' => ['required', Rule::in($allowedRoles)],
+            'voucher_commission' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'assigned_customer_ids' => ['nullable', 'array'],
             'assigned_customer_ids.*' => ['integer', 'exists:pppoe_customers,id'],
             'password' => [
@@ -246,6 +247,14 @@ class UserController extends Controller
             'avatar' => ['nullable', 'image', 'max:2048'],
             'remove_avatar' => ['sometimes', 'boolean'],
         ]);
+
+        if (($validated['role'] ?? null) !== User::ROLE_AGEN) {
+            $validated['voucher_commission'] = 0;
+        } else {
+            $validated['voucher_commission'] = (int) ($validated['voucher_commission'] ?? 0);
+        }
+
+        return $validated;
     }
 
     private function storeAvatar(Request $request): ?string

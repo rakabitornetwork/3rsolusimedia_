@@ -11,3 +11,6 @@ Artisan::command('inspire', function () {
 // Jalankan sinkronisasi & auto isolir pelanggan jatuh tempo setiap 30 menit
 Schedule::command('pppoe:sync-overdue')->everyThirtyMinutes();
 
+// Bersihkan voucher hotspot terpakai dari RouterOS & aplikasi
+Schedule::command('hotspot:purge-used')->everyFiveMinutes();
+

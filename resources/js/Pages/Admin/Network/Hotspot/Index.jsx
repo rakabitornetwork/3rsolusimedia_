@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus, Power, Trash2 } from 'lucide-react';
+import { BarChart3, Plus, Power, Printer, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
@@ -20,9 +20,11 @@ export default function Index({
     users,
     profiles,
     error,
+    purged_message,
     filters,
     stats,
     generated_vouchers,
+    generated_batch_id,
 }) {
     const [showGenerated, setShowGenerated] = useState(
         Boolean(generated_vouchers?.length),
@@ -64,9 +66,19 @@ export default function Index({
         );
     };
 
+    const purgeUsed = () => {
+        if (!selected_router_id) return;
+        if (!window.confirm('Hapus semua voucher terpakai dari aplikasi dan RouterOS?')) return;
+        router.post('/admin/network/hotspot/purge', { router_id: selected_router_id });
+    };
+
     const copyGenerated = async () => {
         const text = (generated_vouchers || [])
-            .map((item) => `${item.name}\t${item.password}`)
+            .map((item) => {
+                const price = item.sell_price_label || '';
+                const agent = item.agent_name ? `\t${item.agent_name}` : '';
+                return `${item.username}\t${item.password}${agent}\t${price}`;
+            })
             .join('\n');
         try {
             await navigator.clipboard.writeText(text);
@@ -87,6 +99,11 @@ export default function Index({
                     {error}
                 </div>
             )}
+            {purged_message && (
+                <div className="mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    {purged_message}
+                </div>
+            )}
 
             {showGenerated && generated_vouchers?.length > 0 && (
                 <div className="mb-5 border border-signal/20 bg-white p-4">
@@ -96,11 +113,22 @@ export default function Index({
                                 Voucher baru ({generated_vouchers.length})
                             </p>
                             <p className="text-xs text-ink-soft">
-                                Simpan username/password sekarang. Setelah refresh, password bisa
-                                tidak ditampilkan ulang.
+                                Kartu menampilkan harga jual (dasar + komisi agen). Cetak atau salin
+                                sekarang.
                             </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            {generated_batch_id && (
+                                <a
+                                    href={`/admin/network/hotspot/print?batch_id=${encodeURIComponent(generated_batch_id)}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn-action btn-action-xs btn-print"
+                                >
+                                    <Printer className="mr-1 h-3.5 w-3.5" />
+                                    Cetak kartu
+                                </a>
+                            )}
                             <button
                                 type="button"
                                 onClick={copyGenerated}
@@ -117,21 +145,67 @@ export default function Index({
                             </button>
                         </div>
                     </div>
+
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 print:hidden">
+                        {generated_vouchers.map((item) => (
+                            <div
+                                key={item.id || item.username}
+                                className="border border-ink/15 bg-gradient-to-br from-white to-mist/60 p-4"
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <p className="text-[11px] tracking-wide text-ink-soft uppercase">
+                                            Hotspot Voucher
+                                        </p>
+                                        <p className="mt-1 font-mono text-lg font-semibold text-ink">
+                                            {item.username}
+                                        </p>
+                                    </div>
+                                    <p className="text-sm font-bold text-signal-deep">
+                                        {item.sell_price_label || 'Rp 0'}
+                                    </p>
+                                </div>
+                                <p className="mt-2 text-xs text-ink-soft">
+                                    Password:{' '}
+                                    <span className="font-mono text-ink">{item.password}</span>
+                                </p>
+                                {item.agent_name && (
+                                    <p className="mt-1 text-xs text-ink-soft">
+                                        Agen: <span className="text-ink">{item.agent_name}</span>
+                                    </p>
+                                )}
+                                {item.limit_uptime && (
+                                    <p className="mt-1 text-xs text-ink-soft">
+                                        Durasi: {item.limit_uptime}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
                     <div className="admin-data-scroll max-h-56 overflow-y-auto border border-ink/10">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                                 <tr>
                                     <th className="px-3 py-2">Username</th>
                                     <th className="px-3 py-2">Password</th>
+                                    <th className="px-3 py-2">Agen</th>
+                                    <th className="px-3 py-2">Harga kartu</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {generated_vouchers.map((item) => (
-                                    <tr key={item.name} className="border-t border-ink/5">
+                                    <tr key={item.username} className="border-t border-ink/5">
                                         <td className="px-3 py-2 font-medium text-ink">
-                                            {item.name}
+                                            {item.username}
                                         </td>
                                         <td className="px-3 py-2 text-ink-soft">{item.password}</td>
+                                        <td className="px-3 py-2 text-ink-soft">
+                                            {item.agent_name || '—'}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium text-ink">
+                                            {item.sell_price_label || 'Rp 0'}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -174,7 +248,7 @@ export default function Index({
                     <input
                         type="search"
                         defaultValue={filters.q}
-                        placeholder="Cari username / comment"
+                        placeholder="Cari username / comment / agen"
                         onChange={(e) => searchLive(e.currentTarget.value)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -210,6 +284,22 @@ export default function Index({
 
                 <div className="admin-toolbar-actions">
                     <Link
+                        href="/admin/network/hotspot/reports"
+                        className="btn-action btn-action-sm btn-secondary"
+                    >
+                        <BarChart3 className="mr-1.5 h-4 w-4" />
+                        Laporan
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={purgeUsed}
+                        disabled={!selected_router_id}
+                        className="btn-action btn-action-sm btn-warn"
+                    >
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                        Hapus terpakai
+                    </button>
+                    <Link
                         href={`/admin/network/hotspot/generate${
                             selected_router_id ? `?router_id=${selected_router_id}` : ''
                         }`}
@@ -227,8 +317,9 @@ export default function Index({
                         <tr>
                             <th className="px-4 py-3 font-semibold">Username</th>
                             <th className="px-4 py-3 font-semibold">Profile</th>
-                            <th className="hidden px-4 py-3 font-semibold md:table-cell">Limit</th>
-                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">Usage</th>
+                            <th className="hidden px-4 py-3 font-semibold md:table-cell">Agen / Harga</th>
+                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">Limit</th>
+                            <th className="hidden px-4 py-3 font-semibold xl:table-cell">Usage</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
@@ -244,10 +335,16 @@ export default function Index({
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">{user.profile || '—'}</td>
                                 <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                                    <p>{user.agent_name || '—'}</p>
+                                    <p className="text-xs font-medium text-ink">
+                                        {user.sell_price_label || '—'}
+                                    </p>
+                                </td>
+                                <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     <p>{user.limit_uptime || '—'}</p>
                                     <p className="text-xs">{formatBytes(user.limit_bytes_total)}</p>
                                 </td>
-                                <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
+                                <td className="hidden px-4 py-3 text-ink-soft xl:table-cell">
                                     <p>{user.uptime || '—'}</p>
                                     <p className="text-xs">
                                         ↓ {formatBytes(user.bytes_in)} / ↑{' '}
@@ -293,7 +390,7 @@ export default function Index({
                         ))}
                         {users.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
                                         ? 'Belum ada voucher, atau filter tidak cocok.'
                                         : 'Pilih atau tambahkan router terlebih dahulu.'}

@@ -78,7 +78,14 @@ export const adminNav = [
                 exclude: [
                     '/admin/network/hotspot/profiles',
                     '/admin/network/hotspot/sessions',
+                    '/admin/network/hotspot/reports',
                 ],
+            },
+            {
+                label: 'Laporan Voucher',
+                href: '/admin/network/hotspot/reports',
+                icon: BarChart3,
+                match: ['/admin/network/hotspot/reports'],
             },
             {
                 label: 'Sesi Aktif',

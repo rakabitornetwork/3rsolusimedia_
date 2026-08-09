@@ -66,4 +66,9 @@ class MikrotikRouter extends Model
     {
         return $this->hasMany(PppoeCustomer::class);
     }
+
+    public function hotspotVouchers(): HasMany
+    {
+        return $this->hasMany(HotspotVoucher::class);
+    }
 }

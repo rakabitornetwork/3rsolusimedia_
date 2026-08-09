@@ -16,6 +16,7 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
         name: user?.name || '',
         email: user?.email || '',
         role: user?.role || role_options[0]?.value || 'admin',
+        voucher_commission: user?.voucher_commission ?? 0,
         assigned_customer_ids: user?.assigned_customer_ids || [],
         password: '',
         password_confirmation: '',
@@ -78,6 +79,12 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
 
             if (payload.role !== 'agen') {
                 delete payload.assigned_customer_ids;
+                payload.voucher_commission = 0;
+            } else {
+                payload.voucher_commission =
+                    payload.voucher_commission === '' || payload.voucher_commission == null
+                        ? 0
+                        : Number(payload.voucher_commission);
             }
 
             if (!payload.password) {
@@ -255,6 +262,35 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
                                     : 'Pilih Semua'}
                             </button>
                         </div>
+
+                        <label className="mt-4 block text-sm font-medium text-ink">
+                            Komisi voucher (Rp)
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={data.voucher_commission}
+                                onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                        setData('voucher_commission', '');
+                                        return;
+                                    }
+                                    if (!/^\d+$/.test(raw)) return;
+                                    setData('voucher_commission', raw.replace(/^0+(?=\d)/, ''));
+                                }}
+                                className={`${fieldClass} bg-white`}
+                                placeholder="500"
+                            />
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Komisi default saat generate voucher untuk agen ini. Contoh: harga
+                                dasar 1500 + komisi 500 = harga jual kartu 2000.
+                            </span>
+                            {errors.voucher_commission && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.voucher_commission}
+                                </span>
+                            )}
+                        </label>
 
                         <div className="mt-3">
                             <input
