@@ -53,9 +53,11 @@ export default function Index({
     );
     const [selectedIds, setSelectedIds] = useState([]);
 
+    const rows = users?.data ?? [];
+
     const printableUsers = useMemo(
-        () => users.filter((user) => Boolean(user.voucher_id)),
-        [users],
+        () => rows.filter((user) => Boolean(user.voucher_id)),
+        [rows],
     );
 
     const allSelected =
@@ -90,7 +92,7 @@ export default function Index({
         setSelectedIds([]);
         router.get(
             '/admin/network/hotspot',
-            { ...filters, router_id: selected_router_id, [key]: value },
+            { ...filters, router_id: selected_router_id, page: 1, [key]: value },
             { preserveState: true, replace: true },
         );
     };
@@ -106,6 +108,12 @@ export default function Index({
             { router_id: routerId },
             { preserveState: true, replace: true },
         );
+    };
+
+    const goToPage = (url) => {
+        if (!url) return;
+        setSelectedIds([]);
+        router.get(url, {}, { preserveState: true });
     };
 
     const remove = (user) => {
@@ -132,7 +140,7 @@ export default function Index({
             return;
         }
 
-        const count = users.filter(
+        const count = stats?.shown ?? rows.filter(
             (user) => trimComment(user.comment) === comment,
         ).length;
 
@@ -454,7 +462,7 @@ export default function Index({
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map((user) => (
+                        {rows.map((user) => (
                             <tr
                                 key={user.id || user.name}
                                 className="border-b border-ink/5 last:border-0"
@@ -532,7 +540,7 @@ export default function Index({
                                 </td>
                             </tr>
                         ))}
-                        {users.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
@@ -544,6 +552,30 @@ export default function Index({
                     </tbody>
                 </table>
             </div>
+
+            {users?.last_page > 1 && (
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-ink-soft">
+                        Menampilkan {users.from ?? 0}–{users.to ?? 0} dari {users.total} voucher
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {users.links.map((link, index) => (
+                            <button
+                                key={`${link.label}-${index}`}
+                                type="button"
+                                disabled={!link.url}
+                                onClick={() => goToPage(link.url)}
+                                className={`px-3 py-1.5 text-xs font-semibold ${
+                                    link.active
+                                        ? 'bg-signal-deep text-white'
+                                        : 'border border-ink/10 text-ink-soft hover:bg-mist'
+                                } disabled:opacity-40`}
+                                dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

@@ -10,6 +10,7 @@ use App\Services\HotspotVoucherService;
 use App\Services\MikrotikApiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -117,13 +118,29 @@ class HotspotVoucherController extends Controller
             ->when($statusFilter === 'active', fn ($collection) => $collection->where('disabled', false))
             ->values();
 
+        $page = max(1, (int) $request->integer('page', 1));
+        $perPage = 15;
+        $totalFiltered = $filtered->count();
+        $pageItems = $filtered->forPage($page, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $pageItems,
+            $totalFiltered,
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+
         $generated = session('generated_vouchers', []);
         $generatedBatchId = session('generated_batch_id');
 
         return Inertia::render('Admin/Network/Hotspot/Index', [
             'routers' => $routers->values(),
             'selected_router_id' => $selected?->id,
-            'users' => $filtered,
+            'users' => $paginator,
             'profiles' => $profiles,
             'comments' => $comments,
             'error' => $error,
@@ -139,7 +156,7 @@ class HotspotVoucherController extends Controller
                 'total' => count($users),
                 'online' => $activeCount,
                 'disabled' => collect($users)->where('disabled', true)->count(),
-                'shown' => $filtered->count(),
+                'shown' => $totalFiltered,
             ],
             'generated_vouchers' => $generated,
             'generated_batch_id' => $generatedBatchId,
