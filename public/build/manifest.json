@@ -204,7 +204,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-CU84-On6.css",
+    "file": "assets/app-Dn9KfMU4.css",
     "name": "app",
     "names": [
       "app.css"
@@ -484,7 +484,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/PrintCards.jsx": {
-    "file": "assets/PrintCards-CwxlLg3K.js",
+    "file": "assets/PrintCards-DrEUuuwz.js",
     "name": "PrintCards",
     "src": "resources/js/Pages/Admin/Network/Hotspot/PrintCards.jsx",
     "isDynamicEntry": true,
@@ -495,7 +495,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx": {
-    "file": "assets/Form-ZTDJ0pr7.js",
+    "file": "assets/Form-Dj66mOwj.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx",
     "isDynamicEntry": true,
@@ -506,7 +506,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx": {
-    "file": "assets/Index-B71N4YFJ.js",
+    "file": "assets/Index-DSRXeS0_.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx",
     "isDynamicEntry": true,
@@ -822,7 +822,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-HKdgfIFp.js",
+    "file": "assets/app-Duwr0RaY.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -872,7 +872,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-CU84-On6.css"
+      "assets/app-Dn9KfMU4.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

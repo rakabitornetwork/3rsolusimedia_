@@ -1,13 +1,19 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import AdminLayout from '../../../../../Layouts/AdminLayout';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
-export default function Form({ profile, routers, selected_router_id }) {
+export default function Form({
+    profile,
+    routers,
+    selected_router_id,
+    parent_queues = [],
+    expired_modes = [],
+}) {
     const editing = Boolean(profile);
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, put, processing, errors, transform } = useForm({
         router_id: selected_router_id || routers[0]?.id || '',
         name: profile?.name || '',
         rate_limit: profile?.rate_limit || '',
@@ -15,10 +21,22 @@ export default function Form({ profile, routers, selected_router_id }) {
         idle_timeout: profile?.idle_timeout || '',
         shared_users: profile?.shared_users ? Number(profile.shared_users) : 1,
         address_list: profile?.address_list || '',
+        expired_mode: profile?.expired_mode || 'remove',
+        lock_user: Boolean(profile?.lock_user),
+        parent_queue: profile?.parent_queue || '',
     });
 
     const submit = (e) => {
         e.preventDefault();
+
+        transform((form) => ({
+            ...form,
+            shared_users: Number(form.shared_users || 1),
+            lock_user: Boolean(form.lock_user),
+            parent_queue: form.parent_queue || null,
+            expired_mode: form.expired_mode || null,
+        }));
+
         if (editing) {
             put(
                 `/admin/network/hotspot/profiles/${selected_router_id}/${encodeURIComponent(profile.id)}`,
@@ -44,7 +62,17 @@ export default function Form({ profile, routers, selected_router_id }) {
                         Router
                         <select
                             value={data.router_id || ''}
-                            onChange={(e) => setData('router_id', e.target.value)}
+                            onChange={(e) => {
+                                const routerId = e.target.value;
+                                setData('router_id', routerId);
+                                if (routerId) {
+                                    router.get(
+                                        '/admin/network/hotspot/profiles/create',
+                                        { router_id: routerId },
+                                        { preserveState: false, replace: true },
+                                    );
+                                }
+                            }}
                             className={fieldClass}
                             required
                         >
@@ -140,6 +168,85 @@ export default function Form({ profile, routers, selected_router_id }) {
                             className={fieldClass}
                             placeholder="opsional"
                         />
+                    </label>
+                </div>
+
+                <div className="border border-ink/10 bg-mist/30 p-4">
+                    <p className="text-sm font-semibold text-ink">Kontrol expired & antrian</p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                        Sesuaikan perilaku saat voucher habis, penguncian MAC, dan parent queue
+                        MikroTik.
+                    </p>
+
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Expired mode
+                            <select
+                                value={data.expired_mode || ''}
+                                onChange={(e) => setData('expired_mode', e.target.value)}
+                                className={fieldClass}
+                            >
+                                {expired_modes.map((mode) => (
+                                    <option key={mode.value} value={mode.value}>
+                                        {mode.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                {expired_modes.find((mode) => mode.value === data.expired_mode)
+                                    ?.description || 'Perilaku saat limit waktu/kuota habis'}
+                            </span>
+                            {errors.expired_mode && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.expired_mode}
+                                </span>
+                            )}
+                        </label>
+
+                        <label className="block text-sm font-medium text-ink">
+                            Parent queue
+                            <select
+                                value={data.parent_queue || ''}
+                                onChange={(e) => setData('parent_queue', e.target.value)}
+                                className={fieldClass}
+                            >
+                                <option value="">Tanpa parent queue</option>
+                                {parent_queues.map((queue) => (
+                                    <option key={queue.name} value={queue.name}>
+                                        {queue.name}
+                                        {queue.target ? ` (${queue.target})` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Ambil dari `/queue/simple` di RouterOS
+                            </span>
+                            {errors.parent_queue && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.parent_queue}
+                                </span>
+                            )}
+                        </label>
+                    </div>
+
+                    <label className="mt-4 flex cursor-pointer items-start gap-3 border border-ink/10 bg-white px-3 py-3">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(data.lock_user)}
+                            onChange={(e) => setData('lock_user', e.target.checked)}
+                            className="mt-0.5 h-4 w-4 border-ink/30 text-signal focus:ring-signal"
+                        />
+                        <span>
+                            <span className="block text-sm font-medium text-ink">Lock user</span>
+                            <span className="mt-0.5 block text-xs text-ink-soft">
+                                Kunci voucher ke MAC address perangkat pertama yang login.
+                            </span>
+                            {errors.lock_user && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.lock_user}
+                                </span>
+                            )}
+                        </span>
                     </label>
                 </div>
 

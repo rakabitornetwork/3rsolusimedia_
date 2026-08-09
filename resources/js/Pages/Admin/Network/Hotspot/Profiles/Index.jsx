@@ -72,22 +72,37 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         <tr>
                             <th className="px-4 py-3 font-semibold">Nama</th>
                             <th className="px-4 py-3 font-semibold">Rate Limit</th>
-                            <th className="px-4 py-3 font-semibold">Session / Idle</th>
-                            <th className="px-4 py-3 font-semibold">Shared Users</th>
-                            <th className="px-4 py-3 font-semibold">Address List</th>
+                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">
+                                Session / Idle
+                            </th>
+                            <th className="px-4 py-3 font-semibold">Expired</th>
+                            <th className="hidden px-4 py-3 font-semibold md:table-cell">Lock</th>
+                            <th className="hidden px-4 py-3 font-semibold xl:table-cell">
+                                Parent Queue
+                            </th>
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         {profiles.map((item) => (
                             <tr key={item.id || item.name} className="border-b border-ink/5 last:border-0">
-                                <td className="px-4 py-3 font-medium text-ink">{item.name}</td>
+                                <td className="px-4 py-3">
+                                    <p className="font-medium text-ink">{item.name}</p>
+                                    <p className="text-xs text-ink-soft md:hidden">
+                                        Lock: {item.lock_user ? 'Ya' : 'Tidak'}
+                                    </p>
+                                </td>
                                 <td className="px-4 py-3 text-ink-soft">{item.rate_limit || '—'}</td>
-                                <td className="px-4 py-3 text-ink-soft">
+                                <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {(item.session_timeout || '—') + ' / ' + (item.idle_timeout || '—')}
                                 </td>
-                                <td className="px-4 py-3 text-ink-soft">{item.shared_users || '—'}</td>
-                                <td className="px-4 py-3 text-ink-soft">{item.address_list || '—'}</td>
+                                <td className="px-4 py-3 text-ink-soft">{item.expired_mode || '—'}</td>
+                                <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                                    {item.lock_user ? 'Ya' : 'Tidak'}
+                                </td>
+                                <td className="hidden px-4 py-3 text-ink-soft xl:table-cell">
+                                    {item.parent_queue || '—'}
+                                </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
                                         <Link
@@ -110,7 +125,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         ))}
                         {profiles.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
                                         ? 'Belum ada hotspot user profile di router ini.'
                                         : 'Pilih atau tambahkan router terlebih dahulu.'}

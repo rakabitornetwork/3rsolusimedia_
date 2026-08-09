@@ -7,6 +7,7 @@ use App\Models\MikrotikRouter;
 use App\Services\MikrotikApiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -56,11 +57,14 @@ class HotspotProfileController extends Controller
 
         $routerId = (int) $request->query('router_id', $routers->first()->id);
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
+        $router = MikrotikRouter::query()->findOrFail($selected->id);
 
         return Inertia::render('Admin/Network/Hotspot/Profiles/Form', [
             'profile' => null,
             'routers' => $routers->values(),
             'selected_router_id' => $selected->id,
+            'parent_queues' => $this->api->listSimpleQueues($router)['queues'] ?? [],
+            'expired_modes' => $this->expiredModes(),
         ]);
     }
 
@@ -93,6 +97,8 @@ class HotspotProfileController extends Controller
             'profile' => $result['profile'],
             'routers' => $this->activeRouters()->values(),
             'selected_router_id' => $router->id,
+            'parent_queues' => $this->api->listSimpleQueues($router)['queues'] ?? [],
+            'expired_modes' => $this->expiredModes(),
         ]);
     }
 
@@ -143,12 +149,44 @@ class HotspotProfileController extends Controller
             'idle_timeout' => ['nullable', 'string', 'max:40'],
             'shared_users' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'address_list' => ['nullable', 'string', 'max:120'],
+            'expired_mode' => ['nullable', 'string', Rule::in(['remove', 'notice', 'remove,notice'])],
+            'lock_user' => ['nullable', 'boolean'],
+            'parent_queue' => ['nullable', 'string', 'max:120'],
         ];
 
         if ($requireRouter) {
             $rules['router_id'] = ['required', 'exists:mikrotik_routers,id'];
         }
 
-        return $request->validate($rules);
+        $validated = $request->validate($rules);
+        $validated['lock_user'] = $request->boolean('lock_user');
+        $validated['parent_queue'] = trim((string) ($validated['parent_queue'] ?? '')) ?: null;
+        $validated['expired_mode'] = trim((string) ($validated['expired_mode'] ?? '')) ?: null;
+
+        return $validated;
+    }
+
+    /**
+     * @return array<int, array{value: string, label: string, description: string}>
+     */
+    private function expiredModes(): array
+    {
+        return [
+            [
+                'value' => 'remove',
+                'label' => 'Remove',
+                'description' => 'Hapus user hotspot setelah expired',
+            ],
+            [
+                'value' => 'notice',
+                'label' => 'Notice',
+                'description' => 'Tampilkan halaman notice, user tetap ada',
+            ],
+            [
+                'value' => 'remove,notice',
+                'label' => 'Remove + Notice',
+                'description' => 'Hapus user lalu arahkan ke halaman notice',
+            ],
+        ];
     }
 }

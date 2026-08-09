@@ -382,6 +382,38 @@ class MikrotikApiService
     }
 
     /**
+     * @return array{ok: bool, message?: string, queues?: array<int, array{name: string, target: ?string}>}
+     */
+    public function listSimpleQueues(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/queue/simple/print'))->read();
+
+            $queues = collect($rows)
+                ->map(fn (array $row) => [
+                    'name' => $row['name'] ?? '',
+                    'target' => $row['target'] ?? null,
+                ])
+                ->filter(fn (array $row) => $row['name'] !== '')
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->all();
+
+            return [
+                'ok' => true,
+                'queues' => $queues,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'queues' => [],
+            ];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message?: string, queue_types?: array<int, array{name: string, kind: ?string}>}
      */
     public function listQueueTypes(MikrotikRouter $router): array
@@ -1414,11 +1446,10 @@ class MikrotikApiService
     /**
      * @return array<string, mixed>
      */
-    /**
-     * @return array<string, mixed>
-     */
     private function mapHotspotUserProfile(array $row): array
     {
+        $lockUser = $row['lock-user'] ?? null;
+
         return [
             'id' => $row['.id'] ?? '',
             'name' => $row['name'] ?? '',
@@ -1427,11 +1458,23 @@ class MikrotikApiService
             'idle_timeout' => $row['idle-timeout'] ?? null,
             'shared_users' => $row['shared-users'] ?? null,
             'address_list' => $row['address-list'] ?? null,
+            'expired_mode' => $row['expired-mode'] ?? null,
+            'lock_user' => $lockUser === 'true' || $lockUser === true || $lockUser === 'yes',
+            'parent_queue' => $row['parent-queue'] ?? null,
         ];
     }
 
     /**
-     * @param  array{rate_limit?: ?string, session_timeout?: ?string, idle_timeout?: ?string, shared_users?: ?int|string, address_list?: ?string}  $data
+     * @param  array{
+     *     rate_limit?: ?string,
+     *     session_timeout?: ?string,
+     *     idle_timeout?: ?string,
+     *     shared_users?: ?int|string,
+     *     address_list?: ?string,
+     *     expired_mode?: ?string,
+     *     lock_user?: bool|string|null,
+     *     parent_queue?: ?string
+     * }  $data
      */
     private function applyHotspotUserProfileFields(Query $query, array $data): void
     {
@@ -1443,6 +1486,8 @@ class MikrotikApiService
                 ? (string) $data['shared_users']
                 : null,
             'address-list' => $data['address_list'] ?? null,
+            'expired-mode' => $data['expired_mode'] ?? null,
+            'parent-queue' => $data['parent_queue'] ?? null,
         ];
 
         foreach ($fields as $key => $value) {
@@ -1451,6 +1496,13 @@ class MikrotikApiService
             }
 
             $query->equal($key, (string) $value);
+        }
+
+        if (array_key_exists('lock_user', $data)) {
+            $lock = filter_var($data['lock_user'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($lock !== null) {
+                $query->equal('lock-user', $lock ? 'yes' : 'no');
+            }
         }
     }
 
