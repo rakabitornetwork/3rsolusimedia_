@@ -207,10 +207,11 @@ function CardArt({ theme, uid }) {
     );
 }
 
-function Card({ item }) {
+function Card({ item, number }) {
     const uid = useId().replace(/:/g, '');
     const theme = themeForPrice(item.sell_price);
     const voucherCode = item.username || item.password || '';
+    const seq = String(number).padStart(2, '0');
 
     return (
         <article
@@ -234,7 +235,10 @@ function Card({ item }) {
                             )}
                             <span className="voucher-card__brand">Hotspot</span>
                         </div>
-                        <span className="voucher-card__tier">{theme.label}</span>
+                        <div className="voucher-card__hero-meta">
+                            <span className="voucher-card__seq">#{seq}</span>
+                            <span className="voucher-card__tier">{theme.label}</span>
+                        </div>
                     </div>
                     <p className="voucher-card__price">{item.sell_price_label || 'Rp 0'}</p>
                 </div>
@@ -448,6 +452,25 @@ export default function PrintCards({ vouchers = [] }) {
                     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
                 }
 
+                .voucher-card__hero-meta {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 0.35mm;
+                    flex-shrink: 0;
+                }
+
+                .voucher-card__seq {
+                    font-size: 5.4pt;
+                    font-weight: 800;
+                    letter-spacing: 0.04em;
+                    line-height: 1;
+                    padding: 0.45mm 0.9mm;
+                    background: rgba(0, 0, 0, 0.22);
+                    border: 0.25pt solid rgba(255, 255, 255, 0.4);
+                    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+                }
+
                 .voucher-card__tier {
                     font-size: 5pt;
                     font-weight: 700;
@@ -620,8 +643,12 @@ export default function PrintCards({ vouchers = [] }) {
                         className="voucher-sheet"
                         aria-label={`Lembar ${pageIndex + 1}`}
                     >
-                        {pageCards.map((item) => (
-                            <Card key={item.id || item.username} item={item} />
+                        {pageCards.map((item, cardIndex) => (
+                            <Card
+                                key={item.id || item.username}
+                                item={item}
+                                number={pageIndex * CARDS_PER_PAGE + cardIndex + 1}
+                            />
                         ))}
                     </section>
                 ))}
