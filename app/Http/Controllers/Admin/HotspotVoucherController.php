@@ -58,6 +58,7 @@ class HotspotVoucherController extends Controller
         $q = trim((string) $request->get('q', ''));
         $profileFilter = (string) $request->get('profile', '');
         $statusFilter = (string) $request->get('status', '');
+        $commentFilter = trim((string) $request->get('comment', ''));
 
         $metaByName = $selected
             ? HotspotVoucher::query()
@@ -67,7 +68,7 @@ class HotspotVoucherController extends Controller
                 ->keyBy('username')
             : collect();
 
-        $filtered = collect($users)
+        $enriched = collect($users)
             ->map(function (array $user) use ($metaByName) {
                 /** @var HotspotVoucher|null $meta */
                 $meta = $metaByName->get($user['name'] ?? '');
@@ -83,8 +84,19 @@ class HotspotVoucherController extends Controller
                     'sell_price_label' => $meta
                         ? 'Rp '.number_format((int) $meta->sell_price, 0, ',', '.')
                         : null,
+                    'comment' => trim((string) ($user['comment'] ?? $meta?->comment ?? '')),
                 ];
-            })
+            });
+
+        $comments = $enriched
+            ->pluck('comment')
+            ->map(fn ($comment) => trim((string) $comment))
+            ->filter(fn ($comment) => $comment !== '')
+            ->unique()
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        $filtered = $enriched
             ->when($q !== '', function ($collection) use ($q) {
                 $needle = mb_strtolower($q);
 
@@ -95,6 +107,11 @@ class HotspotVoucherController extends Controller
                 });
             })
             ->when($profileFilter !== '', fn ($collection) => $collection->where('profile', $profileFilter))
+            ->when($commentFilter !== '', function ($collection) use ($commentFilter) {
+                return $collection->filter(
+                    fn (array $user) => trim((string) ($user['comment'] ?? '')) === $commentFilter
+                );
+            })
             ->when($statusFilter === 'online', fn ($collection) => $collection->where('is_online', true))
             ->when($statusFilter === 'disabled', fn ($collection) => $collection->where('disabled', true))
             ->when($statusFilter === 'active', fn ($collection) => $collection->where('disabled', false))
@@ -108,11 +125,13 @@ class HotspotVoucherController extends Controller
             'selected_router_id' => $selected?->id,
             'users' => $filtered,
             'profiles' => $profiles,
+            'comments' => $comments,
             'error' => $error,
             'purged_message' => $purgedMessage,
             'filters' => [
                 'q' => $q,
                 'profile' => $profileFilter,
+                'comment' => $commentFilter,
                 'status' => $statusFilter,
                 'router_id' => $selected?->id,
             ],

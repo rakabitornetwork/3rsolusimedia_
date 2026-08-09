@@ -25,6 +25,7 @@ export default function Index({
     selected_router_id,
     users,
     profiles,
+    comments = [],
     error,
     purged_message,
     filters,
@@ -290,7 +291,7 @@ export default function Index({
                     <input
                         type="search"
                         defaultValue={filters.q}
-                        placeholder="Cari username / comment / agen"
+                        placeholder="Cari username / agen"
                         onChange={(e) => searchLive(e.currentTarget.value)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
@@ -300,6 +301,19 @@ export default function Index({
                         }}
                         className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     />
+                    <select
+                        value={filters.comment || ''}
+                        onChange={(e) => changeFilter('comment', e.target.value)}
+                        className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:min-w-[200px] sm:w-auto"
+                        title="Filter berdasarkan komentar untuk cetak ulang"
+                    >
+                        <option value="">Semua komentar</option>
+                        {comments.map((comment) => (
+                            <option key={comment} value={comment}>
+                                {comment}
+                            </option>
+                        ))}
+                    </select>
                     <select
                         value={filters.profile || ''}
                         onChange={(e) => changeFilter('profile', e.target.value)}
