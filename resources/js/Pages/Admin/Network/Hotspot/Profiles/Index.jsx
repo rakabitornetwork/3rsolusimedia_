@@ -8,7 +8,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
         router.get(
             '/admin/network/hotspot/profiles',
             { router_id: routerId },
-            { preserveState: true, replace: true },
+            { preserveState: false, replace: true },
         );
     };
 

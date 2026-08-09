@@ -35,6 +35,10 @@ export default function Form({
             lock_user: Boolean(form.lock_user),
             parent_queue: form.parent_queue || null,
             expired_mode: form.expired_mode || null,
+            rate_limit: form.rate_limit || null,
+            session_timeout: form.session_timeout || null,
+            idle_timeout: form.idle_timeout || null,
+            address_list: form.address_list || null,
         }));
 
         if (editing) {
@@ -193,8 +197,9 @@ export default function Form({
                                 ))}
                             </select>
                             <span className="mt-1 block text-xs text-ink-soft">
-                                {expired_modes.find((mode) => mode.value === data.expired_mode)
-                                    ?.description || 'Perilaku saat limit waktu/kuota habis'}
+                                {(expired_modes.find((mode) => mode.value === data.expired_mode)
+                                    ?.description || 'Perilaku saat voucher expired') +
+                                    '. Disimpan di on-login RouterOS; validity memakai Session timeout.'}
                             </span>
                             {errors.expired_mode && (
                                 <span className="mt-1 block text-xs text-red-600">

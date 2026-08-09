@@ -567,7 +567,7 @@ class MikrotikApiService
             $client = $this->makeClient($router);
             $query = (new Query('/ip/hotspot/user/profile/add'))->equal('name', $data['name']);
             $this->applyHotspotUserProfileFields($query, $data);
-            $client->query($query)->read();
+            $this->assertWriteOk($client->query($query)->read());
 
             return ['ok' => true, 'message' => 'Profile hotspot berhasil ditambahkan di RouterOS.'];
         } catch (Throwable $e) {
@@ -587,7 +587,7 @@ class MikrotikApiService
                 ->equal('.id', $profileId)
                 ->equal('name', $data['name']);
             $this->applyHotspotUserProfileFields($query, $data);
-            $client->query($query)->read();
+            $this->assertWriteOk($client->query($query)->read());
 
             return ['ok' => true, 'message' => 'Profile hotspot berhasil diperbarui di RouterOS.'];
         } catch (Throwable $e) {
@@ -602,9 +602,11 @@ class MikrotikApiService
     {
         try {
             $client = $this->makeClient($router);
-            $client->query(
-                (new Query('/ip/hotspot/user/profile/remove'))->equal('.id', $profileId)
-            )->read();
+            $this->assertWriteOk(
+                $client->query(
+                    (new Query('/ip/hotspot/user/profile/remove'))->equal('.id', $profileId)
+                )->read()
+            );
 
             return ['ok' => true, 'message' => 'Profile hotspot berhasil dihapus dari RouterOS.'];
         } catch (Throwable $e) {
@@ -1448,7 +1450,12 @@ class MikrotikApiService
      */
     private function mapHotspotUserProfile(array $row): array
     {
-        $lockUser = $row['lock-user'] ?? null;
+        $onLogin = (string) ($row['on-login'] ?? '');
+        $parsed = $this->parseHotspotProfileOnLogin($onLogin);
+        $parentQueue = $row['parent-queue'] ?? null;
+        if (is_string($parentQueue) && in_array(strtolower($parentQueue), ['none', ''], true)) {
+            $parentQueue = null;
+        }
 
         return [
             'id' => $row['.id'] ?? '',
@@ -1458,9 +1465,10 @@ class MikrotikApiService
             'idle_timeout' => $row['idle-timeout'] ?? null,
             'shared_users' => $row['shared-users'] ?? null,
             'address_list' => $row['address-list'] ?? null,
-            'expired_mode' => $row['expired-mode'] ?? null,
-            'lock_user' => $lockUser === 'true' || $lockUser === true || $lockUser === 'yes',
-            'parent_queue' => $row['parent-queue'] ?? null,
+            'expired_mode' => $parsed['expired_mode'],
+            'lock_user' => $parsed['lock_user'],
+            'parent_queue' => $parentQueue,
+            'on_login' => $onLogin !== '' ? $onLogin : null,
         ];
     }
 
@@ -1478,6 +1486,8 @@ class MikrotikApiService
      */
     private function applyHotspotUserProfileFields(Query $query, array $data): void
     {
+        // Native RouterOS /ip/hotspot/user/profile fields only.
+        // expired-mode / lock-user are NOT RouterOS properties — they live in on-login.
         $fields = [
             'rate-limit' => $data['rate_limit'] ?? null,
             'session-timeout' => $data['session_timeout'] ?? null,
@@ -1486,7 +1496,6 @@ class MikrotikApiService
                 ? (string) $data['shared_users']
                 : null,
             'address-list' => $data['address_list'] ?? null,
-            'expired-mode' => $data['expired_mode'] ?? null,
             'parent-queue' => $data['parent_queue'] ?? null,
         ];
 
@@ -1498,11 +1507,154 @@ class MikrotikApiService
             $query->equal($key, (string) $value);
         }
 
-        if (array_key_exists('lock_user', $data)) {
-            $lock = filter_var($data['lock_user'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-            if ($lock !== null) {
-                $query->equal('lock-user', $lock ? 'yes' : 'no');
+        if (array_key_exists('parent_queue', $data) && ($data['parent_queue'] === null || $data['parent_queue'] === '')) {
+            $query->equal('parent-queue', 'none');
+        }
+
+        if (array_key_exists('expired_mode', $data) || array_key_exists('lock_user', $data)) {
+            $query->equal('on-login', $this->buildHotspotProfileOnLogin($data));
+        }
+    }
+
+    /**
+     * Build Mikhmon-compatible on-login script for expire mode + MAC lock.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function buildHotspotProfileOnLogin(array $data): string
+    {
+        $expiredMode = trim((string) ($data['expired_mode'] ?? ''));
+        $lockUser = (bool) filter_var($data['lock_user'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $validity = trim((string) ($data['session_timeout'] ?? ''));
+        if ($validity === '' || strtolower($validity) === '0s') {
+            $validity = '1d';
+        }
+
+        $modeKey = match ($expiredMode) {
+            'notice' => 'ntf',
+            'remove,notice' => 'remc',
+            'remove' => 'rem',
+            default => '',
+        };
+        $scriptMode = $modeKey === 'ntf' ? 'N' : 'X';
+        $lockLabel = $lockUser ? 'Enable' : 'Disable';
+
+        $lines = [];
+
+        if ($modeKey !== '') {
+            // Header parsed back by mapHotspotUserProfile / compatible with Mikhmon monitors.
+            $lines[] = sprintf(
+                ':put (",%s,0,%s,0,,%s,Disable,");',
+                $modeKey,
+                $validity,
+                $lockLabel
+            );
+            $lines[] = sprintf(':local mode "%s";', $scriptMode);
+            $lines[] = '{';
+            $lines[] = ' :local date [ /system clock get date ];';
+            $lines[] = ' :local year [ :pick $date 7 11 ];';
+            $lines[] = ' :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment];';
+            $lines[] = ' :local ucode [:pick $comment 0 2];';
+            $lines[] = ' :if ($ucode = "vc" or $ucode = "up" or $comment = "") do={';
+            $lines[] = sprintf('  /sys sch add name="$user" disable=no start-date=$date interval="%s";', $validity);
+            $lines[] = '  :delay 2s;';
+            $lines[] = '  :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run];';
+            $lines[] = '  :local getxp [:len $exp];';
+            $lines[] = '  :if ($getxp = 15) do={';
+            $lines[] = '   :local d [:pick $exp 0 6];';
+            $lines[] = '   :local t [:pick $exp 7 16];';
+            $lines[] = '   :local exp ("$d/$year $t");';
+            $lines[] = '   /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            $lines[] = '  };';
+            $lines[] = '  :if ($getxp = 8) do={';
+            $lines[] = '   /ip hotspot user set comment="$date $exp $mode" [find where name="$user"];';
+            $lines[] = '  };';
+            $lines[] = '  :if ($getxp > 15) do={';
+            $lines[] = '   /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            $lines[] = '  };';
+            $lines[] = '  /sys sch remove [find where name="$user"];';
+            $lines[] = ' };';
+            $lines[] = '}';
+        } else {
+            $lines[] = sprintf(':put (",0,0,%s,0,,%s,Disable,");', $validity, $lockLabel);
+        }
+
+        if ($lockUser) {
+            $lines[] = '[:local mac "$mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return array{expired_mode: ?string, lock_user: bool}
+     */
+    private function parseHotspotProfileOnLogin(string $onLogin): array
+    {
+        $expiredMode = null;
+        $lockUser = false;
+
+        if ($onLogin === '') {
+            return ['expired_mode' => null, 'lock_user' => false];
+        }
+
+        if (preg_match('/:put\s*\(\s*",([^"]*)"/i', $onLogin, $matches)) {
+            $parts = array_map('trim', explode(',', $matches[1]));
+            $mode = strtolower((string) ($parts[0] ?? ''));
+            $expiredMode = match ($mode) {
+                'rem', 'remove', 'x' => 'remove',
+                'ntf', 'notice', 'n' => 'notice',
+                'remc', 'ntfc', 'remove,notice' => 'remove,notice',
+                default => null,
+            };
+
+            $lock = strtolower((string) ($parts[5] ?? ''));
+            $lockUser = in_array($lock, ['enable', 'yes', 'true', '1'], true);
+        }
+
+        if (
+            ! $lockUser
+            && (
+                str_contains($onLogin, 'set mac-address=$mac')
+                || str_contains($onLogin, 'set mac-address=$mac-address')
+            )
+        ) {
+            $lockUser = true;
+        }
+
+        return [
+            'expired_mode' => $expiredMode,
+            'lock_user' => $lockUser,
+        ];
+    }
+
+    /**
+     * RouterOS API returns !trap as parsed "after.message" without throwing.
+     *
+     * @param  array<int|string, mixed>  $response
+     */
+    private function assertWriteOk(array $response): void
+    {
+        $message = null;
+
+        if (isset($response['after']) && is_array($response['after'])) {
+            $message = $response['after']['message'] ?? null;
+        }
+
+        if (! is_string($message) || $message === '') {
+            foreach ($response as $row) {
+                if (is_array($row) && isset($row['message']) && is_string($row['message']) && $row['message'] !== '') {
+                    // Ignore successful print rows; traps often land as message-only entries.
+                    if (! isset($row['.id']) && ! isset($row['name'])) {
+                        $message = $row['message'];
+                        break;
+                    }
+                }
             }
+        }
+
+        if (is_string($message) && $message !== '') {
+            throw new ClientException($message);
         }
     }
 

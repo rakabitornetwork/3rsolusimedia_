@@ -495,7 +495,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx": {
-    "file": "assets/Form-Dj66mOwj.js",
+    "file": "assets/Form-CYkBTPya.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx",
     "isDynamicEntry": true,
@@ -506,7 +506,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx": {
-    "file": "assets/Index-DSRXeS0_.js",
+    "file": "assets/Index-B9mppl2A.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx",
     "isDynamicEntry": true,
@@ -822,7 +822,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Duwr0RaY.js",
+    "file": "assets/app-IVErVhai.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
