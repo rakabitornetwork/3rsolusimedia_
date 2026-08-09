@@ -210,7 +210,7 @@ function CardArt({ theme, uid }) {
 function Card({ item }) {
     const uid = useId().replace(/:/g, '');
     const theme = themeForPrice(item.sell_price);
-    const meta = [item.profile, item.limit_uptime].filter(Boolean).join(' · ');
+    const voucherCode = item.username || item.password || '';
 
     return (
         <article
@@ -228,7 +228,12 @@ function Card({ item }) {
                 <CardArt theme={theme} uid={uid} />
                 <div className="voucher-card__hero-content">
                     <div className="voucher-card__hero-top">
-                        <span className="voucher-card__brand">Hotspot</span>
+                        <div className="voucher-card__brand-block">
+                            {item.agent_name && (
+                                <span className="voucher-card__agent">{item.agent_name}</span>
+                            )}
+                            <span className="voucher-card__brand">Hotspot</span>
+                        </div>
                         <span className="voucher-card__tier">{theme.label}</span>
                     </div>
                     <p className="voucher-card__price">{item.sell_price_label || 'Rp 0'}</p>
@@ -237,22 +242,18 @@ function Card({ item }) {
 
             <div className="voucher-card__body">
                 <div className="voucher-card__creds">
-                    <div className="voucher-card__row">
-                        <span className="voucher-card__label">User</span>
-                        <span className="voucher-card__value">{item.username}</span>
-                    </div>
-                    <div className="voucher-card__row">
-                        <span className="voucher-card__label">Pass</span>
-                        <span className="voucher-card__value">{item.password}</span>
+                    <div className="voucher-card__row voucher-card__row--voucher">
+                        <span className="voucher-card__label">Voucher</span>
+                        <span className="voucher-card__value">{voucherCode}</span>
                     </div>
                 </div>
 
-                {(meta || item.agent_name) && (
-                    <div className="voucher-card__footer">
-                        {meta && <span>{meta}</span>}
-                        {item.agent_name && <span>Agen: {item.agent_name}</span>}
-                    </div>
-                )}
+                <div className="voucher-card__footer">
+                    <span className="voucher-card__hint">
+                        Portal tidak muncul? Ketik DNS hotspot di browser.
+                    </span>
+                    {item.profile && <span>{item.profile}</span>}
+                </div>
             </div>
         </article>
     );
@@ -378,8 +379,8 @@ export default function PrintCards({ vouchers = [] }) {
 
                 .voucher-card__hero {
                     position: relative;
-                    height: 38%;
-                    min-height: 11mm;
+                    height: 40%;
+                    min-height: 11.5mm;
                     overflow: hidden;
                     color: #fff;
                 }
@@ -408,6 +409,28 @@ export default function PrintCards({ vouchers = [] }) {
                     align-items: center;
                     justify-content: space-between;
                     gap: 1mm;
+                }
+
+                .voucher-card__brand-block {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.25mm;
+                    min-width: 0;
+                    max-width: 70%;
+                }
+
+                .voucher-card__agent {
+                    font-size: 4.8pt;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
+                    line-height: 1.1;
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    opacity: 0.92;
+                    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
                 }
 
                 .voucher-card__brand {
@@ -462,10 +485,17 @@ export default function PrintCards({ vouchers = [] }) {
 
                 .voucher-card__row {
                     display: grid;
-                    grid-template-columns: 8.5mm 1fr;
+                    grid-template-columns: 11mm 1fr;
                     align-items: center;
                     gap: 0.7mm;
                     min-width: 0;
+                }
+
+                .voucher-card__row--voucher .voucher-card__value {
+                    font-size: 8.4pt;
+                    text-align: center;
+                    letter-spacing: 0.04em;
+                    padding: 0.55mm 0.8mm;
                 }
 
                 .voucher-card__label {
@@ -495,17 +525,29 @@ export default function PrintCards({ vouchers = [] }) {
                 .voucher-card__footer {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.15mm;
-                    font-size: 5pt;
+                    gap: 0.2mm;
+                    font-size: 4.6pt;
                     color: var(--vc-soft);
-                    line-height: 1.15;
+                    line-height: 1.2;
                     overflow: hidden;
+                }
+
+                .voucher-card__hint {
+                    color: var(--vc-ink);
+                    font-weight: 600;
+                    white-space: normal;
+                    overflow: visible;
+                    text-overflow: unset;
                 }
 
                 .voucher-card__footer span {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
+                }
+
+                .voucher-card__footer .voucher-card__hint {
+                    white-space: normal;
                 }
 
                 @media print {

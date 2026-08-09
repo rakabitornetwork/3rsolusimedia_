@@ -1,4 +1,4 @@
-import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-ui-DpqPrKLc.js";import{d as n,m as r}from"./vendor-react-Dyo4ernH.js";var i=e(r(),1),a=n(),o=56,s=7,c=8,l=[{max:0,key:`free`,label:`Gratis`,from:`#64748b`,to:`#1e293b`,accent:`#94a3b8`,ink:`#0f172a`,soft:`#334155`,chip:`#e2e8f0`},{max:2999,key:`starter`,label:`Starter`,from:`#34d399`,to:`#047857`,accent:`#a7f3d0`,ink:`#064e3b`,soft:`#065f46`,chip:`#d1fae5`},{max:4999,key:`basic`,label:`Basic`,from:`#22d3ee`,to:`#0e7490`,accent:`#a5f3fc`,ink:`#164e63`,soft:`#155e75`,chip:`#cffafe`},{max:9999,key:`standard`,label:`Standard`,from:`#60a5fa`,to:`#1d4ed8`,accent:`#bfdbfe`,ink:`#1e3a8a`,soft:`#1e40af`,chip:`#dbeafe`},{max:14999,key:`plus`,label:`Plus`,from:`#a78bfa`,to:`#6d28d9`,accent:`#ddd6fe`,ink:`#4c1d95`,soft:`#5b21b6`,chip:`#ede9fe`},{max:24999,key:`gold`,label:`Gold`,from:`#fbbf24`,to:`#b45309`,accent:`#fde68a`,ink:`#78350f`,soft:`#92400e`,chip:`#fef3c7`},{max:1/0,key:`premium`,label:`Premium`,from:`#fb7185`,to:`#9f1239`,accent:`#fecdd3`,ink:`#881337`,soft:`#9f1239`,chip:`#ffe4e6`}];function u(e,t){let n=[];for(let r=0;r<e.length;r+=t)n.push(e.slice(r,r+t));return n.length>0?n:[[]]}function d(e){let t=Math.max(0,Number(e)||0);return l.find(e=>t<=e.max)||l[l.length-1]}function f({theme:e,uid:t}){let n=`${t}-grad`,r=`${t}-glow`,i=`${t}-pat`;return e.key===`gold`||e.key===`premium`?(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`55%`,stopColor:e.to}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.from,stopOpacity:`0.85`})]}),(0,a.jsxs)(`radialGradient`,{id:r,cx:`85%`,cy:`15%`,r:`55%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:`#fff`,stopOpacity:`0.55`}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:`#fff`,stopOpacity:`0`})]})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${r})`}),(0,a.jsx)(`path`,{d:`M0 72c28-16 52-8 78 2s48 18 72 4 10-18 10-18v40H0V72Z`,fill:e.accent,opacity:`0.22`}),(0,a.jsx)(`path`,{d:`M118 8l14 14-14 14-14-14 14-14Z`,fill:e.accent,opacity:`0.35`}),(0,a.jsx)(`circle`,{cx:`138`,cy:`78`,r:`18`,fill:e.accent,opacity:`0.18`}),(0,a.jsx)(`path`,{d:`M12 18h28M12 24h18`,stroke:`#fff`,strokeWidth:`1.4`,strokeLinecap:`round`,opacity:`0.35`})]}):e.key===`plus`||e.key===`standard`?(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.to})]}),(0,a.jsx)(`pattern`,{id:i,width:`12`,height:`12`,patternUnits:`userSpaceOnUse`,children:(0,a.jsx)(`circle`,{cx:`1.5`,cy:`1.5`,r:`1.1`,fill:e.accent,opacity:`0.35`})})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${i})`}),(0,a.jsx)(`circle`,{cx:`142`,cy:`16`,r:`28`,fill:e.accent,opacity:`0.2`}),(0,a.jsx)(`circle`,{cx:`142`,cy:`16`,r:`16`,fill:`none`,stroke:`#fff`,strokeWidth:`1.2`,opacity:`0.35`}),(0,a.jsx)(`path`,{d:`M0 78c36-20 70-12 104 4s40 20 56 8v20H0V78Z`,fill:`#fff`,opacity:`0.12`}),(0,a.jsx)(`path`,{d:`M18 22c10 8 26 8 36 0`,fill:`none`,stroke:`#fff`,strokeWidth:`1.6`,strokeLinecap:`round`,opacity:`0.4`})]}):(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.to})]}),(0,a.jsxs)(`radialGradient`,{id:r,cx:`90%`,cy:`10%`,r:`50%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:`#fff`,stopOpacity:`0.45`}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:`#fff`,stopOpacity:`0`})]})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${r})`}),(0,a.jsx)(`circle`,{cx:`148`,cy:`10`,r:`34`,fill:e.accent,opacity:`0.18`}),(0,a.jsx)(`circle`,{cx:`148`,cy:`10`,r:`20`,fill:`none`,stroke:`#fff`,strokeWidth:`1.3`,opacity:`0.3`}),(0,a.jsx)(`path`,{d:`M0 70c34-22 72-26 108-10s42 34 52 28v22H0V70Z`,fill:`#fff`,opacity:`0.14`}),(0,a.jsx)(`path`,{d:`M14 26c12 10 32 10 44 0M10 36c16 14 44 14 60 0`,fill:`none`,stroke:`#fff`,strokeWidth:`1.5`,strokeLinecap:`round`,opacity:`0.35`})]})}function p({item:e}){let t=(0,i.useId)().replace(/:/g,``),n=d(e.sell_price),r=[e.profile,e.limit_uptime].filter(Boolean).join(` · `);return(0,a.jsxs)(`article`,{className:`voucher-card voucher-card--${n.key}`,style:{"--vc-from":n.from,"--vc-to":n.to,"--vc-accent":n.accent,"--vc-ink":n.ink,"--vc-soft":n.soft,"--vc-chip":n.chip},children:[(0,a.jsxs)(`div`,{className:`voucher-card__hero`,children:[(0,a.jsx)(f,{theme:n,uid:t}),(0,a.jsxs)(`div`,{className:`voucher-card__hero-content`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__hero-top`,children:[(0,a.jsx)(`span`,{className:`voucher-card__brand`,children:`Hotspot`}),(0,a.jsx)(`span`,{className:`voucher-card__tier`,children:n.label})]}),(0,a.jsx)(`p`,{className:`voucher-card__price`,children:e.sell_price_label||`Rp 0`})]})]}),(0,a.jsxs)(`div`,{className:`voucher-card__body`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__creds`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__row`,children:[(0,a.jsx)(`span`,{className:`voucher-card__label`,children:`User`}),(0,a.jsx)(`span`,{className:`voucher-card__value`,children:e.username})]}),(0,a.jsxs)(`div`,{className:`voucher-card__row`,children:[(0,a.jsx)(`span`,{className:`voucher-card__label`,children:`Pass`}),(0,a.jsx)(`span`,{className:`voucher-card__value`,children:e.password})]})]}),(r||e.agent_name)&&(0,a.jsxs)(`div`,{className:`voucher-card__footer`,children:[r&&(0,a.jsx)(`span`,{children:r}),e.agent_name&&(0,a.jsxs)(`span`,{children:[`Agen: `,e.agent_name]})]})]})]})}function m({vouchers:e=[]}){let n=(0,i.useMemo)(()=>u(e,o),[e]);return(0,i.useEffect)(()=>{let e=window.setTimeout(()=>window.print(),400);return()=>window.clearTimeout(e)},[]),(0,a.jsxs)(`div`,{className:`voucher-print`,children:[(0,a.jsx)(t,{title:`Cetak Kartu Voucher`}),(0,a.jsx)(`style`,{children:`
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-ui-DpqPrKLc.js";import{d as n,m as r}from"./vendor-react-Dyo4ernH.js";var i=e(r(),1),a=n(),o=56,s=7,c=8,l=[{max:0,key:`free`,label:`Gratis`,from:`#64748b`,to:`#1e293b`,accent:`#94a3b8`,ink:`#0f172a`,soft:`#334155`,chip:`#e2e8f0`},{max:2999,key:`starter`,label:`Starter`,from:`#34d399`,to:`#047857`,accent:`#a7f3d0`,ink:`#064e3b`,soft:`#065f46`,chip:`#d1fae5`},{max:4999,key:`basic`,label:`Basic`,from:`#22d3ee`,to:`#0e7490`,accent:`#a5f3fc`,ink:`#164e63`,soft:`#155e75`,chip:`#cffafe`},{max:9999,key:`standard`,label:`Standard`,from:`#60a5fa`,to:`#1d4ed8`,accent:`#bfdbfe`,ink:`#1e3a8a`,soft:`#1e40af`,chip:`#dbeafe`},{max:14999,key:`plus`,label:`Plus`,from:`#a78bfa`,to:`#6d28d9`,accent:`#ddd6fe`,ink:`#4c1d95`,soft:`#5b21b6`,chip:`#ede9fe`},{max:24999,key:`gold`,label:`Gold`,from:`#fbbf24`,to:`#b45309`,accent:`#fde68a`,ink:`#78350f`,soft:`#92400e`,chip:`#fef3c7`},{max:1/0,key:`premium`,label:`Premium`,from:`#fb7185`,to:`#9f1239`,accent:`#fecdd3`,ink:`#881337`,soft:`#9f1239`,chip:`#ffe4e6`}];function u(e,t){let n=[];for(let r=0;r<e.length;r+=t)n.push(e.slice(r,r+t));return n.length>0?n:[[]]}function d(e){let t=Math.max(0,Number(e)||0);return l.find(e=>t<=e.max)||l[l.length-1]}function f({theme:e,uid:t}){let n=`${t}-grad`,r=`${t}-glow`,i=`${t}-pat`;return e.key===`gold`||e.key===`premium`?(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`55%`,stopColor:e.to}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.from,stopOpacity:`0.85`})]}),(0,a.jsxs)(`radialGradient`,{id:r,cx:`85%`,cy:`15%`,r:`55%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:`#fff`,stopOpacity:`0.55`}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:`#fff`,stopOpacity:`0`})]})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${r})`}),(0,a.jsx)(`path`,{d:`M0 72c28-16 52-8 78 2s48 18 72 4 10-18 10-18v40H0V72Z`,fill:e.accent,opacity:`0.22`}),(0,a.jsx)(`path`,{d:`M118 8l14 14-14 14-14-14 14-14Z`,fill:e.accent,opacity:`0.35`}),(0,a.jsx)(`circle`,{cx:`138`,cy:`78`,r:`18`,fill:e.accent,opacity:`0.18`}),(0,a.jsx)(`path`,{d:`M12 18h28M12 24h18`,stroke:`#fff`,strokeWidth:`1.4`,strokeLinecap:`round`,opacity:`0.35`})]}):e.key===`plus`||e.key===`standard`?(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.to})]}),(0,a.jsx)(`pattern`,{id:i,width:`12`,height:`12`,patternUnits:`userSpaceOnUse`,children:(0,a.jsx)(`circle`,{cx:`1.5`,cy:`1.5`,r:`1.1`,fill:e.accent,opacity:`0.35`})})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${i})`}),(0,a.jsx)(`circle`,{cx:`142`,cy:`16`,r:`28`,fill:e.accent,opacity:`0.2`}),(0,a.jsx)(`circle`,{cx:`142`,cy:`16`,r:`16`,fill:`none`,stroke:`#fff`,strokeWidth:`1.2`,opacity:`0.35`}),(0,a.jsx)(`path`,{d:`M0 78c36-20 70-12 104 4s40 20 56 8v20H0V78Z`,fill:`#fff`,opacity:`0.12`}),(0,a.jsx)(`path`,{d:`M18 22c10 8 26 8 36 0`,fill:`none`,stroke:`#fff`,strokeWidth:`1.6`,strokeLinecap:`round`,opacity:`0.4`})]}):(0,a.jsxs)(`svg`,{className:`voucher-card__art`,viewBox:`0 0 160 100`,preserveAspectRatio:`none`,"aria-hidden":!0,children:[(0,a.jsxs)(`defs`,{children:[(0,a.jsxs)(`linearGradient`,{id:n,x1:`0%`,y1:`0%`,x2:`100%`,y2:`100%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:e.from}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:e.to})]}),(0,a.jsxs)(`radialGradient`,{id:r,cx:`90%`,cy:`10%`,r:`50%`,children:[(0,a.jsx)(`stop`,{offset:`0%`,stopColor:`#fff`,stopOpacity:`0.45`}),(0,a.jsx)(`stop`,{offset:`100%`,stopColor:`#fff`,stopOpacity:`0`})]})]}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${n})`}),(0,a.jsx)(`rect`,{width:`160`,height:`100`,fill:`url(#${r})`}),(0,a.jsx)(`circle`,{cx:`148`,cy:`10`,r:`34`,fill:e.accent,opacity:`0.18`}),(0,a.jsx)(`circle`,{cx:`148`,cy:`10`,r:`20`,fill:`none`,stroke:`#fff`,strokeWidth:`1.3`,opacity:`0.3`}),(0,a.jsx)(`path`,{d:`M0 70c34-22 72-26 108-10s42 34 52 28v22H0V70Z`,fill:`#fff`,opacity:`0.14`}),(0,a.jsx)(`path`,{d:`M14 26c12 10 32 10 44 0M10 36c16 14 44 14 60 0`,fill:`none`,stroke:`#fff`,strokeWidth:`1.5`,strokeLinecap:`round`,opacity:`0.35`})]})}function p({item:e}){let t=(0,i.useId)().replace(/:/g,``),n=d(e.sell_price),r=e.username||e.password||``;return(0,a.jsxs)(`article`,{className:`voucher-card voucher-card--${n.key}`,style:{"--vc-from":n.from,"--vc-to":n.to,"--vc-accent":n.accent,"--vc-ink":n.ink,"--vc-soft":n.soft,"--vc-chip":n.chip},children:[(0,a.jsxs)(`div`,{className:`voucher-card__hero`,children:[(0,a.jsx)(f,{theme:n,uid:t}),(0,a.jsxs)(`div`,{className:`voucher-card__hero-content`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__hero-top`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__brand-block`,children:[e.agent_name&&(0,a.jsx)(`span`,{className:`voucher-card__agent`,children:e.agent_name}),(0,a.jsx)(`span`,{className:`voucher-card__brand`,children:`Hotspot`})]}),(0,a.jsx)(`span`,{className:`voucher-card__tier`,children:n.label})]}),(0,a.jsx)(`p`,{className:`voucher-card__price`,children:e.sell_price_label||`Rp 0`})]})]}),(0,a.jsxs)(`div`,{className:`voucher-card__body`,children:[(0,a.jsx)(`div`,{className:`voucher-card__creds`,children:(0,a.jsxs)(`div`,{className:`voucher-card__row voucher-card__row--voucher`,children:[(0,a.jsx)(`span`,{className:`voucher-card__label`,children:`Voucher`}),(0,a.jsx)(`span`,{className:`voucher-card__value`,children:r})]})}),(0,a.jsxs)(`div`,{className:`voucher-card__footer`,children:[(0,a.jsx)(`span`,{className:`voucher-card__hint`,children:`Portal tidak muncul? Ketik DNS hotspot di browser.`}),e.profile&&(0,a.jsx)(`span`,{children:e.profile})]})]})]})}function m({vouchers:e=[]}){let n=(0,i.useMemo)(()=>u(e,o),[e]);return(0,i.useEffect)(()=>{let e=window.setTimeout(()=>window.print(),400);return()=>window.clearTimeout(e)},[]),(0,a.jsxs)(`div`,{className:`voucher-print`,children:[(0,a.jsx)(t,{title:`Cetak Kartu Voucher`}),(0,a.jsx)(`style`,{children:`
                 @page {
                     size: A4 portrait;
                     margin: 0;
@@ -106,8 +106,8 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-
 
                 .voucher-card__hero {
                     position: relative;
-                    height: 38%;
-                    min-height: 11mm;
+                    height: 40%;
+                    min-height: 11.5mm;
                     overflow: hidden;
                     color: #fff;
                 }
@@ -136,6 +136,28 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-
                     align-items: center;
                     justify-content: space-between;
                     gap: 1mm;
+                }
+
+                .voucher-card__brand-block {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.25mm;
+                    min-width: 0;
+                    max-width: 70%;
+                }
+
+                .voucher-card__agent {
+                    font-size: 4.8pt;
+                    font-weight: 700;
+                    letter-spacing: 0.02em;
+                    line-height: 1.1;
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    opacity: 0.92;
+                    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
                 }
 
                 .voucher-card__brand {
@@ -190,10 +212,17 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-
 
                 .voucher-card__row {
                     display: grid;
-                    grid-template-columns: 8.5mm 1fr;
+                    grid-template-columns: 11mm 1fr;
                     align-items: center;
                     gap: 0.7mm;
                     min-width: 0;
+                }
+
+                .voucher-card__row--voucher .voucher-card__value {
+                    font-size: 8.4pt;
+                    text-align: center;
+                    letter-spacing: 0.04em;
+                    padding: 0.55mm 0.8mm;
                 }
 
                 .voucher-card__label {
@@ -223,17 +252,29 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Ht as t}from"./vendor-
                 .voucher-card__footer {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.15mm;
-                    font-size: 5pt;
+                    gap: 0.2mm;
+                    font-size: 4.6pt;
                     color: var(--vc-soft);
-                    line-height: 1.15;
+                    line-height: 1.2;
                     overflow: hidden;
+                }
+
+                .voucher-card__hint {
+                    color: var(--vc-ink);
+                    font-weight: 600;
+                    white-space: normal;
+                    overflow: visible;
+                    text-overflow: unset;
                 }
 
                 .voucher-card__footer span {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
+                }
+
+                .voucher-card__footer .voucher-card__hint {
+                    white-space: normal;
                 }
 
                 @media print {
