@@ -119,7 +119,10 @@ class HotspotVoucherController extends Controller
             ->values();
 
         $page = max(1, (int) $request->integer('page', 1));
-        $perPage = 15;
+        $perPage = (int) $request->integer('per_page', 25);
+        if (! in_array($perPage, [25, 50, 100, 200, 500], true)) {
+            $perPage = 25;
+        }
         $totalFiltered = $filtered->count();
         $pageItems = $filtered->forPage($page, $perPage)->values();
 
@@ -151,6 +154,7 @@ class HotspotVoucherController extends Controller
                 'comment' => $commentFilter,
                 'status' => $statusFilter,
                 'router_id' => $selected?->id,
+                'per_page' => $perPage,
             ],
             'stats' => [
                 'total' => count($users),

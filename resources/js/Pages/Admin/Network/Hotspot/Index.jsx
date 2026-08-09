@@ -15,6 +15,8 @@ import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
+const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
+
 function formatBytes(value) {
     if (value == null) return '—';
     const n = Number(value);
@@ -105,7 +107,7 @@ export default function Index({
         setSelectedIds([]);
         router.get(
             '/admin/network/hotspot',
-            { router_id: routerId },
+            { router_id: routerId, per_page: filters.per_page || 25 },
             { preserveState: true, replace: true },
         );
     };
@@ -362,6 +364,20 @@ export default function Index({
                         }}
                         className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     />
+                    <label className="block w-full text-sm font-medium text-ink sm:w-auto">
+                        Baris / halaman
+                        <select
+                            value={filters.per_page || 25}
+                            onChange={(e) => changeFilter('per_page', Number(e.target.value))}
+                            className="mt-1.5 block w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-28"
+                        >
+                            {PER_PAGE_OPTIONS.map((n) => (
+                                <option key={n} value={n}>
+                                    {n}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
                     <select
                         value={filters.comment || ''}
                         onChange={(e) => changeFilter('comment', e.target.value)}
