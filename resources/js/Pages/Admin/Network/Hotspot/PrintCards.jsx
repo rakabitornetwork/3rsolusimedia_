@@ -242,10 +242,8 @@ function Card({ item }) {
 
             <div className="voucher-card__body">
                 <div className="voucher-card__creds">
-                    <div className="voucher-card__row voucher-card__row--voucher">
-                        <span className="voucher-card__label">Voucher</span>
-                        <span className="voucher-card__value">{voucherCode}</span>
-                    </div>
+                    <span className="voucher-card__label">Voucher</span>
+                    <span className="voucher-card__value">{voucherCode}</span>
                 </div>
 
                 <div className="voucher-card__footer">
@@ -479,47 +477,38 @@ export default function PrintCards({ vouchers = [] }) {
                 .voucher-card__creds {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.55mm;
-                    min-height: 0;
-                }
-
-                .voucher-card__row {
-                    display: grid;
-                    grid-template-columns: 11mm 1fr;
-                    align-items: center;
-                    gap: 0.7mm;
+                    align-items: stretch;
+                    gap: 0.4mm;
                     min-width: 0;
-                }
-
-                .voucher-card__row--voucher .voucher-card__value {
-                    font-size: 8.4pt;
-                    text-align: center;
-                    letter-spacing: 0.04em;
-                    padding: 0.55mm 0.8mm;
+                    max-width: 100%;
                 }
 
                 .voucher-card__label {
-                    font-size: 5.4pt;
+                    font-size: 5pt;
                     font-weight: 700;
-                    letter-spacing: 0.04em;
+                    letter-spacing: 0.06em;
                     text-transform: uppercase;
                     color: var(--vc-soft);
                     line-height: 1;
                 }
 
                 .voucher-card__value {
+                    box-sizing: border-box;
+                    width: 100%;
+                    max-width: 100%;
                     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-                    font-size: 7.8pt;
+                    font-size: 7.2pt;
                     font-weight: 800;
-                    letter-spacing: 0.02em;
+                    letter-spacing: 0.03em;
                     color: var(--vc-ink);
-                    line-height: 1.1;
+                    line-height: 1.15;
+                    text-align: center;
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
                     background: color-mix(in srgb, var(--vc-chip) 55%, white);
                     border: 0.25pt solid color-mix(in srgb, var(--vc-accent) 40%, white);
-                    padding: 0.35mm 0.8mm;
+                    padding: 0.6mm 0.6mm;
                 }
 
                 .voucher-card__footer {
