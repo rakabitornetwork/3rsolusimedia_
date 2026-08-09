@@ -84,7 +84,10 @@ class HotspotVoucherServiceTest extends TestCase
     {
         $service = $this->service();
 
-        $this->assertSame('numeric', $service->normalizeFormat('numeric'));
-        $this->assertSame('alphanumeric', $service->normalizeFormat('unknown'));
+        $this->assertSame('numbers', $service->normalizeFormat('numbers'));
+        $this->assertSame('numbers', $service->normalizeFormat('numeric'));
+        $this->assertSame('upper', $service->normalizeFormat('letters'));
+        $this->assertSame('alt_numbers_upper', $service->normalizeFormat('alt_numbers_upper'));
+        $this->assertSame('numbers', $service->normalizeFormat('unknown'));
     }
 }

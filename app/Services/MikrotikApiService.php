@@ -652,7 +652,7 @@ class MikrotikApiService
         $quantity = max(1, min(100, (int) ($options['quantity'] ?? 1)));
         $prefix = (string) ($options['prefix'] ?? 'VC');
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
-        $format = (string) ($options['code_format'] ?? 'alphanumeric');
+        $format = (string) ($options['code_format'] ?? 'numbers');
         $passwordMode = ($options['password_mode'] ?? 'same') === 'random' ? 'random' : 'same';
         $created = [];
         $errors = [];
@@ -701,7 +701,7 @@ class MikrotikApiService
         ];
     }
 
-    public function generateVoucherCode(int $length, string $format = 'alphanumeric'): string
+    public function generateVoucherCode(int $length, string $format = 'numbers'): string
     {
         return $this->randomVoucherCode($length, $format);
     }
@@ -745,13 +745,31 @@ class MikrotikApiService
         }
     }
 
-    private function randomVoucherCode(int $length, string $format = 'alphanumeric'): string
+    private function randomVoucherCode(int $length, string $format = 'numbers'): string
     {
+        $digits = '0123456789';
+        $upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $lower = 'abcdefghijklmnopqrstuvwxyz';
+
+        if (in_array($format, ['alt_numbers_upper', 'alt_numbers_lower'], true)) {
+            $letters = $format === 'alt_numbers_upper' ? $upper : $lower;
+            $code = '';
+
+            for ($i = 0; $i < $length; $i++) {
+                $pool = $i % 2 === 0 ? $digits : $letters;
+                $code .= $pool[random_int(0, strlen($pool) - 1)];
+            }
+
+            return $code;
+        }
+
         $chars = match ($format) {
-            'numeric' => '23456789',
-            'letters' => 'ABCDEFGHJKLMNPQRSTUVWXYZ',
-            'hex' => '0123456789ABCDEF',
-            default => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+            'numbers', 'numeric' => $digits,
+            'upper', 'letters' => $upper,
+            'lower' => $lower,
+            'numbers_lower' => $digits.$lower,
+            'numbers_upper', 'alphanumeric', 'hex' => $digits.$upper,
+            default => $digits,
         };
 
         $max = strlen($chars) - 1;

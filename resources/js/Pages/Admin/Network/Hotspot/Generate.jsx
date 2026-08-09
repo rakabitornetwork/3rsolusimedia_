@@ -33,7 +33,7 @@ export default function Generate({
         quantity: '10',
         prefix: 'VC',
         code_length: '6',
-        code_format: 'alphanumeric',
+        code_format: 'numbers',
         password_mode: 'same',
         limit_uptime: '1d',
         limit_bytes_mb: '',
@@ -60,9 +60,13 @@ export default function Generate({
 
     const formatExample = useMemo(() => {
         const option = code_formats.find((item) => item.value === data.code_format);
-        const sample = option?.example || 'XXXXXX';
+        const sample = option?.example || '12345';
         const length = Math.max(4, Math.min(12, Number(data.code_length) || 6));
-        const code = sample.slice(0, length).padEnd(length, sample[0] || 'X');
+        let code = '';
+        while (code.length < length) {
+            code += sample;
+        }
+        code = code.slice(0, length);
         return `${data.prefix || ''}${code}`;
     }, [code_formats, data.code_format, data.code_length, data.prefix]);
 
@@ -201,7 +205,31 @@ export default function Generate({
                     </label>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-4">
+                <label className="block text-sm font-medium text-ink">
+                    Format Kode Voucher
+                    <select
+                        value={data.code_format}
+                        onChange={(e) => {
+                            setData((current) => ({
+                                ...current,
+                                code_format: e.target.value,
+                                scenario: 'custom',
+                            }));
+                        }}
+                        className={fieldClass}
+                    >
+                        {code_formats.map((item) => (
+                            <option key={item.value} value={item.value}>
+                                {item.label}
+                            </option>
+                        ))}
+                    </select>
+                    {errors.code_format && (
+                        <span className="mt-1 block text-xs text-red-600">{errors.code_format}</span>
+                    )}
+                </label>
+
+                <div className="grid gap-4 sm:grid-cols-3">
                     <label className="block text-sm font-medium text-ink">
                         Jumlah
                         <input
@@ -249,26 +277,6 @@ export default function Generate({
                                 {errors.code_length}
                             </span>
                         )}
-                    </label>
-                    <label className="block text-sm font-medium text-ink">
-                        Format kode
-                        <select
-                            value={data.code_format}
-                            onChange={(e) => {
-                                setData((current) => ({
-                                    ...current,
-                                    code_format: e.target.value,
-                                    scenario: 'custom',
-                                }));
-                            }}
-                            className={fieldClass}
-                        >
-                            {code_formats.map((item) => (
-                                <option key={item.value} value={item.value}>
-                                    {item.label}
-                                </option>
-                            ))}
-                        </select>
                     </label>
                 </div>
 

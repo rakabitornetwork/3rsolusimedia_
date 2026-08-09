@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('limit_uptime', 40)->nullable();
             $table->unsignedBigInteger('limit_bytes_total')->nullable();
             $table->string('comment', 255)->nullable();
-            $table->string('code_format', 30)->default('alphanumeric');
+            $table->string('code_format', 30)->default('numbers');
             $table->string('agent_name', 120)->nullable();
             $table->unsignedInteger('base_price')->default(0);
             $table->unsignedInteger('commission')->default(0);

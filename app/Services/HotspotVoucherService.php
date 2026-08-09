@@ -39,7 +39,7 @@ class HotspotVoucherService
         $quantity = max(1, min(100, (int) ($options['quantity'] ?? 1)));
         $prefix = (string) ($options['prefix'] ?? '');
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
-        $format = $this->normalizeFormat((string) ($options['code_format'] ?? 'alphanumeric'));
+        $format = $this->normalizeFormat((string) ($options['code_format'] ?? 'numbers'));
         $passwordMode = ($options['password_mode'] ?? 'same') === 'random' ? 'random' : 'same';
 
         $agent = null;
@@ -287,8 +287,18 @@ class HotspotVoucherService
     public function normalizeFormat(string $format): string
     {
         return match ($format) {
-            'numeric', 'letters', 'hex', 'alphanumeric' => $format,
-            default => 'alphanumeric',
+            'numeric' => 'numbers',
+            'letters', 'letters_upper' => 'upper',
+            'letters_lower' => 'lower',
+            'alphanumeric', 'hex' => 'numbers_upper',
+            'numbers',
+            'upper',
+            'lower',
+            'numbers_upper',
+            'numbers_lower',
+            'alt_numbers_upper',
+            'alt_numbers_lower' => $format,
+            default => 'numbers',
         };
     }
 
@@ -307,9 +317,9 @@ class HotspotVoucherService
             [
                 'value' => 'hourly',
                 'label' => 'Voucher 1 jam',
-                'description' => 'Kode angka 6 digit, password sama, limit 1 jam',
+                'description' => 'Kode angka, password sama, limit 1 jam',
                 'defaults' => [
-                    'code_format' => 'numeric',
+                    'code_format' => 'numbers',
                     'code_length' => 6,
                     'prefix' => '',
                     'password_mode' => 'same',
@@ -320,9 +330,9 @@ class HotspotVoucherService
             [
                 'value' => 'daily',
                 'label' => 'Voucher harian',
-                'description' => 'Campuran huruf/angka, password sama, limit 1 hari',
+                'description' => 'Angka & kapital, password sama, limit 1 hari',
                 'defaults' => [
-                    'code_format' => 'alphanumeric',
+                    'code_format' => 'numbers_upper',
                     'code_length' => 6,
                     'prefix' => 'VC',
                     'password_mode' => 'same',
@@ -333,9 +343,9 @@ class HotspotVoucherService
             [
                 'value' => 'weekly',
                 'label' => 'Voucher mingguan',
-                'description' => 'Kode lebih panjang, password terpisah, limit 7 hari',
+                'description' => 'Selang-seling angka & kapital, password terpisah, limit 7 hari',
                 'defaults' => [
-                    'code_format' => 'alphanumeric',
+                    'code_format' => 'alt_numbers_upper',
                     'code_length' => 8,
                     'prefix' => 'WK',
                     'password_mode' => 'random',
@@ -348,7 +358,7 @@ class HotspotVoucherService
                 'label' => 'Voucher kuota 1 GB',
                 'description' => 'Kode angka, password sama, kuota 1024 MB',
                 'defaults' => [
-                    'code_format' => 'numeric',
+                    'code_format' => 'numbers',
                     'code_length' => 8,
                     'prefix' => 'GB',
                     'password_mode' => 'same',
@@ -365,10 +375,13 @@ class HotspotVoucherService
     public static function codeFormatOptions(): array
     {
         return [
-            ['value' => 'alphanumeric', 'label' => 'Huruf & angka', 'example' => 'A3K9MP'],
-            ['value' => 'numeric', 'label' => 'Angka saja', 'example' => '482915'],
-            ['value' => 'letters', 'label' => 'Huruf saja', 'example' => 'KMPQWZ'],
-            ['value' => 'hex', 'label' => 'Hexadesimal', 'example' => 'A1F90C'],
+            ['value' => 'numbers', 'label' => '12345 (Hanya Angka)', 'example' => '12345'],
+            ['value' => 'upper', 'label' => 'ABCDE (Huruf Kapital)', 'example' => 'ABCDE'],
+            ['value' => 'lower', 'label' => 'abcde (Huruf Kecil)', 'example' => 'abcde'],
+            ['value' => 'numbers_upper', 'label' => '123ABC (Angka & Kapital)', 'example' => '123ABC'],
+            ['value' => 'numbers_lower', 'label' => '123abc (Angka & Huruf Kecil)', 'example' => '123abc'],
+            ['value' => 'alt_numbers_upper', 'label' => '1A2B3C (Kombinasi Angka & Kapital Selang-seling)', 'example' => '1A2B3C'],
+            ['value' => 'alt_numbers_lower', 'label' => '1a2b3c (Kombinasi Angka & Huruf Kecil Selang-seling)', 'example' => '1a2b3c'],
         ];
     }
 

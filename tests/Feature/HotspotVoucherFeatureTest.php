@@ -42,7 +42,7 @@ class HotspotVoucherFeatureTest extends TestCase
             'quantity' => 1,
             'prefix' => '',
             'code_length' => 6,
-            'code_format' => 'numeric',
+            'code_format' => 'numbers',
             'password_mode' => 'same',
             'profile' => '1jam',
             'agent_id' => $agent->id,
