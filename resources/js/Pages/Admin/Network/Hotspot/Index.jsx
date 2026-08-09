@@ -14,6 +14,10 @@ function formatBytes(value) {
     return `${n} B`;
 }
 
+function trimComment(value) {
+    return String(value || '').trim();
+}
+
 function buildPrintUrl(ids) {
     const params = new URLSearchParams();
     ids.forEach((id) => params.append('ids[]', String(id)));
@@ -109,10 +113,31 @@ export default function Index({
         );
     };
 
-    const purgeUsed = () => {
+    const deleteByComment = () => {
         if (!selected_router_id) return;
-        if (!window.confirm('Hapus semua voucher terpakai dari aplikasi dan RouterOS?')) return;
-        router.post('/admin/network/hotspot/purge', { router_id: selected_router_id });
+        const comment = (filters.comment || '').trim();
+        if (!comment) {
+            window.alert('Pilih komentar terlebih dahulu untuk menghapus voucher secara massal.');
+            return;
+        }
+
+        const count = users.filter(
+            (user) => trimComment(user.comment) === comment,
+        ).length;
+
+        if (
+            !window.confirm(
+                `Hapus ${count} voucher dengan komentar "${comment}" dari RouterOS dan aplikasi?`,
+            )
+        ) {
+            return;
+        }
+
+        setSelectedIds([]);
+        router.post('/admin/network/hotspot/delete-by-comment', {
+            router_id: selected_router_id,
+            comment,
+        });
     };
 
     const copyGenerated = async () => {
@@ -348,6 +373,15 @@ export default function Index({
                         <Printer className="mr-1.5 h-4 w-4" />
                         Cetak
                     </button>
+                    <button
+                        type="button"
+                        onClick={deleteByComment}
+                        disabled={!selected_router_id || !(filters.comment || '').trim()}
+                        className="btn-action btn-action-sm btn-danger"
+                    >
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                        Hapus
+                    </button>
                     <Link
                         href="/admin/network/hotspot/reports"
                         className="btn-action btn-action-sm btn-secondary"
@@ -355,15 +389,6 @@ export default function Index({
                         <BarChart3 className="mr-1.5 h-4 w-4" />
                         Laporan
                     </Link>
-                    <button
-                        type="button"
-                        onClick={purgeUsed}
-                        disabled={!selected_router_id}
-                        className="btn-action btn-action-sm btn-warn"
-                    >
-                        <Trash2 className="mr-1.5 h-4 w-4" />
-                        Hapus terpakai
-                    </button>
                     <Link
                         href={`/admin/network/hotspot/generate${
                             selected_router_id ? `?router_id=${selected_router_id}` : ''

@@ -207,6 +207,81 @@ class HotspotVoucherService
     }
 
     /**
+     * Hapus semua voucher hotspot yang komentarnya cocok (RouterOS + aplikasi).
+     *
+     * @return array{ok: bool, message: string, removed: int}
+     */
+    public function deleteByComment(MikrotikRouter $router, string $comment): array
+    {
+        $comment = trim($comment);
+        if ($comment === '') {
+            return [
+                'ok' => false,
+                'message' => 'Pilih komentar terlebih dahulu.',
+                'removed' => 0,
+            ];
+        }
+
+        $list = $this->api->listHotspotUsers($router);
+        if (! ($list['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => $list['message'] ?? 'Gagal membaca user hotspot.',
+                'removed' => 0,
+            ];
+        }
+
+        $removed = 0;
+        $errors = [];
+
+        foreach (collect($list['users'] ?? []) as $user) {
+            if (trim((string) ($user['comment'] ?? '')) !== $comment) {
+                continue;
+            }
+
+            $userId = (string) ($user['id'] ?? '');
+            $username = (string) ($user['name'] ?? '');
+
+            if ($userId === '' || $username === '') {
+                continue;
+            }
+
+            $result = $this->api->removeHotspotUser($router, $userId);
+            if (! ($result['ok'] ?? false)) {
+                $errors[] = $username.': '.($result['message'] ?? 'gagal hapus');
+
+                continue;
+            }
+
+            $removed++;
+            $this->markDeletedLocally($router, $username);
+        }
+
+        HotspotVoucher::query()
+            ->where('mikrotik_router_id', $router->id)
+            ->where('comment', $comment)
+            ->where('status', HotspotVoucher::STATUS_AVAILABLE)
+            ->update([
+                'status' => HotspotVoucher::STATUS_DELETED,
+                'deleted_from_router_at' => now(),
+            ]);
+
+        $message = $removed > 0
+            ? "{$removed} voucher dengan komentar \"{$comment}\" berhasil dihapus."
+            : "Tidak ada voucher RouterOS dengan komentar \"{$comment}\".";
+
+        if ($errors !== []) {
+            $message .= ' '.count($errors).' gagal dihapus.';
+        }
+
+        return [
+            'ok' => $errors === [] || $removed > 0,
+            'message' => $message,
+            'removed' => $removed,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $user
      */
     public function shouldPurgeUser(array $user): bool

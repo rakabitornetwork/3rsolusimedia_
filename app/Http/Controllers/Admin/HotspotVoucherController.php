@@ -285,6 +285,24 @@ class HotspotVoucherController extends Controller
             ->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
+    public function destroyByComment(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'router_id' => ['required', 'exists:mikrotik_routers,id'],
+            'comment' => ['required', 'string', 'max:255'],
+        ]);
+
+        $router = MikrotikRouter::query()->findOrFail($validated['router_id']);
+        $result = $this->vouchers->deleteByComment($router, $validated['comment']);
+
+        return redirect()
+            ->route('admin.network.hotspot', [
+                'router_id' => $router->id,
+                'comment' => $validated['comment'],
+            ])
+            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
     public function purge(Request $request): RedirectResponse
     {
         $validated = $request->validate([
