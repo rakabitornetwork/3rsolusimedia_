@@ -247,11 +247,17 @@ function Card({ item }) {
                 </div>
 
                 <div className="voucher-card__footer">
-                    <span className="voucher-card__hint">
-                        {item.login_url || item.dns_name
-                            ? `Portal tidak muncul? Buka ${item.login_url || item.dns_name}`
-                            : 'Portal tidak muncul? Ketik DNS hotspot di browser.'}
-                    </span>
+                    {item.login_url || item.dns_name ? (
+                        <span className="voucher-card__hint">
+                            <span>Portal tidak muncul?</span>
+                            <span>Buka {item.login_url || item.dns_name}</span>
+                        </span>
+                    ) : (
+                        <span className="voucher-card__hint">
+                            <span>Portal tidak muncul?</span>
+                            <span>Ketik DNS hotspot di browser.</span>
+                        </span>
+                    )}
                     {item.profile && <span>{item.profile}</span>}
                 </div>
             </div>
@@ -492,6 +498,7 @@ export default function PrintCards({ vouchers = [] }) {
                     text-transform: uppercase;
                     color: var(--vc-soft);
                     line-height: 1;
+                    text-align: center;
                 }
 
                 .voucher-card__value {
@@ -524,21 +531,28 @@ export default function PrintCards({ vouchers = [] }) {
                 }
 
                 .voucher-card__hint {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.1mm;
                     color: var(--vc-ink);
                     font-weight: 600;
+                    line-height: 1.15;
                     white-space: normal;
                     overflow: visible;
                     text-overflow: unset;
                 }
 
-                .voucher-card__footer span {
+                .voucher-card__hint span {
+                    display: block;
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
                 }
 
-                .voucher-card__footer .voucher-card__hint {
-                    white-space: normal;
+                .voucher-card__footer > span:not(.voucher-card__hint) {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
                 }
 
                 @media print {
