@@ -235,10 +235,7 @@ function Card({ item, number }) {
                             )}
                             <span className="voucher-card__brand">Hotspot</span>
                         </div>
-                        <div className="voucher-card__hero-meta">
-                            <span className="voucher-card__seq">#{seq}</span>
-                            <span className="voucher-card__tier">{theme.label}</span>
-                        </div>
+                        <span className="voucher-card__tier">{theme.label}</span>
                     </div>
                     <p className="voucher-card__price">{item.sell_price_label || 'Rp 0'}</p>
                 </div>
@@ -251,18 +248,21 @@ function Card({ item, number }) {
                 </div>
 
                 <div className="voucher-card__footer">
-                    {item.login_url || item.dns_name ? (
-                        <span className="voucher-card__hint">
-                            <span>Portal tidak muncul?</span>
-                            <span>Buka {item.login_url || item.dns_name}</span>
-                        </span>
-                    ) : (
-                        <span className="voucher-card__hint">
-                            <span>Portal tidak muncul?</span>
-                            <span>Ketik DNS hotspot di browser.</span>
-                        </span>
-                    )}
-                    {item.profile && <span>{item.profile}</span>}
+                    <div className="voucher-card__footer-main">
+                        {item.login_url || item.dns_name ? (
+                            <span className="voucher-card__hint">
+                                <span>Portal tidak muncul?</span>
+                                <span>Buka {item.login_url || item.dns_name}</span>
+                            </span>
+                        ) : (
+                            <span className="voucher-card__hint">
+                                <span>Portal tidak muncul?</span>
+                                <span>Ketik DNS hotspot di browser.</span>
+                            </span>
+                        )}
+                        {item.profile && <span>{item.profile}</span>}
+                    </div>
+                    <span className="voucher-card__seq">#{seq}</span>
                 </div>
             </div>
         </article>
@@ -452,25 +452,6 @@ export default function PrintCards({ vouchers = [] }) {
                     text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
                 }
 
-                .voucher-card__hero-meta {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: flex-end;
-                    gap: 0.35mm;
-                    flex-shrink: 0;
-                }
-
-                .voucher-card__seq {
-                    font-size: 5.4pt;
-                    font-weight: 800;
-                    letter-spacing: 0.04em;
-                    line-height: 1;
-                    padding: 0.45mm 0.9mm;
-                    background: rgba(0, 0, 0, 0.22);
-                    border: 0.25pt solid rgba(255, 255, 255, 0.4);
-                    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-                }
-
                 .voucher-card__tier {
                     font-size: 5pt;
                     font-weight: 700;
@@ -545,12 +526,33 @@ export default function PrintCards({ vouchers = [] }) {
 
                 .voucher-card__footer {
                     display: flex;
-                    flex-direction: column;
-                    gap: 0.2mm;
+                    align-items: flex-end;
+                    justify-content: space-between;
+                    gap: 0.8mm;
                     font-size: 4.6pt;
                     color: var(--vc-soft);
                     line-height: 1.2;
                     overflow: hidden;
+                }
+
+                .voucher-card__footer-main {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.2mm;
+                    min-width: 0;
+                    flex: 1;
+                }
+
+                .voucher-card__seq {
+                    flex-shrink: 0;
+                    font-size: 5.2pt;
+                    font-weight: 800;
+                    letter-spacing: 0.03em;
+                    line-height: 1;
+                    color: var(--vc-ink);
+                    padding: 0.35mm 0.7mm;
+                    background: color-mix(in srgb, var(--vc-chip) 70%, white);
+                    border: 0.25pt solid color-mix(in srgb, var(--vc-accent) 45%, white);
                 }
 
                 .voucher-card__hint {
@@ -572,7 +574,7 @@ export default function PrintCards({ vouchers = [] }) {
                     white-space: nowrap;
                 }
 
-                .voucher-card__footer > span:not(.voucher-card__hint) {
+                .voucher-card__footer-main > span:not(.voucher-card__hint) {
                     overflow: hidden;
                     text-overflow: ellipsis;
                     white-space: nowrap;
