@@ -67,17 +67,34 @@ class HotspotVoucherService
             $comment = trim($comment.' | agen:'.$agentName);
         }
 
-        $created = [];
-        $errors = [];
+        $pending = [];
+        $usedNames = [];
 
         for ($i = 0; $i < $quantity; $i++) {
-            $code = $this->api->generateVoucherCode($length, $format);
-            $name = $prefix !== '' ? $prefix.$code : $code;
-            $password = $passwordMode === 'random'
-                ? $this->api->generateVoucherCode($length, $format)
-                : $name;
+            $name = '';
+            $password = '';
 
-            $result = $this->api->createHotspotUser($router, [
+            // Hindari bentrok nama dalam batch yang sama.
+            for ($attempt = 0; $attempt < 8; $attempt++) {
+                $code = $this->api->generateVoucherCode($length, $format);
+                $candidate = $prefix !== '' ? $prefix.$code : $code;
+                if (isset($usedNames[$candidate])) {
+                    continue;
+                }
+
+                $name = $candidate;
+                $password = $passwordMode === 'random'
+                    ? $this->api->generateVoucherCode($length, $format)
+                    : $name;
+                $usedNames[$name] = true;
+                break;
+            }
+
+            if ($name === '') {
+                continue;
+            }
+
+            $pending[] = [
                 'name' => $name,
                 'password' => $password,
                 'profile' => $options['profile'] ?? null,
@@ -85,21 +102,35 @@ class HotspotVoucherService
                 'limit_uptime' => $options['limit_uptime'] ?? null,
                 'limit_bytes_total' => $options['limit_bytes_total'] ?? null,
                 'comment' => $comment !== '' ? $comment : null,
-            ]);
+            ];
+        }
 
-            if (! $result['ok']) {
-                $errors[] = $name.': '.$result['message'];
+        $apiResult = $this->api->createHotspotUsers($router, $pending);
+        $createdRemote = collect($apiResult['created'] ?? [])->keyBy('name');
+        $errors = $apiResult['errors'] ?? [];
 
+        if ($createdRemote->isEmpty()) {
+            return [
+                'ok' => false,
+                'message' => $errors[0] ?? $apiResult['message'] ?? 'Gagal membuat voucher hotspot.',
+                'vouchers' => [],
+            ];
+        }
+
+        $now = now();
+        $rows = [];
+        foreach ($pending as $item) {
+            if (! $createdRemote->has($item['name'])) {
                 continue;
             }
 
-            $voucher = HotspotVoucher::query()->create([
+            $rows[] = [
                 'batch_id' => $batchId,
                 'mikrotik_router_id' => $router->id,
                 'agent_id' => $agent?->id,
                 'created_by' => $options['created_by'] ?? null,
-                'username' => $name,
-                'password' => $password,
+                'username' => $item['name'],
+                'password' => $item['password'],
                 'profile' => $options['profile'] ?? null,
                 'server' => $options['server'] ?? null,
                 'limit_uptime' => $options['limit_uptime'] ?? null,
@@ -111,15 +142,26 @@ class HotspotVoucherService
                 'commission' => $commission,
                 'sell_price' => $sellPrice,
                 'status' => HotspotVoucher::STATUS_AVAILABLE,
-            ]);
-
-            $created[] = $voucher->toCardArray();
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
+
+        if ($rows !== []) {
+            HotspotVoucher::query()->insert($rows);
+        }
+
+        $created = HotspotVoucher::query()
+            ->where('batch_id', $batchId)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (HotspotVoucher $voucher) => $voucher->toCardArray())
+            ->all();
 
         if ($created === []) {
             return [
                 'ok' => false,
-                'message' => $errors[0] ?? 'Gagal membuat voucher hotspot.',
+                'message' => $errors[0] ?? 'Gagal menyimpan voucher hotspot.',
                 'vouchers' => [],
             ];
         }
@@ -156,8 +198,8 @@ class HotspotVoucherService
 
         /** @var Collection<int, array<string, mixed>> $users */
         $users = collect($list['users'] ?? []);
-        $removed = 0;
-        $errors = [];
+        $toRemove = [];
+        $usernamesById = [];
 
         foreach ($users as $user) {
             if (! $this->shouldPurgeUser($user)) {
@@ -171,36 +213,47 @@ class HotspotVoucherService
                 continue;
             }
 
-            $result = $this->api->removeHotspotUser($router, $userId);
-            if (! ($result['ok'] ?? false)) {
-                $errors[] = $username.': '.($result['message'] ?? 'gagal hapus');
+            $toRemove[] = $userId;
+            $usernamesById[$userId] = $username;
+        }
 
-                continue;
+        if ($toRemove === []) {
+            return [
+                'ok' => true,
+                'message' => 'Tidak ada voucher terpakai yang perlu dihapus.',
+                'removed' => 0,
+            ];
+        }
+
+        $result = $this->api->removeHotspotUsers($router, $toRemove);
+        $removedIds = $result['removed_ids'] ?? [];
+        $removed = count($removedIds);
+
+        if ($removed > 0) {
+            $removedUsernames = array_values(array_filter(array_map(
+                static fn (string $id) => $usernamesById[$id] ?? null,
+                $removedIds
+            )));
+
+            if ($removedUsernames !== []) {
+                HotspotVoucher::query()
+                    ->where('mikrotik_router_id', $router->id)
+                    ->whereIn('username', $removedUsernames)
+                    ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED])
+                    ->update([
+                        'status' => HotspotVoucher::STATUS_USED,
+                        'used_at' => now(),
+                        'deleted_from_router_at' => now(),
+                    ]);
             }
-
-            $removed++;
-
-            HotspotVoucher::query()
-                ->where('mikrotik_router_id', $router->id)
-                ->where('username', $username)
-                ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED])
-                ->update([
-                    'status' => HotspotVoucher::STATUS_USED,
-                    'used_at' => now(),
-                    'deleted_from_router_at' => now(),
-                ]);
         }
 
         $message = $removed > 0
             ? "{$removed} voucher terpakai dihapus dari RouterOS & aplikasi."
-            : 'Tidak ada voucher terpakai yang perlu dihapus.';
-
-        if ($errors !== []) {
-            $message .= ' '.count($errors).' gagal dihapus.';
-        }
+            : ($result['message'] ?? 'Tidak ada voucher terpakai yang perlu dihapus.');
 
         return [
-            'ok' => true,
+            'ok' => (bool) ($result['ok'] ?? false) || $removed > 0,
             'message' => $message,
             'removed' => $removed,
         ];
@@ -231,8 +284,8 @@ class HotspotVoucherService
             ];
         }
 
-        $removed = 0;
-        $errors = [];
+        $toRemove = [];
+        $usernames = [];
 
         foreach (collect($list['users'] ?? []) as $user) {
             if (trim((string) ($user['comment'] ?? '')) !== $comment) {
@@ -246,21 +299,33 @@ class HotspotVoucherService
                 continue;
             }
 
-            $result = $this->api->removeHotspotUser($router, $userId);
-            if (! ($result['ok'] ?? false)) {
-                $errors[] = $username.': '.($result['message'] ?? 'gagal hapus');
+            $toRemove[] = $userId;
+            $usernames[] = $username;
+        }
 
-                continue;
+        $removed = 0;
+        if ($toRemove !== []) {
+            $result = $this->api->removeHotspotUsers($router, $toRemove);
+            $removed = (int) ($result['removed'] ?? 0);
+
+            if (! ($result['ok'] ?? false) && $removed === 0) {
+                return [
+                    'ok' => false,
+                    'message' => $result['message'] ?? 'Gagal menghapus voucher.',
+                    'removed' => 0,
+                ];
             }
-
-            $removed++;
-            $this->markDeletedLocally($router, $username);
         }
 
         HotspotVoucher::query()
             ->where('mikrotik_router_id', $router->id)
-            ->where('comment', $comment)
             ->where('status', HotspotVoucher::STATUS_AVAILABLE)
+            ->where(function ($query) use ($comment, $usernames) {
+                $query->where('comment', $comment);
+                if ($usernames !== []) {
+                    $query->orWhereIn('username', $usernames);
+                }
+            })
             ->update([
                 'status' => HotspotVoucher::STATUS_DELETED,
                 'deleted_from_router_at' => now(),
@@ -270,12 +335,8 @@ class HotspotVoucherService
             ? "{$removed} voucher dengan komentar \"{$comment}\" berhasil dihapus."
             : "Tidak ada voucher RouterOS dengan komentar \"{$comment}\".";
 
-        if ($errors !== []) {
-            $message .= ' '.count($errors).' gagal dihapus.';
-        }
-
         return [
-            'ok' => $errors === [] || $removed > 0,
+            'ok' => true,
             'message' => $message,
             'removed' => $removed,
         ];

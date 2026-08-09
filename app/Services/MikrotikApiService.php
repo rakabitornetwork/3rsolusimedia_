@@ -614,33 +614,85 @@ class MikrotikApiService
      */
     public function createHotspotUser(MikrotikRouter $router, array $data): array
     {
+        $result = $this->createHotspotUsers($router, [$data]);
+
+        if (! ($result['ok'] ?? false) || ($result['created'] ?? []) === []) {
+            return [
+                'ok' => false,
+                'message' => $result['errors'][0] ?? $result['message'] ?? 'Gagal membuat voucher hotspot.',
+            ];
+        }
+
+        return ['ok' => true, 'message' => 'Voucher hotspot berhasil dibuat.'];
+    }
+
+    /**
+     * Buat banyak user hotspot dalam satu koneksi API (jauh lebih cepat dari add satu-per-satu).
+     *
+     * @param  array<int, array{name: string, password: string, profile?: ?string, server?: ?string, limit_uptime?: ?string, limit_bytes_total?: ?int, comment?: ?string}>  $users
+     * @return array{ok: bool, message: string, created: array<int, array{name: string, password: string}>, errors: array<int, string>}
+     */
+    public function createHotspotUsers(MikrotikRouter $router, array $users): array
+    {
+        if ($users === []) {
+            return [
+                'ok' => false,
+                'message' => 'Tidak ada voucher untuk dibuat.',
+                'created' => [],
+                'errors' => [],
+            ];
+        }
+
         try {
-            $client = $this->makeClient($router);
-            $query = (new Query('/ip/hotspot/user/add'))
-                ->equal('name', $data['name'])
-                ->equal('password', $data['password']);
+            $timeout = max(30, min(180, count($users) * 2));
+            $client = $this->makeClient($router, timeout: $timeout);
+            $created = [];
+            $errors = [];
 
-            if (! empty($data['profile'])) {
-                $query->equal('profile', (string) $data['profile']);
-            }
-            if (! empty($data['server']) && $data['server'] !== 'all') {
-                $query->equal('server', (string) $data['server']);
-            }
-            if (! empty($data['limit_uptime'])) {
-                $query->equal('limit-uptime', (string) $data['limit_uptime']);
-            }
-            if (! empty($data['limit_bytes_total'])) {
-                $query->equal('limit-bytes-total', (string) $data['limit_bytes_total']);
-            }
-            if (! empty($data['comment'])) {
-                $query->equal('comment', (string) $data['comment']);
+            foreach ($users as $data) {
+                $name = (string) ($data['name'] ?? '');
+                if ($name === '') {
+                    continue;
+                }
+
+                try {
+                    $client->query($this->hotspotUserAddQuery($data))->read();
+                    $created[] = [
+                        'name' => $name,
+                        'password' => (string) ($data['password'] ?? $name),
+                    ];
+                } catch (Throwable $e) {
+                    $errors[] = $name.': '.$this->friendlyError($e);
+                }
             }
 
-            $client->query($query)->read();
+            if ($created === []) {
+                return [
+                    'ok' => false,
+                    'message' => $errors[0] ?? 'Gagal membuat voucher hotspot.',
+                    'created' => [],
+                    'errors' => $errors,
+                ];
+            }
 
-            return ['ok' => true, 'message' => 'Voucher hotspot berhasil dibuat.'];
+            $message = count($created).' voucher berhasil dibuat di RouterOS.';
+            if ($errors !== []) {
+                $message .= ' '.count($errors).' gagal.';
+            }
+
+            return [
+                'ok' => true,
+                'message' => $message,
+                'created' => $created,
+                'errors' => $errors,
+            ];
         } catch (Throwable $e) {
-            return ['ok' => false, 'message' => $this->friendlyError($e)];
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'created' => [],
+                'errors' => [$this->friendlyError($e)],
+            ];
         }
     }
 
@@ -654,9 +706,8 @@ class MikrotikApiService
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
         $format = (string) ($options['code_format'] ?? 'numbers');
         $passwordMode = ($options['password_mode'] ?? 'same') === 'random' ? 'random' : 'same';
-        $created = [];
-        $errors = [];
 
+        $pending = [];
         for ($i = 0; $i < $quantity; $i++) {
             $code = $this->generateVoucherCode($length, $format);
             $name = $prefix !== '' ? $prefix.$code : $code;
@@ -664,7 +715,7 @@ class MikrotikApiService
                 ? $this->generateVoucherCode($length, $format)
                 : $name;
 
-            $result = $this->createHotspotUser($router, [
+            $pending[] = [
                 'name' => $name,
                 'password' => $password,
                 'profile' => $options['profile'] ?? null,
@@ -672,32 +723,15 @@ class MikrotikApiService
                 'limit_uptime' => $options['limit_uptime'] ?? null,
                 'limit_bytes_total' => $options['limit_bytes_total'] ?? null,
                 'comment' => $options['comment'] ?? null,
-            ]);
-
-            if ($result['ok']) {
-                $created[] = ['name' => $name, 'password' => $password];
-            } else {
-                $errors[] = $name.': '.$result['message'];
-            }
-        }
-
-        if ($created === []) {
-            return [
-                'ok' => false,
-                'message' => $errors[0] ?? 'Gagal membuat voucher hotspot.',
-                'vouchers' => [],
             ];
         }
 
-        $message = count($created).' voucher berhasil dibuat di RouterOS.';
-        if ($errors !== []) {
-            $message .= ' '.count($errors).' gagal.';
-        }
+        $result = $this->createHotspotUsers($router, $pending);
 
         return [
-            'ok' => true,
-            'message' => $message,
-            'vouchers' => $created,
+            'ok' => $result['ok'],
+            'message' => $result['message'],
+            'vouchers' => $result['created'],
         ];
     }
 
@@ -711,16 +745,128 @@ class MikrotikApiService
      */
     public function removeHotspotUser(MikrotikRouter $router, string $userId): array
     {
-        try {
-            $client = $this->makeClient($router);
-            $client->query(
-                (new Query('/ip/hotspot/user/remove'))->equal('.id', $userId)
-            )->read();
+        $result = $this->removeHotspotUsers($router, [$userId]);
 
-            return ['ok' => true, 'message' => 'Voucher hotspot berhasil dihapus.'];
-        } catch (Throwable $e) {
-            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        if (! ($result['ok'] ?? false) || ($result['removed'] ?? 0) < 1) {
+            return [
+                'ok' => false,
+                'message' => $result['message'] ?? 'Gagal menghapus voucher hotspot.',
+            ];
         }
+
+        return ['ok' => true, 'message' => 'Voucher hotspot berhasil dihapus.'];
+    }
+
+    /**
+     * Hapus banyak user hotspot dalam satu/few perintah API (ID digabung).
+     *
+     * @param  array<int, string>  $userIds
+     * @return array{ok: bool, message: string, removed: int, removed_ids: array<int, string>}
+     */
+    public function removeHotspotUsers(MikrotikRouter $router, array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map(
+            static fn ($id) => trim((string) $id),
+            $userIds
+        ))));
+
+        if ($userIds === []) {
+            return [
+                'ok' => true,
+                'message' => 'Tidak ada voucher untuk dihapus.',
+                'removed' => 0,
+                'removed_ids' => [],
+            ];
+        }
+
+        try {
+            $timeout = max(30, min(180, count($userIds)));
+            $client = $this->makeClient($router, timeout: $timeout);
+            $removedIds = [];
+            $errors = [];
+
+            foreach (array_chunk($userIds, 40) as $chunk) {
+                try {
+                    $client->query(
+                        (new Query('/ip/hotspot/user/remove'))->equal('.id', implode(',', $chunk))
+                    )->read();
+                    array_push($removedIds, ...$chunk);
+                } catch (Throwable $chunkError) {
+                    foreach ($chunk as $userId) {
+                        try {
+                            $client->query(
+                                (new Query('/ip/hotspot/user/remove'))->equal('.id', $userId)
+                            )->read();
+                            $removedIds[] = $userId;
+                        } catch (Throwable $e) {
+                            $errors[] = $userId.': '.$this->friendlyError($e);
+                        }
+                    }
+
+                    if ($removedIds === [] && $errors === []) {
+                        $errors[] = $this->friendlyError($chunkError);
+                    }
+                }
+            }
+
+            $removed = count($removedIds);
+
+            if ($removed === 0) {
+                return [
+                    'ok' => false,
+                    'message' => $errors[0] ?? 'Gagal menghapus voucher hotspot.',
+                    'removed' => 0,
+                    'removed_ids' => [],
+                ];
+            }
+
+            $message = $removed.' voucher berhasil dihapus dari RouterOS.';
+            if ($errors !== []) {
+                $message .= ' '.count($errors).' gagal.';
+            }
+
+            return [
+                'ok' => true,
+                'message' => $message,
+                'removed' => $removed,
+                'removed_ids' => $removedIds,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'removed' => 0,
+                'removed_ids' => [],
+            ];
+        }
+    }
+
+    /**
+     * @param  array{name: string, password: string, profile?: ?string, server?: ?string, limit_uptime?: ?string, limit_bytes_total?: ?int, comment?: ?string}  $data
+     */
+    private function hotspotUserAddQuery(array $data): Query
+    {
+        $query = (new Query('/ip/hotspot/user/add'))
+            ->equal('name', $data['name'])
+            ->equal('password', $data['password']);
+
+        if (! empty($data['profile'])) {
+            $query->equal('profile', (string) $data['profile']);
+        }
+        if (! empty($data['server']) && $data['server'] !== 'all') {
+            $query->equal('server', (string) $data['server']);
+        }
+        if (! empty($data['limit_uptime'])) {
+            $query->equal('limit-uptime', (string) $data['limit_uptime']);
+        }
+        if (! empty($data['limit_bytes_total'])) {
+            $query->equal('limit-bytes-total', (string) $data['limit_bytes_total']);
+        }
+        if (! empty($data['comment'])) {
+            $query->equal('comment', (string) $data['comment']);
+        }
+
+        return $query;
     }
 
     /**
