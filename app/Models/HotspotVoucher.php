@@ -70,6 +70,7 @@ class HotspotVoucher extends Model
             'username' => $this->username,
             'password' => $this->password,
             'profile' => $this->profile,
+            'server' => $this->server,
             'limit_uptime' => $this->limit_uptime,
             'agent_name' => $this->agent_name,
             'base_price' => $this->base_price,

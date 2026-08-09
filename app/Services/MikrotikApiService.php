@@ -643,6 +643,85 @@ class MikrotikApiService
     }
 
     /**
+     * Map nama hotspot server → dns-name dari /ip/hotspot/profile yang terpasang.
+     *
+     * @return array{
+     *     ok: bool,
+     *     message?: string,
+     *     by_server: array<string, string>,
+     *     default: ?string
+     * }
+     */
+    public function mapHotspotDnsByServer(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $servers = $client->query(new Query('/ip/hotspot/print'))->read();
+            $profiles = $client->query(new Query('/ip/hotspot/profile/print'))->read();
+
+            $dnsByProfile = [];
+            foreach ($profiles as $profile) {
+                if (! is_array($profile)) {
+                    continue;
+                }
+
+                $name = trim((string) ($profile['name'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+
+                $dns = trim((string) ($profile['dns-name'] ?? ''));
+                if ($dns === '') {
+                    $dns = trim((string) ($profile['hotspot-address'] ?? ''));
+                }
+
+                if ($dns !== '') {
+                    $dnsByProfile[$name] = $dns;
+                }
+            }
+
+            $byServer = [];
+            $default = null;
+
+            foreach ($servers as $server) {
+                if (! is_array($server)) {
+                    continue;
+                }
+
+                $serverName = trim((string) ($server['name'] ?? ''));
+                if ($serverName === '') {
+                    continue;
+                }
+
+                $profileName = trim((string) ($server['profile'] ?? 'default'));
+                $dns = $dnsByProfile[$profileName] ?? null;
+
+                if ($dns) {
+                    $byServer[$serverName] = $dns;
+                    $default ??= $dns;
+                }
+            }
+
+            if ($default === null && $dnsByProfile !== []) {
+                $default = reset($dnsByProfile) ?: null;
+            }
+
+            return [
+                'ok' => true,
+                'by_server' => $byServer,
+                'default' => is_string($default) && $default !== '' ? $default : null,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'by_server' => [],
+                'default' => null,
+            ];
+        }
+    }
+
+    /**
      * @param  array{name: string, password: string, profile?: ?string, server?: ?string, limit_uptime?: ?string, limit_bytes_total?: ?int, comment?: ?string}  $data
      * @return array{ok: bool, message: string}
      */

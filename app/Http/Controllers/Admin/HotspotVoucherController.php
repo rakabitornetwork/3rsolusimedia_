@@ -325,39 +325,87 @@ class HotspotVoucherController extends Controller
         $query = HotspotVoucher::query();
 
         if ($batchId !== '') {
-            $cards = $query->where('batch_id', $batchId)
+            $vouchers = $query->where('batch_id', $batchId)
                 ->latest('id')
                 ->limit(500)
-                ->get()
-                ->map(fn (HotspotVoucher $v) => $v->toCardArray())
-                ->all();
+                ->get();
         } elseif ($ids !== []) {
             $byId = $query->whereIn('id', $ids)
                 ->limit(500)
                 ->get()
                 ->keyBy('id');
 
-            $cards = collect($ids)
+            $vouchers = collect($ids)
                 ->map(fn (int $id) => $byId->get($id))
                 ->filter()
-                ->map(fn (HotspotVoucher $v) => $v->toCardArray())
-                ->values()
-                ->all();
+                ->values();
         } else {
             return redirect()
                 ->route('admin.network.hotspot')
                 ->with('error', 'Tidak ada voucher untuk dicetak.');
         }
 
-        if ($cards === []) {
+        if ($vouchers->isEmpty()) {
             return redirect()
                 ->route('admin.network.hotspot')
                 ->with('error', 'Voucher tidak ditemukan.');
         }
 
         return Inertia::render('Admin/Network/Hotspot/PrintCards', [
-            'vouchers' => $cards,
+            'vouchers' => $this->cardsWithHotspotDns($vouchers),
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, HotspotVoucher>  $vouchers
+     * @return array<int, array<string, mixed>>
+     */
+    private function cardsWithHotspotDns($vouchers): array
+    {
+        $dnsByRouter = [];
+
+        foreach ($vouchers->pluck('mikrotik_router_id')->unique()->filter() as $routerId) {
+            $router = MikrotikRouter::query()->find($routerId);
+            $dnsByRouter[(int) $routerId] = $router
+                ? $this->api->mapHotspotDnsByServer($router)
+                : ['by_server' => [], 'default' => null];
+        }
+
+        return $vouchers
+            ->map(function (HotspotVoucher $voucher) use ($dnsByRouter) {
+                $map = $dnsByRouter[(int) $voucher->mikrotik_router_id] ?? [
+                    'by_server' => [],
+                    'default' => null,
+                ];
+
+                $server = trim((string) ($voucher->server ?? ''));
+                $dns = null;
+
+                if ($server !== '' && strtolower($server) !== 'all') {
+                    $dns = $map['by_server'][$server] ?? null;
+                }
+
+                $dns = is_string($dns) && $dns !== ''
+                    ? $dns
+                    : ($map['default'] ?? null);
+
+                $loginHost = is_string($dns) && $dns !== '' ? $dns : null;
+                $loginUrl = null;
+
+                if ($loginHost !== null) {
+                    $loginUrl = preg_match('#^https?://#i', $loginHost)
+                        ? $loginHost
+                        : 'http://'.$loginHost;
+                }
+
+                return [
+                    ...$voucher->toCardArray(),
+                    'dns_name' => $loginHost,
+                    'login_url' => $loginUrl,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function activeRouters()

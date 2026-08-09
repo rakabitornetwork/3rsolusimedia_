@@ -248,7 +248,9 @@ function Card({ item }) {
 
                 <div className="voucher-card__footer">
                     <span className="voucher-card__hint">
-                        Portal tidak muncul? Ketik DNS hotspot di browser.
+                        {item.login_url || item.dns_name
+                            ? `Portal tidak muncul? Buka ${item.login_url || item.dns_name}`
+                            : 'Portal tidak muncul? Ketik DNS hotspot di browser.'}
                     </span>
                     {item.profile && <span>{item.profile}</span>}
                 </div>
