@@ -28,6 +28,7 @@ class HotspotVoucherService
      *     limit_bytes_total?: ?int,
      *     comment?: ?string,
      *     agent_id?: ?int,
+     *     agent_name?: ?string,
      *     base_price?: int,
      *     commission?: int,
      *     created_by?: ?int
@@ -51,14 +52,19 @@ class HotspotVoucherService
                 ->first();
         }
 
+        $agentName = trim((string) ($options['agent_name'] ?? ''));
+        if ($agentName === '' && $agent) {
+            $agentName = (string) $agent->name;
+        }
+
         $basePrice = max(0, (int) ($options['base_price'] ?? 0));
-        $commission = $agent ? max(0, (int) ($options['commission'] ?? 0)) : 0;
+        $commission = $agentName !== '' ? max(0, (int) ($options['commission'] ?? 0)) : 0;
         $sellPrice = $basePrice + $commission;
 
         $batchId = (string) Str::uuid();
         $comment = trim((string) ($options['comment'] ?? 'voucher-app'));
-        if ($agent) {
-            $comment = trim($comment.' | agen:'.$agent->name);
+        if ($agentName !== '') {
+            $comment = trim($comment.' | agen:'.$agentName);
         }
 
         $created = [];
@@ -100,7 +106,7 @@ class HotspotVoucherService
                 'limit_bytes_total' => $options['limit_bytes_total'] ?? null,
                 'comment' => $comment !== '' ? $comment : null,
                 'code_format' => $format,
-                'agent_name' => $agent?->name,
+                'agent_name' => $agentName !== '' ? $agentName : null,
                 'base_price' => $basePrice,
                 'commission' => $commission,
                 'sell_price' => $sellPrice,

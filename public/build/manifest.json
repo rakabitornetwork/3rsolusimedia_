@@ -458,7 +458,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx": {
-    "file": "assets/Generate-BYc9idp1.js",
+    "file": "assets/Generate-CSNoyT3b.js",
     "name": "Generate",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx",
     "isDynamicEntry": true,
@@ -821,7 +821,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DDxmg4x6.js",
+    "file": "assets/app-CrXDt3nU.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

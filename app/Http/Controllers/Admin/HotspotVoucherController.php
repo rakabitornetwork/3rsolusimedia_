@@ -207,6 +207,7 @@ class HotspotVoucherController extends Controller
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', User::ROLE_AGEN)),
             ],
+            'agent_name' => ['nullable', 'string', 'max:120'],
             'base_price' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'commission' => ['nullable', 'integer', 'min:0', 'max:100000000'],
         ]);
@@ -228,6 +229,7 @@ class HotspotVoucherController extends Controller
             'limit_bytes_total' => $bytes,
             'comment' => $validated['comment'] ?? 'voucher-app',
             'agent_id' => $validated['agent_id'] ?? null,
+            'agent_name' => $validated['agent_name'] ?? null,
             'base_price' => $validated['base_price'] ?? 0,
             'commission' => $validated['commission'] ?? 0,
             'created_by' => $request->user()?->id,

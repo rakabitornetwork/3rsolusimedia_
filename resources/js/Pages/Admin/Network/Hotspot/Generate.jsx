@@ -37,6 +37,7 @@ export default function Generate({
         limit_bytes_mb: '',
         comment: 'voucher-app',
         agent_id: '',
+        agent_name: '',
         base_price: '',
         commission: '',
     });
@@ -46,11 +47,14 @@ export default function Generate({
         [agents, data.agent_id],
     );
 
+    const displayAgentName = (data.agent_name || '').trim() || selectedAgent?.name || '';
+    const hasAgent = displayAgentName !== '';
+
     const sellPrice = useMemo(() => {
         const base = Number(data.base_price || 0);
-        const commission = Number(data.commission || 0);
+        const commission = hasAgent ? Number(data.commission || 0) : 0;
         return base + commission;
-    }, [data.base_price, data.commission]);
+    }, [data.base_price, data.commission, hasAgent]);
 
     const formatExample = useMemo(() => {
         const option = code_formats.find((item) => item.value === data.code_format);
@@ -65,10 +69,12 @@ export default function Generate({
     }, [code_formats, data.code_format, data.code_length, data.prefix]);
 
     const setAgent = (agentId) => {
+        const agent = agents.find((item) => String(item.id) === String(agentId));
         setData((current) => ({
             ...current,
             agent_id: agentId,
-            commission: agentId ? current.commission : '',
+            agent_name: agent ? agent.name : current.agent_name,
+            commission: agentId || current.agent_name ? current.commission : '',
         }));
     };
 
@@ -82,6 +88,7 @@ export default function Generate({
             base_price: form.base_price === '' ? 0 : Number(form.base_price),
             commission: form.commission === '' || form.commission == null ? 0 : Number(form.commission),
             agent_id: form.agent_id || null,
+            agent_name: (form.agent_name || '').trim() || null,
             limit_bytes_mb: form.limit_bytes_mb === '' ? null : Number(form.limit_bytes_mb),
         }));
 
@@ -286,15 +293,15 @@ export default function Generate({
                         Contoh: dasar 1500 + komisi 500 = 2000.
                     </p>
 
-                    <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
                         <label className="block text-sm font-medium text-ink">
-                            Agen penjual
+                            Agen penjual (akun)
                             <select
                                 value={data.agent_id || ''}
                                 onChange={(e) => setAgent(e.target.value)}
                                 className={fieldClass}
                             >
-                                <option value="">Tanpa agen</option>
+                                <option value="">Tanpa akun agen</option>
                                 {agents.map((agent) => (
                                     <option key={agent.id} value={agent.id}>
                                         {agent.name}
@@ -307,6 +314,35 @@ export default function Generate({
                                 </span>
                             )}
                         </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Nama agen (kartu)
+                            <input
+                                type="text"
+                                value={data.agent_name}
+                                onChange={(e) => {
+                                    const name = e.target.value;
+                                    setData((current) => ({
+                                        ...current,
+                                        agent_name: name,
+                                        commission: name.trim() || current.agent_id ? current.commission : '',
+                                    }));
+                                }}
+                                className={fieldClass}
+                                placeholder="Contoh: Andi"
+                                maxLength={120}
+                            />
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Nama ini muncul di kartu voucher. Bisa diisi manual tanpa akun agen.
+                            </span>
+                            {errors.agent_name && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.agent_name}
+                                </span>
+                            )}
+                        </label>
+                    </div>
+
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
                         <label className="block text-sm font-medium text-ink">
                             Harga dasar (Rp)
                             <input
@@ -340,7 +376,7 @@ export default function Generate({
                                 }}
                                 className={fieldClass}
                                 placeholder="500"
-                                disabled={!data.agent_id}
+                                disabled={!hasAgent}
                             />
                             {errors.commission && (
                                 <span className="mt-1 block text-xs text-red-600">
@@ -352,8 +388,8 @@ export default function Generate({
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border border-ink/10 bg-white px-3 py-2 text-sm">
                         <span className="text-ink-soft">
-                            {selectedAgent
-                                ? `Agen: ${selectedAgent.name}`
+                            {hasAgent
+                                ? `Agen: ${displayAgentName}`
                                 : 'Penjualan langsung (tanpa agen)'}
                         </span>
                         <span className="font-semibold text-ink">
