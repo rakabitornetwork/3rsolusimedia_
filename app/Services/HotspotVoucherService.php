@@ -52,9 +52,7 @@ class HotspotVoucherService
         }
 
         $basePrice = max(0, (int) ($options['base_price'] ?? 0));
-        $commission = $agent
-            ? max(0, (int) ($options['commission'] ?? $agent->voucher_commission ?? 0))
-            : max(0, (int) ($options['commission'] ?? 0));
+        $commission = $agent ? max(0, (int) ($options['commission'] ?? 0)) : 0;
         $sellPrice = $basePrice + $commission;
 
         $batchId = (string) Str::uuid();
@@ -300,73 +298,6 @@ class HotspotVoucherService
             'alt_numbers_lower' => $format,
             default => 'numbers',
         };
-    }
-
-    /**
-     * @return array<int, array{value: string, label: string, description: string, defaults: array<string, mixed>}>
-     */
-    public static function scenarioPresets(): array
-    {
-        return [
-            [
-                'value' => 'custom',
-                'label' => 'Kustom',
-                'description' => 'Atur format dan limit secara manual',
-                'defaults' => [],
-            ],
-            [
-                'value' => 'hourly',
-                'label' => 'Voucher 1 jam',
-                'description' => 'Kode angka, password sama, limit 1 jam',
-                'defaults' => [
-                    'code_format' => 'numbers',
-                    'code_length' => 6,
-                    'prefix' => '',
-                    'password_mode' => 'same',
-                    'limit_uptime' => '1h',
-                    'limit_bytes_mb' => '',
-                ],
-            ],
-            [
-                'value' => 'daily',
-                'label' => 'Voucher harian',
-                'description' => 'Angka & kapital, password sama, limit 1 hari',
-                'defaults' => [
-                    'code_format' => 'numbers_upper',
-                    'code_length' => 6,
-                    'prefix' => 'VC',
-                    'password_mode' => 'same',
-                    'limit_uptime' => '1d',
-                    'limit_bytes_mb' => '',
-                ],
-            ],
-            [
-                'value' => 'weekly',
-                'label' => 'Voucher mingguan',
-                'description' => 'Selang-seling angka & kapital, password terpisah, limit 7 hari',
-                'defaults' => [
-                    'code_format' => 'alt_numbers_upper',
-                    'code_length' => 8,
-                    'prefix' => 'WK',
-                    'password_mode' => 'random',
-                    'limit_uptime' => '7d',
-                    'limit_bytes_mb' => '',
-                ],
-            ],
-            [
-                'value' => 'quota',
-                'label' => 'Voucher kuota 1 GB',
-                'description' => 'Kode angka, password sama, kuota 1024 MB',
-                'defaults' => [
-                    'code_format' => 'numbers',
-                    'code_length' => 8,
-                    'prefix' => 'GB',
-                    'password_mode' => 'same',
-                    'limit_uptime' => '',
-                    'limit_bytes_mb' => 1024,
-                ],
-            ],
-        ];
     }
 
     /**

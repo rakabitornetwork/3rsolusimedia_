@@ -204,7 +204,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-mO6nm4Lc.css",
+    "file": "assets/app-D1JHynSK.css",
     "name": "app",
     "names": [
       "app.css"
@@ -458,7 +458,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx": {
-    "file": "assets/Generate-qSfwFVKf.js",
+    "file": "assets/Generate-BYc9idp1.js",
     "name": "Generate",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx",
     "isDynamicEntry": true,
@@ -643,7 +643,7 @@
     ]
   },
   "resources/js/Pages/Admin/Users/Form.jsx": {
-    "file": "assets/Form-CSupTEBu.js",
+    "file": "assets/Form-CgHeEntW.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Users/Form.jsx",
     "isDynamicEntry": true,
@@ -821,7 +821,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-C8xfMYDO.js",
+    "file": "assets/app-BCBDbiVz.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -871,7 +871,7 @@
       "resources/js/Pages/Legal/Terms.jsx"
     ],
     "css": [
-      "assets/app-mO6nm4Lc.css"
+      "assets/app-D1JHynSK.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

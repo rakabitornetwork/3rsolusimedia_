@@ -93,11 +93,10 @@ class HotspotVoucherReportController extends Controller
         $agents = User::query()
             ->where('role', User::ROLE_AGEN)
             ->orderBy('name')
-            ->get(['id', 'name', 'voucher_commission'])
+            ->get(['id', 'name'])
             ->map(fn (User $u) => [
                 'id' => $u->id,
                 'name' => $u->name,
-                'voucher_commission' => (int) ($u->voucher_commission ?? 0),
             ])
             ->values();
 

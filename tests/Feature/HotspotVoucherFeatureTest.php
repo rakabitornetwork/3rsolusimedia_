@@ -76,7 +76,7 @@ class HotspotVoucherFeatureTest extends TestCase
     }
 
     #[Test]
-    public function agent_commission_can_be_saved_on_user_form(): void
+    public function agent_user_can_be_created_without_voucher_commission_field(): void
     {
         $admin = User::factory()->superadmin()->create();
 
@@ -85,7 +85,6 @@ class HotspotVoucherFeatureTest extends TestCase
                 'name' => 'Agen Budi',
                 'email' => 'budi@example.com',
                 'role' => User::ROLE_AGEN,
-                'voucher_commission' => 750,
                 'password' => 'Password1!',
                 'password_confirmation' => 'Password1!',
             ])
@@ -94,7 +93,6 @@ class HotspotVoucherFeatureTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'budi@example.com',
             'role' => User::ROLE_AGEN,
-            'voucher_commission' => 750,
         ]);
     }
 }

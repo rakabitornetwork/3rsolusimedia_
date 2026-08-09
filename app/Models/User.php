@@ -11,7 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'email', 'password', 'role', 'voucher_commission', 'avatar'])]
+#[Fillable(['name', 'email', 'password', 'role', 'avatar'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -169,7 +169,6 @@ class User extends Authenticatable
             'email' => $this->email,
             'role' => $this->role,
             'role_label' => $this->roleLabel(),
-            'voucher_commission' => (int) ($this->voucher_commission ?? 0),
             'avatar' => $this->avatar,
             'avatar_url' => $this->avatarUrl(),
             'initials' => $this->initials(),

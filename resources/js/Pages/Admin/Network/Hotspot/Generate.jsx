@@ -23,13 +23,11 @@ export default function Generate({
     servers,
     agents = [],
     code_formats = [],
-    scenarios = [],
 }) {
     const { data, setData, post, processing, errors, transform } = useForm({
         router_id: selected_router_id || routers[0]?.id || '',
         profile: profiles[0]?.name || '',
         server: 'all',
-        scenario: 'custom',
         quantity: '10',
         prefix: 'VC',
         code_length: '6',
@@ -50,13 +48,9 @@ export default function Generate({
 
     const sellPrice = useMemo(() => {
         const base = Number(data.base_price || 0);
-        const commission = Number(
-            data.commission === '' || data.commission == null
-                ? selectedAgent?.voucher_commission || 0
-                : data.commission,
-        );
+        const commission = Number(data.commission || 0);
         return base + commission;
-    }, [data.base_price, data.commission, selectedAgent]);
+    }, [data.base_price, data.commission]);
 
     const formatExample = useMemo(() => {
         const option = code_formats.find((item) => item.value === data.code_format);
@@ -70,21 +64,11 @@ export default function Generate({
         return `${data.prefix || ''}${code}`;
     }, [code_formats, data.code_format, data.code_length, data.prefix]);
 
-    const applyScenario = (value) => {
-        setData((current) => {
-            const scenario = scenarios.find((item) => item.value === value);
-            const next = { ...current, scenario: value };
-            if (!scenario?.defaults) return next;
-            return { ...next, ...scenario.defaults };
-        });
-    };
-
     const setAgent = (agentId) => {
-        const agent = agents.find((item) => String(item.id) === String(agentId));
         setData((current) => ({
             ...current,
             agent_id: agentId,
-            commission: agent ? String(agent.voucher_commission ?? 0) : '',
+            commission: agentId ? current.commission : '',
         }));
     };
 
@@ -96,10 +80,7 @@ export default function Generate({
             quantity: Number(form.quantity || 0),
             code_length: Number(form.code_length || 0),
             base_price: form.base_price === '' ? 0 : Number(form.base_price),
-            commission:
-                form.commission === '' || form.commission == null
-                    ? selectedAgent?.voucher_commission || 0
-                    : Number(form.commission),
+            commission: form.commission === '' || form.commission == null ? 0 : Number(form.commission),
             agent_id: form.agent_id || null,
             limit_bytes_mb: form.limit_bytes_mb === '' ? null : Number(form.limit_bytes_mb),
         }));
@@ -140,25 +121,6 @@ export default function Generate({
                     {errors.router_id && (
                         <span className="mt-1 block text-xs text-red-600">{errors.router_id}</span>
                     )}
-                </label>
-
-                <label className="block text-sm font-medium text-ink">
-                    Skenario format voucher
-                    <select
-                        value={data.scenario}
-                        onChange={(e) => applyScenario(e.target.value)}
-                        className={fieldClass}
-                    >
-                        {scenarios.map((item) => (
-                            <option key={item.value} value={item.value}>
-                                {item.label}
-                            </option>
-                        ))}
-                    </select>
-                    <span className="mt-1 block text-xs text-ink-soft">
-                        {scenarios.find((item) => item.value === data.scenario)?.description ||
-                            'Pilih skenario siap pakai atau kustom.'}
-                    </span>
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -209,13 +171,7 @@ export default function Generate({
                     Format Kode Voucher
                     <select
                         value={data.code_format}
-                        onChange={(e) => {
-                            setData((current) => ({
-                                ...current,
-                                code_format: e.target.value,
-                                scenario: 'custom',
-                            }));
-                        }}
+                        onChange={(e) => setData('code_format', e.target.value)}
                         className={fieldClass}
                     >
                         {code_formats.map((item) => (
@@ -326,8 +282,8 @@ export default function Generate({
                 <div className="border border-ink/10 bg-mist/30 p-4">
                     <p className="text-sm font-semibold text-ink">Agen & harga kartu</p>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Harga di kartu = harga dasar + komisi agen. Contoh: dasar 1500 + komisi
-                        Andi 500 = 2000.
+                        Harga di kartu = harga dasar + komisi agen. Isi komisi manual per batch.
+                        Contoh: dasar 1500 + komisi 500 = 2000.
                     </p>
 
                     <div className="mt-3 grid gap-4 sm:grid-cols-3">
@@ -341,7 +297,7 @@ export default function Generate({
                                 <option value="">Tanpa agen</option>
                                 {agents.map((agent) => (
                                     <option key={agent.id} value={agent.id}>
-                                        {agent.name} (komisi {formatRp(agent.voucher_commission)})
+                                        {agent.name}
                                     </option>
                                 ))}
                             </select>

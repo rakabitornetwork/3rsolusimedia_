@@ -142,11 +142,10 @@ class HotspotVoucherController extends Controller
         $agents = User::query()
             ->where('role', User::ROLE_AGEN)
             ->orderBy('name')
-            ->get(['id', 'name', 'voucher_commission'])
+            ->get(['id', 'name'])
             ->map(fn (User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
-                'voucher_commission' => (int) ($user->voucher_commission ?? 0),
             ])
             ->values();
 
@@ -157,7 +156,6 @@ class HotspotVoucherController extends Controller
             'servers' => $this->api->listHotspotServers($router)['servers'] ?? [],
             'agents' => $agents,
             'code_formats' => HotspotVoucherService::codeFormatOptions(),
-            'scenarios' => HotspotVoucherService::scenarioPresets(),
         ]);
     }
 
