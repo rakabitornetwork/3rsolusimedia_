@@ -1,62 +1,4 @@
-import { Head } from '@inertiajs/react';
-import { useEffect, useMemo } from 'react';
-
-const CARDS_PER_PAGE = 56;
-const COLS = 7;
-const ROWS = 8;
-
-function chunkCards(items, size) {
-    const pages = [];
-    for (let i = 0; i < items.length; i += size) {
-        pages.push(items.slice(i, i + size));
-    }
-    return pages.length > 0 ? pages : [[]];
-}
-
-function Card({ item }) {
-    const meta = [item.profile, item.limit_uptime].filter(Boolean).join(' · ');
-
-    return (
-        <article className="voucher-card">
-            <div className="voucher-card__top">
-                <span className="voucher-card__brand">Hotspot</span>
-                <span className="voucher-card__price">{item.sell_price_label || 'Rp 0'}</span>
-            </div>
-
-            <div className="voucher-card__creds">
-                <div className="voucher-card__row">
-                    <span className="voucher-card__label">User</span>
-                    <span className="voucher-card__value">{item.username}</span>
-                </div>
-                <div className="voucher-card__row">
-                    <span className="voucher-card__label">Pass</span>
-                    <span className="voucher-card__value">{item.password}</span>
-                </div>
-            </div>
-
-            {(meta || item.agent_name) && (
-                <div className="voucher-card__footer">
-                    {meta && <span>{meta}</span>}
-                    {item.agent_name && <span>Agen: {item.agent_name}</span>}
-                </div>
-            )}
-        </article>
-    );
-}
-
-export default function PrintCards({ vouchers = [] }) {
-    const pages = useMemo(() => chunkCards(vouchers, CARDS_PER_PAGE), [vouchers]);
-
-    useEffect(() => {
-        const timer = window.setTimeout(() => window.print(), 400);
-        return () => window.clearTimeout(timer);
-    }, []);
-
-    return (
-        <div className="voucher-print">
-            <Head title="Cetak Kartu Voucher" />
-
-            <style>{`
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{Bt as t}from"./vendor-ui-D_Mp_cpm.js";import{d as n,m as r}from"./vendor-react-Dyo4ernH.js";var i=e(r(),1),a=n(),o=56,s=7,c=8;function l(e,t){let n=[];for(let r=0;r<e.length;r+=t)n.push(e.slice(r,r+t));return n.length>0?n:[[]]}function u({item:e}){let t=[e.profile,e.limit_uptime].filter(Boolean).join(` · `);return(0,a.jsxs)(`article`,{className:`voucher-card`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__top`,children:[(0,a.jsx)(`span`,{className:`voucher-card__brand`,children:`Hotspot`}),(0,a.jsx)(`span`,{className:`voucher-card__price`,children:e.sell_price_label||`Rp 0`})]}),(0,a.jsxs)(`div`,{className:`voucher-card__creds`,children:[(0,a.jsxs)(`div`,{className:`voucher-card__row`,children:[(0,a.jsx)(`span`,{className:`voucher-card__label`,children:`User`}),(0,a.jsx)(`span`,{className:`voucher-card__value`,children:e.username})]}),(0,a.jsxs)(`div`,{className:`voucher-card__row`,children:[(0,a.jsx)(`span`,{className:`voucher-card__label`,children:`Pass`}),(0,a.jsx)(`span`,{className:`voucher-card__value`,children:e.password})]})]}),(t||e.agent_name)&&(0,a.jsxs)(`div`,{className:`voucher-card__footer`,children:[t&&(0,a.jsx)(`span`,{children:t}),e.agent_name&&(0,a.jsxs)(`span`,{children:[`Agen: `,e.agent_name]})]})]})}function d({vouchers:e=[]}){let n=(0,i.useMemo)(()=>l(e,o),[e]);return(0,i.useEffect)(()=>{let e=window.setTimeout(()=>window.print(),400);return()=>window.clearTimeout(e)},[]),(0,a.jsxs)(`div`,{className:`voucher-print`,children:[(0,a.jsx)(t,{title:`Cetak Kartu Voucher`}),(0,a.jsx)(`style`,{children:`
                 @page {
                     size: A4 portrait;
                     margin: 0;
@@ -110,8 +52,8 @@ export default function PrintCards({ vouchers = [] }) {
                     background: #fff;
                     box-shadow: 0 8px 28px rgba(16, 24, 32, 0.12);
                     display: grid;
-                    grid-template-columns: repeat(${COLS}, 1fr);
-                    grid-template-rows: repeat(${ROWS}, 1fr);
+                    grid-template-columns: repeat(${s}, 1fr);
+                    grid-template-rows: repeat(${c}, 1fr);
                     page-break-after: always;
                     break-after: page;
                 }
@@ -236,34 +178,4 @@ export default function PrintCards({ vouchers = [] }) {
                         align-items: flex-start;
                     }
                 }
-            `}</style>
-
-            <div className="voucher-print__toolbar">
-                <div>
-                    <h1>Cetak Kartu Voucher</h1>
-                    <p>
-                        {vouchers.length} kartu · {pages.length} lembar A4 · layout {COLS}×{ROWS}{' '}
-                        (56/lembar)
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => window.print()}
-                    className="btn-action btn-action-sm btn-primary"
-                >
-                    Print ulang
-                </button>
-            </div>
-
-            <div className="voucher-print__sheets">
-                {pages.map((pageCards, pageIndex) => (
-                    <section key={`page-${pageIndex}`} className="voucher-sheet" aria-label={`Lembar ${pageIndex + 1}`}>
-                        {pageCards.map((item) => (
-                            <Card key={item.id || item.username} item={item} />
-                        ))}
-                    </section>
-                ))}
-            </div>
-        </div>
-    );
-}
+            `}),(0,a.jsxs)(`div`,{className:`voucher-print__toolbar`,children:[(0,a.jsxs)(`div`,{children:[(0,a.jsx)(`h1`,{children:`Cetak Kartu Voucher`}),(0,a.jsxs)(`p`,{children:[e.length,` kartu · `,n.length,` lembar A4 · layout `,s,`×`,c,` `,`(56/lembar)`]})]}),(0,a.jsx)(`button`,{type:`button`,onClick:()=>window.print(),className:`btn-action btn-action-sm btn-primary`,children:`Print ulang`})]}),(0,a.jsx)(`div`,{className:`voucher-print__sheets`,children:n.map((e,t)=>(0,a.jsx)(`section`,{className:`voucher-sheet`,"aria-label":`Lembar ${t+1}`,children:e.map(e=>(0,a.jsx)(u,{item:e},e.id||e.username))},`page-${t}`))})]})}export{d as default};
