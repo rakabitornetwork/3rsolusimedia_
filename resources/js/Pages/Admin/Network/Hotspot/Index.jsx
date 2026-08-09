@@ -1,6 +1,17 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { BarChart3, Plus, Power, Printer, Trash2 } from 'lucide-react';
+import {
+    Activity,
+    BarChart3,
+    Ban,
+    ListFilter,
+    Plus,
+    Power,
+    Printer,
+    Ticket,
+    Trash2,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
+import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
@@ -282,18 +293,35 @@ export default function Index({
                 </div>
             )}
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-4">
-                {[
-                    ['Total voucher', stats.total],
-                    ['Online', stats.online],
-                    ['Nonaktif', stats.disabled],
-                    ['Ditampilkan', stats.shown],
-                ].map(([label, value]) => (
-                    <div key={label} className="border border-ink/10 bg-white p-4">
-                        <p className="text-[11px] tracking-wide text-ink-soft uppercase">{label}</p>
-                        <p className="mt-2 text-xl font-semibold text-ink">{value}</p>
-                    </div>
-                ))}
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <StatCard
+                    label="Total voucher"
+                    value={stats.total}
+                    hint="Di RouterOS"
+                    tone="slate"
+                    icon={Ticket}
+                />
+                <StatCard
+                    label="Online"
+                    value={stats.online}
+                    hint="Sesi aktif"
+                    tone="emerald"
+                    icon={Activity}
+                />
+                <StatCard
+                    label="Nonaktif"
+                    value={stats.disabled}
+                    hint="Disabled di router"
+                    tone="rose"
+                    icon={Ban}
+                />
+                <StatCard
+                    label="Ditampilkan"
+                    value={stats.shown}
+                    hint="Sesuai filter"
+                    tone="cyan"
+                    icon={ListFilter}
+                />
             </div>
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
