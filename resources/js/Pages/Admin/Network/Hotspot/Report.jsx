@@ -47,7 +47,7 @@ export default function Report({
     return (
         <AdminLayout
             title="Laporan Voucher Hotspot"
-            subtitle="Pisahkan penjualan harga dasar dan komisi agen"
+            subtitle="Omzet & komisi hanya dari voucher yang sudah terjual dan terpakai"
         >
             <Head title="Laporan Voucher Hotspot" />
 
@@ -115,28 +115,28 @@ export default function Report({
                     label="Jumlah voucher"
                     value={summary.voucher_count}
                     icon={Ticket}
-                    hint={`${summary.available_count} tersedia · ${summary.used_count} terpakai`}
+                    hint={`${summary.available_count} tersedia · ${summary.used_count} terpakai (generate)`}
                     tone="teal"
                 />
                 <StatCard
                     label="Penjualan harga dasar"
                     value={summary.base_sales_label}
                     icon={Banknote}
-                    hint="Omzet pemilik (tanpa komisi)"
+                    hint={`${summary.sold_count ?? 0} voucher terjual/terpakai`}
                     tone="indigo"
                 />
                 <StatCard
                     label="Komisi agen"
                     value={summary.commission_total_label}
                     icon={Coins}
-                    hint="Total komisi ke agen"
+                    hint="Hanya dari voucher terpakai"
                     tone="amber"
                 />
                 <StatCard
                     label="Total harga kartu"
                     value={summary.gross_total_label}
                     icon={Users}
-                    hint="Harga dasar + komisi"
+                    hint="Harga dasar + komisi (terpakai)"
                     tone="sky"
                 />
             </div>
@@ -146,7 +146,7 @@ export default function Report({
                     <div className="border-b border-ink/10 px-4 py-3">
                         <h2 className="text-sm font-semibold text-ink">Laporan harga dasar</h2>
                         <p className="text-xs text-ink-soft">
-                            Penjualan berdasarkan harga dasar pemilik jaringan
+                            Hanya voucher yang sudah terjual & terpakai di periode ini
                         </p>
                     </div>
                     <div className="admin-data-scroll">
@@ -196,7 +196,7 @@ export default function Report({
                     <div className="border-b border-ink/10 px-4 py-3">
                         <h2 className="text-sm font-semibold text-ink">Laporan komisi agen</h2>
                         <p className="text-xs text-ink-soft">
-                            Komisi yang diterima masing-masing agen
+                            Komisi agen dari voucher yang sudah terpakai
                         </p>
                     </div>
                     <div className="admin-data-scroll">
@@ -258,8 +258,10 @@ export default function Report({
             <section className="border border-ink/10 bg-white">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 px-4 py-3">
                     <div>
-                        <h2 className="text-sm font-semibold text-ink">Voucher terbaru</h2>
-                        <p className="text-xs text-ink-soft">Maksimal 40 entri pada periode terpilih</p>
+                        <h2 className="text-sm font-semibold text-ink">Voucher terpakai terbaru</h2>
+                        <p className="text-xs text-ink-soft">
+                            Maksimal 40 penjualan/pemakaian pada periode terpilih
+                        </p>
                     </div>
                     <Link
                         href="/admin/network/hotspot"
@@ -307,7 +309,7 @@ export default function Report({
                             {recent.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="px-4 py-8 text-center text-ink-soft">
-                                        Belum ada voucher pada periode ini.
+                                        Belum ada voucher terpakai pada periode ini.
                                     </td>
                                 </tr>
                             )}

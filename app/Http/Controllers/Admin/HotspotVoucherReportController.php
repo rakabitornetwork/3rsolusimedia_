@@ -26,19 +26,29 @@ class HotspotVoucherReportController extends Controller
         $toEnd = $to->copy()->endOfDay();
         $agentFilter = $request->integer('agent_id') ?: null;
 
-        $baseQuery = HotspotVoucher::query()
+        // Stok/generate: semua voucher yang dibuat di periode.
+        $generatedQuery = HotspotVoucher::query()
             ->whereBetween('created_at', [$fromStart, $toEnd])
             ->when($agentFilter, fn ($q) => $q->where('agent_id', $agentFilter));
 
-        $voucherCount = (clone $baseQuery)->count();
-        $baseSales = (int) (clone $baseQuery)->sum('base_price');
-        $commissionTotal = (int) (clone $baseQuery)->sum('commission');
-        $grossTotal = (int) (clone $baseQuery)->sum('sell_price');
+        $voucherCount = (clone $generatedQuery)->count();
+        $availableCount = (clone $generatedQuery)->where('status', HotspotVoucher::STATUS_AVAILABLE)->count();
+        $usedGeneratedCount = (clone $generatedQuery)->where('status', HotspotVoucher::STATUS_USED)->count();
 
-        $usedCount = (clone $baseQuery)->where('status', HotspotVoucher::STATUS_USED)->count();
-        $availableCount = (clone $baseQuery)->where('status', HotspotVoucher::STATUS_AVAILABLE)->count();
+        // Omzet/komisi: hanya voucher yang sudah terjual & terpakai (status used),
+        // dihitung berdasarkan waktu pemakaian (used_at), bukan saat digenerate.
+        $salesQuery = HotspotVoucher::query()
+            ->where('status', HotspotVoucher::STATUS_USED)
+            ->whereNotNull('used_at')
+            ->whereBetween('used_at', [$fromStart, $toEnd])
+            ->when($agentFilter, fn ($q) => $q->where('agent_id', $agentFilter));
 
-        $byAgent = HotspotVoucher::query()
+        $soldCount = (clone $salesQuery)->count();
+        $baseSales = (int) (clone $salesQuery)->sum('base_price');
+        $commissionTotal = (int) (clone $salesQuery)->sum('commission');
+        $grossTotal = (int) (clone $salesQuery)->sum('sell_price');
+
+        $byAgent = (clone $salesQuery)
             ->select(
                 'agent_id',
                 'agent_name',
@@ -47,8 +57,6 @@ class HotspotVoucherReportController extends Controller
                 DB::raw('SUM(commission) as commission_total'),
                 DB::raw('SUM(sell_price) as sell_total'),
             )
-            ->whereBetween('created_at', [$fromStart, $toEnd])
-            ->when($agentFilter, fn ($q) => $q->where('agent_id', $agentFilter))
             ->groupBy('agent_id', 'agent_name')
             ->orderByDesc('sell_total')
             ->get()
@@ -72,21 +80,16 @@ class HotspotVoucherReportController extends Controller
             ->values()
             ->all();
 
-        $recent = HotspotVoucher::query()
+        $recent = (clone $salesQuery)
             ->with(['router:id,name'])
-            ->whereBetween('created_at', [$fromStart, $toEnd])
-            ->when($agentFilter, fn ($q) => $q->where('agent_id', $agentFilter))
-            ->latest('id')
+            ->latest('used_at')
             ->limit(40)
             ->get()
             ->map(fn (HotspotVoucher $v) => [
                 ...$v->toCardArray(),
                 'router_name' => $v->router?->name,
-                'status_label' => match ($v->status) {
-                    HotspotVoucher::STATUS_USED => 'Terpakai',
-                    HotspotVoucher::STATUS_DELETED => 'Dihapus',
-                    default => 'Tersedia',
-                },
+                'status_label' => 'Terpakai',
+                'used_at' => $v->used_at?->toIso8601String(),
             ])
             ->all();
 
@@ -118,7 +121,8 @@ class HotspotVoucherReportController extends Controller
             'summary' => [
                 'voucher_count' => $voucherCount,
                 'available_count' => $availableCount,
-                'used_count' => $usedCount,
+                'used_count' => $usedGeneratedCount,
+                'sold_count' => $soldCount,
                 'base_sales' => $baseSales,
                 'base_sales_label' => $this->rupiah($baseSales),
                 'commission_total' => $commissionTotal,
