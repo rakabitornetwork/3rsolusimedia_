@@ -74,6 +74,8 @@ class HotspotVoucherController extends Controller
 
                 return [
                     ...$user,
+                    'voucher_id' => $meta?->id,
+                    'batch_id' => $meta?->batch_id,
                     'agent_name' => $meta?->agent_name,
                     'base_price' => $meta?->base_price,
                     'commission' => $meta?->commission,
@@ -281,19 +283,32 @@ class HotspotVoucherController extends Controller
         $batchId = (string) $request->query('batch_id', '');
         $ids = array_filter(array_map('intval', (array) $request->query('ids', [])));
 
-        $query = HotspotVoucher::query()->latest('id');
+        $query = HotspotVoucher::query();
 
         if ($batchId !== '') {
-            $query->where('batch_id', $batchId);
+            $cards = $query->where('batch_id', $batchId)
+                ->latest('id')
+                ->limit(500)
+                ->get()
+                ->map(fn (HotspotVoucher $v) => $v->toCardArray())
+                ->all();
         } elseif ($ids !== []) {
-            $query->whereIn('id', $ids);
+            $byId = $query->whereIn('id', $ids)
+                ->limit(500)
+                ->get()
+                ->keyBy('id');
+
+            $cards = collect($ids)
+                ->map(fn (int $id) => $byId->get($id))
+                ->filter()
+                ->map(fn (HotspotVoucher $v) => $v->toCardArray())
+                ->values()
+                ->all();
         } else {
             return redirect()
                 ->route('admin.network.hotspot')
                 ->with('error', 'Tidak ada voucher untuk dicetak.');
         }
-
-        $cards = $query->limit(200)->get()->map(fn (HotspotVoucher $v) => $v->toCardArray())->all();
 
         if ($cards === []) {
             return redirect()

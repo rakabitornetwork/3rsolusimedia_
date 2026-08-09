@@ -1,6 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { BarChart3, Plus, Power, Printer, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 
@@ -12,6 +12,12 @@ function formatBytes(value) {
     if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`;
     if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
     return `${n} B`;
+}
+
+function buildPrintUrl(ids) {
+    const params = new URLSearchParams();
+    ids.forEach((id) => params.append('ids[]', String(id)));
+    return `/admin/network/hotspot/print?${params.toString()}`;
 }
 
 export default function Index({
@@ -29,8 +35,43 @@ export default function Index({
     const [showGenerated, setShowGenerated] = useState(
         Boolean(generated_vouchers?.length),
     );
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    const printableUsers = useMemo(
+        () => users.filter((user) => Boolean(user.voucher_id)),
+        [users],
+    );
+
+    const allSelected =
+        printableUsers.length > 0 &&
+        printableUsers.every((user) => selectedIds.includes(user.voucher_id));
+
+    const toggleSelect = (voucherId) => {
+        setSelectedIds((current) =>
+            current.includes(voucherId)
+                ? current.filter((id) => id !== voucherId)
+                : [...current, voucherId],
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (allSelected) {
+            setSelectedIds([]);
+            return;
+        }
+        setSelectedIds(printableUsers.map((user) => user.voucher_id));
+    };
+
+    const printSelected = () => {
+        if (selectedIds.length === 0) {
+            window.alert('Pilih minimal satu voucher untuk dicetak.');
+            return;
+        }
+        window.open(buildPrintUrl(selectedIds), '_blank', 'noopener,noreferrer');
+    };
 
     const changeFilter = (key, value) => {
+        setSelectedIds([]);
         router.get(
             '/admin/network/hotspot',
             { ...filters, router_id: selected_router_id, [key]: value },
@@ -43,6 +84,7 @@ export default function Index({
     });
 
     const changeRouter = (routerId) => {
+        setSelectedIds([]);
         router.get(
             '/admin/network/hotspot',
             { router_id: routerId },
@@ -126,7 +168,7 @@ export default function Index({
                                     className="btn-action btn-action-xs btn-print"
                                 >
                                     <Printer className="mr-1 h-3.5 w-3.5" />
-                                    Cetak kartu
+                                    Cetak
                                 </a>
                             )}
                             <button
@@ -283,6 +325,15 @@ export default function Index({
                 </div>
 
                 <div className="admin-toolbar-actions">
+                    <button
+                        type="button"
+                        onClick={printSelected}
+                        disabled={selectedIds.length === 0}
+                        className="btn-action btn-action-sm btn-print"
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        Cetak
+                    </button>
                     <Link
                         href="/admin/network/hotspot/reports"
                         className="btn-action btn-action-sm btn-secondary"
@@ -315,9 +366,20 @@ export default function Index({
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
+                            <th className="w-10 px-4 py-3">
+                                <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    onChange={toggleSelectAll}
+                                    disabled={printableUsers.length === 0}
+                                    aria-label="Pilih semua voucher yang bisa dicetak"
+                                />
+                            </th>
                             <th className="px-4 py-3 font-semibold">Username</th>
                             <th className="px-4 py-3 font-semibold">Profile</th>
-                            <th className="hidden px-4 py-3 font-semibold md:table-cell">Agen / Harga</th>
+                            <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                Agen / Harga
+                            </th>
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">Limit</th>
                             <th className="hidden px-4 py-3 font-semibold xl:table-cell">Usage</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
@@ -326,7 +388,22 @@ export default function Index({
                     </thead>
                     <tbody>
                         {users.map((user) => (
-                            <tr key={user.id || user.name} className="border-b border-ink/5 last:border-0">
+                            <tr
+                                key={user.id || user.name}
+                                className="border-b border-ink/5 last:border-0"
+                            >
+                                <td className="px-4 py-3">
+                                    {user.voucher_id ? (
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.includes(user.voucher_id)}
+                                            onChange={() => toggleSelect(user.voucher_id)}
+                                            aria-label={`Pilih ${user.name}`}
+                                        />
+                                    ) : (
+                                        <span className="block w-4" />
+                                    )}
+                                </td>
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{user.name}</p>
                                     {user.comment && (
@@ -390,7 +467,7 @@ export default function Index({
                         ))}
                         {users.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
                                         ? 'Belum ada voucher, atau filter tidak cocok.'
                                         : 'Pilih atau tambahkan router terlebih dahulu.'}
