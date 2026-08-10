@@ -211,7 +211,7 @@ class HotspotVoucherService
         $usernamesById = [];
 
         foreach ($users as $user) {
-            if (! $this->shouldPurgeUser($user)) {
+            if (! $this->shouldPurgeUser($user) && ! $this->shouldRemoveExpiredComment($user)) {
                 continue;
             }
 
@@ -226,47 +226,47 @@ class HotspotVoucherService
             $usernamesById[$userId] = $username;
         }
 
-        if ($toRemove === []) {
-            $message = $sold > 0
-                ? "{$sold} voucher ditandai terjual (sudah dipakai)."
-                : 'Tidak ada voucher terpakai yang perlu dihapus.';
+        $removed = 0;
+        $result = ['ok' => true, 'message' => null];
 
-            return [
-                'ok' => true,
-                'message' => $message,
-                'removed' => 0,
-                'sold' => $sold,
-            ];
-        }
+        if ($toRemove !== []) {
+            $result = $this->api->removeHotspotUsers($router, $toRemove);
+            $removedIds = $result['removed_ids'] ?? [];
+            $removed = count($removedIds);
 
-        $result = $this->api->removeHotspotUsers($router, $toRemove);
-        $removedIds = $result['removed_ids'] ?? [];
-        $removed = count($removedIds);
+            if ($removed > 0) {
+                $removedUsernames = array_values(array_filter(array_map(
+                    static fn (string $id) => $usernamesById[$id] ?? null,
+                    $removedIds
+                )));
 
-        if ($removed > 0) {
-            $removedUsernames = array_values(array_filter(array_map(
-                static fn (string $id) => $usernamesById[$id] ?? null,
-                $removedIds
-            )));
+                if ($removedUsernames !== []) {
+                    HotspotVoucher::query()
+                        ->where('mikrotik_router_id', $router->id)
+                        ->whereIn('username', $removedUsernames)
+                        ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED])
+                        ->update([
+                            'status' => HotspotVoucher::STATUS_USED,
+                            'deleted_from_router_at' => now(),
+                        ]);
 
-            if ($removedUsernames !== []) {
-                HotspotVoucher::query()
-                    ->where('mikrotik_router_id', $router->id)
-                    ->whereIn('username', $removedUsernames)
-                    ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED])
-                    ->update([
-                        'status' => HotspotVoucher::STATUS_USED,
-                        'deleted_from_router_at' => now(),
-                    ]);
-
-                // Preserve first-use used_at from syncSoldFromUsage.
-                HotspotVoucher::query()
-                    ->where('mikrotik_router_id', $router->id)
-                    ->whereIn('username', $removedUsernames)
-                    ->whereNull('used_at')
-                    ->update(['used_at' => now()]);
+                    // Preserve first-use used_at from syncSoldFromUsage.
+                    HotspotVoucher::query()
+                        ->where('mikrotik_router_id', $router->id)
+                        ->whereIn('username', $removedUsernames)
+                        ->whereNull('used_at')
+                        ->update(['used_at' => now()]);
+                }
             }
         }
+
+        // Users already removed by RouterOS expire monitor (Mikhmon scheduler).
+        $presentNames = $users
+            ->map(fn (array $user) => (string) ($user['name'] ?? ''))
+            ->filter(fn (string $name) => $name !== '')
+            ->values()
+            ->all();
+        $syncedMissing = $this->syncMissingFromRouter($router, $presentNames);
 
         $parts = [];
         if ($sold > 0) {
@@ -275,14 +275,17 @@ class HotspotVoucherService
         if ($removed > 0) {
             $parts[] = "{$removed} dihapus dari RouterOS";
         }
+        if ($syncedMissing > 0) {
+            $parts[] = "{$syncedMissing} disinkron (sudah hilang di RouterOS)";
+        }
         $message = $parts !== []
             ? implode('; ', $parts).'.'
             : ($result['message'] ?? 'Tidak ada voucher terpakai yang perlu dihapus.');
 
         return [
-            'ok' => (bool) ($result['ok'] ?? false) || $removed > 0 || $sold > 0,
+            'ok' => (bool) ($result['ok'] ?? false) || $removed > 0 || $sold > 0 || $syncedMissing > 0 || $toRemove === [],
             'message' => $message,
-            'removed' => $removed,
+            'removed' => $removed + $syncedMissing,
             'sold' => $sold,
         ];
     }
@@ -438,6 +441,121 @@ class HotspotVoucherService
         }
 
         return false;
+    }
+
+    /**
+     * True when hotspot user comment holds an expire datetime that has passed
+     * (written by profile on-login, monitored by Mikhmon-style scheduler).
+     *
+     * @param  array<string, mixed>  $user
+     */
+    public function isCommentExpired(array $user): bool
+    {
+        $expireAt = $this->parseExpireComment((string) ($user['comment'] ?? ''));
+
+        return $expireAt !== null && $expireAt->lessThanOrEqualTo(now());
+    }
+
+    /**
+     * Remove from RouterOS when comment expire passed and mode is Remove (X),
+     * not Notice (N) — Notice leaves the user (limit-uptime=1s via monitor).
+     *
+     * @param  array<string, mixed>  $user
+     */
+    public function shouldRemoveExpiredComment(array $user): bool
+    {
+        if (! $this->isCommentExpired($user)) {
+            return false;
+        }
+
+        $comment = trim((string) ($user['comment'] ?? ''));
+        if (preg_match('/\s+N$/i', $comment)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return \Carbon\Carbon|null
+     */
+    public function parseExpireComment(string $comment): ?\Carbon\Carbon
+    {
+        $comment = trim($comment);
+        if ($comment === '') {
+            return null;
+        }
+
+        // jan/15/2024 14:30:25 X|N  (MikroTik classic date + optional mode)
+        if (! preg_match(
+            '/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})(?:\s+[xn])?/i',
+            $comment,
+            $m
+        )) {
+            return null;
+        }
+
+        $months = [
+            'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'may' => 5, 'jun' => 6,
+            'jul' => 7, 'aug' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12,
+        ];
+        $month = $months[strtolower($m[1])] ?? 0;
+        if ($month < 1) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::create(
+                (int) $m[3],
+                $month,
+                (int) $m[2],
+                (int) $m[4],
+                (int) $m[5],
+                (int) $m[6],
+                config('app.timezone')
+            );
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Mark local vouchers that vanished from RouterOS (e.g. expire monitor removed them).
+     *
+     * @param  array<int, string>  $presentUsernames
+     */
+    public function syncMissingFromRouter(MikrotikRouter $router, array $presentUsernames): int
+    {
+        $query = HotspotVoucher::query()
+            ->where('mikrotik_router_id', $router->id)
+            ->whereNull('deleted_from_router_at')
+            ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED]);
+
+        if ($presentUsernames !== []) {
+            $query->whereNotIn('username', $presentUsernames);
+        }
+
+        $missing = $query->get(['id', 'used_at']);
+        if ($missing->isEmpty()) {
+            return 0;
+        }
+
+        $ids = $missing->pluck('id')->all();
+        $now = now();
+
+        HotspotVoucher::query()
+            ->whereIn('id', $ids)
+            ->update([
+                'status' => HotspotVoucher::STATUS_USED,
+                'deleted_from_router_at' => $now,
+            ]);
+
+        HotspotVoucher::query()
+            ->whereIn('id', $ids)
+            ->whereNull('used_at')
+            ->update(['used_at' => $now]);
+
+        return count($ids);
     }
 
     /**

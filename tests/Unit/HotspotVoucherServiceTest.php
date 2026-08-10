@@ -221,4 +221,135 @@ class HotspotVoucherServiceTest extends TestCase
             HotspotVoucher::query()->where('username', 'GS6G6S5')->value('deleted_from_router_at')
         );
     }
+
+    #[Test]
+    public function it_detects_expired_comment_and_remove_vs_notice_mode(): void
+    {
+        $service = $this->service();
+        $commentPastRemove = 'jan/01/2020 10:00:00 X';
+        $commentPastNotice = 'jan/01/2020 10:00:00 N';
+        $commentFuture = 'dec/31/2099 23:59:59 X';
+        $commentVoucher = 'vc-20260811 | agen:WARUNG';
+
+        $this->assertTrue($service->isCommentExpired(['comment' => $commentPastRemove]));
+        $this->assertTrue($service->shouldRemoveExpiredComment(['comment' => $commentPastRemove]));
+        $this->assertTrue($service->isCommentExpired(['comment' => $commentPastNotice]));
+        $this->assertFalse($service->shouldRemoveExpiredComment(['comment' => $commentPastNotice]));
+        $this->assertFalse($service->isCommentExpired(['comment' => $commentFuture]));
+        $this->assertFalse($service->isCommentExpired(['comment' => $commentVoucher]));
+    }
+
+    #[Test]
+    public function sync_missing_from_router_marks_vanished_vouchers_as_used(): void
+    {
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router Missing',
+            'host' => '10.0.0.3',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        HotspotVoucher::query()->create([
+            'batch_id' => 'batch-3',
+            'mikrotik_router_id' => $router->id,
+            'username' => 'GONE001',
+            'password' => 'GONE001',
+            'profile' => '1jam',
+            'status' => HotspotVoucher::STATUS_AVAILABLE,
+            'base_price' => 1000,
+            'commission' => 0,
+            'sell_price' => 1000,
+        ]);
+
+        HotspotVoucher::query()->create([
+            'batch_id' => 'batch-3',
+            'mikrotik_router_id' => $router->id,
+            'username' => 'STILL01',
+            'password' => 'STILL01',
+            'profile' => '1jam',
+            'status' => HotspotVoucher::STATUS_AVAILABLE,
+            'base_price' => 1000,
+            'commission' => 0,
+            'sell_price' => 1000,
+        ]);
+
+        $synced = $this->service()->syncMissingFromRouter($router, ['STILL01']);
+
+        $this->assertSame(1, $synced);
+        $this->assertDatabaseHas('hotspot_vouchers', [
+            'username' => 'GONE001',
+            'status' => HotspotVoucher::STATUS_USED,
+        ]);
+        $this->assertNotNull(
+            HotspotVoucher::query()->where('username', 'GONE001')->value('deleted_from_router_at')
+        );
+        $this->assertDatabaseHas('hotspot_vouchers', [
+            'username' => 'STILL01',
+            'status' => HotspotVoucher::STATUS_AVAILABLE,
+        ]);
+        $this->assertNull(
+            HotspotVoucher::query()->where('username', 'STILL01')->value('deleted_from_router_at')
+        );
+    }
+
+    #[Test]
+    public function purge_used_removes_users_with_expired_comment_even_if_online(): void
+    {
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router Expire',
+            'host' => '10.0.0.4',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        HotspotVoucher::query()->create([
+            'batch_id' => 'batch-4',
+            'mikrotik_router_id' => $router->id,
+            'username' => 'EXPUSER',
+            'password' => 'EXPUSER',
+            'profile' => '1jam',
+            'status' => HotspotVoucher::STATUS_USED,
+            'used_at' => now()->subHour(),
+            'base_price' => 2000,
+            'commission' => 0,
+            'sell_price' => 2000,
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('listHotspotUsers')->once()->andReturn([
+            'ok' => true,
+            'users' => [
+                [
+                    'id' => '*9',
+                    'name' => 'EXPUSER',
+                    'uptime' => '10m',
+                    'bytes_in' => 100,
+                    'bytes_out' => 200,
+                    'is_online' => true,
+                    'limit_uptime' => '1h',
+                    'comment' => 'jan/01/2020 10:00:00 X',
+                ],
+            ],
+            'active_count' => 1,
+        ]);
+        $api->shouldReceive('removeHotspotUsers')->once()->withArgs(function ($r, $ids) {
+            return $r instanceof MikrotikRouter && $ids === ['*9'];
+        })->andReturn([
+            'ok' => true,
+            'removed_ids' => ['*9'],
+            'removed' => 1,
+        ]);
+
+        $result = $this->service($api)->purgeUsed($router);
+
+        $this->assertTrue($result['ok']);
+        $this->assertGreaterThanOrEqual(1, $result['removed']);
+        $this->assertNotNull(
+            HotspotVoucher::query()->where('username', 'EXPUSER')->value('deleted_from_router_at')
+        );
+    }
 }

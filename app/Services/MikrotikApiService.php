@@ -569,6 +569,12 @@ class MikrotikApiService
             $this->applyHotspotUserProfileFields($query, $data);
             $this->assertWriteOk($client->query($query)->read());
 
+            $this->syncHotspotExpireMonitor(
+                $router,
+                (string) $data['name'],
+                isset($data['expired_mode']) ? (string) ($data['expired_mode'] ?: '') : null
+            );
+
             return ['ok' => true, 'message' => 'Profile hotspot berhasil ditambahkan di RouterOS.'];
         } catch (Throwable $e) {
             return ['ok' => false, 'message' => $this->friendlyError($e)];
@@ -582,12 +588,22 @@ class MikrotikApiService
     public function updateHotspotUserProfile(MikrotikRouter $router, string $profileId, array $data): array
     {
         try {
+            $existing = $this->getHotspotUserProfile($router, $profileId);
+            $oldName = (string) ($existing['profile']['name'] ?? '');
+
             $client = $this->makeClient($router);
             $query = (new Query('/ip/hotspot/user/profile/set'))
                 ->equal('.id', $profileId)
                 ->equal('name', $data['name']);
             $this->applyHotspotUserProfileFields($query, $data);
             $this->assertWriteOk($client->query($query)->read());
+
+            $this->syncHotspotExpireMonitor(
+                $router,
+                (string) $data['name'],
+                isset($data['expired_mode']) ? (string) ($data['expired_mode'] ?: '') : null,
+                $oldName !== '' && $oldName !== $data['name'] ? $oldName : null
+            );
 
             return ['ok' => true, 'message' => 'Profile hotspot berhasil diperbarui di RouterOS.'];
         } catch (Throwable $e) {
@@ -601,12 +617,19 @@ class MikrotikApiService
     public function removeHotspotUserProfile(MikrotikRouter $router, string $profileId): array
     {
         try {
+            $existing = $this->getHotspotUserProfile($router, $profileId);
+            $name = (string) ($existing['profile']['name'] ?? '');
+
             $client = $this->makeClient($router);
             $this->assertWriteOk(
                 $client->query(
                     (new Query('/ip/hotspot/user/profile/remove'))->equal('.id', $profileId)
                 )->read()
             );
+
+            if ($name !== '') {
+                $this->removeHotspotExpireMonitor($router, $name);
+            }
 
             return ['ok' => true, 'message' => 'Profile hotspot berhasil dihapus dari RouterOS.'];
         } catch (Throwable $e) {
@@ -1708,6 +1731,145 @@ class MikrotikApiService
             'expired_mode' => $expiredMode,
             'lock_user' => $lockUser,
         ];
+    }
+
+    /**
+     * Mikhmon-style /system/scheduler that removes (or notices) hotspot users
+     * whose comment expire datetime has passed.
+     *
+     * @return array{ok: bool, message?: string}
+     */
+    public function syncHotspotExpireMonitor(
+        MikrotikRouter $router,
+        string $profileName,
+        ?string $expiredMode,
+        ?string $previousProfileName = null
+    ): array {
+        $profileName = trim($profileName);
+        if ($profileName === '') {
+            return ['ok' => false, 'message' => 'Nama profile kosong.'];
+        }
+
+        if ($previousProfileName && $previousProfileName !== $profileName) {
+            $this->removeHotspotExpireMonitor($router, $previousProfileName);
+        }
+
+        $expiredMode = trim((string) $expiredMode);
+        if ($expiredMode === '') {
+            return $this->removeHotspotExpireMonitor($router, $profileName);
+        }
+
+        try {
+            $client = $this->makeClient($router);
+            $onEvent = $this->buildHotspotExpireMonitorScript($profileName, $expiredMode);
+            $schedulerId = $this->findSchedulerIdByName($client, $profileName);
+
+            $startTime = sprintf('0%d:%02d:%02d', random_int(1, 5), random_int(10, 59), random_int(10, 59));
+            $interval = sprintf('00:02:%02d', random_int(10, 59));
+
+            if ($schedulerId) {
+                $query = (new Query('/system/scheduler/set'))
+                    ->equal('.id', $schedulerId)
+                    ->equal('name', $profileName)
+                    ->equal('start-time', $startTime)
+                    ->equal('interval', $interval)
+                    ->equal('on-event', $onEvent)
+                    ->equal('disabled', 'no')
+                    ->equal('comment', 'Monitor Profile '.$profileName);
+            } else {
+                $query = (new Query('/system/scheduler/add'))
+                    ->equal('name', $profileName)
+                    ->equal('start-time', $startTime)
+                    ->equal('interval', $interval)
+                    ->equal('on-event', $onEvent)
+                    ->equal('disabled', 'no')
+                    ->equal('comment', 'Monitor Profile '.$profileName);
+            }
+
+            $this->assertWriteOk($client->query($query)->read());
+
+            return ['ok' => true, 'message' => 'Expire monitor aktif untuk profile '.$profileName.'.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message?: string}
+     */
+    public function removeHotspotExpireMonitor(MikrotikRouter $router, string $profileName): array
+    {
+        $profileName = trim($profileName);
+        if ($profileName === '') {
+            return ['ok' => true];
+        }
+
+        try {
+            $client = $this->makeClient($router);
+            $schedulerId = $this->findSchedulerIdByName($client, $profileName);
+            if ($schedulerId) {
+                $this->assertWriteOk(
+                    $client->query(
+                        (new Query('/system/scheduler/remove'))->equal('.id', $schedulerId)
+                    )->read()
+                );
+            }
+
+            return ['ok' => true, 'message' => 'Expire monitor dihapus untuk profile '.$profileName.'.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * Build Mikhmon-compatible profile expire monitor script.
+     */
+    public function buildHotspotExpireMonitorScript(string $profileName, string $expiredMode): string
+    {
+        $action = match (trim($expiredMode)) {
+            'notice' => 'set limit-uptime=1s',
+            default => 'remove',
+        };
+
+        // Escape profile name for embedding inside RouterOS script double quotes.
+        $safeName = str_replace(['\\', '"'], ['\\\\', '\\"'], $profileName);
+
+        return ':local dateint do={:local montharray ( "jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec" );:local days [ :pick $d 4 6 ];:local month [ :pick $d 0 3 ];:local year [ :pick $d 7 11 ];:local monthint ([ :find $montharray $month]);:local month ($monthint + 1);:if ( [len $month] = 1) do={:local zero ("0");:return [:tonum ("$year$zero$month$days")];} else={:return [:tonum ("$year$month$days")];}};'
+            .':local timeint do={ :local hours [ :pick $t 0 2 ]; :local minutes [ :pick $t 3 5 ]; :return ($hours * 60 + $minutes) ; };'
+            .':local date [ /system clock get date ]; :local time [ /system clock get time ];'
+            .':local today [$dateint d=$date] ; :local curtime [$timeint t=$time] ;'
+            .':foreach i in [ /ip hotspot user find where profile="'.$safeName.'" ] do={'
+            .':local comment [ /ip hotspot user get $i comment];'
+            .':local name [ /ip hotspot user get $i name];'
+            .':local gettime [:pic $comment 12 20];'
+            .':if ([:pic $comment 3] = "/" and [:pic $comment 6] = "/") do={'
+            .':local expd [$dateint d=$comment] ; :local expt [$timeint t=$gettime] ;'
+            .':if (($expd < $today and $expt < $curtime) or ($expd < $today and $expt > $curtime) or ($expd = $today and $expt < $curtime)) do={'
+            .'[ /ip hotspot user '.$action.' $i ];'
+            .'[ /ip hotspot active remove [find where user=$name] ];'
+            .'}}}';
+    }
+
+    private function findSchedulerIdByName(Client $client, string $name): ?string
+    {
+        try {
+            $rows = $client->query(
+                (new Query('/system/scheduler/print'))->where('name', $name)
+            )->read();
+
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                if (($row['name'] ?? '') === $name && isset($row['.id'])) {
+                    return (string) $row['.id'];
+                }
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     /**

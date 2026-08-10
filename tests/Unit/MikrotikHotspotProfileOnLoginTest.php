@@ -65,4 +65,24 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
         $this->assertSame('remove', $parsed['expired_mode']);
         $this->assertTrue($parsed['lock_user']);
     }
+
+    #[Test]
+    public function expire_monitor_script_removes_users_for_remove_mode(): void
+    {
+        $script = (new MikrotikApiService)->buildHotspotExpireMonitorScript('1jam', 'remove');
+
+        $this->assertStringContainsString('profile="1jam"', $script);
+        $this->assertStringContainsString('/ip hotspot user remove', $script);
+        $this->assertStringContainsString('/ip hotspot active remove', $script);
+        $this->assertStringNotContainsString('limit-uptime=1s', $script);
+    }
+
+    #[Test]
+    public function expire_monitor_script_notices_users_for_notice_mode(): void
+    {
+        $script = (new MikrotikApiService)->buildHotspotExpireMonitorScript('Paket-1Jam', 'notice');
+
+        $this->assertStringContainsString('profile="Paket-1Jam"', $script);
+        $this->assertStringContainsString('set limit-uptime=1s', $script);
+    }
 }
