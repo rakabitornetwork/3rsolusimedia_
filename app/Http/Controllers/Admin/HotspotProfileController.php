@@ -175,17 +175,17 @@ class HotspotProfileController extends Controller
             [
                 'value' => 'remove',
                 'label' => 'Remove',
-                'description' => 'Hapus user hotspot setelah expired',
+                'description' => 'Hapus user hotspot setelah expired. Penjualan dicatat di app saat first use',
             ],
             [
                 'value' => 'notice',
                 'label' => 'Notice',
-                'description' => 'Tampilkan halaman notice, user tetap ada',
+                'description' => 'Tampilkan halaman notice, user tetap ada. Penjualan dicatat di app saat first use',
             ],
             [
                 'value' => 'remove,notice',
                 'label' => 'Remove + Notice',
-                'description' => 'Hapus user lalu arahkan ke halaman notice',
+                'description' => 'Hapus user lalu arahkan ke halaman notice. Penjualan dicatat di app saat first use',
             ],
         ];
     }

@@ -1634,7 +1634,8 @@ class MikrotikApiService
             $lines[] = ' :local year [ :pick $date 7 11 ];';
             $lines[] = ' :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment];';
             $lines[] = ' :local ucode [:pick $comment 0 2];';
-            $lines[] = ' :if ($ucode = "vc" or $ucode = "up" or $comment = "") do={';
+            // vc/up = Mikhmon; vo = voucher-app (legacy app comments).
+            $lines[] = ' :if ($ucode = "vc" or $ucode = "up" or $ucode = "vo" or $comment = "") do={';
             $lines[] = sprintf('  /sys sch add name="$user" disable=no start-date=$date interval="%s";', $validity);
             $lines[] = '  :delay 2s;';
             $lines[] = '  :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run];';
@@ -1659,7 +1660,8 @@ class MikrotikApiService
         }
 
         if ($lockUser) {
-            $lines[] = '[:local mac "$mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];';
+            // Mikhmon v3: hyphenated vars must use $"mac-address", not "$mac-address".
+            $lines[] = '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];';
         }
 
         return implode("\n", $lines);
@@ -1696,6 +1698,7 @@ class MikrotikApiService
             && (
                 str_contains($onLogin, 'set mac-address=$mac')
                 || str_contains($onLogin, 'set mac-address=$mac-address')
+                || str_contains($onLogin, '$"mac-address"')
             )
         ) {
             $lockUser = true;

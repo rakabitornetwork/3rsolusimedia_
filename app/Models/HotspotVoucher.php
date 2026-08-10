@@ -79,6 +79,7 @@ class HotspotVoucher extends Model
             'sell_price_label' => 'Rp '.number_format($this->sell_price, 0, ',', '.'),
             'base_price_label' => 'Rp '.number_format($this->base_price, 0, ',', '.'),
             'commission_label' => 'Rp '.number_format($this->commission, 0, ',', '.'),
+            'comment' => $this->comment,
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

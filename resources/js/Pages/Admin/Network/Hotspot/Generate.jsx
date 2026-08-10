@@ -5,6 +5,14 @@ import AdminLayout from '../../../../Layouts/AdminLayout';
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
+function defaultVoucherComment() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `vc-${y}${m}${d}`;
+}
+
 function parseDigits(raw) {
     if (raw === '') return '';
     if (!/^\d+$/.test(raw)) return null;
@@ -35,7 +43,7 @@ export default function Generate({
         password_mode: 'same',
         limit_uptime: '1d',
         limit_bytes_mb: '',
-        comment: 'voucher-app',
+        comment: defaultVoucherComment(),
         agent_id: '',
         agent_name: '',
         base_price: '',
@@ -405,8 +413,11 @@ export default function Generate({
                         value={data.comment}
                         onChange={(e) => setData('comment', e.target.value)}
                         className={fieldClass}
-                        placeholder="voucher-app"
+                        placeholder="vc-20260811"
                     />
+                    <span className="mt-1 block text-xs text-ink-soft">
+                        Awali dengan vc- agar expire on-login RouterOS aktif (format Mikhmon).
+                    </span>
                 </label>
 
                 <div className="border border-ink/10 bg-mist/40 px-4 py-3 text-xs text-ink-soft">

@@ -10,7 +10,7 @@ class PurgeUsedHotspotVouchers extends Command
 {
     protected $signature = 'hotspot:purge-used {--router= : ID router tertentu}';
 
-    protected $description = 'Hapus voucher hotspot yang sudah terpakai dari RouterOS dan aplikasi';
+    protected $description = 'Sinkron penjualan voucher terpakai dan hapus yang kuotanya habis dari RouterOS';
 
     public function handle(HotspotVoucherService $vouchers): int
     {
@@ -29,15 +29,18 @@ class PurgeUsedHotspotVouchers extends Command
         }
 
         $totalRemoved = 0;
+        $totalSold = 0;
 
         foreach ($routers as $router) {
             $result = $vouchers->purgeUsed($router);
             $removed = (int) ($result['removed'] ?? 0);
+            $sold = (int) ($result['sold'] ?? 0);
             $totalRemoved += $removed;
+            $totalSold += $sold;
             $this->line("[{$router->name}] {$result['message']}");
         }
 
-        $this->info("Selesai. Total dihapus: {$totalRemoved}");
+        $this->info("Selesai. Ditandai terjual: {$totalSold}. Dihapus: {$totalRemoved}");
 
         return self::SUCCESS;
     }

@@ -32,8 +32,12 @@ class HotspotVoucherFeatureTest extends TestCase
 
         $api = Mockery::mock(MikrotikApiService::class);
         $api->shouldReceive('generateVoucherCode')->andReturn('123456', '123456');
-        $api->shouldReceive('createHotspotUser')->once()->andReturn([
+        $api->shouldReceive('createHotspotUsers')->once()->andReturn([
             'ok' => true,
+            'created' => [
+                ['name' => '123456', 'password' => '123456'],
+            ],
+            'errors' => [],
             'message' => 'ok',
         ]);
         $this->app->instance(MikrotikApiService::class, $api);
@@ -54,6 +58,8 @@ class HotspotVoucherFeatureTest extends TestCase
         $this->assertTrue($result['ok']);
         $this->assertSame(2000, $result['vouchers'][0]['sell_price']);
         $this->assertSame('Andi', $result['vouchers'][0]['agent_name']);
+        $this->assertStringStartsWith('vc-', (string) $result['vouchers'][0]['comment']);
+        $this->assertStringContainsString('agen:Andi', (string) $result['vouchers'][0]['comment']);
 
         $this->assertDatabaseHas('hotspot_vouchers', [
             'username' => '123456',
@@ -63,6 +69,10 @@ class HotspotVoucherFeatureTest extends TestCase
             'sell_price' => 2000,
             'status' => HotspotVoucher::STATUS_AVAILABLE,
         ]);
+        $this->assertStringStartsWith(
+            'vc-',
+            (string) HotspotVoucher::query()->where('username', '123456')->value('comment')
+        );
     }
 
     #[Test]

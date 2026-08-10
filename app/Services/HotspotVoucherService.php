@@ -62,7 +62,11 @@ class HotspotVoucherService
         $sellPrice = $basePrice + $commission;
 
         $batchId = (string) Str::uuid();
-        $comment = trim((string) ($options['comment'] ?? 'voucher-app'));
+        // Mikhmon-style vc- prefix so profile on-login expire gate matches.
+        $comment = trim((string) ($options['comment'] ?? ''));
+        if ($comment === '') {
+            $comment = 'vc-'.now()->format('Ymd');
+        }
         if ($agentName !== '') {
             $comment = trim($comment.' | agen:'.$agentName);
         }
@@ -183,7 +187,7 @@ class HotspotVoucherService
      * Hapus voucher yang sudah terpakai (kuota waktu/data habis atau pernah login lalu offline)
      * dari RouterOS dan tandai di aplikasi.
      *
-     * @return array{ok: bool, message: string, removed: int}
+     * @return array{ok: bool, message: string, removed: int, sold: int}
      */
     public function purgeUsed(MikrotikRouter $router): array
     {
@@ -193,11 +197,16 @@ class HotspotVoucherService
                 'ok' => false,
                 'message' => $list['message'] ?? 'Gagal membaca user hotspot.',
                 'removed' => 0,
+                'sold' => 0,
             ];
         }
 
         /** @var Collection<int, array<string, mixed>> $users */
         $users = collect($list['users'] ?? []);
+
+        // Mikhmon Record-like: catat penjualan saat first use, tanpa hapus dari router.
+        $sold = $this->syncSoldFromUsage($router, $users);
+
         $toRemove = [];
         $usernamesById = [];
 
@@ -218,10 +227,15 @@ class HotspotVoucherService
         }
 
         if ($toRemove === []) {
+            $message = $sold > 0
+                ? "{$sold} voucher ditandai terjual (sudah dipakai)."
+                : 'Tidak ada voucher terpakai yang perlu dihapus.';
+
             return [
                 'ok' => true,
-                'message' => 'Tidak ada voucher terpakai yang perlu dihapus.',
+                'message' => $message,
                 'removed' => 0,
+                'sold' => $sold,
             ];
         }
 
@@ -242,21 +256,65 @@ class HotspotVoucherService
                     ->whereIn('status', [HotspotVoucher::STATUS_AVAILABLE, HotspotVoucher::STATUS_USED])
                     ->update([
                         'status' => HotspotVoucher::STATUS_USED,
-                        'used_at' => now(),
                         'deleted_from_router_at' => now(),
                     ]);
+
+                // Preserve first-use used_at from syncSoldFromUsage.
+                HotspotVoucher::query()
+                    ->where('mikrotik_router_id', $router->id)
+                    ->whereIn('username', $removedUsernames)
+                    ->whereNull('used_at')
+                    ->update(['used_at' => now()]);
             }
         }
 
-        $message = $removed > 0
-            ? "{$removed} voucher terpakai dihapus dari RouterOS & aplikasi."
+        $parts = [];
+        if ($sold > 0) {
+            $parts[] = "{$sold} ditandai terjual";
+        }
+        if ($removed > 0) {
+            $parts[] = "{$removed} dihapus dari RouterOS";
+        }
+        $message = $parts !== []
+            ? implode('; ', $parts).'.'
             : ($result['message'] ?? 'Tidak ada voucher terpakai yang perlu dihapus.');
 
         return [
-            'ok' => (bool) ($result['ok'] ?? false) || $removed > 0,
+            'ok' => (bool) ($result['ok'] ?? false) || $removed > 0 || $sold > 0,
             'message' => $message,
             'removed' => $removed,
+            'sold' => $sold,
         ];
+    }
+
+    /**
+     * Tandai voucher sebagai terjual (status used) saat RouterOS menunjukkan usage.
+     * Tidak menghapus user dari RouterOS — mirip Mikhmon Record.
+     *
+     * @param  Collection<int, array<string, mixed>>|array<int, array<string, mixed>>  $users
+     */
+    public function syncSoldFromUsage(MikrotikRouter $router, Collection|array $users): int
+    {
+        $usernames = collect($users)
+            ->filter(fn (array $user) => $this->hasUsage($user))
+            ->map(fn (array $user) => (string) ($user['name'] ?? ''))
+            ->filter(fn (string $name) => $name !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($usernames === []) {
+            return 0;
+        }
+
+        return HotspotVoucher::query()
+            ->where('mikrotik_router_id', $router->id)
+            ->whereIn('username', $usernames)
+            ->where('status', HotspotVoucher::STATUS_AVAILABLE)
+            ->update([
+                'status' => HotspotVoucher::STATUS_USED,
+                'used_at' => now(),
+            ]);
     }
 
     /**
@@ -404,6 +462,16 @@ class HotspotVoucherService
 
         if (ctype_digit($value)) {
             return (int) $value;
+        }
+
+        // WinBox / some API responses: HH:MM:SS or H:MM:SS
+        if (preg_match('/^(\d+):([0-5]?\d):([0-5]?\d)$/', $value, $parts)) {
+            return ((int) $parts[1] * 3600) + ((int) $parts[2] * 60) + (int) $parts[3];
+        }
+
+        // MM:SS
+        if (preg_match('/^([0-5]?\d):([0-5]?\d)$/', $value, $parts)) {
+            return ((int) $parts[1] * 60) + (int) $parts[2];
         }
 
         $seconds = 0;
