@@ -230,6 +230,9 @@ class HotspotVoucherServiceTest extends TestCase
         $commentPastNotice = 'jan/01/2020 10:00:00 N';
         $commentFuture = 'dec/31/2099 23:59:59 X';
         $commentVoucher = 'vc-20260811 | agen:WARUNG';
+        $commentIsoPast = '2020-01-01 10:00:00 X';
+        $commentIsoNotice = '2020-01-01 10:00:00 N';
+        $commentIsoFuture = '2099-12-31 23:59:59 X';
 
         $this->assertTrue($service->isCommentExpired(['comment' => $commentPastRemove]));
         $this->assertTrue($service->shouldRemoveExpiredComment(['comment' => $commentPastRemove]));
@@ -237,6 +240,12 @@ class HotspotVoucherServiceTest extends TestCase
         $this->assertFalse($service->shouldRemoveExpiredComment(['comment' => $commentPastNotice]));
         $this->assertFalse($service->isCommentExpired(['comment' => $commentFuture]));
         $this->assertFalse($service->isCommentExpired(['comment' => $commentVoucher]));
+
+        $this->assertTrue($service->isCommentExpired(['comment' => $commentIsoPast]));
+        $this->assertTrue($service->shouldRemoveExpiredComment(['comment' => $commentIsoPast]));
+        $this->assertTrue($service->isCommentExpired(['comment' => $commentIsoNotice]));
+        $this->assertFalse($service->shouldRemoveExpiredComment(['comment' => $commentIsoNotice]));
+        $this->assertFalse($service->isCommentExpired(['comment' => $commentIsoFuture]));
     }
 
     #[Test]

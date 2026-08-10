@@ -55,26 +55,31 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
     }
 
     #[Test]
-    public function parser_detects_lock_from_mac_address_script(): void
+    public function on_login_detects_routeros7_iso_date_format(): void
     {
-        $parsed = $this->parseOnLogin(
-            ':put (",rem,0,1h,0,,Enable,Disable,");'."\n".
-            '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];'
-        );
+        $script = $this->buildOnLogin([
+            'expired_mode' => 'remove',
+            'lock_user' => false,
+            'session_timeout' => '1h',
+        ]);
 
-        $this->assertSame('remove', $parsed['expired_mode']);
-        $this->assertTrue($parsed['lock_user']);
+        $this->assertStringContainsString(':if ([:pick $date 4 5] = "-") do={', $script);
+        $this->assertStringContainsString('start-time=$time', $script);
+        $this->assertStringContainsString(':local year [ :pick $date 7 11 ];', $script);
     }
 
     #[Test]
-    public function expire_monitor_script_removes_users_for_remove_mode(): void
+    public function expire_monitor_script_supports_iso_and_classic_comments(): void
     {
         $script = (new MikrotikApiService)->buildHotspotExpireMonitorScript('1jam', 'remove');
 
         $this->assertStringContainsString('profile="1jam"', $script);
         $this->assertStringContainsString('/ip hotspot user remove', $script);
-        $this->assertStringContainsString('/ip hotspot active remove', $script);
-        $this->assertStringNotContainsString('limit-uptime=1s', $script);
+        $this->assertStringContainsString('dateintiso', $script);
+        $this->assertStringContainsString('dateintcls', $script);
+        $this->assertStringContainsString('[:pic $comment 4] = "-"', $script);
+        $this->assertStringContainsString('[:pic $comment 3] = "/"', $script);
+        $this->assertStringContainsString('limit != "00:00:01"', $script);
     }
 
     #[Test]
@@ -84,5 +89,17 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
 
         $this->assertStringContainsString('profile="Paket-1Jam"', $script);
         $this->assertStringContainsString('set limit-uptime=1s', $script);
+    }
+
+    #[Test]
+    public function parser_detects_lock_from_mac_address_script(): void
+    {
+        $parsed = $this->parseOnLogin(
+            ':put (",rem,0,1h,0,,Enable,Disable,");'."\n".
+            '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];'
+        );
+
+        $this->assertSame('remove', $parsed['expired_mode']);
+        $this->assertTrue($parsed['lock_user']);
     }
 }

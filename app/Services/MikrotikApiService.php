@@ -1620,6 +1620,7 @@ class MikrotikApiService
 
     /**
      * Build Mikhmon-compatible on-login script for expire mode + MAC lock.
+     * Compatible with RouterOS 7.10+ ISO dates (2024-01-15) and classic (jan/15/2024).
      *
      * @param  array<string, mixed>  $data
      */
@@ -1654,26 +1655,40 @@ class MikrotikApiService
             $lines[] = sprintf(':local mode "%s";', $scriptMode);
             $lines[] = '{';
             $lines[] = ' :local date [ /system clock get date ];';
-            $lines[] = ' :local year [ :pick $date 7 11 ];';
+            $lines[] = ' :local time [ /system clock get time ];';
             $lines[] = ' :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment];';
             $lines[] = ' :local ucode [:pick $comment 0 2];';
             // vc/up = Mikhmon; vo = voucher-app (legacy app comments).
             $lines[] = ' :if ($ucode = "vc" or $ucode = "up" or $ucode = "vo" or $comment = "") do={';
-            $lines[] = sprintf('  /sys sch add name="$user" disable=no start-date=$date interval="%s";', $validity);
+            $lines[] = sprintf(
+                '  /sys sch add name="$user" disable=no start-date=$date start-time=$time interval="%s";',
+                $validity
+            );
             $lines[] = '  :delay 2s;';
             $lines[] = '  :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run];';
             $lines[] = '  :local getxp [:len $exp];';
-            $lines[] = '  :if ($getxp = 15) do={';
-            $lines[] = '   :local d [:pick $exp 0 6];';
-            $lines[] = '   :local t [:pick $exp 7 16];';
-            $lines[] = '   :local exp ("$d/$year $t");';
-            $lines[] = '   /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
-            $lines[] = '  };';
-            $lines[] = '  :if ($getxp = 8) do={';
-            $lines[] = '   /ip hotspot user set comment="$date $exp $mode" [find where name="$user"];';
-            $lines[] = '  };';
-            $lines[] = '  :if ($getxp > 15) do={';
-            $lines[] = '   /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            // RouterOS 7.10+: date is ISO yyyy-mm-dd (char 4 is "-").
+            $lines[] = '  :if ([:pick $date 4 5] = "-") do={';
+            $lines[] = '   :if ($getxp = 8) do={';
+            $lines[] = '    /ip hotspot user set comment="$date $exp $mode" [find where name="$user"];';
+            $lines[] = '   } else={';
+            $lines[] = '    /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            $lines[] = '   };';
+            $lines[] = '  } else={';
+            // Classic date jan/15/2024 (RouterOS 6 / pre-7.10).
+            $lines[] = '   :local year [ :pick $date 7 11 ];';
+            $lines[] = '   :if ($getxp = 15) do={';
+            $lines[] = '    :local d [:pick $exp 0 6];';
+            $lines[] = '    :local t [:pick $exp 7 16];';
+            $lines[] = '    :local exp ("$d/$year $t");';
+            $lines[] = '    /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            $lines[] = '   };';
+            $lines[] = '   :if ($getxp = 8) do={';
+            $lines[] = '    /ip hotspot user set comment="$date $exp $mode" [find where name="$user"];';
+            $lines[] = '   };';
+            $lines[] = '   :if ($getxp > 15) do={';
+            $lines[] = '    /ip hotspot user set comment="$exp $mode" [find where name="$user"];';
+            $lines[] = '   };';
             $lines[] = '  };';
             $lines[] = '  /sys sch remove [find where name="$user"];';
             $lines[] = ' };';
@@ -1823,6 +1838,8 @@ class MikrotikApiService
 
     /**
      * Build Mikhmon-compatible profile expire monitor script.
+     * Supports RouterOS 7.10+ ISO comments (2024-01-15 14:30:25 X)
+     * and classic comments (jan/15/2024 14:30:25 X).
      */
     public function buildHotspotExpireMonitorScript(string $profileName, string $expiredMode): string
     {
@@ -1834,20 +1851,51 @@ class MikrotikApiService
         // Escape profile name for embedding inside RouterOS script double quotes.
         $safeName = str_replace(['\\', '"'], ['\\\\', '\\"'], $profileName);
 
-        return ':local dateint do={:local montharray ( "jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec" );:local days [ :pick $d 4 6 ];:local month [ :pick $d 0 3 ];:local year [ :pick $d 7 11 ];:local monthint ([ :find $montharray $month]);:local month ($monthint + 1);:if ( [len $month] = 1) do={:local zero ("0");:return [:tonum ("$year$zero$month$days")];} else={:return [:tonum ("$year$month$days")];}};'
-            .':local timeint do={ :local hours [ :pick $t 0 2 ]; :local minutes [ :pick $t 3 5 ]; :return ($hours * 60 + $minutes) ; };'
-            .':local date [ /system clock get date ]; :local time [ /system clock get time ];'
-            .':local today [$dateint d=$date] ; :local curtime [$timeint t=$time] ;'
-            .':foreach i in [ /ip hotspot user find where profile="'.$safeName.'" ] do={'
-            .':local comment [ /ip hotspot user get $i comment];'
-            .':local name [ /ip hotspot user get $i name];'
-            .':local gettime [:pic $comment 12 20];'
+        // ISO dateint: yyyy-mm-dd → yyyymmdd integer
+        $dateIntIso = ':local dateintiso do={:local year [:pick $d 0 4]; :local month [:pick $d 5 7]; :local days [:pick $d 8 10]; :return [:tonum ("$year$month$days")];};';
+
+        // Classic dateint: jan/15/2024 → yyyymmdd integer
+        $dateIntClassic = ':local dateintcls do={:local montharray ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"); :local days [:pick $d 4 6]; :local month [:pick $d 0 3]; :local year [:pick $d 7 11]; :local monthint ([:find $montharray $month]); :local month ($monthint + 1); :if ([:len $month] = 1) do={:local zero ("0"); :return [:tonum ("$year$zero$month$days")];} else={:return [:tonum ("$year$month$days")];};};';
+
+        $timeInt = ':local timeint do={:local hours [:pick $t 0 2]; :local minutes [:pick $t 3 5]; :return ($hours * 60 + $minutes);};';
+
+        $header = $dateIntIso.$dateIntClassic.$timeInt
+            .':local date [/system clock get date]; :local time [/system clock get time];'
+            .':local curtime [$timeint t=$time];'
+            .':local isiso ([:pick $date 4 5] = "-");'
+            .':local today 0;'
+            .':if ($isiso) do={:set today [$dateintiso d=$date];} else={:set today [$dateintcls d=$date];};';
+
+        $loop = ':foreach i in=[/ip hotspot user find where profile="'.$safeName.'"] do={'
+            .':local comment [/ip hotspot user get $i comment];'
+            .':local name [/ip hotspot user get $i name];'
+            .':local limit [/ip hotspot user get $i limit-uptime];'
+            .':local expd 0; :local expt 0; :local matched false;'
+            // ISO comment: 2024-01-15 14:30:25 X
+            .':if ([:pic $comment 4] = "-" and [:pic $comment 7] = "-") do={'
+            .':local tempexpd [:pick $comment 0 10];'
+            .':local gettime [:pic $comment 11 19];'
+            .':set expd [$dateintiso d=$tempexpd];'
+            .':set expt [$timeint t=$gettime];'
+            .':set matched true;'
+            .'} else={'
+            // Classic comment: jan/15/2024 14:30:25 X
             .':if ([:pic $comment 3] = "/" and [:pic $comment 6] = "/") do={'
-            .':local expd [$dateint d=$comment] ; :local expt [$timeint t=$gettime] ;'
-            .':if (($expd < $today and $expt < $curtime) or ($expd < $today and $expt > $curtime) or ($expd = $today and $expt < $curtime)) do={'
+            .':local gettime [:pic $comment 12 20];'
+            .':set expd [$dateintcls d=$comment];'
+            .':set expt [$timeint t=$gettime];'
+            .':set matched true;'
+            .'};'
+            .'};'
+            .':if ($matched) do={'
+            .':if ((($expd < $today and $expt < $curtime) or ($expd < $today and $expt > $curtime) or ($expd = $today and $expt < $curtime)) and $limit != "00:00:01") do={'
             .'[ /ip hotspot user '.$action.' $i ];'
             .'[ /ip hotspot active remove [find where user=$name] ];'
-            .'}}}';
+            .'};'
+            .'};'
+            .'};';
+
+        return $header.$loop;
     }
 
     private function findSchedulerIdByName(Client $client, string $name): ?string

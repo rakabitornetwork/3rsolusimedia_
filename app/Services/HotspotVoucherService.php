@@ -486,7 +486,28 @@ class HotspotVoucherService
             return null;
         }
 
-        // jan/15/2024 14:30:25 X|N  (MikroTik classic date + optional mode)
+        // RouterOS 7.10+: 2024-01-15 14:30:25 X|N
+        if (preg_match(
+            '/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})(?:\s+[xn])?/i',
+            $comment,
+            $m
+        )) {
+            try {
+                return \Carbon\Carbon::create(
+                    (int) $m[1],
+                    (int) $m[2],
+                    (int) $m[3],
+                    (int) $m[4],
+                    (int) $m[5],
+                    (int) $m[6],
+                    config('app.timezone')
+                );
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
+        // Classic: jan/15/2024 14:30:25 X|N
         if (! preg_match(
             '/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})(?:\s+[xn])?/i',
             $comment,
