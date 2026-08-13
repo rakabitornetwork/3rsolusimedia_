@@ -29,7 +29,10 @@ class DuitkuGateway implements PaymentGatewayInterface
         return AppSettings::bool('duitku_enabled', false) && $this->isConfigured();
     }
 
-    protected function baseUrl(): string
+    /**
+     * Endpoint klasik (get payment method / inquiry lama).
+     */
+    protected function classicBaseUrl(): string
     {
         $mode = (string) AppSettings::get('duitku_mode', 'sandbox');
 
@@ -39,11 +42,30 @@ class DuitkuGateway implements PaymentGatewayInterface
     }
 
     /**
-     * Signature API Duitku (sejak Apr 2026): HMAC-SHA256.
+     * Endpoint Duitku POP (createInvoice + halaman pilih metode).
      */
+    protected function popCreateInvoiceUrl(): string
+    {
+        $mode = (string) AppSettings::get('duitku_mode', 'sandbox');
+
+        return $mode === 'live'
+            ? 'https://api-prod.duitku.com/api/merchant/createInvoice'
+            : 'https://api-sandbox.duitku.com/api/merchant/createInvoice';
+    }
+
     protected function hmacSign(string $stringToSign): string
     {
         return hash_hmac('sha256', $stringToSign, AppSettings::duitkuApiKey());
+    }
+
+    protected function customerEmail(?string $fallbackName = null): string
+    {
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST) ?: '';
+        if ($host === '' || $host === 'localhost' || str_ends_with($host, '.local') || str_ends_with($host, '.test')) {
+            return 'customer@mail.com';
+        }
+
+        return 'billing@'.$host;
     }
 
     public function testConnection(): array
@@ -59,11 +81,10 @@ class DuitkuGateway implements PaymentGatewayInterface
         $signature = $this->hmacSign($merchantCode.$amount.$datetime);
 
         try {
-            // Docs: Content-Type application/json + HMAC SHA256(merchantcode + amount + datetime, apiKey)
             $response = Http::asJson()
                 ->acceptJson()
                 ->timeout(15)
-                ->post($this->baseUrl().'/api/merchant/paymentmethod/getpaymentmethod', [
+                ->post($this->classicBaseUrl().'/api/merchant/paymentmethod/getpaymentmethod', [
                     'merchantcode' => $merchantCode,
                     'amount' => $amount,
                     'datetime' => $datetime,
@@ -123,45 +144,70 @@ class DuitkuGateway implements PaymentGatewayInterface
 
         if (strlen($merchantOrderId) > 50) {
             $merchantOrderId = substr($merchantOrderId, 0, 50);
+            $transaction->update(['external_id' => $merchantOrderId]);
         }
 
-        // Docs: HMAC_SHA256(merchantCode + merchantOrderId + paymentAmount, apiKey)
-        $signature = $this->hmacSign($merchantCode.$merchantOrderId.$amount);
+        $email = $this->customerEmail();
+        $phone = preg_replace('/\D+/', '', (string) ($invoice->customer?->phone ?? '')) ?: '08123456789';
+        $customerName = trim((string) ($invoice->customer?->name ?: 'Pelanggan'));
+        $nameParts = preg_split('/\s+/', $customerName, 2) ?: [$customerName];
+        $firstName = $nameParts[0] ?: 'Pelanggan';
+        $lastName = $nameParts[1] ?? $firstName;
 
+        $timestamp = (string) (int) round(microtime(true) * 1000);
+        $signature = $this->hmacSign($merchantCode.$timestamp);
+
+        // Duitku POP: paymentMethod dikosongkan agar pelanggan pilih di halaman Duitku.
         $payload = [
-            'merchantCode' => $merchantCode,
             'paymentAmount' => $amount,
             'merchantOrderId' => $merchantOrderId,
             'productDetails' => 'Tagihan '.$invoice->number,
-            'email' => 'billing@'.(parse_url((string) config('app.url'), PHP_URL_HOST) ?: 'localhost'),
-            'customerVaName' => $invoice->customer?->name ?: 'Pelanggan',
-            'phoneNumber' => preg_replace('/\D+/', '', (string) ($invoice->customer?->phone ?? '')) ?: '08123456789',
+            'additionalParam' => (string) $invoice->id,
+            'customerVaName' => mb_substr($customerName, 0, 20),
+            'email' => $email,
+            'phoneNumber' => $phone,
+            'itemDetails' => [
+                [
+                    'name' => mb_substr('Tagihan '.$invoice->number, 0, 100),
+                    'price' => $amount,
+                    'quantity' => 1,
+                ],
+            ],
+            'customerDetail' => [
+                'firstName' => mb_substr($firstName, 0, 50),
+                'lastName' => mb_substr($lastName, 0, 50),
+                'email' => $email,
+                'phoneNumber' => $phone,
+            ],
             'callbackUrl' => url('/webhooks/duitku'),
             'returnUrl' => $successUrl,
             'expiryPeriod' => 1440,
-            'signature' => $signature,
         ];
 
         $response = Http::asJson()
             ->acceptJson()
             ->timeout(30)
-            ->post($this->baseUrl().'/api/merchant/v2/inquiry', $payload);
+            ->withHeaders([
+                'x-duitku-merchantcode' => $merchantCode,
+                'x-duitku-timestamp' => $timestamp,
+                'x-duitku-signature' => $signature,
+            ])
+            ->post($this->popCreateInvoiceUrl(), $payload);
 
         $body = $response->json() ?? [];
 
-        if (! $response->successful() || (string) ($body['statusCode'] ?? '') !== '00') {
+        $statusCode = (string) ($body['statusCode'] ?? '');
+        $checkoutUrl = (string) ($body['paymentUrl'] ?? '');
+
+        if (! $response->successful() || ($statusCode !== '' && $statusCode !== '00') || $checkoutUrl === '') {
             $message = (string) (
                 $body['statusMessage']
                 ?? $body['responseMessage']
                 ?? $body['Message']
+                ?? $body['message']
                 ?? ('Gagal membuat invoice Duitku (HTTP '.$response->status().').')
             );
             throw new RuntimeException($message);
-        }
-
-        $checkoutUrl = (string) ($body['paymentUrl'] ?? '');
-        if ($checkoutUrl === '') {
-            throw new RuntimeException('Duitku tidak mengembalikan URL pembayaran.');
         }
 
         return [
@@ -186,7 +232,6 @@ class DuitkuGateway implements PaymentGatewayInterface
         }
 
         $apiKey = AppSettings::duitkuApiKey();
-        // Docs baru: HMAC; legacy md5 masih diterima untuk kompatibilitas callback lama.
         $hmacExpected = hash_hmac('sha256', $merchantCode.$amount.$merchantOrderId, $apiKey);
         $md5Expected = md5($merchantCode.$amount.$merchantOrderId.$apiKey);
 
