@@ -33,7 +33,6 @@ export default function Home({
 }) {
     const online = onlineTone(device?.online);
     const rx = rxPowerTone(device?.rx_power);
-    const tx = rxPowerTone(device?.tx_power);
     const temp = temperatureTone(device?.temperature);
 
     return (
@@ -93,18 +92,12 @@ export default function Home({
                     </div>
 
                     {device_available && (
-                        <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div className="mt-4 grid grid-cols-3 gap-3">
                             <MetricCard
                                 icon={Radio}
                                 label="RX Power"
                                 value={device.rx_power_label}
                                 tone={rx}
-                            />
-                            <MetricCard
-                                icon={Radio}
-                                label="TX Power"
-                                value={device.tx_power_label}
-                                tone={tx}
                             />
                             <MetricCard
                                 icon={Thermometer}
