@@ -38,6 +38,14 @@ class DuitkuGateway implements PaymentGatewayInterface
             : 'https://sandbox.duitku.com/webapi';
     }
 
+    /**
+     * Signature API Duitku (sejak Apr 2026): HMAC-SHA256.
+     */
+    protected function hmacSign(string $stringToSign): string
+    {
+        return hash_hmac('sha256', $stringToSign, AppSettings::duitkuApiKey());
+    }
+
     public function testConnection(): array
     {
         if (! $this->isConfigured()) {
@@ -46,15 +54,18 @@ class DuitkuGateway implements PaymentGatewayInterface
 
         $started = microtime(true);
         $merchantCode = AppSettings::duitkuMerchantCode();
+        $amount = 10000;
         $datetime = now()->format('Y-m-d H:i:s');
-        $signature = hash('sha256', $merchantCode.AppSettings::duitkuApiKey().$datetime);
+        $signature = $this->hmacSign($merchantCode.$amount.$datetime);
 
         try {
-            $response = Http::acceptJson()
+            // Docs: Content-Type application/json + HMAC SHA256(merchantcode + amount + datetime, apiKey)
+            $response = Http::asJson()
+                ->acceptJson()
                 ->timeout(15)
                 ->post($this->baseUrl().'/api/merchant/paymentmethod/getpaymentmethod', [
                     'merchantcode' => $merchantCode,
-                    'amount' => 10000,
+                    'amount' => $amount,
                     'datetime' => $datetime,
                     'signature' => $signature,
                 ]);
@@ -70,7 +81,20 @@ class DuitkuGateway implements PaymentGatewayInterface
                 ];
             }
 
-            $message = (string) ($body['responseMessage'] ?? ('HTTP '.$response->status()));
+            $message = (string) (
+                $body['responseMessage']
+                ?? $body['Message']
+                ?? $body['message']
+                ?? ('HTTP '.$response->status())
+            );
+
+            if ($response->status() === 401 || str_contains(strtolower($message), 'signature')) {
+                $message = 'Signature / API key ditolak. Pastikan mode (sandbox/live) cocok dengan kredensial dashboard.';
+            } elseif ($response->status() === 404) {
+                $message = 'Merchant code tidak ditemukan di lingkungan '.AppSettings::get('duitku_mode', 'sandbox').'.';
+            } elseif ($response->status() === 403) {
+                $message = 'Akses ditolak (HTTP 403). Periksa merchant code, API key, dan mode sandbox/live.';
+            }
 
             return [
                 'ok' => false,
@@ -96,7 +120,13 @@ class DuitkuGateway implements PaymentGatewayInterface
         $merchantCode = AppSettings::duitkuMerchantCode();
         $amount = (int) $transaction->amount;
         $merchantOrderId = $transaction->external_id;
-        $signature = md5($merchantCode.$merchantOrderId.$amount.AppSettings::duitkuApiKey());
+
+        if (strlen($merchantOrderId) > 50) {
+            $merchantOrderId = substr($merchantOrderId, 0, 50);
+        }
+
+        // Docs: HMAC_SHA256(merchantCode + merchantOrderId + paymentAmount, apiKey)
+        $signature = $this->hmacSign($merchantCode.$merchantOrderId.$amount);
 
         $payload = [
             'merchantCode' => $merchantCode,
@@ -112,7 +142,7 @@ class DuitkuGateway implements PaymentGatewayInterface
             'signature' => $signature,
         ];
 
-        $response = Http::asForm()
+        $response = Http::asJson()
             ->acceptJson()
             ->timeout(30)
             ->post($this->baseUrl().'/api/merchant/v2/inquiry', $payload);
@@ -120,7 +150,12 @@ class DuitkuGateway implements PaymentGatewayInterface
         $body = $response->json() ?? [];
 
         if (! $response->successful() || (string) ($body['statusCode'] ?? '') !== '00') {
-            $message = (string) ($body['statusMessage'] ?? 'Gagal membuat invoice Duitku.');
+            $message = (string) (
+                $body['statusMessage']
+                ?? $body['responseMessage']
+                ?? $body['Message']
+                ?? ('Gagal membuat invoice Duitku (HTTP '.$response->status().').')
+            );
             throw new RuntimeException($message);
         }
 
@@ -150,8 +185,12 @@ class DuitkuGateway implements PaymentGatewayInterface
             throw new InvalidArgumentException('Payload callback Duitku tidak lengkap.');
         }
 
-        $expected = md5($merchantCode.$amount.$merchantOrderId.AppSettings::duitkuApiKey());
-        if (! hash_equals($expected, $signature)) {
+        $apiKey = AppSettings::duitkuApiKey();
+        // Docs baru: HMAC; legacy md5 masih diterima untuk kompatibilitas callback lama.
+        $hmacExpected = hash_hmac('sha256', $merchantCode.$amount.$merchantOrderId, $apiKey);
+        $md5Expected = md5($merchantCode.$amount.$merchantOrderId.$apiKey);
+
+        if (! hash_equals($hmacExpected, $signature) && ! hash_equals($md5Expected, $signature)) {
             throw new InvalidArgumentException('Signature Duitku tidak valid.');
         }
 
