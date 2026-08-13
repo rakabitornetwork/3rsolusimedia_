@@ -31,7 +31,7 @@ export default function Show({
         if (!window.confirm('Lanjut ke halaman pembayaran online?')) return;
         setPayingId(invoiceId);
         router.post(
-            `/bayar/${token}/pay/${invoiceId}`,
+            `/portal/${token}/pay/${invoiceId}`,
             {},
             {
                 onFinish: () => setPayingId(null),

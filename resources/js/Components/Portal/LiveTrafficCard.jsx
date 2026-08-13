@@ -213,7 +213,7 @@ export default function PortalLiveTraffic({ token }) {
             busy = true;
 
             try {
-                const response = await fetch(`/bayar/${token}/trafik`, {
+                const response = await fetch(`/portal/${token}/trafik`, {
                     headers: {
                         Accept: 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',

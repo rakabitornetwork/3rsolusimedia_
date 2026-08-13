@@ -153,7 +153,7 @@ class BillingController extends Controller
                 'available' => $this->gateways->hasEnabledGateway(),
                 'enabled_gateways' => $this->gateways->enabledGateways(),
                 'default_gateway' => AppSettings::paymentGatewayConfig()['default'],
-                'portal_url' => url('/bayar'),
+                'portal_url' => url('/portal'),
             ],
         ]);
     }

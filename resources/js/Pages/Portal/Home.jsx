@@ -53,7 +53,7 @@ export default function Home({
                         <CreditCard className="h-5 w-5 shrink-0 text-signal-deep" />
                     </div>
                     <Link
-                        href={`/bayar/${token}/tagihan`}
+                        href={`/portal/${token}/tagihan`}
                         className="mt-4 inline-flex bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep"
                     >
                         Lihat tagihan
@@ -116,7 +116,7 @@ export default function Home({
                     )}
 
                     <Link
-                        href={`/bayar/${token}/perangkat`}
+                        href={`/portal/${token}/perangkat`}
                         className="mt-4 inline-flex w-full items-center justify-center border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist sm:w-auto"
                     >
                         Kelola perangkat & WiFi

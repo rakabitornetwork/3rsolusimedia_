@@ -51,7 +51,7 @@ export default function Show({
         if (!window.confirm('Muat ulang data perangkat dari ONU?')) return;
         setBusy('refresh');
         router.post(
-            `/bayar/${token}/perangkat/refresh`,
+            `/portal/${token}/perangkat/refresh`,
             {},
             { preserveScroll: true, onFinish: () => setBusy('') },
         );
@@ -68,7 +68,7 @@ export default function Show({
         }
         setBusy('reboot');
         router.post(
-            `/bayar/${token}/perangkat/reboot`,
+            `/portal/${token}/perangkat/reboot`,
             {},
             { preserveScroll: true, onFinish: () => setBusy('') },
         );
@@ -77,7 +77,7 @@ export default function Show({
     const saveWifi = (e) => {
         e.preventDefault();
         if (!window.confirm('Simpan perubahan WiFi ke ONU?')) return;
-        post(`/bayar/${token}/perangkat/wifi`, {
+        post(`/portal/${token}/perangkat/wifi`, {
             preserveScroll: true,
             onSuccess: () => reset('password'),
         });

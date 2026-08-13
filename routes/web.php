@@ -33,39 +33,50 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', LandingController::class)->name('home');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
 
-Route::get('/bayar', [PaymentPortalController::class, 'index'])->name('portal.pay.index');
-Route::post('/bayar/lookup', [PaymentPortalController::class, 'lookup'])
+// Alias lama → portal pelanggan
+Route::permanentRedirect('/bayar', '/portal');
+Route::get('/bayar/{path}', function (string $path) {
+    $target = '/portal/'.$path;
+    if ($query = request()->getQueryString()) {
+        $target .= '?'.$query;
+    }
+
+    return redirect($target, 301);
+})->where('path', '.*');
+
+Route::get('/portal', [PaymentPortalController::class, 'index'])->name('portal.pay.index');
+Route::post('/portal/lookup', [PaymentPortalController::class, 'lookup'])
     ->middleware('throttle:10,1')
     ->name('portal.pay.lookup');
 
 Route::middleware('throttle:60,1')->group(function () {
-    Route::get('/bayar/{token}', [CustomerPortalController::class, 'home'])
+    Route::get('/portal/{token}', [CustomerPortalController::class, 'home'])
         ->name('portal.home')
         ->where('token', '[A-Za-z0-9]+');
-    Route::get('/bayar/{token}/tagihan', [PaymentPortalController::class, 'invoices'])
+    Route::get('/portal/{token}/tagihan', [PaymentPortalController::class, 'invoices'])
         ->name('portal.pay.invoices')
         ->where('token', '[A-Za-z0-9]+');
-    Route::post('/bayar/{token}/pay/{invoice}', [PaymentPortalController::class, 'pay'])
+    Route::post('/portal/{token}/pay/{invoice}', [PaymentPortalController::class, 'pay'])
         ->name('portal.pay.checkout')
         ->where('token', '[A-Za-z0-9]+')
         ->whereNumber('invoice');
 
-    Route::get('/bayar/{token}/perangkat', [CustomerPortalController::class, 'device'])
+    Route::get('/portal/{token}/perangkat', [CustomerPortalController::class, 'device'])
         ->name('portal.device')
         ->where('token', '[A-Za-z0-9]+');
-    Route::get('/bayar/{token}/trafik', [CustomerPortalController::class, 'traffic'])
+    Route::get('/portal/{token}/trafik', [CustomerPortalController::class, 'traffic'])
         ->middleware('throttle:120,1')
         ->name('portal.traffic')
         ->where('token', '[A-Za-z0-9]+');
-    Route::post('/bayar/{token}/perangkat/wifi', [CustomerPortalController::class, 'updateWifi'])
+    Route::post('/portal/{token}/perangkat/wifi', [CustomerPortalController::class, 'updateWifi'])
         ->middleware('throttle:10,1')
         ->name('portal.device.wifi')
         ->where('token', '[A-Za-z0-9]+');
-    Route::post('/bayar/{token}/perangkat/reboot', [CustomerPortalController::class, 'reboot'])
+    Route::post('/portal/{token}/perangkat/reboot', [CustomerPortalController::class, 'reboot'])
         ->middleware('throttle:5,1')
         ->name('portal.device.reboot')
         ->where('token', '[A-Za-z0-9]+');
-    Route::post('/bayar/{token}/perangkat/refresh', [CustomerPortalController::class, 'refresh'])
+    Route::post('/portal/{token}/perangkat/refresh', [CustomerPortalController::class, 'refresh'])
         ->middleware('throttle:10,1')
         ->name('portal.device.refresh')
         ->where('token', '[A-Za-z0-9]+');

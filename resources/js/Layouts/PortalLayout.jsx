@@ -13,9 +13,9 @@ export default function PortalLayout({
     const company = branding?.company_name || 'Portal Pelanggan';
 
     const nav = [
-        { key: 'home', label: 'Beranda', href: `/bayar/${token}`, icon: Wifi },
-        { key: 'billing', label: 'Tagihan', href: `/bayar/${token}/tagihan`, icon: CreditCard },
-        { key: 'device', label: 'Perangkat', href: `/bayar/${token}/perangkat`, icon: Router },
+        { key: 'home', label: 'Beranda', href: `/portal/${token}`, icon: Wifi },
+        { key: 'billing', label: 'Tagihan', href: `/portal/${token}/tagihan`, icon: CreditCard },
+        { key: 'device', label: 'Perangkat', href: `/portal/${token}/perangkat`, icon: Router },
     ];
 
     return (
@@ -50,7 +50,7 @@ export default function PortalLayout({
                         </div>
                     </div>
                     <Link
-                        href="/bayar"
+                        href="/portal"
                         className="shrink-0 text-sm font-semibold text-signal-deep hover:underline"
                     >
                         Keluar

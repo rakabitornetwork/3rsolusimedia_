@@ -13,7 +13,7 @@ export default function Index({ branding, gateway_ready }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post('/bayar/lookup');
+        post('/portal/lookup');
     };
 
     return (

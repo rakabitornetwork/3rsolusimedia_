@@ -29,7 +29,7 @@ class PaymentGatewayController extends Controller
                 'midtrans' => url('/webhooks/midtrans'),
                 'duitku' => url('/webhooks/duitku'),
             ],
-            'portal_url' => url('/bayar'),
+            'portal_url' => url('/portal'),
             'enabled_gateways' => $this->gateways->enabledGateways(),
         ]);
     }
