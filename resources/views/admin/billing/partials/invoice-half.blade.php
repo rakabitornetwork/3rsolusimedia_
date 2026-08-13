@@ -41,9 +41,7 @@
             @if ($customer?->username)
                 <p class="inv-sub">Akun PPPoE · {{ $customer->username }}</p>
             @endif
-            @if ($customer?->phone)
-                <p class="inv-sub">Telepon · {{ $customer->phone }}</p>
-            @endif
+            <p class="inv-sub">Telepon · {{ filled($customer?->phone) ? $customer->phone : '—' }}</p>
             @if ($customer?->address)
                 <p class="inv-sub">{{ $customer->address }}</p>
             @endif

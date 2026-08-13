@@ -350,6 +350,9 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{item.customer?.name || '—'}</p>
                                     <p className="text-xs text-ink-soft">{item.customer?.username}</p>
+                                    {item.customer?.phone ? (
+                                        <p className="text-xs text-ink-soft">{item.customer.phone}</p>
+                                    ) : null}
                                 </td>
                                 <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
                                     {item.type_label}

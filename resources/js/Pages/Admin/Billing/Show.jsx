@@ -181,6 +181,9 @@ export default function Show({ invoice, payment_methods, online_pay }) {
                                     {invoice.customer?.name || '—'}
                                 </dd>
                                 <dd className="text-xs text-ink-soft">{invoice.customer?.username}</dd>
+                                {invoice.customer?.phone ? (
+                                    <dd className="text-xs text-ink-soft">{invoice.customer.phone}</dd>
+                                ) : null}
                             </div>
                             <div>
                                 <dt className="text-xs text-ink-soft uppercase">Paket</dt>
