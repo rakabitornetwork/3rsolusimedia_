@@ -151,7 +151,7 @@ function TrafficLane({
     const gradId = `portal-traffic-${label.replace(/\s+/g, '-').toLowerCase()}`;
 
     return (
-        <div className="relative overflow-hidden rounded-sm bg-white/70 px-3.5 py-3 backdrop-blur-sm">
+        <div className="relative overflow-hidden border border-ink/8 bg-mist/40 px-3.5 py-3">
             <div className="relative z-10 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                     <span
@@ -177,7 +177,7 @@ function TrafficLane({
             >
                 <defs>
                     <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={fillFrom} stopOpacity="0.35" />
+                        <stop offset="0%" stopColor={fillFrom} stopOpacity="0.28" />
                         <stop offset="100%" stopColor={fillTo} stopOpacity="0.02" />
                     </linearGradient>
                 </defs>
@@ -186,7 +186,7 @@ function TrafficLane({
                     d={linePath}
                     fill="none"
                     stroke={stroke}
-                    strokeWidth="2.4"
+                    strokeWidth="2.25"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 />
@@ -271,36 +271,36 @@ export default function PortalLiveTraffic({ token }) {
               : 'Sesi offline';
 
     return (
-        <section className="overflow-hidden border border-ink/10 bg-gradient-to-br from-[#0b1526] via-[#12203a] to-[#0f2f5c] p-5 text-white shadow-[0_18px_40px_rgba(11,21,38,0.18)]">
+        <section className="border border-ink/10 bg-white p-5">
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-[#7dd3fc]" />
-                        <p className="text-[11px] font-semibold tracking-[0.18em] text-white/60 uppercase">
+                        <Activity className="h-4 w-4 text-signal-deep" />
+                        <p className="text-xs tracking-wide text-ink-soft uppercase">
                             Live trafik
                         </p>
                     </div>
-                    <h3 className="mt-1.5 text-base font-semibold tracking-tight text-white">
+                    <h3 className="mt-1.5 text-base font-semibold tracking-tight text-ink">
                         {statusLabel}
                     </h3>
-                    <p className="mt-1 text-xs text-white/55">
+                    <p className="mt-1 text-xs text-ink-soft">
                         Update realtime setiap {POLL_SECONDS} detik dari sesi PPPoE Anda.
                     </p>
                 </div>
                 <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold ${
                         online
-                            ? 'bg-emerald-400/15 text-emerald-200'
+                            ? 'bg-emerald-50 text-emerald-700'
                             : online === false
-                              ? 'bg-white/10 text-white/60'
-                              : 'bg-sky-400/15 text-sky-200'
+                              ? 'bg-ink/5 text-ink-soft'
+                              : 'bg-sky-50 text-sky-700'
                     }`}
                 >
                     <span
                         className={`h-1.5 w-1.5 rounded-full ${
                             online
-                                ? `bg-emerald-300 ${fresh ? 'animate-ping' : 'animate-pulse'}`
-                                : 'bg-white/40'
+                                ? `bg-emerald-500 ${fresh ? 'animate-ping' : 'animate-pulse'}`
+                                : 'bg-ink/30'
                         }`}
                     />
                     LIVE
@@ -308,8 +308,8 @@ export default function PortalLiveTraffic({ token }) {
             </div>
 
             {error && !traffic ? (
-                <div className="mt-4 flex items-start gap-2 border border-white/10 bg-white/5 px-3.5 py-3 text-xs text-white/70">
-                    <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/50" />
+                <div className="mt-4 flex items-start gap-2 border border-ink/10 bg-mist/50 px-3.5 py-3 text-xs text-ink-soft">
+                    <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     {error}
                 </div>
             ) : (
@@ -319,20 +319,20 @@ export default function PortalLiveTraffic({ token }) {
                         icon={ArrowDownToLine}
                         value={traffic?.rx_bps}
                         values={history.rx}
-                        stroke="#2dd4bf"
-                        fillFrom="#2dd4bf"
-                        fillTo="#0f766e"
-                        accentClass="bg-teal-400/15 text-teal-200"
+                        stroke="#0d9488"
+                        fillFrom="#14b8a6"
+                        fillTo="#ccfbf1"
+                        accentClass="bg-teal-50 text-teal-700"
                     />
                     <TrafficLane
                         label="Upload"
                         icon={ArrowUpFromLine}
                         value={traffic?.tx_bps}
                         values={history.tx}
-                        stroke="#38bdf8"
+                        stroke="#0284c7"
                         fillFrom="#38bdf8"
-                        fillTo="#0369a1"
-                        accentClass="bg-sky-400/15 text-sky-200"
+                        fillTo="#e0f2fe"
+                        accentClass="bg-sky-50 text-sky-700"
                     />
                 </div>
             )}
