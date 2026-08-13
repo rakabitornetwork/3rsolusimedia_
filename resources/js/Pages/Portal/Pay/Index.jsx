@@ -1,5 +1,5 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { CreditCard } from 'lucide-react';
+import { Wifi } from 'lucide-react';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal';
@@ -18,7 +18,7 @@ export default function Index({ branding, gateway_ready }) {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-mist via-white to-mist text-ink">
-            <Head title={`Bayar Tagihan · ${branding?.company_name || 'Portal'}`} />
+            <Head title={`Portal Pelanggan · ${branding?.company_name || 'Portal'}`} />
 
             <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10">
                 <div className="mb-8 text-center">
@@ -30,14 +30,15 @@ export default function Index({ branding, gateway_ready }) {
                         />
                     ) : (
                         <div className="mx-auto flex h-14 w-14 items-center justify-center bg-signal/15 text-signal-deep">
-                            <CreditCard className="h-7 w-7" />
+                            <Wifi className="h-7 w-7" />
                         </div>
                     )}
                     <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink">
-                        {branding?.company_name || 'Portal Pembayaran'}
+                        Portal Pelanggan
                     </h1>
                     <p className="mt-2 text-sm text-ink-soft">
-                        Cek dan bayar tagihan internet dengan username PPPoE Anda.
+                        Cek tagihan, bayar online, kelola WiFi, pantau redaman/suhu ONU, dan restart
+                        perangkat secara mandiri.
                     </p>
                 </div>
 
@@ -54,8 +55,9 @@ export default function Index({ branding, gateway_ready }) {
                 )}
 
                 {!gateway_ready && (
-                    <div className="mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        Pembayaran online belum diaktifkan. Hubungi admin untuk pembayaran manual.
+                    <div className="mb-4 border border-ink/10 bg-white px-4 py-3 text-sm text-ink-soft">
+                        Pembayaran online mungkin belum aktif. Fitur perangkat & WiFi tetap dapat
+                        digunakan jika ONU terpantau.
                     </div>
                 )}
 
@@ -97,12 +99,12 @@ export default function Index({ branding, gateway_ready }) {
                         disabled={processing}
                         className="mt-6 w-full bg-signal px-4 py-3 text-sm font-semibold text-white hover:bg-signal-deep disabled:opacity-60"
                     >
-                        {processing ? 'Memeriksa...' : 'Cek tagihan'}
+                        {processing ? 'Memeriksa...' : 'Masuk portal'}
                     </button>
                 </form>
 
                 <p className="mt-6 text-center text-xs text-ink-soft">
-                    Data Anda hanya dipakai untuk menampilkan tagihan. Password PPPoE tidak diminta.
+                    Password PPPoE tidak diminta. Data hanya dipakai untuk menampilkan akun Anda.
                 </p>
             </div>
         </div>

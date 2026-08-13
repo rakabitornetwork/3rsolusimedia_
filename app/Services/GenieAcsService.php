@@ -205,6 +205,121 @@ class GenieAcsService
     }
 
     /**
+     * Cari perangkat GenieACS yang username PPPoE-nya cocok dengan pelanggan.
+     *
+     * @return array{ok: bool, message?: string, device?: array<string, mixed>}
+     */
+    public function findDeviceByPppoeUsername(string $username): array
+    {
+        if (! $this->isConfigured()) {
+            return [
+                'ok' => false,
+                'message' => 'URL NBI GenieACS belum dikonfigurasi.',
+            ];
+        }
+
+        $needle = strtolower(trim($username));
+        if ($needle === '') {
+            return [
+                'ok' => false,
+                'message' => 'Username PPPoE kosong.',
+            ];
+        }
+
+        $listed = $this->listDevices($username, 50, 0);
+        if (! ($listed['ok'] ?? false)) {
+            return [
+                'ok' => false,
+                'message' => $listed['message'] ?? 'Gagal mencari perangkat di GenieACS.',
+            ];
+        }
+
+        $deviceId = $this->firstMatchingDeviceId($listed['devices'] ?? [], $needle);
+
+        if ($deviceId === null) {
+            // Cadangan: indeks bulk (sama seperti peta jaringan).
+            $indexResult = $this->opticalIndexByPppoeUsername(500);
+            if (($indexResult['ok'] ?? false) && isset($indexResult['index'][$needle]['device_id'])) {
+                $deviceId = (string) $indexResult['index'][$needle]['device_id'];
+            }
+        }
+
+        if ($deviceId === null || $deviceId === '') {
+            return [
+                'ok' => false,
+                'message' => 'Perangkat ONU tidak ditemukan untuk akun ini. Pastikan ONU sudah terdaftar di GenieACS.',
+            ];
+        }
+
+        return $this->getDevice($deviceId);
+    }
+
+    /**
+     * Payload aman untuk portal pelanggan (tanpa password WiFi / raw keys).
+     *
+     * @param  array<string, mixed>  $device
+     * @return array<string, mixed>
+     */
+    public function toPortalSafeDevice(array $device): array
+    {
+        $clients = collect($device['connected_clients'] ?? [])
+            ->filter(fn ($row) => is_array($row))
+            ->map(fn (array $row) => [
+                'name' => $row['name'] ?? null,
+                'hostname' => $row['hostname'] ?? null,
+                'mac' => $row['mac'] ?? null,
+                'ip' => $row['ip'] ?? null,
+                'ssid' => $row['ssid'] ?? null,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'id' => (string) ($device['id'] ?? ''),
+            'manufacturer' => $device['manufacturer'] ?? null,
+            'model' => $device['model'] ?? null,
+            'serial' => $device['serial'] ?? null,
+            'software_version' => $device['software_version'] ?? null,
+            'hardware_version' => $device['hardware_version'] ?? null,
+            'pppoe_username' => $device['pppoe_username'] ?? null,
+            'temperature' => $device['temperature'] ?? null,
+            'temperature_label' => $device['temperature_label'] ?? '—',
+            'rx_power' => $device['rx_power'] ?? null,
+            'rx_power_label' => $device['rx_power_label'] ?? '—',
+            'tx_power' => $device['tx_power'] ?? null,
+            'tx_power_label' => $device['tx_power_label'] ?? '—',
+            'redaman' => $device['redaman'] ?? null,
+            'redaman_label' => $device['redaman_label'] ?? '—',
+            'ssid' => $device['ssid'] ?? null,
+            'connected_count' => (int) ($device['connected_count'] ?? count($clients)),
+            'connected_clients' => $clients,
+            'last_inform' => $device['last_inform'] ?? null,
+            'last_inform_label' => $device['last_inform_label'] ?? '—',
+            'online' => (bool) ($device['online'] ?? false),
+        ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $devices
+     */
+    private function firstMatchingDeviceId(array $devices, string $needle): ?string
+    {
+        foreach ($devices as $summary) {
+            if (! is_array($summary)) {
+                continue;
+            }
+
+            $found = strtolower(trim((string) ($summary['pppoe_username'] ?? '')));
+            $id = (string) ($summary['id'] ?? '');
+            if ($found !== '' && $found === $needle && $id !== '') {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return array{ok: bool, message: string}
      */
     public function summonDevice(string $deviceId): array

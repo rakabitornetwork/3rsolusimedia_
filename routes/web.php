@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
 use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -33,14 +34,38 @@ Route::get('/', LandingController::class)->name('home');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
 
 Route::get('/bayar', [PaymentPortalController::class, 'index'])->name('portal.pay.index');
-Route::post('/bayar/lookup', [PaymentPortalController::class, 'lookup'])->name('portal.pay.lookup');
-Route::get('/bayar/{token}', [PaymentPortalController::class, 'show'])
-    ->name('portal.pay.show')
-    ->where('token', '[A-Za-z0-9]+');
-Route::post('/bayar/{token}/pay/{invoice}', [PaymentPortalController::class, 'pay'])
-    ->name('portal.pay.checkout')
-    ->where('token', '[A-Za-z0-9]+')
-    ->whereNumber('invoice');
+Route::post('/bayar/lookup', [PaymentPortalController::class, 'lookup'])
+    ->middleware('throttle:10,1')
+    ->name('portal.pay.lookup');
+
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/bayar/{token}', [CustomerPortalController::class, 'home'])
+        ->name('portal.home')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::get('/bayar/{token}/tagihan', [PaymentPortalController::class, 'invoices'])
+        ->name('portal.pay.invoices')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::post('/bayar/{token}/pay/{invoice}', [PaymentPortalController::class, 'pay'])
+        ->name('portal.pay.checkout')
+        ->where('token', '[A-Za-z0-9]+')
+        ->whereNumber('invoice');
+
+    Route::get('/bayar/{token}/perangkat', [CustomerPortalController::class, 'device'])
+        ->name('portal.device')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::post('/bayar/{token}/perangkat/wifi', [CustomerPortalController::class, 'updateWifi'])
+        ->middleware('throttle:10,1')
+        ->name('portal.device.wifi')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::post('/bayar/{token}/perangkat/reboot', [CustomerPortalController::class, 'reboot'])
+        ->middleware('throttle:5,1')
+        ->name('portal.device.reboot')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::post('/bayar/{token}/perangkat/refresh', [CustomerPortalController::class, 'refresh'])
+        ->middleware('throttle:10,1')
+        ->name('portal.device.refresh')
+        ->where('token', '[A-Za-z0-9]+');
+});
 
 Route::post('/webhooks/xendit', [PaymentGatewayWebhookController::class, 'xendit'])->name('webhooks.xendit');
 Route::post('/webhooks/midtrans', [PaymentGatewayWebhookController::class, 'midtrans'])->name('webhooks.midtrans');

@@ -3,15 +3,14 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -20,6 +19,8 @@ use Throwable;
 
 class PaymentPortalController extends Controller
 {
+    use ResolvesPortalCustomer;
+
     public function __construct(private readonly PaymentGatewayManager $gateways)
     {
     }
@@ -40,7 +41,7 @@ class PaymentPortalController extends Controller
         ]);
 
         $username = trim($validated['username']);
-        $phoneDigits = $this->normalizePhone($validated['phone']);
+        $phoneDigits = $this->normalizePortalPhone($validated['phone']);
 
         if ($phoneDigits === '' || strlen($phoneDigits) < 8) {
             return back()
@@ -52,7 +53,7 @@ class PaymentPortalController extends Controller
             ->where('username', $username)
             ->get()
             ->first(function (PppoeCustomer $row) use ($phoneDigits) {
-                $stored = $this->normalizePhone((string) $row->phone);
+                $stored = $this->normalizePortalPhone((string) $row->phone);
 
                 return $stored === $phoneDigits
                     || ($stored !== '' && str_ends_with($stored, $phoneDigits))
@@ -65,19 +66,19 @@ class PaymentPortalController extends Controller
                 ->withInput();
         }
 
-        $token = $this->makeToken($customer->id);
+        $token = $this->makePortalToken($customer->id);
         $request->session()->put('portal_customer_id', $customer->id);
 
-        return redirect()->route('portal.pay.show', ['token' => $token]);
+        return redirect()->route('portal.home', ['token' => $token]);
     }
 
-    public function show(Request $request, string $token): Response|RedirectResponse
+    public function invoices(Request $request, string $token): Response|RedirectResponse
     {
-        $customer = $this->customerFromToken($token);
+        $customer = $this->customerFromPortalToken($token);
         if (! $customer) {
             return redirect()
                 ->route('portal.pay.index')
-                ->with('error', 'Sesi portal kedaluwarsa. Silakan cek tagihan lagi.');
+                ->with('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
         }
 
         if ((int) $request->session()->get('portal_customer_id') !== (int) $customer->id) {
@@ -107,11 +108,7 @@ class PaymentPortalController extends Controller
             'branding' => AppSettings::branding(),
             'token' => $token,
             'status' => $request->get('status'),
-            'customer' => [
-                'name' => $customer->name,
-                'username' => $customer->username,
-                'due_date' => $customer->due_date?->format('Y-m-d'),
-            ],
+            'customer' => $this->portalCustomerPayload($customer),
             'unpaid' => $unpaid,
             'recent_paid' => $recentPaid,
             'gateway_ready' => $this->gateways->hasEnabledGateway(),
@@ -121,11 +118,11 @@ class PaymentPortalController extends Controller
 
     public function pay(Request $request, string $token, Invoice $invoice): RedirectResponse
     {
-        $customer = $this->customerFromToken($token);
+        $customer = $this->customerFromPortalToken($token);
         if (! $customer) {
             return redirect()
                 ->route('portal.pay.index')
-                ->with('error', 'Sesi portal kedaluwarsa. Silakan cek tagihan lagi.');
+                ->with('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
         }
 
         if ((int) $invoice->pppoe_customer_id !== (int) $customer->id) {
@@ -134,12 +131,12 @@ class PaymentPortalController extends Controller
 
         if (! $invoice->isUnpaid()) {
             return redirect()
-                ->route('portal.pay.show', ['token' => $token, 'status' => 'already_paid'])
+                ->route('portal.pay.invoices', ['token' => $token, 'status' => 'already_paid'])
                 ->with('success', 'Tagihan sudah lunas.');
         }
 
-        $successUrl = URL::route('portal.pay.show', ['token' => $token, 'status' => 'success']);
-        $failureUrl = URL::route('portal.pay.show', ['token' => $token, 'status' => 'failed']);
+        $successUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'success']);
+        $failureUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'failed']);
 
         try {
             $result = $this->gateways->createPayment($invoice, $successUrl, $failureUrl);
@@ -150,47 +147,6 @@ class PaymentPortalController extends Controller
         }
 
         return redirect()->away($result['checkout_url']);
-    }
-
-    protected function makeToken(int $customerId): string
-    {
-        $token = Str::lower(Str::random(48));
-        Cache::put($this->tokenCacheKey($token), $customerId, now()->addHours(2));
-
-        return $token;
-    }
-
-    protected function customerFromToken(string $token): ?PppoeCustomer
-    {
-        if (! preg_match('/^[a-z0-9]{32,64}$/', $token)) {
-            return null;
-        }
-
-        $customerId = Cache::get($this->tokenCacheKey($token));
-        if (! $customerId) {
-            return null;
-        }
-
-        // Perpanjang sesi saat aktif.
-        Cache::put($this->tokenCacheKey($token), $customerId, now()->addHours(2));
-
-        return PppoeCustomer::query()->find((int) $customerId);
-    }
-
-    protected function tokenCacheKey(string $token): string
-    {
-        return 'portal_pay:'.$token;
-    }
-
-    protected function normalizePhone(string $phone): string
-    {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-
-        if (str_starts_with($digits, '62') && strlen($digits) > 10) {
-            $digits = '0'.substr($digits, 2);
-        }
-
-        return $digits;
     }
 
     protected function invoicePortalArray(Invoice $invoice): array

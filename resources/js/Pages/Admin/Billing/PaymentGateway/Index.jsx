@@ -120,7 +120,7 @@ export default function Index({ config, webhook_urls, portal_url, enabled_gatewa
                     <a href={portal_url} target="_blank" rel="noreferrer" className="font-semibold text-signal-deep hover:underline">
                         {portal_url}
                     </a>
-                    .
+                    {' '}(tagihan, WiFi, dan status ONU).
                 </p>
                 <div className="text-xs text-ink-soft">
                     Aktif:{' '}
@@ -290,8 +290,8 @@ export default function Index({ config, webhook_urls, portal_url, enabled_gatewa
             <div className="mt-6 border border-ink/10 bg-white p-6">
                 <h2 className="text-sm font-semibold text-ink">Portal pelanggan</h2>
                 <p className="mt-1 text-sm text-ink-soft">
-                    Pelanggan dapat cek tagihan dengan username PPPoE dan nomor telepon, lalu bayar
-                    online tanpa login admin.
+                    Pelanggan masuk dengan username PPPoE dan nomor telepon untuk cek/bayar tagihan,
+                    pantau ONU, ubah WiFi, dan restart perangkat.
                 </p>
                 <a
                     href={portal_url}
