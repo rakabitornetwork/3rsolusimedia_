@@ -2,6 +2,7 @@ import {
     Activity,
     BarChart3,
     Cable,
+    Coins,
     CreditCard,
     FileText,
     Globe,
@@ -110,13 +111,23 @@ export const adminNav = [
                 href: '/admin/billing',
                 icon: CreditCard,
                 match: ['/admin/billing'],
-                exclude: ['/admin/billing/reports', '/admin/billing/payment-gateway'],
+                exclude: [
+                    '/admin/billing/reports',
+                    '/admin/billing/agent-commissions',
+                    '/admin/billing/payment-gateway',
+                ],
             },
             {
                 label: 'Laporan Keuangan',
                 href: '/admin/billing/reports',
                 icon: BarChart3,
                 match: ['/admin/billing/reports'],
+            },
+            {
+                label: 'Komisi Agen',
+                href: '/admin/billing/agent-commissions',
+                icon: Coins,
+                match: ['/admin/billing/agent-commissions'],
             },
             {
                 label: 'Payment Gateway',
@@ -227,6 +238,7 @@ export function filterNavForUser(nav, user) {
         '/admin/customers/pppoe',
         '/admin/customers/pppoe/sessions',
         '/admin/billing',
+        '/admin/billing/agent-commissions',
     ];
 
     return nav

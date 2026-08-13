@@ -16,6 +16,7 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
         name: user?.name || '',
         email: user?.email || '',
         role: user?.role || role_options[0]?.value || 'admin',
+        billing_commission: user?.billing_commission ?? 0,
         assigned_customer_ids: user?.assigned_customer_ids || [],
         password: '',
         password_confirmation: '',
@@ -78,6 +79,12 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
 
             if (payload.role !== 'agen') {
                 delete payload.assigned_customer_ids;
+                delete payload.billing_commission;
+            } else {
+                payload.billing_commission = Math.max(
+                    0,
+                    Number.parseInt(String(payload.billing_commission || 0), 10) || 0,
+                );
             }
 
             if (!payload.password) {
@@ -234,78 +241,102 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
                 </fieldset>
 
                 {data.role === 'agen' && (
-                    <div className="border border-signal/30 bg-signal/5 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                                <h4 className="text-sm font-bold text-ink">
-                                    Penugasan Pelanggan PPPoE
-                                </h4>
-                                <p className="text-xs text-ink-soft">
-                                    Pilih pelanggan yang dapat dilihat & dikelola oleh akun Agen ini (
-                                    {data.assigned_customer_ids?.length || 0} dipilih).
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={toggleAllCustomers}
-                                className="btn-action btn-action-xs btn-secondary"
-                            >
-                                {data.assigned_customer_ids?.length === pppoe_customers.length
-                                    ? 'Hapus Semua'
-                                    : 'Pilih Semua'}
-                            </button>
-                        </div>
-
-                        <div className="mt-3">
+                    <div className="space-y-4 border border-signal/30 bg-signal/5 p-4">
+                        <label className="block text-sm font-medium text-ink">
+                            Komisi billing (Rp / tagihan lunas)
                             <input
-                                type="text"
-                                placeholder="Cari nama / username / telp pelanggan..."
-                                value={custSearch}
-                                onChange={(e) => setCustSearch(e.target.value)}
-                                className="w-full border border-ink/15 bg-white px-3 py-1.5 text-xs outline-none focus:border-signal"
+                                type="number"
+                                min="0"
+                                step="1000"
+                                value={data.billing_commission}
+                                onChange={(e) => setData('billing_commission', e.target.value)}
+                                className={`${fieldClass} bg-white`}
                             />
-                        </div>
-
-                        <div className="mt-3 max-h-60 space-y-1 overflow-y-auto border border-ink/10 bg-white p-2 text-xs">
-                            {filteredCustomers.length === 0 ? (
-                                <p className="py-2 text-center text-ink-soft">
-                                    Tidak ada pelanggan PPPoE ditemukan.
-                                </p>
-                            ) : (
-                                filteredCustomers.map((c) => {
-                                    const isChecked = data.assigned_customer_ids?.includes(c.id);
-                                    return (
-                                        <label
-                                            key={c.id}
-                                            className={`flex items-center justify-between rounded px-2 py-1.5 transition ${
-                                                isChecked
-                                                    ? 'bg-signal/10 font-semibold text-ink'
-                                                    : 'hover:bg-mist/60 text-ink-soft'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    onChange={() => toggleCustomer(c.id)}
-                                                    className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
-                                                />
-                                                <span>
-                                                    <span className="text-ink">{c.name}</span>
-                                                    <span className="ml-2 font-mono text-[11px] text-ink-soft">
-                                                        ({c.username})
-                                                    </span>
-                                                </span>
-                                            </div>
-                                            {c.phone && (
-                                                <span className="text-[11px] text-ink-soft">
-                                                    {c.phone}
-                                                </span>
-                                            )}
-                                        </label>
-                                    );
-                                })
+                            <span className="mt-1 block text-xs font-normal text-ink-soft">
+                                Nominal tetap yang di-snapshot setiap kali tagihan pelanggan agen
+                                ini dilunasi.
+                            </span>
+                            {errors.billing_commission && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.billing_commission}
+                                </span>
                             )}
+                        </label>
+
+                        <div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <h4 className="text-sm font-bold text-ink">
+                                        Penugasan Pelanggan PPPoE
+                                    </h4>
+                                    <p className="text-xs text-ink-soft">
+                                        Pilih pelanggan yang dapat dilihat & dikelola oleh akun Agen
+                                        ini ({data.assigned_customer_ids?.length || 0} dipilih).
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={toggleAllCustomers}
+                                    className="btn-action btn-action-xs btn-secondary"
+                                >
+                                    {data.assigned_customer_ids?.length === pppoe_customers.length
+                                        ? 'Hapus Semua'
+                                        : 'Pilih Semua'}
+                                </button>
+                            </div>
+
+                            <div className="mt-3">
+                                <input
+                                    type="text"
+                                    placeholder="Cari nama / username / telp pelanggan..."
+                                    value={custSearch}
+                                    onChange={(e) => setCustSearch(e.target.value)}
+                                    className="w-full border border-ink/15 bg-white px-3 py-1.5 text-xs outline-none focus:border-signal"
+                                />
+                            </div>
+
+                            <div className="mt-3 max-h-60 space-y-1 overflow-y-auto border border-ink/10 bg-white p-2 text-xs">
+                                {filteredCustomers.length === 0 ? (
+                                    <p className="py-2 text-center text-ink-soft">
+                                        Tidak ada pelanggan PPPoE ditemukan.
+                                    </p>
+                                ) : (
+                                    filteredCustomers.map((c) => {
+                                        const isChecked =
+                                            data.assigned_customer_ids?.includes(c.id);
+                                        return (
+                                            <label
+                                                key={c.id}
+                                                className={`flex items-center justify-between rounded px-2 py-1.5 transition ${
+                                                    isChecked
+                                                        ? 'bg-signal/10 font-semibold text-ink'
+                                                        : 'hover:bg-mist/60 text-ink-soft'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => toggleCustomer(c.id)}
+                                                        className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
+                                                    />
+                                                    <span>
+                                                        <span className="text-ink">{c.name}</span>
+                                                        <span className="ml-2 font-mono text-[11px] text-ink-soft">
+                                                            ({c.username})
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                {c.phone && (
+                                                    <span className="text-[11px] text-ink-soft">
+                                                        {c.phone}
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
+use App\Models\User;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\MikrotikApiService;
@@ -603,7 +604,10 @@ class PppoeCustomerController extends Controller
     {
         return $request->validate([
             'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
-            'agent_id' => ['nullable', 'exists:users,id'],
+            'agent_id' => [
+                'nullable',
+                Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', User::ROLE_AGEN)),
+            ],
             'subscription_package_id' => ['required', 'exists:subscription_packages,id'],
             'name' => ['required', 'string', 'max:150'],
             'phone' => ['nullable', 'string', 'max:50'],

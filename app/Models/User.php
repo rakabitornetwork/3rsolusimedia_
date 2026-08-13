@@ -11,7 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'email', 'password', 'role', 'avatar'])]
+#[Fillable(['name', 'email', 'password', 'role', 'avatar', 'billing_commission'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -39,6 +39,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'voucher_commission' => 'integer',
+            'billing_commission' => 'integer',
         ];
     }
 
@@ -175,6 +176,12 @@ class User extends Authenticatable
             'assigned_customer_ids' => $this->isAgen()
                 ? $this->agentCustomers()->pluck('id')->all()
                 : [],
+            'billing_commission' => $this->isAgen()
+                ? (int) ($this->billing_commission ?? 0)
+                : 0,
+            'billing_commission_label' => $this->isAgen()
+                ? 'Rp '.number_format((int) ($this->billing_commission ?? 0), 0, ',', '.')
+                : null,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

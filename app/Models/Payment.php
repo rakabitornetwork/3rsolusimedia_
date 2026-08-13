@@ -10,6 +10,8 @@ class Payment extends Model
     protected $fillable = [
         'invoice_id',
         'received_by',
+        'agent_id',
+        'agent_commission',
         'amount',
         'method',
         'paid_at',
@@ -21,6 +23,7 @@ class Payment extends Model
     {
         return [
             'amount' => 'integer',
+            'agent_commission' => 'integer',
             'paid_at' => 'datetime',
         ];
     }
@@ -35,6 +38,11 @@ class Payment extends Model
         return $this->belongsTo(User::class, 'received_by');
     }
 
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'agent_id');
+    }
+
     public function toAdminArray(): array
     {
         return [
@@ -42,6 +50,12 @@ class Payment extends Model
             'invoice_id' => $this->invoice_id,
             'amount' => $this->amount,
             'amount_label' => 'Rp '.number_format($this->amount, 0, ',', '.'),
+            'agent_id' => $this->agent_id,
+            'agent_name' => $this->relationLoaded('agent')
+                ? $this->agent?->name
+                : null,
+            'agent_commission' => (int) ($this->agent_commission ?? 0),
+            'agent_commission_label' => 'Rp '.number_format((int) ($this->agent_commission ?? 0), 0, ',', '.'),
             'method' => $this->method,
             'method_label' => match ($this->method) {
                 'cash' => 'Tunai',

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\BillingController;
+use App\Http\Controllers\Admin\AgentCommissionReportController;
 use App\Http\Controllers\Admin\FinancialReportController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GenieAcsController;
@@ -190,6 +191,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');
+    Route::get('/billing/agent-commissions', [AgentCommissionReportController::class, 'index'])->name('billing.agent-commissions');
     Route::get('/billing/payment-gateway', [PaymentGatewayController::class, 'index'])->name('billing.payment-gateway');
     Route::post('/billing/payment-gateway', [PaymentGatewayController::class, 'update'])->name('billing.payment-gateway.update');
     Route::post('/billing/payment-gateway/test', [PaymentGatewayController::class, 'test'])->name('billing.payment-gateway.test');

@@ -236,11 +236,22 @@ class BillingService
         $paidAt ??= now();
 
         return DB::transaction(function () use ($invoice, $method, $reference, $notes, $receivedBy, $paidAt) {
-            $invoice->loadMissing(['customer.package']);
+            $invoice->loadMissing(['customer.agent', 'customer.package']);
+
+            $agent = $invoice->customer?->agent;
+            $agentId = null;
+            $agentCommission = 0;
+
+            if ($agent?->isAgen()) {
+                $agentId = $agent->id;
+                $agentCommission = max(0, (int) ($agent->billing_commission ?? 0));
+            }
 
             $payment = Payment::query()->create([
                 'invoice_id' => $invoice->id,
                 'received_by' => $receivedBy,
+                'agent_id' => $agentId,
+                'agent_commission' => $agentCommission,
                 'amount' => $invoice->total,
                 'method' => $method,
                 'paid_at' => $paidAt,
