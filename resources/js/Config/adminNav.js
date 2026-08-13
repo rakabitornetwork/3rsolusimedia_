@@ -15,6 +15,7 @@ import {
     SlidersHorizontal,
     Ticket,
     Users,
+    Wallet,
     Wifi,
 } from 'lucide-react';
 
@@ -109,13 +110,19 @@ export const adminNav = [
                 href: '/admin/billing',
                 icon: CreditCard,
                 match: ['/admin/billing'],
-                exclude: ['/admin/billing/reports'],
+                exclude: ['/admin/billing/reports', '/admin/billing/payment-gateway'],
             },
             {
                 label: 'Laporan Keuangan',
                 href: '/admin/billing/reports',
                 icon: BarChart3,
                 match: ['/admin/billing/reports'],
+            },
+            {
+                label: 'Payment Gateway',
+                href: '/admin/billing/payment-gateway',
+                icon: Wallet,
+                match: ['/admin/billing/payment-gateway'],
             },
         ],
     },

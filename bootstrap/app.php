@@ -20,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'can.write' => \App\Http\Middleware\EnsureUserCanWrite::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/*',
+        ]);
+
         $middleware->redirectGuestsTo('/admin/login');
         $middleware->redirectUsersTo('/admin');
     })

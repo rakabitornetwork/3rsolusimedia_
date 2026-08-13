@@ -1,15 +1,25 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
-export default function Show({ invoice, payment_methods }) {
+export default function Show({ invoice, payment_methods, online_pay }) {
+    const { flash } = usePage().props;
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
         reference: '',
         notes: '',
     });
+    const [checkoutUrl, setCheckoutUrl] = useState(flash?.online_checkout_url || '');
+    const [creatingLink, setCreatingLink] = useState(false);
+
+    useEffect(() => {
+        if (flash?.online_checkout_url) {
+            setCheckoutUrl(flash.online_checkout_url);
+        }
+    }, [flash?.online_checkout_url]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -17,6 +27,31 @@ export default function Show({ invoice, payment_methods }) {
             return;
         }
         post(`/admin/billing/invoices/${invoice.id}/pay`);
+    };
+
+    const createOnlineLink = () => {
+        if (!online_pay?.available || creatingLink) return;
+        if (!window.confirm('Buat link pembayaran online untuk tagihan ini?')) return;
+        setCreatingLink(true);
+        router.post(
+            `/admin/billing/invoices/${invoice.id}/online-pay`,
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setCreatingLink(false),
+            },
+        );
+    };
+
+    const copyCheckout = async () => {
+        const url = checkoutUrl || invoice.online_transactions?.[0]?.checkout_url;
+        if (!url) return;
+        try {
+            await navigator.clipboard.writeText(url);
+            window.alert('Link pembayaran disalin.');
+        } catch {
+            window.prompt('Salin link pembayaran:', url);
+        }
     };
 
     const remove = () => {
@@ -84,6 +119,8 @@ export default function Show({ invoice, payment_methods }) {
             invoice.status === 'unpaid' &&
             (invoice.billing_months > 1 || invoice.type === 'multi_month')
         );
+
+    const latestOnline = invoice.online_transactions?.[0];
 
     return (
         <AdminLayout
@@ -209,6 +246,34 @@ export default function Show({ invoice, payment_methods }) {
                             <p className="mt-3 text-sm text-ink-soft">Belum ada pembayaran.</p>
                         )}
                     </div>
+
+                    {invoice.online_transactions?.length > 0 && (
+                        <div className="border border-ink/10 bg-white p-6">
+                            <h3 className="text-sm font-semibold text-ink">
+                                Transaksi payment gateway
+                            </h3>
+                            <ul className="mt-4 divide-y divide-ink/5">
+                                {invoice.online_transactions.map((tx) => (
+                                    <li key={tx.id} className="py-3">
+                                        <p className="text-sm font-medium text-ink">
+                                            {tx.gateway_label} · {tx.status_label} · {tx.amount_label}
+                                        </p>
+                                        <p className="text-xs text-ink-soft">{tx.external_id}</p>
+                                        {tx.checkout_url && tx.status === 'pending' && (
+                                            <a
+                                                href={tx.checkout_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="mt-1 inline-block text-xs font-semibold text-signal-deep hover:underline"
+                                            >
+                                                Buka link pembayaran
+                                            </a>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-5">
@@ -267,6 +332,67 @@ export default function Show({ invoice, payment_methods }) {
                                         Buat tagihan gabungan 2 bulan
                                     </button>
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {invoice.status === 'unpaid' && (
+                        <div className="border border-ink/10 bg-white p-6">
+                            <h3 className="text-sm font-semibold text-ink">Pembayaran online</h3>
+                            {online_pay?.available ? (
+                                <>
+                                    <p className="mt-1 text-sm text-ink-soft">
+                                        Buat link via gateway default (
+                                        {(online_pay.default_gateway || '').toUpperCase()}
+                                        ). Pelanggan juga bisa bayar di{' '}
+                                        <a
+                                            href={online_pay.portal_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="font-semibold text-signal-deep hover:underline"
+                                        >
+                                            portal
+                                        </a>
+                                        .
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={createOnlineLink}
+                                        disabled={creatingLink}
+                                        className="mt-4 w-full btn-action btn-action-sm btn-primary"
+                                    >
+                                        {creatingLink ? 'Membuat link...' : 'Buat link pembayaran'}
+                                    </button>
+                                    {(checkoutUrl || latestOnline?.checkout_url) && (
+                                        <div className="mt-3 space-y-2">
+                                            <a
+                                                href={checkoutUrl || latestOnline.checkout_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="block w-full btn-action btn-action-sm btn-secondary text-center"
+                                            >
+                                                Buka link
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={copyCheckout}
+                                                className="w-full btn-action btn-action-sm btn-secondary"
+                                            >
+                                                Salin link
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="mt-2 text-sm text-ink-soft">
+                                    Belum ada gateway aktif.{' '}
+                                    <Link
+                                        href="/admin/billing/payment-gateway"
+                                        className="font-semibold text-signal-deep hover:underline"
+                                    >
+                                        Atur Payment Gateway
+                                    </Link>
+                                </p>
                             )}
                         </div>
                     )}

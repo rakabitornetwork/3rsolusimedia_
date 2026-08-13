@@ -32,6 +32,19 @@ class AppSettings
         'genieacs_api_key' => '',
         'genieacs_username' => '',
         'genieacs_password' => '',
+        'pg_default' => 'xendit',
+        'xendit_enabled' => '0',
+        'xendit_secret_key' => '',
+        'xendit_callback_token' => '',
+        'xendit_mode' => 'sandbox',
+        'midtrans_enabled' => '0',
+        'midtrans_server_key' => '',
+        'midtrans_client_key' => '',
+        'midtrans_mode' => 'sandbox',
+        'duitku_enabled' => '0',
+        'duitku_merchant_code' => '',
+        'duitku_api_key' => '',
+        'duitku_mode' => 'sandbox',
     ];
 
     /**
@@ -48,6 +61,66 @@ class AppSettings
             'has_password' => trim((string) self::get('genieacs_password', '')) !== '',
             'has_api_key' => trim((string) self::get('genieacs_api_key', '')) !== '',
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function paymentGatewayConfig(): array
+    {
+        $default = (string) self::get('pg_default', 'xendit');
+        if (! in_array($default, ['xendit', 'midtrans', 'duitku'], true)) {
+            $default = 'xendit';
+        }
+
+        return [
+            'default' => $default,
+            'xendit' => [
+                'enabled' => self::bool('xendit_enabled', false),
+                'mode' => (string) self::get('xendit_mode', 'sandbox'),
+                'has_secret_key' => trim((string) self::get('xendit_secret_key', '')) !== '',
+                'has_callback_token' => trim((string) self::get('xendit_callback_token', '')) !== '',
+            ],
+            'midtrans' => [
+                'enabled' => self::bool('midtrans_enabled', false),
+                'mode' => (string) self::get('midtrans_mode', 'sandbox'),
+                'client_key' => (string) self::get('midtrans_client_key', ''),
+                'has_server_key' => trim((string) self::get('midtrans_server_key', '')) !== '',
+                'has_client_key' => trim((string) self::get('midtrans_client_key', '')) !== '',
+            ],
+            'duitku' => [
+                'enabled' => self::bool('duitku_enabled', false),
+                'mode' => (string) self::get('duitku_mode', 'sandbox'),
+                'merchant_code' => (string) self::get('duitku_merchant_code', ''),
+                'has_api_key' => trim((string) self::get('duitku_api_key', '')) !== '',
+                'has_merchant_code' => trim((string) self::get('duitku_merchant_code', '')) !== '',
+            ],
+        ];
+    }
+
+    public static function xenditSecretKey(): string
+    {
+        return trim((string) self::get('xendit_secret_key', ''));
+    }
+
+    public static function xenditCallbackToken(): string
+    {
+        return trim((string) self::get('xendit_callback_token', ''));
+    }
+
+    public static function midtransServerKey(): string
+    {
+        return trim((string) self::get('midtrans_server_key', ''));
+    }
+
+    public static function duitkuApiKey(): string
+    {
+        return trim((string) self::get('duitku_api_key', ''));
+    }
+
+    public static function duitkuMerchantCode(): string
+    {
+        return trim((string) self::get('duitku_merchant_code', ''));
     }
 
     public static function get(string $key, mixed $default = null): mixed

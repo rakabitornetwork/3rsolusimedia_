@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\HotspotVoucherReportController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\NetworkMapController;
+use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\PppoeCustomerController;
 use App\Http\Controllers\Admin\PppoeSessionController;
 use App\Http\Controllers\Admin\RouterOsController;
@@ -24,10 +25,26 @@ use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\Portal\PaymentPortalController;
+use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
+
+Route::get('/bayar', [PaymentPortalController::class, 'index'])->name('portal.pay.index');
+Route::post('/bayar/lookup', [PaymentPortalController::class, 'lookup'])->name('portal.pay.lookup');
+Route::get('/bayar/{token}', [PaymentPortalController::class, 'show'])
+    ->name('portal.pay.show')
+    ->where('token', '[A-Za-z0-9]+');
+Route::post('/bayar/{token}/pay/{invoice}', [PaymentPortalController::class, 'pay'])
+    ->name('portal.pay.checkout')
+    ->where('token', '[A-Za-z0-9]+')
+    ->whereNumber('invoice');
+
+Route::post('/webhooks/xendit', [PaymentGatewayWebhookController::class, 'xendit'])->name('webhooks.xendit');
+Route::post('/webhooks/midtrans', [PaymentGatewayWebhookController::class, 'midtrans'])->name('webhooks.midtrans');
+Route::post('/webhooks/duitku', [PaymentGatewayWebhookController::class, 'duitku'])->name('webhooks.duitku');
 
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [LoginController::class, 'create'])->name('login');
@@ -133,6 +150,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');
+    Route::get('/billing/payment-gateway', [PaymentGatewayController::class, 'index'])->name('billing.payment-gateway');
+    Route::post('/billing/payment-gateway', [PaymentGatewayController::class, 'update'])->name('billing.payment-gateway.update');
+    Route::post('/billing/payment-gateway/test', [PaymentGatewayController::class, 'test'])->name('billing.payment-gateway.test');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
     Route::post('/billing/customers/{pppoe}/grace', [BillingController::class, 'grantGrace'])->name('billing.grace');
     Route::delete('/billing/customers/{pppoe}/grace', [BillingController::class, 'clearGrace'])->name('billing.grace.clear');
@@ -140,6 +160,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/billing/invoices/{invoice}', [BillingController::class, 'show'])->name('billing.show');
     Route::get('/billing/invoices/{invoice}/print', [BillingController::class, 'print'])->name('billing.print');
     Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])->name('billing.pay');
+    Route::post('/billing/invoices/{invoice}/online-pay', [BillingController::class, 'createOnlinePayment'])->name('billing.online-pay');
     Route::post('/billing/invoices/{invoice}/void', [BillingController::class, 'void'])->name('billing.void');
     Route::delete('/billing/invoices/{invoice}', [BillingController::class, 'destroy'])->name('billing.destroy');
 

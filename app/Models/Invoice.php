@@ -57,6 +57,11 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
     public function isUnpaid(): bool
     {
         return $this->status === 'unpaid';
@@ -124,6 +129,14 @@ class Invoice extends Model
             ] : null,
             'payments' => $this->relationLoaded('payments')
                 ? $this->payments->map(fn (Payment $payment) => $payment->toAdminArray())->values()->all()
+                : [],
+            'online_transactions' => $this->relationLoaded('paymentTransactions')
+                ? $this->paymentTransactions
+                    ->sortByDesc('id')
+                    ->take(5)
+                    ->values()
+                    ->map(fn (PaymentTransaction $tx) => $tx->toAdminArray())
+                    ->all()
                 : [],
             'created_at' => $this->created_at?->toIso8601String(),
         ];

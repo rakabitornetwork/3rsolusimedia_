@@ -7,19 +7,25 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Services\BillingService;
+use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 class BillingController extends Controller
 {
-    public function __construct(private readonly BillingService $billing)
-    {
+    public function __construct(
+        private readonly BillingService $billing,
+        private readonly PaymentGatewayManager $gateways,
+    ) {
     }
 
     public function index(Request $request): Response
@@ -133,7 +139,7 @@ class BillingController extends Controller
             return redirect()->route('admin.billing')->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
         }
 
-        $invoice->load(['customer.package', 'customer.router', 'payments.receiver', 'package']);
+        $invoice->load(['customer.package', 'customer.router', 'payments.receiver', 'package', 'paymentTransactions']);
 
         return Inertia::render('Admin/Billing/Show', [
             'invoice' => $invoice->toAdminArray(),
@@ -143,7 +149,46 @@ class BillingController extends Controller
                 ['value' => 'qris', 'label' => 'QRIS'],
                 ['value' => 'other', 'label' => 'Lainnya'],
             ],
+            'online_pay' => [
+                'available' => $this->gateways->hasEnabledGateway(),
+                'enabled_gateways' => $this->gateways->enabledGateways(),
+                'default_gateway' => AppSettings::paymentGatewayConfig()['default'],
+                'portal_url' => url('/bayar'),
+            ],
         ]);
+    }
+
+    public function createOnlinePayment(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk memproses pembayaran tagihan pelanggan ini.');
+        }
+
+        $validated = $request->validate([
+            'gateway' => ['nullable', Rule::in(['xendit', 'midtrans', 'duitku'])],
+        ]);
+
+        $successUrl = URL::route('admin.billing.show', $invoice);
+        $failureUrl = URL::route('admin.billing.show', $invoice);
+
+        try {
+            $result = $this->gateways->createPayment(
+                $invoice,
+                $successUrl,
+                $failureUrl,
+                $validated['gateway'] ?? null,
+            );
+        } catch (InvalidArgumentException|RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            return back()->with('error', 'Gagal membuat link pembayaran: '.$e->getMessage());
+        }
+
+        return redirect()
+            ->route('admin.billing.show', $invoice)
+            ->with('success', 'Link pembayaran online dibuat.')
+            ->with('online_checkout_url', $result['checkout_url']);
     }
 
     public function print(Request $request, Invoice $invoice)
