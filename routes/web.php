@@ -53,6 +53,10 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/bayar/{token}/perangkat', [CustomerPortalController::class, 'device'])
         ->name('portal.device')
         ->where('token', '[A-Za-z0-9]+');
+    Route::get('/bayar/{token}/trafik', [CustomerPortalController::class, 'traffic'])
+        ->middleware('throttle:120,1')
+        ->name('portal.traffic')
+        ->where('token', '[A-Za-z0-9]+');
     Route::post('/bayar/{token}/perangkat/wifi', [CustomerPortalController::class, 'updateWifi'])
         ->middleware('throttle:10,1')
         ->name('portal.device.wifi')

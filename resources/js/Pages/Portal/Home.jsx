@@ -1,9 +1,9 @@
 import { Link } from '@inertiajs/react';
-import { CreditCard, Radio, Router, Thermometer, Users, Wifi } from 'lucide-react';
+import { CreditCard, Radio, Router, Thermometer, Users } from 'lucide-react';
+import PortalLiveTraffic from '../../Components/Portal/LiveTrafficCard';
 import PortalLayout from '../../Layouts/PortalLayout';
 import {
     onlineTone,
-    redamanTone,
     rxPowerTone,
     temperatureTone,
 } from '../../Utils/genieacsMetrics';
@@ -33,7 +33,7 @@ export default function Home({
 }) {
     const online = onlineTone(device?.online);
     const rx = rxPowerTone(device?.rx_power);
-    const redaman = redamanTone(device?.redaman);
+    const tx = rxPowerTone(device?.tx_power);
     const temp = temperatureTone(device?.temperature);
 
     return (
@@ -102,9 +102,9 @@ export default function Home({
                             />
                             <MetricCard
                                 icon={Radio}
-                                label="Redaman"
-                                value={device.redaman_label}
-                                tone={redaman}
+                                label="TX Power"
+                                value={device.tx_power_label}
+                                tone={tx}
                             />
                             <MetricCard
                                 icon={Thermometer}
@@ -128,6 +128,8 @@ export default function Home({
                         Kelola perangkat & WiFi
                     </Link>
                 </section>
+
+                <PortalLiveTraffic token={token} />
             </div>
         </PortalLayout>
     );

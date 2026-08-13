@@ -8,10 +8,10 @@ import {
     Wifi,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import PortalLiveTraffic from '../../../Components/Portal/LiveTrafficCard';
 import PortalLayout from '../../../Layouts/PortalLayout';
 import {
     onlineTone,
-    redamanTone,
     rxPowerTone,
     temperatureTone,
 } from '../../../Utils/genieacsMetrics';
@@ -53,7 +53,7 @@ export default function Show({
 
     const online = onlineTone(device?.online);
     const rx = rxPowerTone(device?.rx_power);
-    const redaman = redamanTone(device?.redaman);
+    const tx = rxPowerTone(device?.tx_power);
     const temp = temperatureTone(device?.temperature);
 
     const refresh = () => {
@@ -101,13 +101,14 @@ export default function Show({
             title="Perangkat"
             active="device"
         >
+            <div className="space-y-4">
             {!device_available ? (
                 <div className="border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-900">
                     {device_message ||
                         'Perangkat belum terhubung ke sistem monitoring. Hubungi admin.'}
                 </div>
             ) : (
-                <div className="space-y-4">
+                <>
                     <section className="border border-ink/10 bg-white p-5">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
@@ -159,9 +160,9 @@ export default function Show({
                             />
                             <MetricCard
                                 icon={Radio}
-                                label="Redaman"
-                                value={device.redaman_label}
-                                tone={redaman}
+                                label="TX Power"
+                                value={device.tx_power_label}
+                                tone={tx}
                             />
                             <MetricCard
                                 icon={Thermometer}
@@ -256,8 +257,11 @@ export default function Show({
                             </p>
                         )}
                     </section>
-                </div>
+                </>
             )}
+
+                <PortalLiveTraffic token={token} />
+            </div>
         </PortalLayout>
     );
 }

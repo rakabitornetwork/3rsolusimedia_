@@ -7,8 +7,10 @@ use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Services\GenieAcsService;
+use App\Services\MikrotikApiService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -21,6 +23,7 @@ class CustomerPortalController extends Controller
     public function __construct(
         private readonly GenieAcsService $genie,
         private readonly PaymentGatewayManager $gateways,
+        private readonly MikrotikApiService $mikrotik,
     ) {
     }
 
@@ -154,6 +157,35 @@ class CustomerPortalController extends Controller
             $result['ok'] ? 'success' : 'error',
             $result['message']
         );
+    }
+
+    public function traffic(Request $request, string $token): JsonResponse
+    {
+        $customer = $this->customerFromPortalToken($token);
+        if (! $customer) {
+            return response()->json([
+                'ok' => false,
+                'online' => false,
+                'message' => 'Sesi portal kedaluwarsa.',
+            ], 401);
+        }
+
+        if ((int) $request->session()->get('portal_customer_id') !== (int) $customer->id) {
+            $request->session()->put('portal_customer_id', $customer->id);
+        }
+
+        $router = $customer->router;
+        if (! $router) {
+            return response()->json([
+                'ok' => false,
+                'online' => false,
+                'message' => 'Router pelanggan tidak ditemukan.',
+            ]);
+        }
+
+        $result = $this->mikrotik->monitorPppoeUserTraffic($router, (string) $customer->username);
+
+        return response()->json($result);
     }
 
     /**
