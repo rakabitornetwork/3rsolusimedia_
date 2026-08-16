@@ -229,7 +229,7 @@ class PppoeCustomerController extends Controller
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => $pppoe->toSafeArray(),
-            ...$this->formOptions($pppoe->mikrotik_router_id),
+            ...$this->formOptions($pppoe->mikrotik_router_id, $pppoe->subscription_package_id),
         ]);
     }
 
@@ -456,7 +456,15 @@ class PppoeCustomerController extends Controller
     {
         $validated = $request->validate([
             'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
-            'subscription_package_id' => ['required', 'exists:subscription_packages,id'],
+            'subscription_package_id' => [
+                'required',
+                Rule::exists('subscription_packages', 'id')->where(
+                    fn ($query) => $query->where(
+                        'mikrotik_router_id',
+                        $request->input('mikrotik_router_id')
+                    )
+                ),
+            ],
             'usernames' => ['required', 'array', 'min:1'],
             'usernames.*' => ['required', 'string', 'max:100'],
             'password' => ['required', 'string', 'max:255'],
@@ -557,7 +565,7 @@ class PppoeCustomerController extends Controller
             ->with($failed > 0 && $created === 0 ? 'error' : 'success', $message);
     }
 
-    private function formOptions(?int $routerId = null): array
+    private function formOptions(?int $routerId = null, mixed $currentPackageId = null): array
     {
         $profiles = [];
         $isolirProfiles = [];
@@ -584,7 +592,13 @@ class PppoeCustomerController extends Controller
                 ->get(['id', 'name'])
                 ->values(),
             'packages' => SubscriptionPackage::query()
-                ->where('is_active', true)
+                ->with('router')
+                ->where(function ($query) use ($currentPackageId) {
+                    $query->where('is_active', true);
+                    if ($currentPackageId) {
+                        $query->orWhere('id', $currentPackageId);
+                    }
+                })
                 ->orderBy('sort_order')
                 ->orderBy('price')
                 ->get()
@@ -602,40 +616,53 @@ class PppoeCustomerController extends Controller
 
     private function validateCustomer(Request $request, ?PppoeCustomer $customer = null): array
     {
-        return $request->validate([
-            'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
-            'agent_id' => [
-                'nullable',
-                Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', User::ROLE_AGEN)),
+        return $request->validate(
+            [
+                'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
+                'agent_id' => [
+                    'nullable',
+                    Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', User::ROLE_AGEN)),
+                ],
+                'subscription_package_id' => [
+                    'required',
+                    Rule::exists('subscription_packages', 'id')->where(
+                        fn ($query) => $query->where(
+                            'mikrotik_router_id',
+                            $request->input('mikrotik_router_id')
+                        )
+                    ),
+                ],
+                'name' => ['required', 'string', 'max:150'],
+                'phone' => ['nullable', 'string', 'max:50'],
+                'address' => ['nullable', 'string', 'max:500'],
+                'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
+                'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
+                'username' => [
+                    'required',
+                    'string',
+                    'max:100',
+                    Rule::unique('pppoe_customers', 'username')
+                        ->where(fn ($q) => $q->where('mikrotik_router_id', $request->input('mikrotik_router_id')))
+                        ->ignore($customer?->id),
+                ],
+                'password' => [$customer ? 'nullable' : 'required', 'string', 'max:255'],
+                'service_profile' => ['nullable', 'string', 'max:120'],
+                'start_date' => ['required', 'date'],
+                'billing_day' => ['required', 'integer', 'min:1', 'max:28'],
+                'overdue_action' => ['required', Rule::in(['bypass', 'isolir'])],
+                'isolir_profile' => [
+                    Rule::requiredIf(fn () => $request->input('overdue_action') === 'isolir'),
+                    'nullable',
+                    'string',
+                    'max:120',
+                ],
+                'notes' => ['nullable', 'string', 'max:1000'],
+                'is_active' => ['nullable', 'boolean'],
             ],
-            'subscription_package_id' => ['required', 'exists:subscription_packages,id'],
-            'name' => ['required', 'string', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:50'],
-            'address' => ['nullable', 'string', 'max:500'],
-            'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'required_with:latitude', 'numeric', 'between:-180,180'],
-            'username' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('pppoe_customers', 'username')
-                    ->where(fn ($q) => $q->where('mikrotik_router_id', $request->input('mikrotik_router_id')))
-                    ->ignore($customer?->id),
-            ],
-            'password' => [$customer ? 'nullable' : 'required', 'string', 'max:255'],
-            'service_profile' => ['nullable', 'string', 'max:120'],
-            'start_date' => ['required', 'date'],
-            'billing_day' => ['required', 'integer', 'min:1', 'max:28'],
-            'overdue_action' => ['required', Rule::in(['bypass', 'isolir'])],
-            'isolir_profile' => [
-                Rule::requiredIf(fn () => $request->input('overdue_action') === 'isolir'),
-                'nullable',
-                'string',
-                'max:120',
-            ],
-            'notes' => ['nullable', 'string', 'max:1000'],
-            'is_active' => ['nullable', 'boolean'],
-        ]);
+            [
+                'subscription_package_id.exists' => 'Paket langganan tidak tersedia untuk router yang dipilih.',
+            ]
+        );
     }
 
     /**
@@ -665,6 +692,7 @@ class PppoeCustomerController extends Controller
         if ($profile !== '') {
             $packageId = SubscriptionPackage::query()
                 ->where('is_active', true)
+                ->where('mikrotik_router_id', $router->id)
                 ->where('mikrotik_profile', $profile)
                 ->orderBy('sort_order')
                 ->value('id');

@@ -162,7 +162,9 @@ export default function Sessions({
                 }
                 if (!packageId && payload.secret.profile) {
                     const matched = packages.find(
-                        (pkg) => pkg.mikrotik_profile === payload.secret.profile,
+                        (pkg) =>
+                            pkg.mikrotik_profile === payload.secret.profile &&
+                            String(pkg.mikrotik_router_id) === String(selected_router_id),
                     );
                     if (matched) packageId = matched.id;
                 }
@@ -367,7 +369,11 @@ export default function Sessions({
                                 className={fieldClass}
                                 required
                             >
-                                <option value="">Pilih paket</option>
+                                <option value="">
+                                    {packages.length
+                                        ? 'Pilih paket'
+                                        : 'Tidak ada paket untuk router ini'}
+                                </option>
                                 {packages.map((pkg) => (
                                     <option key={pkg.id} value={pkg.id}>
                                         {pkg.name} — {pkg.price_label}

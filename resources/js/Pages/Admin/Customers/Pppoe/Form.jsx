@@ -60,9 +60,20 @@ export default function Form({
         is_active: customer?.is_active ?? true,
     });
 
+    const routerPackages = useMemo(
+        () =>
+            packages.filter(
+                (pkg) => String(pkg.mikrotik_router_id) === String(data.mikrotik_router_id),
+            ),
+        [packages, data.mikrotik_router_id],
+    );
+
     const selectedPackage = useMemo(
-        () => packages.find((item) => String(item.id) === String(data.subscription_package_id)),
-        [packages, data.subscription_package_id],
+        () =>
+            routerPackages.find(
+                (item) => String(item.id) === String(data.subscription_package_id),
+            ),
+        [routerPackages, data.subscription_package_id],
     );
 
     const prorata = useMemo(() => {
@@ -174,7 +185,29 @@ export default function Form({
                         Router
                         <select
                             value={data.mikrotik_router_id}
-                            onChange={(e) => setData('mikrotik_router_id', e.target.value)}
+                            onChange={(e) => {
+                                const routerId = e.target.value;
+                                setData((current) => {
+                                    const packageStillValid = packages.some(
+                                        (pkg) =>
+                                            String(pkg.id) ===
+                                                String(current.subscription_package_id) &&
+                                            String(pkg.mikrotik_router_id) === String(routerId),
+                                    );
+
+                                    return {
+                                        ...current,
+                                        mikrotik_router_id: routerId,
+                                        subscription_package_id: packageStillValid
+                                            ? current.subscription_package_id
+                                            : '',
+                                        service_profile: packageStillValid
+                                            ? current.service_profile
+                                            : '',
+                                        isolir_profile: '',
+                                    };
+                                });
+                            }}
                             className={fieldClass}
                             required
                         >
@@ -199,14 +232,32 @@ export default function Form({
                             onChange={(e) => setData('subscription_package_id', e.target.value)}
                             className={fieldClass}
                             required
+                            disabled={!data.mikrotik_router_id}
                         >
-                            <option value="">Pilih paket</option>
-                            {packages.map((pkg) => (
+                            <option value="">
+                                {!data.mikrotik_router_id
+                                    ? 'Pilih router dulu'
+                                    : routerPackages.length
+                                      ? 'Pilih paket'
+                                      : 'Tidak ada paket untuk router ini'}
+                            </option>
+                            {routerPackages.map((pkg) => (
                                 <option key={pkg.id} value={pkg.id}>
                                     {pkg.name} — {pkg.price_label}
                                 </option>
                             ))}
                         </select>
+                        {data.mikrotik_router_id && routerPackages.length === 0 && (
+                            <span className="mt-1 block text-xs text-amber-700">
+                                Belum ada paket langganan untuk router ini.{' '}
+                                <Link
+                                    href={`/admin/customers/pppoe/service-profiles/create?router_id=${data.mikrotik_router_id}`}
+                                    className="font-semibold underline"
+                                >
+                                    Tambah paket
+                                </Link>
+                            </span>
+                        )}
                         {errors.subscription_package_id && (
                             <span className="mt-1 block text-xs text-red-600">
                                 {errors.subscription_package_id}

@@ -149,6 +149,10 @@ class PppoeSessionController extends Controller
             'error' => $error,
             'packages' => SubscriptionPackage::query()
                 ->where('is_active', true)
+                ->when(
+                    $selectedRouterId,
+                    fn ($query) => $query->where('mikrotik_router_id', $selectedRouterId)
+                )
                 ->orderBy('sort_order')
                 ->orderBy('price')
                 ->get()
