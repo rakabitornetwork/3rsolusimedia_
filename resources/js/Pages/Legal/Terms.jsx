@@ -1,4 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import SeoHead from '../../Components/SeoHead';
 import Logo from '../../Icons/Logo';
 
 export default function Terms({ section, footer, settings }) {
@@ -13,7 +14,7 @@ export default function Terms({ section, footer, settings }) {
 
     return (
         <>
-            <Head title={section.title || 'Terms of Service'} />
+            <SeoHead />
 
             <div className="min-h-screen bg-paper">
                 <header className="border-b border-ink/10 bg-ink text-white">

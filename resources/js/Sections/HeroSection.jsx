@@ -15,7 +15,7 @@ export default function HeroSection({ section, settings, whatsappUrl }) {
             <div className="absolute inset-0">
                 <img
                     src={section.image || '/images/hero/wifi-living.jpg'}
-                    alt=""
+                    alt={`${settings.company_name || 'Tesla Tech'} — pemasangan WiFi rumahan`}
                     className="h-full w-full object-cover"
                     fetchPriority="high"
                 />

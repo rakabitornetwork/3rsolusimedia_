@@ -1,5 +1,5 @@
-import { Head } from '@inertiajs/react';
 import { lazy, Suspense } from 'react';
+import SeoHead from '../Components/SeoHead';
 import Navbar from '../Components/Navbar';
 import HeroSection from '../Sections/HeroSection';
 
@@ -23,14 +23,7 @@ export default function Landing({ sections, settings }) {
 
     return (
         <>
-            <Head>
-                <title>{settings.seo_title || settings.company_name}</title>
-                <meta
-                    head-key="description"
-                    name="description"
-                    content={settings.seo_description || settings.tagline || ''}
-                />
-            </Head>
+            <SeoHead />
 
             <div className="bg-paper">
                 <Navbar settings={settings} whatsappUrl={whatsappUrl} />

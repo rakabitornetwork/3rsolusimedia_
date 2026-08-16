@@ -16,7 +16,7 @@ export default function Login() {
 
     return (
         <>
-            <Head title={`Login Admin · ${companyName}`} />
+            <Head title="Login Admin" />
             <div className="flex min-h-screen items-center justify-center bg-mist px-5">
                 <div className="w-full max-w-md border border-ink/10 bg-white p-8 shadow-sm">
                     <Logo className="h-9 w-auto text-ink" alt={companyName} />

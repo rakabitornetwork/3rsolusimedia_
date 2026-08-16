@@ -17,8 +17,8 @@
       "_vendor-react-Dyo4ernH.js"
     ]
   },
-  "_LiveTrafficCard-CRYzgcIX2.js": {
-    "file": "assets/LiveTrafficCard-CRYzgcIX2.js",
+  "_LiveTrafficCard-CRYzgcIX.js": {
+    "file": "assets/LiveTrafficCard-CRYzgcIX.js",
     "name": "LiveTrafficCard",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
@@ -56,6 +56,14 @@
     "name": "Reveal",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
+      "_vendor-react-Dyo4ernH.js"
+    ]
+  },
+  "_SeoHead-CZkV3MEE.js": {
+    "file": "assets/SeoHead-CZkV3MEE.js",
+    "name": "SeoHead",
+    "imports": [
+      "_vendor-ui-fF-ACWBI.js",
       "_vendor-react-Dyo4ernH.js"
     ]
   },
@@ -221,7 +229,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-eAJzJT8F.css",
+    "file": "assets/app-BFqZfWzH.css",
     "name": "app",
     "names": [
       "app.css"
@@ -651,7 +659,7 @@
     ]
   },
   "resources/js/Pages/Admin/Settings.jsx": {
-    "file": "assets/Settings-C1KVKByW.js",
+    "file": "assets/Settings-DRy_AJMw.js",
     "name": "Settings",
     "src": "resources/js/Pages/Admin/Settings.jsx",
     "isDynamicEntry": true,
@@ -724,7 +732,7 @@
     ]
   },
   "resources/js/Pages/Auth/Login.jsx": {
-    "file": "assets/Login-BT_WObVA.js",
+    "file": "assets/Login-Bp5q3CGF.js",
     "name": "Login",
     "src": "resources/js/Pages/Auth/Login.jsx",
     "isDynamicEntry": true,
@@ -735,7 +743,7 @@
     ]
   },
   "resources/js/Pages/Landing.jsx": {
-    "file": "assets/Landing-Cdr5Y_0b.js",
+    "file": "assets/Landing-DxpbnYRq.js",
     "name": "Landing",
     "src": "resources/js/Pages/Landing.jsx",
     "isDynamicEntry": true,
@@ -743,7 +751,8 @@
       "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-fF-ACWBI.js",
       "_vendor-react-Dyo4ernH.js",
-      "_Logo-F74ikW4a.js"
+      "_Logo-F74ikW4a.js",
+      "_SeoHead-CZkV3MEE.js"
     ],
     "dynamicImports": [
       "resources/js/Sections/ServicesSection.jsx",
@@ -758,18 +767,19 @@
     ]
   },
   "resources/js/Pages/Legal/Terms.jsx": {
-    "file": "assets/Terms-D2s2G3IA.js",
+    "file": "assets/Terms-CZ3CmM7N.js",
     "name": "Terms",
     "src": "resources/js/Pages/Legal/Terms.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-ui-fF-ACWBI.js",
       "_vendor-react-Dyo4ernH.js",
-      "_Logo-F74ikW4a.js"
+      "_Logo-F74ikW4a.js",
+      "_SeoHead-CZkV3MEE.js"
     ]
   },
   "resources/js/Pages/Portal/Device/Show.jsx": {
-    "file": "assets/Show-CTyLFuOx.js",
+    "file": "assets/Show-DYUCyBH8.js",
     "name": "Show",
     "src": "resources/js/Pages/Portal/Device/Show.jsx",
     "isDynamicEntry": true,
@@ -778,12 +788,12 @@
       "_vendor-ui-fF-ACWBI.js",
       "_vendor-react-Dyo4ernH.js",
       "_genieacsMetrics-Ba_bFl71.js",
-      "_LiveTrafficCard-CRYzgcIX2.js",
+      "_LiveTrafficCard-CRYzgcIX.js",
       "_PortalLayout-DATWITMW.js"
     ]
   },
   "resources/js/Pages/Portal/Home.jsx": {
-    "file": "assets/Home-C8xUa8Ev.js",
+    "file": "assets/Home-BOZMNiSz.js",
     "name": "Home",
     "src": "resources/js/Pages/Portal/Home.jsx",
     "isDynamicEntry": true,
@@ -791,7 +801,7 @@
       "_vendor-ui-fF-ACWBI.js",
       "_vendor-react-Dyo4ernH.js",
       "_genieacsMetrics-Ba_bFl71.js",
-      "_LiveTrafficCard-CRYzgcIX2.js",
+      "_LiveTrafficCard-CRYzgcIX.js",
       "_PortalLayout-DATWITMW.js"
     ]
   },
@@ -914,7 +924,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-hXZkdHIO.js",
+    "file": "assets/app-DOl4b9Zp.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -970,7 +980,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-eAJzJT8F.css"
+      "assets/app-BFqZfWzH.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

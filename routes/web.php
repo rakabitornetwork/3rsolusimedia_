@@ -26,6 +26,8 @@ use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\RobotsController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
 use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
@@ -33,6 +35,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
+Route::get('/robots.txt', RobotsController::class)->name('robots');
 
 // Alias lama → portal pelanggan
 Route::permanentRedirect('/bayar', '/portal');

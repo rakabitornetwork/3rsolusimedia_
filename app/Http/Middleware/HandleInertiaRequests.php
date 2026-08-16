@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\AppSettings;
+use App\Support\SeoMeta;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -33,6 +34,7 @@ class HandleInertiaRequests extends Middleware
                     : null,
             ],
             'app' => AppSettings::branding(),
+            'seo' => fn () => SeoMeta::fromRequest($request),
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
