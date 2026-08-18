@@ -50,18 +50,6 @@ class BillingController extends Controller
             $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
         }
 
-        if ($search = trim((string) $request->get('q', ''))) {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('number', 'like', "%{$search}%")
-                    ->orWhere('package_name', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($customer) use ($search) {
-                        $customer->where('name', 'like', "%{$search}%")
-                            ->orWhere('username', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%");
-                    });
-            });
-        }
-
         if ($status = $request->get('status')) {
             $query->where('status', $status);
         }
@@ -89,9 +77,9 @@ class BillingController extends Controller
             });
         }
 
-        $invoices = $query->paginate(20)->withQueryString()->through(
+        $invoices = $query->get()->map(
             fn (Invoice $invoice) => $invoice->toAdminArray()
-        );
+        )->values();
 
         $today = now()->toDateString();
         $monthStart = now()->startOfMonth()->toDateString();

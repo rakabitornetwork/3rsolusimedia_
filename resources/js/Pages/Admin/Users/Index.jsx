@@ -9,12 +9,13 @@ import {
     Users,
     Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import LocalPagination from '../../../Components/Admin/LocalPagination';
 import StatCard from '../../../Components/Admin/StatCard';
 import UserAvatar from '../../../Components/UserAvatar';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../lib/search';
 
 const roleBadge = {
     superadmin: 'bg-indigo-100 text-indigo-800',
@@ -22,26 +23,31 @@ const roleBadge = {
     teknisi: 'bg-amber-100 text-amber-900',
 };
 
-export default function Index({ users, filters, role_options, stats, can_manage }) {
+export default function Index({ users = [], filters, role_options, stats, can_manage }) {
     const { auth } = usePage().props;
-    const [q, setQ] = useState(filters?.q || '');
+    const [query, setQuery] = useState(filters?.q || '');
+    const [page, setPage] = useState(1);
     const canWrite = auth?.user?.can_write !== false;
     const showManage = can_manage && canWrite;
 
+    const allUsers = Array.isArray(users) ? users : users?.data || [];
+    const filtered = useMemo(
+        () => allUsers.filter((user) => matchesSearch(query, user.name, user.email)),
+        [allUsers, query],
+    );
+    const paged = useMemo(() => paginateItems(filtered, page, 15), [filtered, page]);
+    const rows = paged.data;
+
     const applyFilters = (next = {}) => {
+        setPage(1);
         router.get(
             '/admin/users',
             {
-                q: next.q !== undefined ? next.q : q,
                 role: next.role !== undefined ? next.role : filters?.role || '',
             },
             { preserveState: true, replace: true },
         );
     };
-
-    const searchLive = useDebouncedCallback((value) => {
-        applyFilters({ q: value });
-    });
 
     const remove = (user) => {
         if (!window.confirm(`Hapus pengguna "${user.name}"?`)) return;
@@ -83,24 +89,17 @@ export default function Index({ users, filters, role_options, stats, can_manage 
             </div>
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        applyFilters({ q });
-                    }}
-                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end"
-                >
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
                     <label className="block w-full text-sm text-ink sm:w-auto">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari</span>
                         <span className="relative block">
                             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                             <input
                                 type="search"
-                                value={q}
+                                value={query}
                                 onChange={(e) => {
-                                    const value = e.target.value;
-                                    setQ(value);
-                                    searchLive(value);
+                                    setQuery(e.currentTarget.value);
+                                    setPage(1);
                                 }}
                                 placeholder="Nama atau email"
                                 className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-56"
@@ -122,13 +121,7 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                             ))}
                         </select>
                     </label>
-                    <button
-                        type="submit"
-                        className="btn-action btn-action-sm btn-secondary"
-                    >
-                        Filter
-                    </button>
-                </form>
+                </div>
 
                 {showManage && (
                     <div className="admin-toolbar-actions">
@@ -154,7 +147,7 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                         </tr>
                     </thead>
                     <tbody>
-                        {users.data.map((user) => (
+                        {rows.map((user) => (
                             <tr key={user.id} className="border-b border-ink/5 last:border-0">
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
@@ -213,10 +206,12 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                                 </td>
                             </tr>
                         ))}
-                        {users.data.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={4} className="px-4 py-10 text-center text-ink-soft">
-                                    Tidak ada pengguna yang cocok.
+                                    {query.trim()
+                                        ? 'Tidak ada pengguna yang cocok dengan pencarian.'
+                                        : 'Tidak ada pengguna.'}
                                 </td>
                             </tr>
                         )}
@@ -224,25 +219,15 @@ export default function Index({ users, filters, role_options, stats, can_manage 
                 </table>
             </div>
 
-            {users.links?.length > 3 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {users.links.map((link, index) => (
-                        <Link
-                            key={`${link.label}-${index}`}
-                            href={link.url || '#'}
-                            preserveState
-                            className={`px-3 py-1.5 text-xs font-semibold ${
-                                link.active
-                                    ? 'bg-signal-deep text-white'
-                                    : link.url
-                                      ? 'border border-ink/10 bg-white text-ink hover:bg-mist'
-                                      : 'cursor-not-allowed border border-ink/5 text-ink-soft/50'
-                            }`}
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="pengguna"
+                onPage={setPage}
+            />
         </AdminLayout>
     );
 }

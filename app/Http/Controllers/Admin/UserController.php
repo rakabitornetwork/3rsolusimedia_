@@ -22,18 +22,11 @@ class UserController extends Controller
 
         $query = User::query()->latest();
 
-        if ($search = trim((string) $request->get('q', ''))) {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
         if ($role = $request->get('role')) {
             $query->where('role', $role);
         }
 
-        $users = $query->paginate(15)->withQueryString()->through(
+        $users = $query->get()->map(
             function (User $user) use ($actor) {
                 return [
                     ...$user->toAdminArray(),
@@ -41,7 +34,7 @@ class UserController extends Controller
                     'can_delete' => $actor->canDeleteUser($user),
                 ];
             }
-        );
+        )->values();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,

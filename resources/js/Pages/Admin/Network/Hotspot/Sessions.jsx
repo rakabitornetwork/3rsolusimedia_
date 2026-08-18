@@ -1,9 +1,10 @@
 import { Head, router } from '@inertiajs/react';
 import { Activity, RefreshCw, Search, Unplug, UserPlus, Users } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../../lib/keepPage';
+import { matchesSearch } from '../../../../lib/search';
 
 function formatBytes(value) {
     if (value == null) return '—';
@@ -31,30 +32,20 @@ export default function Sessions({
     stats,
     error,
 }) {
+    const [query, setQuery] = useState(filters.q || '');
+
     const changeRouter = (routerId) => {
         router.get(
             '/admin/network/hotspot/sessions',
-            { router_id: routerId, q: filters.q || '' },
+            { router_id: routerId },
             { preserveState: true, replace: true },
         );
     };
-
-    const applySearch = (value) => {
-        router.get(
-            '/admin/network/hotspot/sessions',
-            { router_id: selected_router_id, q: value },
-            { preserveState: true, replace: true },
-        );
-    };
-
-    const searchLive = useDebouncedCallback((value) => {
-        applySearch(value);
-    });
 
     const refresh = () => {
         router.get(
             '/admin/network/hotspot/sessions',
-            { router_id: selected_router_id, q: filters.q || '' },
+            { router_id: selected_router_id },
             { preserveState: true, replace: true },
         );
     };
@@ -70,6 +61,21 @@ export default function Sessions({
             keepPage,
         );
     };
+
+    const rows = useMemo(
+        () =>
+            (sessions || []).filter((session) =>
+                matchesSearch(
+                    query,
+                    session.user,
+                    session.address,
+                    session.mac_address,
+                    session.profile,
+                    session.server,
+                ),
+            ),
+        [sessions, query],
+    );
 
     return (
         <AdminLayout
@@ -124,15 +130,9 @@ export default function Sessions({
                         <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                         <input
                             type="search"
-                            defaultValue={filters.q}
+                            value={query}
                             placeholder="Cari user / IP / MAC..."
-                            onChange={(e) => searchLive(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    searchLive.cancel();
-                                    applySearch(e.target.value);
-                                }
-                            }}
+                            onChange={(e) => setQuery(e.target.value)}
                             className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                         />
                     </div>
@@ -164,7 +164,7 @@ export default function Sessions({
                         </tr>
                     </thead>
                     <tbody>
-                        {sessions.map((session) => (
+                        {rows.map((session) => (
                             <tr key={session.id} className="border-b border-ink/5 last:border-0">
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{session.user || '—'}</p>
@@ -208,11 +208,11 @@ export default function Sessions({
                                 </td>
                             </tr>
                         ))}
-                        {sessions.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
                                     Tidak ada sesi hotspot aktif
-                                    {filters.q ? ' untuk pencarian ini' : ' di router ini'}.
+                                    {query.trim() ? ' untuk pencarian ini' : ' di router ini'}.
                                 </td>
                             </tr>
                         )}

@@ -70,14 +70,6 @@ class PppoeCustomerController extends Controller
             );
         }
 
-        if ($search = trim((string) $request->get('q', ''))) {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('pppoe_customers.name', 'like', "%{$search}%")
-                    ->orWhere('pppoe_customers.username', 'like', "%{$search}%")
-                    ->orWhere('pppoe_customers.phone', 'like', "%{$search}%");
-            });
-        }
-
         if ($status = $request->get('status')) {
             if ($status === 'grace') {
                 $query->whereNotNull('pppoe_customers.grace_until')
@@ -100,9 +92,9 @@ class PppoeCustomerController extends Controller
         $query->orderBy($allowedSorts[$sort], $direction)
             ->orderBy('pppoe_customers.id', $direction);
 
-        $customers = $query->paginate(15)->withQueryString()->through(
+        $customers = $query->get()->map(
             fn (PppoeCustomer $customer) => $customer->toSafeArray()
-        );
+        )->values();
 
         return Inertia::render('Admin/Customers/Pppoe/Index', [
             'customers' => $customers,

@@ -10,10 +10,12 @@ import {
     Trash2,
     WalletCards,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import LocalPagination from '../../../Components/Admin/LocalPagination';
 import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../lib/search';
 
 function StatusBadge({ status, overdue, graceUntil }) {
     if (graceUntil && status === 'unpaid') {
@@ -177,9 +179,30 @@ function QuickPayButton({ invoice, methods }) {
     );
 }
 
-export default function Index({ invoices, filters, stats, payment_methods }) {
+export default function Index({ invoices = [], filters, stats, payment_methods }) {
+    const [query, setQuery] = useState(filters.q || '');
+    const [page, setPage] = useState(1);
+
+    const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
+    const filtered = useMemo(
+        () =>
+            allInvoices.filter((item) =>
+                matchesSearch(
+                    query,
+                    item.number,
+                    item.package_name,
+                    item.customer?.name,
+                    item.customer?.username,
+                    item.customer?.phone,
+                ),
+            ),
+        [allInvoices, query],
+    );
+    const paged = useMemo(() => paginateItems(filtered, page, 20), [filtered, page]);
+    const rows = paged.data;
 
     const applyFilters = (key, value) => {
+        setPage(1);
         router.get(
             '/admin/billing',
             {
@@ -191,10 +214,6 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
             { preserveState: true, replace: true },
         );
     };
-
-    const searchLive = useDebouncedCallback((value) => {
-        applyFilters('q', value);
-    });
 
     const generate = () => {
         if (
@@ -270,14 +289,11 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                         <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                         <input
                             type="search"
-                            defaultValue={filters.q}
+                            value={query}
                             placeholder="Cari invoice / pelanggan..."
-                            onChange={(e) => searchLive(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    searchLive.cancel();
-                                    applyFilters('q', e.target.value);
-                                }
+                            onChange={(e) => {
+                                setQuery(e.currentTarget.value);
+                                setPage(1);
                             }}
                             className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
                         />
@@ -337,7 +353,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {invoices.data.map((item) => (
+                        {rows.map((item) => (
                             <tr key={item.id} className="border-b border-ink/5 last:border-0">
                                 <td className="px-4 py-3">
                                     <Link
@@ -409,10 +425,12 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                                 </td>
                             </tr>
                         ))}
-                        {invoices.data.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
-                                    Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.
+                                    {query.trim()
+                                        ? 'Tidak ada tagihan yang cocok dengan pencarian.'
+                                        : 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'}
                                 </td>
                             </tr>
                         )}
@@ -420,24 +438,15 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
                 </table>
             </div>
 
-            {invoices.links?.length > 3 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {invoices.links.map((link, index) => (
-                        <button
-                            key={index}
-                            type="button"
-                            disabled={!link.url}
-                            onClick={() => link.url && router.get(link.url)}
-                            className={`px-3 py-1.5 text-xs font-semibold ${
-                                link.active
-                                    ? 'bg-signal-deep text-white'
-                                    : 'border border-ink/10 text-ink-soft hover:bg-mist'
-                            } disabled:opacity-40`}
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="tagihan"
+                onPage={setPage}
+            />
         </AdminLayout>
     );
 }

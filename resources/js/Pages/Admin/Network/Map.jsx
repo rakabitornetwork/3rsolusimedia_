@@ -22,7 +22,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
+import { matchesSearch } from '../../../lib/search';
 import {
     onlineTone,
     rxPowerTone,
@@ -836,8 +836,8 @@ export default function MapPage({
     const [selectedId, setSelectedId] = useState(null);
     const [mobileTab, setMobileTab] = useState('map'); // map | list
     const [isDesktop, setIsDesktop] = useState(false);
-    const filterActive = Boolean((filters.q || '').trim()) || (filters.status && filters.status !== 'all');
-    const prevFilterKeyRef = useRef(`${filters.q || ''}|${filters.status || 'all'}`);
+    const filterActive = Boolean(q.trim()) || (status && status !== 'all');
+    const prevStatusRef = useRef(status);
     const mapActive = isDesktop || mobileTab === 'map';
 
     useEffect(() => {
@@ -849,42 +849,50 @@ export default function MapPage({
         return () => media.removeEventListener('change', sync);
     }, []);
 
+    const filteredCustomers = useMemo(
+        () =>
+            customers.filter((item) =>
+                matchesSearch(q, item.name, item.username, item.phone, item.address),
+            ),
+        [customers, q],
+    );
+
     const selected = useMemo(
-        () => customers.find((item) => item.id === selectedId) || null,
-        [customers, selectedId],
+        () =>
+            filteredCustomers.find((item) => item.id === selectedId) ||
+            customers.find((item) => item.id === selectedId) ||
+            null,
+        [filteredCustomers, customers, selectedId],
     );
 
     const mapCustomers = useMemo(
-        () => customers.filter((item) => item.on_map),
-        [customers],
+        () => filteredCustomers.filter((item) => item.on_map),
+        [filteredCustomers],
     );
 
-    const applyFilters = useDebouncedCallback((nextQ, nextStatus) => {
+    const applyStatus = (nextStatus) => {
         router.get(
             '/admin/network/map',
             {
-                q: nextQ || undefined,
                 status: nextStatus && nextStatus !== 'all' ? nextStatus : undefined,
             },
             { preserveState: true, replace: true, preserveScroll: true },
         );
-    }, 350);
+    };
 
     useEffect(() => {
-        setQ(filters.q || '');
         setStatus(filters.status || 'all');
-    }, [filters.q, filters.status]);
+    }, [filters.status]);
 
-    // Saat filter berubah dan ada titik di peta, fokus ke tab peta (mobile).
+    // Saat filter status berubah dan ada titik di peta, fokus ke tab peta (mobile).
     useEffect(() => {
-        const key = `${filters.q || ''}|${filters.status || 'all'}`;
-        if (key === prevFilterKeyRef.current) return;
-        prevFilterKeyRef.current = key;
+        if (prevStatusRef.current === status) return;
+        prevStatusRef.current = status;
 
         if (mapCustomers.length > 0) {
             setMobileTab('map');
         }
-    }, [filters.q, filters.status, mapCustomers.length]);
+    }, [status, mapCustomers.length]);
 
     const selectCustomer = (id) => {
         setSelectedId(id);
@@ -972,11 +980,7 @@ export default function MapPage({
                                 <input
                                     type="search"
                                     value={q}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        setQ(value);
-                                        applyFilters(value, status);
-                                    }}
+                                    onChange={(e) => setQ(e.target.value)}
                                     placeholder="Cari nama / username / telepon"
                                     className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
                                 />
@@ -986,7 +990,7 @@ export default function MapPage({
                                 onChange={(e) => {
                                     const value = e.target.value;
                                     setStatus(value);
-                                    applyFilters(q, value);
+                                    applyStatus(value);
                                 }}
                                 className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
                             >
@@ -999,12 +1003,12 @@ export default function MapPage({
                         </div>
 
                         <ul className="min-h-0 flex-1 overflow-y-auto">
-                            {customers.length === 0 && (
+                            {filteredCustomers.length === 0 && (
                                 <li className="px-4 py-8 text-center text-sm text-ink-soft">
-                                    Tidak ada pelanggan.
+                                    {q.trim() ? 'Tidak ada pelanggan yang cocok.' : 'Tidak ada pelanggan.'}
                                 </li>
                             )}
-                            {customers.map((customer) => {
+                            {filteredCustomers.map((customer) => {
                                 const active = customer.id === selectedId;
                                 return (
                                     <li key={customer.id}>

@@ -11,7 +11,6 @@ use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -31,7 +30,6 @@ class PppoeSessionController extends Controller
         $selectedRouterId = $request->integer('router_id') ?: $routers->first()?->id;
         $search = trim((string) $request->get('q', ''));
         $onlyUnknown = $request->boolean('only_unknown');
-        $page = max(1, (int) $request->integer('page', 1));
         $perPage = (int) $request->integer('per_page', 25);
         if (! in_array($perPage, [25, 50, 100, 200, 500], true)) {
             $perPage = 25;
@@ -101,34 +99,11 @@ class PppoeSessionController extends Controller
             ->values()
             ->all();
 
-        if ($search !== '') {
-            $needle = strtolower($search);
-            $sessions = $sessions->filter(function (array $session) use ($needle) {
-                return str_contains(strtolower((string) ($session['name'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['customer_name'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['address'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['caller_id'] ?? '')), $needle);
-            });
-        }
-
         if ($onlyUnknown) {
             $sessions = $sessions->filter(fn (array $session) => empty($session['customer_id']));
         }
 
         $sessions = $sessions->values();
-        $totalFiltered = $sessions->count();
-        $pageItems = $sessions->forPage($page, $perPage)->values();
-
-        $paginator = new LengthAwarePaginator(
-            $pageItems,
-            $totalFiltered,
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
 
         $isolirProfiles = [];
         if ($selectedRouterId) {
@@ -142,7 +117,7 @@ class PppoeSessionController extends Controller
         return Inertia::render('Admin/Customers/Pppoe/Sessions', [
             'routers' => $routers->values(),
             'selected_router_id' => $selectedRouterId,
-            'sessions' => $paginator,
+            'sessions' => $sessions->all(),
             'unknown_usernames' => $unknownUsernames,
             'filters' => [
                 'q' => $search,

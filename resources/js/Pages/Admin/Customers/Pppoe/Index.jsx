@@ -12,10 +12,11 @@ import {
     Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../../lib/search';
 
 function whatsappHref(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
@@ -105,34 +106,41 @@ function StatusBadge({ status, overdue, graceUntil }) {
     );
 }
 
-export default function Index({ customers, filters, routers, stats }) {
+export default function Index({ customers = [], filters, routers, stats }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false && auth?.user?.role !== 'agen';
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
     const [removeSecret, setRemoveSecret] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [query, setQuery] = useState(filters.q || '');
+    const [page, setPage] = useState(1);
 
-    const pageIds = useMemo(
-        () => (customers?.data || []).map((item) => item.id),
-        [customers],
+    const allCustomers = Array.isArray(customers) ? customers : customers?.data || [];
+    const filtered = useMemo(
+        () =>
+            allCustomers.filter((item) =>
+                matchesSearch(query, item.name, item.username, item.phone, item.package?.name),
+            ),
+        [allCustomers, query],
     );
+    const paged = useMemo(() => paginateItems(filtered, page, 15), [filtered, page]);
+    const rows = paged.data;
+
+    const pageIds = useMemo(() => rows.map((item) => item.id), [rows]);
     const allPageSelected =
         pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
 
     const applyFilters = (key, value) => {
         setSelected([]);
         setShowBulkDelete(false);
+        setPage(1);
         router.get(
             '/admin/customers/pppoe',
             { ...filters, [key]: value, page: 1 },
             { preserveState: true, replace: true },
         );
     };
-
-    const searchLive = useDebouncedCallback((value) => {
-        applyFilters('q', value);
-    });
 
     const applySort = (column, direction) => {
         setSelected([]);
@@ -252,15 +260,12 @@ export default function Index({ customers, filters, routers, stats }) {
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                     <input
                         type="search"
-                        defaultValue={filters.q}
+                        value={query}
                         placeholder="Cari nama / username / telepon"
                         className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:min-w-[220px] sm:w-auto"
-                        onChange={(e) => searchLive(e.currentTarget.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                searchLive.cancel();
-                                applyFilters('q', e.currentTarget.value);
-                            }
+                        onChange={(e) => {
+                            setQuery(e.currentTarget.value);
+                            setPage(1);
                         }}
                     />
                     <select
@@ -483,7 +488,7 @@ export default function Index({ customers, filters, routers, stats }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {customers.data.map((customer) => (
+                        {rows.map((customer) => (
                             <tr key={customer.id} className="border-b border-ink/5 last:border-0">
                                 <td className="px-3 py-3">
                                     {canWrite && (
@@ -599,10 +604,12 @@ export default function Index({ customers, filters, routers, stats }) {
                                 </td>
                             </tr>
                         ))}
-                        {customers.data.length === 0 && (
+                        {rows.length === 0 && (
                             <tr>
                                 <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
-                                    Belum ada pelanggan PPPoE.
+                                    {query.trim()
+                                        ? 'Tidak ada pelanggan yang cocok dengan pencarian.'
+                                        : 'Belum ada pelanggan PPPoE.'}
                                 </td>
                             </tr>
                         )}
@@ -610,24 +617,15 @@ export default function Index({ customers, filters, routers, stats }) {
                 </table>
             </div>
 
-            {customers.last_page > 1 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                    {customers.links.map((link, index) => (
-                        <button
-                            key={`${link.label}-${index}`}
-                            type="button"
-                            disabled={!link.url}
-                            onClick={() => link.url && router.get(link.url)}
-                            className={`px-3 py-1.5 text-xs font-semibold ${
-                                link.active
-                                    ? 'bg-signal-deep text-white'
-                                    : 'border border-ink/10 text-ink-soft hover:bg-mist'
-                            } disabled:opacity-40`}
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="pelanggan"
+                onPage={setPage}
+            />
         </AdminLayout>
     );
 }

@@ -38,14 +38,6 @@ class NetworkMapController extends Controller
             $query->where('agent_id', $user->id);
         }
 
-        if ($search !== '') {
-            $query->where(function ($builder) use ($search) {
-                $builder->where('name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
-            });
-        }
-
         if ($status !== '' && $status !== 'all') {
             if ($status === 'grace') {
                 $query->whereNotNull('grace_until')

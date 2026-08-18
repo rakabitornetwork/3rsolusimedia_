@@ -16,11 +16,12 @@ import {
     Users,
     Wifi,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../../lib/search';
 import {
     faultsTone,
     onlineTone,
@@ -82,12 +83,29 @@ function SsidPasswordCell({ password }) {
 export default function Index({ config, connection, devices, devices_error, stats, filters }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
-    const [q, setQ] = useState(filters?.q || '');
+    const [query, setQuery] = useState(filters?.q || '');
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(filters?.per_page || 10);
     const [showSettings, setShowSettings] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
-    const rows = devices?.data || [];
-    const perPage = filters?.per_page || 10;
-    const currentPage = devices?.current_page || 1;
+    const allDevices = Array.isArray(devices) ? devices : devices?.data || [];
+    const filtered = useMemo(
+        () =>
+            allDevices.filter((item) =>
+                matchesSearch(
+                    query,
+                    item.id,
+                    item.serial,
+                    item.manufacturer,
+                    item.model,
+                    item.ssid,
+                    item.pppoe_username,
+                ),
+            ),
+        [allDevices, query],
+    );
+    const paged = useMemo(() => paginateItems(filtered, page, perPage), [filtered, page, perPage]);
+    const rows = paged.data;
     const faultAccent = faultsTone(stats?.faults);
 
     const { data, setData, post, processing, errors, transform } = useForm({
@@ -116,12 +134,7 @@ export default function Index({ config, connection, devices, devices_error, stat
     const browse = (params = {}, options = {}) => {
         router.get(
             '/admin/network/genieacs',
-            {
-                q: q || undefined,
-                per_page: perPage,
-                page: currentPage,
-                ...params,
-            },
+            { ...params },
             {
                 preserveState: true,
                 preserveScroll: true,
@@ -130,15 +143,6 @@ export default function Index({ config, connection, devices, devices_error, stat
             },
         );
     };
-
-    const search = (e) => {
-        e.preventDefault();
-        browse({ page: 1, q });
-    };
-
-    const searchLive = useDebouncedCallback((value) => {
-        browse({ page: 1, q: value || undefined });
-    });
 
     const refreshList = () => {
         if (refreshing) return;
@@ -358,21 +362,17 @@ export default function Index({ config, connection, devices, devices_error, stat
             </div>
 
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-                <form
-                    onSubmit={search}
-                    className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end"
-                >
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
                     <label className="block w-full text-sm text-ink sm:w-auto">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari perangkat</span>
                         <span className="relative block">
                             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                             <input
                                 type="search"
-                                value={q}
+                                value={query}
                                 onChange={(e) => {
-                                    const value = e.target.value;
-                                    setQ(value);
-                                    searchLive(value);
+                                    setQuery(e.currentTarget.value);
+                                    setPage(1);
                                 }}
                                 placeholder="ID, serial, SSID, manufacturer"
                                 className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
@@ -383,7 +383,10 @@ export default function Index({ config, connection, devices, devices_error, stat
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Baris / halaman</span>
                         <select
                             value={perPage}
-                            onChange={(e) => browse({ page: 1, per_page: Number(e.target.value) })}
+                            onChange={(e) => {
+                                setPerPage(Number(e.target.value));
+                                setPage(1);
+                            }}
                             className="w-full border border-ink/15 bg-white py-2.5 pr-8 pl-3 text-sm outline-none focus:border-signal sm:w-28"
                         >
                             {PER_PAGE_OPTIONS.map((n) => (
@@ -393,14 +396,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                             ))}
                         </select>
                     </label>
-                    <button
-                        type="submit"
-                        className="btn-action btn-action-sm btn-secondary"
-                    >
-                        <Search className="h-3.5 w-3.5 text-sky-600" />
-                        Cari
-                    </button>
-                </form>
+                </div>
                 <div className="admin-toolbar-actions">
                     <button
                         type="button"
@@ -532,7 +528,9 @@ export default function Index({ config, connection, devices, devices_error, stat
                             <tr>
                                 <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
                                     {connection?.ok
-                                        ? 'Belum ada perangkat yang cocok, atau GenieACS belum menerima inform.'
+                                        ? query.trim()
+                                            ? 'Tidak ada perangkat yang cocok dengan pencarian.'
+                                            : 'Belum ada perangkat, atau GenieACS belum menerima inform.'
                                         : 'Atur URL NBI GenieACS (port 7557) di Pengaturan koneksi, lalu Tes koneksi.'}
                                 </td>
                             </tr>
@@ -541,31 +539,15 @@ export default function Index({ config, connection, devices, devices_error, stat
                 </table>
             </div>
 
-            {devices?.total > 0 && (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-ink-soft">
-                        Menampilkan {devices.from ?? 0}–{devices.to ?? 0} dari {devices.total} perangkat
-                    </p>
-                    {devices.last_page > 1 && (
-                        <div className="flex flex-wrap gap-2">
-                            {devices.links.map((link, index) => (
-                                <button
-                                    key={`${link.label}-${index}`}
-                                    type="button"
-                                    disabled={!link.url}
-                                    onClick={() => link.url && router.get(link.url, {}, { preserveState: true })}
-                                    className={`px-3 py-1.5 text-xs font-semibold ${
-                                        link.active
-                                            ? 'bg-signal-deep text-white'
-                                            : 'border border-ink/10 text-ink-soft hover:bg-mist'
-                                    } disabled:opacity-40`}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="perangkat"
+                onPage={setPage}
+            />
         </AdminLayout>
     );
 }

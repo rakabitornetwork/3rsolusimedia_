@@ -54,17 +54,6 @@ class HotspotSessionController extends Controller
             'unknown' => $sessions->where('user_registered', false)->count(),
         ];
 
-        if ($search !== '') {
-            $needle = strtolower($search);
-            $sessions = $sessions->filter(function (array $session) use ($needle) {
-                return str_contains(strtolower((string) ($session['user'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['address'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['mac_address'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['profile'] ?? '')), $needle)
-                    || str_contains(strtolower((string) ($session['server'] ?? '')), $needle);
-            });
-        }
-
         return Inertia::render('Admin/Network/Hotspot/Sessions', [
             'routers' => $routers->values(),
             'selected_router_id' => $selectedRouterId,

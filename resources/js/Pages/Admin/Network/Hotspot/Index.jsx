@@ -11,10 +11,11 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../../lib/search';
 
 const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
 
@@ -55,8 +56,23 @@ export default function Index({
         Boolean(generated_vouchers?.length),
     );
     const [selectedIds, setSelectedIds] = useState([]);
+    const [query, setQuery] = useState(filters.q || '');
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(filters.per_page || 25);
 
-    const rows = users?.data ?? [];
+    const allUsers = Array.isArray(users) ? users : users?.data ?? [];
+    const filteredUsers = useMemo(
+        () =>
+            allUsers.filter((user) =>
+                matchesSearch(query, user.name, user.comment, user.agent_name, user.profile),
+            ),
+        [allUsers, query],
+    );
+    const paged = useMemo(
+        () => paginateItems(filteredUsers, page, perPage),
+        [filteredUsers, page, perPage],
+    );
+    const rows = paged.data;
 
     const printableUsers = useMemo(
         () => rows.filter((user) => Boolean(user.voucher_id)),
@@ -93,6 +109,7 @@ export default function Index({
 
     const changeFilter = (key, value) => {
         setSelectedIds([]);
+        setPage(1);
         router.get(
             '/admin/network/hotspot',
             { ...filters, router_id: selected_router_id, page: 1, [key]: value },
@@ -100,23 +117,15 @@ export default function Index({
         );
     };
 
-    const searchLive = useDebouncedCallback((value) => {
-        changeFilter('q', value);
-    });
-
     const changeRouter = (routerId) => {
         setSelectedIds([]);
+        setPage(1);
+        setQuery('');
         router.get(
             '/admin/network/hotspot',
-            { router_id: routerId, per_page: filters.per_page || 25 },
+            { router_id: routerId, per_page: perPage },
             { preserveState: true, replace: true },
         );
-    };
-
-    const goToPage = (url) => {
-        if (!url) return;
-        setSelectedIds([]);
-        router.get(url, {}, { preserveState: true });
     };
 
     const remove = (user) => {
@@ -330,7 +339,7 @@ export default function Index({
                 />
                 <StatCard
                     label="Ditampilkan"
-                    value={stats.shown}
+                    value={filteredUsers.length}
                     hint="Sesuai filter"
                     tone="cyan"
                     icon={ListFilter}
@@ -356,22 +365,23 @@ export default function Index({
                     </label>
                     <input
                         type="search"
-                        defaultValue={filters.q}
+                        value={query}
                         placeholder="Cari username / agen"
-                        onChange={(e) => searchLive(e.currentTarget.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                searchLive.cancel();
-                                changeFilter('q', e.currentTarget.value);
-                            }
+                        onChange={(e) => {
+                            setQuery(e.currentTarget.value);
+                            setPage(1);
+                            setSelectedIds([]);
                         }}
                         className="w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-auto"
                     />
                     <label className="block w-full text-sm font-medium text-ink sm:w-auto">
                         Baris / halaman
                         <select
-                            value={filters.per_page || 25}
-                            onChange={(e) => changeFilter('per_page', Number(e.target.value))}
+                            value={perPage}
+                            onChange={(e) => {
+                                setPerPage(Number(e.target.value));
+                                setPage(1);
+                            }}
                             className="mt-1.5 block w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal sm:w-28"
                         >
                             {PER_PAGE_OPTIONS.map((n) => (
@@ -572,29 +582,18 @@ export default function Index({
                 </table>
             </div>
 
-            {users?.last_page > 1 && (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-ink-soft">
-                        Menampilkan {users.from ?? 0}–{users.to ?? 0} dari {users.total} voucher
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {users.links.map((link, index) => (
-                            <button
-                                key={`${link.label}-${index}`}
-                                type="button"
-                                disabled={!link.url}
-                                onClick={() => goToPage(link.url)}
-                                className={`px-3 py-1.5 text-xs font-semibold ${
-                                    link.active
-                                        ? 'bg-signal-deep text-white'
-                                        : 'border border-ink/10 text-ink-soft hover:bg-mist'
-                                } disabled:opacity-40`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="voucher"
+                onPage={(next) => {
+                    setSelectedIds([]);
+                    setPage(next);
+                }}
+            />
         </AdminLayout>
     );
 }

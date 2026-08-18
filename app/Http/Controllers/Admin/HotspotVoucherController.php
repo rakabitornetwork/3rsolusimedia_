@@ -11,7 +11,6 @@ use App\Services\MikrotikApiService;
 use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -103,15 +102,6 @@ class HotspotVoucherController extends Controller
             ->values();
 
         $filtered = $enriched
-            ->when($q !== '', function ($collection) use ($q) {
-                $needle = mb_strtolower($q);
-
-                return $collection->filter(function (array $user) use ($needle) {
-                    return str_contains(mb_strtolower($user['name']), $needle)
-                        || str_contains(mb_strtolower((string) ($user['comment'] ?? '')), $needle)
-                        || str_contains(mb_strtolower((string) ($user['agent_name'] ?? '')), $needle);
-                });
-            })
             ->when($profileFilter !== '', fn ($collection) => $collection->where('profile', $profileFilter))
             ->when($commentFilter !== '', function ($collection) use ($commentFilter) {
                 return $collection->filter(
@@ -123,24 +113,10 @@ class HotspotVoucherController extends Controller
             ->when($statusFilter === 'active', fn ($collection) => $collection->where('disabled', false))
             ->values();
 
-        $page = max(1, (int) $request->integer('page', 1));
         $perPage = (int) $request->integer('per_page', 25);
         if (! in_array($perPage, [25, 50, 100, 200, 500], true)) {
             $perPage = 25;
         }
-        $totalFiltered = $filtered->count();
-        $pageItems = $filtered->forPage($page, $perPage)->values();
-
-        $paginator = new LengthAwarePaginator(
-            $pageItems,
-            $totalFiltered,
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
 
         $generated = session('generated_vouchers', []);
         $generatedBatchId = session('generated_batch_id');
@@ -148,7 +124,7 @@ class HotspotVoucherController extends Controller
         return Inertia::render('Admin/Network/Hotspot/Index', [
             'routers' => $routers->values(),
             'selected_router_id' => $selected?->id,
-            'users' => $paginator,
+            'users' => $filtered->all(),
             'profiles' => $profiles,
             'comments' => $comments,
             'error' => $error,
@@ -165,7 +141,7 @@ class HotspotVoucherController extends Controller
                 'total' => count($users),
                 'online' => $activeCount,
                 'disabled' => collect($users)->where('disabled', true)->count(),
-                'shown' => $totalFiltered,
+                'shown' => $filtered->count(),
             ],
             'generated_vouchers' => $generated,
             'generated_batch_id' => $generatedBatchId,

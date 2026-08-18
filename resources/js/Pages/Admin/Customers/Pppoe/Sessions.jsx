@@ -1,10 +1,11 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Activity, UserPlus, RefreshCw, Search, Unplug, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
 import { keepPage } from '../../../../lib/keepPage';
+import { matchesSearch, paginateItems } from '../../../../lib/search';
 
 const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
 
@@ -34,8 +35,29 @@ export default function Sessions({
     const [selected, setSelected] = useState([]);
     const [showImport, setShowImport] = useState(false);
     const [loadingSecret, setLoadingSecret] = useState(false);
+    const [query, setQuery] = useState(filters.q || '');
+    const [page, setPage] = useState(sessions?.current_page || 1);
+    const [perPage, setPerPage] = useState(filters.per_page || 25);
 
-    const rows = sessions?.data ?? [];
+    const allSessions = Array.isArray(sessions) ? sessions : sessions?.data ?? [];
+    const filteredSessions = useMemo(
+        () =>
+            allSessions.filter((session) =>
+                matchesSearch(
+                    query,
+                    session.name,
+                    session.customer_name,
+                    session.address,
+                    session.caller_id,
+                ),
+            ),
+        [allSessions, query],
+    );
+    const paged = useMemo(
+        () => paginateItems(filteredSessions, page, perPage),
+        [filteredSessions, page, perPage],
+    );
+    const rows = paged.data;
 
     const pageUnknownUsernames = useMemo(
         () => rows.filter((s) => !s.customer_id).map((s) => s.name).filter(Boolean),
@@ -59,14 +81,13 @@ export default function Sessions({
 
     const browse = (overrides = {}) => {
         setSelected([]);
+        setPage(1);
         router.get(
             '/admin/customers/pppoe/sessions',
             {
                 router_id: selected_router_id,
-                q: filters.q || '',
                 only_unknown: filters.only_unknown ? 1 : undefined,
-                per_page: filters.per_page || 25,
-                page: 1,
+                per_page: perPage,
                 ...overrides,
             },
             { preserveState: true, replace: true },
@@ -75,25 +96,12 @@ export default function Sessions({
 
     const changeRouter = (routerId) => {
         setShowImport(false);
-        browse({ router_id: routerId, q: '', only_unknown: undefined, page: 1 });
+        setQuery('');
+        browse({ router_id: routerId, only_unknown: undefined });
     };
-
-    const applySearch = (value) => {
-        browse({ q: value, page: 1 });
-    };
-
-    const searchLive = useDebouncedCallback((value) => {
-        applySearch(value);
-    });
 
     const refresh = () => {
-        browse({ page: sessions?.current_page || 1 });
-    };
-
-    const goToPage = (url) => {
-        if (!url) return;
-        setSelected([]);
-        router.get(url, {}, { preserveState: true });
+        browse({});
     };
 
     const disconnect = (session) => {
@@ -252,14 +260,12 @@ export default function Sessions({
                         <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                         <input
                             type="search"
-                            defaultValue={filters.q}
+                            value={query}
                             placeholder="Cari username / nama / IP..."
-                            onChange={(e) => searchLive(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    searchLive.cancel();
-                                    applySearch(e.target.value);
-                                }
+                            onChange={(e) => {
+                                setQuery(e.target.value);
+                                setPage(1);
+                                setSelected([]);
                             }}
                             className="w-64 border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal"
                         />
@@ -268,10 +274,11 @@ export default function Sessions({
                     <label className="block text-sm text-ink">
                         <span className="sr-only">Baris / halaman</span>
                         <select
-                            value={filters.per_page || 25}
-                            onChange={(e) =>
-                                browse({ per_page: Number(e.target.value), page: 1 })
-                            }
+                            value={perPage}
+                            onChange={(e) => {
+                                setPerPage(Number(e.target.value));
+                                setPage(1);
+                            }}
                             className="border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
                             title="Baris / halaman"
                         >
@@ -601,7 +608,7 @@ export default function Sessions({
                             <tr>
                                 <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     Tidak ada sesi PPPoE aktif
-                                    {filters.q ? ' untuk pencarian ini' : ' di router ini'}
+                                    {query.trim() ? ' untuk pencarian ini' : ' di router ini'}
                                     {filters.only_unknown ? ' yang belum terdaftar' : ''}.
                                 </td>
                             </tr>
@@ -610,30 +617,18 @@ export default function Sessions({
                 </table>
             </div>
 
-            {sessions?.last_page > 1 && (
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-ink-soft">
-                        Menampilkan {sessions.from ?? 0}–{sessions.to ?? 0} dari {sessions.total}{' '}
-                        sesi
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {sessions.links.map((link, index) => (
-                            <button
-                                key={`${link.label}-${index}`}
-                                type="button"
-                                disabled={!link.url}
-                                onClick={() => goToPage(link.url)}
-                                className={`px-3 py-1.5 text-xs font-semibold ${
-                                    link.active
-                                        ? 'bg-signal-deep text-white'
-                                        : 'border border-ink/10 text-ink-soft hover:bg-mist'
-                                } disabled:opacity-40`}
-                                dangerouslySetInnerHTML={{ __html: link.label }}
-                            />
-                        ))}
-                    </div>
-                </div>
-            )}
+            <LocalPagination
+                page={paged.current_page}
+                lastPage={paged.last_page}
+                from={paged.from}
+                to={paged.to}
+                total={paged.total}
+                label="sesi"
+                onPage={(next) => {
+                    setSelected([]);
+                    setPage(next);
+                }}
+            />
         </AdminLayout>
     );
 }

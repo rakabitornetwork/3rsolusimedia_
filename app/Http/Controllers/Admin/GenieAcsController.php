@@ -9,7 +9,6 @@ use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,7 +23,6 @@ class GenieAcsController extends Controller
         AdminListState::apply($request, AdminListState::GENIEACS, ['q', 'per_page', 'page']);
 
         $search = trim((string) $request->get('q', ''));
-        $page = max(1, (int) $request->integer('page', 1));
         $perPage = (int) $request->integer('per_page', 10);
         if (! in_array($perPage, [10, 25, 50, 100], true)) {
             $perPage = 10;
@@ -42,12 +40,7 @@ class GenieAcsController extends Controller
         // Ambil daftar bila URL NBI terisi & koneksi OK (tidak bergantung flag "enabled"
         // yang sering terlewat karena panel pengaturan tersembunyi).
         if ($this->genie->isConfigured() && ($connection['ok'] ?? false)) {
-            $skip = ($page - 1) * $perPage;
-            $devicesResult = $this->genie->listDevices(
-                $search !== '' ? $search : null,
-                $perPage,
-                $skip
-            );
+            $devicesResult = $this->genie->listDevices(null, 500, 0);
             $faults = $this->genie->countFaults();
             $onlineCount = $this->genie->countOnlineDevices();
         } elseif ($this->genie->isConfigured() && ! ($connection['ok'] ?? false)) {
@@ -60,18 +53,6 @@ class GenieAcsController extends Controller
         }
 
         $listed = $devicesResult['devices'] ?? [];
-        $total = (int) ($devicesResult['total'] ?? count($listed));
-
-        $paginator = new LengthAwarePaginator(
-            $listed,
-            $total,
-            $perPage,
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
 
         return Inertia::render('Admin/Network/GenieAcs/Index', [
             'config' => [
@@ -80,10 +61,10 @@ class GenieAcsController extends Controller
                 'api_key' => '',
             ],
             'connection' => $connection,
-            'devices' => $paginator,
+            'devices' => array_values($listed),
             'devices_error' => ($devicesResult['ok'] ?? false) ? null : ($devicesResult['message'] ?? 'Gagal memuat perangkat.'),
             'stats' => [
-                'devices' => $total,
+                'devices' => count($listed),
                 'online' => $onlineCount,
                 'faults' => $faults['count'] ?? 0,
             ],
