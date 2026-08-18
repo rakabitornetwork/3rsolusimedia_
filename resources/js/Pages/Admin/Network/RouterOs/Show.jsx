@@ -149,6 +149,7 @@ export default function Show({ router: item, info }) {
                 <LiveTrafficCard
                     routerId={item.id}
                     physicalInterfaces={info.physical_interfaces || []}
+                    variant="gauge"
                 />
             </div>
 
