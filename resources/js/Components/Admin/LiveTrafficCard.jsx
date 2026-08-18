@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { Activity, ArrowDownToLine, ArrowUpFromLine, LoaderCircle } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 const SPARK_POINTS = 24;
 const POLL_SECONDS = 3;
@@ -95,6 +95,205 @@ function formatAxisBitrate(bps) {
     }
     const digits = n >= 100 || i === 0 ? 0 : n >= 10 ? 1 : 2;
     return `${n.toFixed(digits)} ${units[i]}`;
+}
+
+const GAUGE = {
+    width: 240,
+    height: 142,
+    cx: 120,
+    cy: 118,
+    radius: 86,
+    start: Math.PI,
+    sweep: Math.PI,
+};
+
+const GAUGE_TONES = {
+    rx: {
+        from: '#7dd3fc',
+        to: '#0284c7',
+        needle: '#0e7490',
+        track: 'rgba(12, 74, 110, 0.12)',
+        tick: 'rgba(12, 74, 110, 0.38)',
+        card: 'border-sky-200/80 bg-gradient-to-b from-sky-50/90 to-white',
+        label: 'text-sky-800',
+        value: 'text-sky-950',
+        muted: 'text-sky-700/70',
+    },
+    tx: {
+        from: '#fdba74',
+        to: '#ea580c',
+        needle: '#c2410c',
+        track: 'rgba(154, 52, 18, 0.12)',
+        tick: 'rgba(154, 52, 18, 0.38)',
+        card: 'border-orange-200/80 bg-gradient-to-b from-orange-50/90 to-white',
+        label: 'text-orange-800',
+        value: 'text-orange-950',
+        muted: 'text-orange-700/70',
+    },
+};
+
+function gaugePoint(radius, ratio) {
+    const angle = GAUGE.start - GAUGE.sweep * Math.min(Math.max(ratio, 0), 1);
+    return {
+        x: GAUGE.cx + Math.cos(angle) * radius,
+        y: GAUGE.cy - Math.sin(angle) * radius,
+        angle,
+    };
+}
+
+function gaugeArc(radius) {
+    const start = gaugePoint(radius, 0);
+    const end = gaugePoint(radius, 1);
+    return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 0 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+}
+
+function SemiGauge({ id, label, icon: Icon, value, history, pps, tone = 'rx' }) {
+    const reactId = useId();
+    const uid = `gauge-${String(id || reactId).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+    const palette = GAUGE_TONES[tone] || GAUGE_TONES.rx;
+    const target = Math.max(0, Number(value) || 0);
+    const targetMax = niceMax(Math.max(target, ...(history || []), 1));
+
+    const displayRef = useRef(0);
+    const maxRef = useRef(targetMax);
+    const arcRef = useRef(null);
+    const needleRef = useRef(null);
+    const maxLabelRef = useRef(null);
+    const valueLabelRef = useRef(null);
+
+    useEffect(() => {
+        let raf = 0;
+
+        const paint = (current, ceiling) => {
+            const ratio = current / Math.max(ceiling, 1);
+            if (arcRef.current) {
+                arcRef.current.setAttribute('stroke-dasharray', `${(ratio * 100).toFixed(2)} 100`);
+            }
+            if (needleRef.current) {
+                const tip = gaugePoint(GAUGE.radius - 18, ratio);
+                needleRef.current.setAttribute(
+                    'd',
+                    `M ${GAUGE.cx.toFixed(2)} ${GAUGE.cy.toFixed(2)} L ${tip.x.toFixed(2)} ${tip.y.toFixed(2)}`,
+                );
+            }
+            if (maxLabelRef.current) {
+                maxLabelRef.current.textContent = formatAxisBitrate(ceiling);
+            }
+            if (valueLabelRef.current) {
+                valueLabelRef.current.textContent = formatBitrate(current);
+            }
+        };
+
+        const loop = () => {
+            displayRef.current += (target - displayRef.current) * SMOOTH;
+            const needed = targetMax;
+            const currentMax = maxRef.current || needed;
+            const rate = needed > currentMax ? YMAX_UP : YMAX_DOWN;
+            maxRef.current = currentMax + (needed - currentMax) * rate;
+            paint(displayRef.current, maxRef.current);
+            raf = requestAnimationFrame(loop);
+        };
+
+        raf = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(raf);
+    }, [target, targetMax]);
+
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+
+    return (
+        <div className={`min-w-0 border p-3 sm:p-4 ${palette.card}`}>
+            <div className="flex items-start justify-between gap-2">
+                <p className={`flex items-center gap-2 text-xs font-semibold tracking-wide uppercase ${palette.label}`}>
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                </p>
+                <p className={`text-right text-[11px] ${palette.muted}`}>
+                    {pps ?? 0} paket/detik
+                </p>
+            </div>
+
+            <div className="relative mx-auto mt-1 w-full max-w-[260px]">
+                <svg
+                    viewBox={`0 0 ${GAUGE.width} ${GAUGE.height}`}
+                    className="block h-auto w-full"
+                    role="img"
+                    aria-label={`${label} ${formatBitrate(target)}`}
+                >
+                    <defs>
+                        <linearGradient id={`${uid}-fill`} x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor={palette.from} />
+                            <stop offset="100%" stopColor={palette.to} />
+                        </linearGradient>
+                    </defs>
+
+                    <path
+                        d={gaugeArc(GAUGE.radius)}
+                        fill="none"
+                        stroke={palette.track}
+                        strokeWidth="14"
+                        strokeLinecap="round"
+                    />
+                    <path
+                        ref={arcRef}
+                        d={gaugeArc(GAUGE.radius)}
+                        fill="none"
+                        stroke={`url(#${uid}-fill)`}
+                        strokeWidth="14"
+                        strokeLinecap="round"
+                        pathLength="100"
+                        strokeDasharray="0 100"
+                    />
+
+                    {ticks.map((tick) => {
+                        const outer = gaugePoint(GAUGE.radius - 10, tick);
+                        const inner = gaugePoint(GAUGE.radius - 18, tick);
+                        return (
+                            <line
+                                key={tick}
+                                x1={inner.x}
+                                y1={inner.y}
+                                x2={outer.x}
+                                y2={outer.y}
+                                stroke={palette.tick}
+                                strokeWidth={tick === 0 || tick === 1 || tick === 0.5 ? 1.6 : 1}
+                            />
+                        );
+                    })}
+
+                    <path
+                        ref={needleRef}
+                        d={`M ${GAUGE.cx} ${GAUGE.cy} L ${gaugePoint(GAUGE.radius - 18, 0).x.toFixed(2)} ${gaugePoint(GAUGE.radius - 18, 0).y.toFixed(2)}`}
+                        stroke={palette.needle}
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                    />
+                    <circle
+                        cx={GAUGE.cx}
+                        cy={GAUGE.cy}
+                        r="6.5"
+                        fill="#fff"
+                        stroke={palette.needle}
+                        strokeWidth="2"
+                    />
+                    <circle cx={GAUGE.cx} cy={GAUGE.cy} r="2.2" fill={palette.needle} />
+                </svg>
+
+                <div className="pointer-events-none absolute inset-x-0 top-[42%] text-center">
+                    <p
+                        ref={valueLabelRef}
+                        className={`font-hero text-[1.65rem] leading-none tracking-tight ${palette.value}`}
+                    >
+                        {formatBitrate(target)}
+                    </p>
+                </div>
+            </div>
+
+            <div className={`mt-0.5 flex items-center justify-between px-1 text-[10px] font-semibold tracking-wide uppercase ${palette.muted}`}>
+                <span>0</span>
+                <span ref={maxLabelRef}>{formatAxisBitrate(targetMax)}</span>
+            </div>
+        </div>
+    );
 }
 
 function niceMax(value) {
@@ -370,12 +569,55 @@ function TrafficChart({ values, strokeColor, axisColor }) {
  *   routers?: Array<{id: number, name: string, host?: string}>|null,
  * }} props
  */
-function InterfaceTrafficPanels({ title, meta, traffic, history, chartKey }) {
+function InterfaceTrafficPanels({ title, meta, traffic, history, chartKey, variant = 'chart' }) {
     if (!meta) {
         return (
             <div className="min-w-0 border border-dashed border-ink/15 bg-mist/20 p-4 text-sm text-ink-soft">
                 <p className="text-xs font-semibold tracking-wide text-ink/45 uppercase">{title}</p>
                 <p className="mt-2">Pilih ethernet untuk mulai memantau.</p>
+            </div>
+        );
+    }
+
+    if (variant === 'gauge') {
+        return (
+            <div className="min-w-0 space-y-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-xs font-semibold tracking-wide text-ink/55 uppercase">
+                        {title}
+                        <span className="ml-2 font-bold normal-case tracking-normal text-ink">
+                            {meta.name}
+                        </span>
+                        {meta.is_wan ? (
+                            <span className="ml-1.5 font-semibold normal-case text-signal-deep">WAN</span>
+                        ) : null}
+                    </p>
+                    <p className="text-[11px] text-ink/45">
+                        {meta.running ? 'Running' : 'Down'}
+                        {meta.comment ? ` · ${meta.comment}` : ''}
+                    </p>
+                </div>
+
+                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                    <SemiGauge
+                        id={`${chartKey}-rx`}
+                        label="Download (RX)"
+                        icon={ArrowDownToLine}
+                        value={traffic?.rx_bps}
+                        history={history.rx}
+                        pps={traffic?.rx_pps}
+                        tone="rx"
+                    />
+                    <SemiGauge
+                        id={`${chartKey}-tx`}
+                        label="Upload (TX)"
+                        icon={ArrowUpFromLine}
+                        value={traffic?.tx_bps}
+                        history={history.tx}
+                        pps={traffic?.tx_pps}
+                        tone="tx"
+                    />
+                </div>
             </div>
         );
     }
@@ -520,12 +762,14 @@ function useLiveTrafficPoll(routerId, ifaceName, slot = 1) {
  *   routerId?: number|string|null,
  *   physicalInterfaces?: Array<{name: string, running?: boolean, comment?: string|null, is_wan?: boolean}>,
  *   routers?: Array<{id: number, name: string, host?: string}>|null,
+ *   variant?: 'chart'|'gauge',
  * }} props
  */
 export default function LiveTrafficCard({
     routerId: initialRouterId = null,
     physicalInterfaces: initialInterfaces = [],
     routers = null,
+    variant = 'chart',
 }) {
     const multiRouter = Array.isArray(routers);
     const [routerId, setRouterId] = useState(
@@ -787,6 +1031,7 @@ export default function LiveTrafficCard({
                     traffic={pollA.traffic}
                     history={pollA.history}
                     chartKey={`${routerId}-${selected}`}
+                    variant={variant}
                 />
                 <InterfaceTrafficPanels
                     title="Ethernet 2"
@@ -794,6 +1039,7 @@ export default function LiveTrafficCard({
                     traffic={pollB.traffic}
                     history={pollB.history}
                     chartKey={`${routerId}-${selectedB || 'none'}`}
+                    variant={variant}
                 />
             </div>
         </div>

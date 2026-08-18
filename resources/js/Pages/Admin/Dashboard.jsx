@@ -198,7 +198,7 @@ export default function Dashboard({
                 <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
                     Live Traffic
                 </h3>
-                <LiveTrafficCard routers={trafficRouters} />
+                <LiveTrafficCard routers={trafficRouters} variant="gauge" />
             </section>
 
             {revenueCharts && (
