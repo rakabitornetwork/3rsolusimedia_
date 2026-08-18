@@ -248,6 +248,41 @@ class BillingController extends Controller
         return back()->with('success', $message);
     }
 
+    public function bulkPay(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:invoices,id'],
+            'method' => ['required', Rule::in(['cash', 'transfer', 'qris', 'other'])],
+            'reference' => ['nullable', 'string', 'max:120'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $result = $this->billing->markPaidMany(
+            invoiceIds: $validated['ids'],
+            method: $validated['method'],
+            reference: $validated['reference'] ?? null,
+            notes: $validated['notes'] ?? null,
+            receivedBy: $user?->id,
+            agentId: $user?->isAgen() ? $user->id : null,
+        );
+
+        if ($result['paid'] === 0) {
+            return back()->with(
+                'error',
+                'Tidak ada tagihan yang dilunasi. Pilih tagihan berstatus belum bayar.'
+            );
+        }
+
+        $message = $result['paid'].' tagihan ditandai lunas.';
+        if ($result['skipped'] > 0) {
+            $message .= ' '.$result['skipped'].' dilewati (sudah lunas, dibatalkan, atau tidak dapat diakses).';
+        }
+
+        return back()->with('success', $message);
+    }
+
     public function generate(): RedirectResponse
     {
         $result = $this->billing->generateOpenInvoices();

@@ -200,6 +200,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/billing/payment-gateway', [PaymentGatewayController::class, 'update'])->name('billing.payment-gateway.update');
     Route::post('/billing/payment-gateway/test', [PaymentGatewayController::class, 'test'])->name('billing.payment-gateway.test');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
+    Route::post('/billing/bulk-pay', [BillingController::class, 'bulkPay'])->name('billing.bulk-pay');
     Route::post('/billing/customers/{pppoe}/grace', [BillingController::class, 'grantGrace'])->name('billing.grace');
     Route::delete('/billing/customers/{pppoe}/grace', [BillingController::class, 'clearGrace'])->name('billing.grace.clear');
     Route::post('/billing/customers/{pppoe}/combine-billing', [BillingController::class, 'combineBilling'])->name('billing.combine');

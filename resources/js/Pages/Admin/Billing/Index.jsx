@@ -182,6 +182,9 @@ function QuickPayButton({ invoice, methods }) {
 export default function Index({ invoices = [], filters, stats, payment_methods }) {
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
+    const [selected, setSelected] = useState([]);
+    const [bulkMethod, setBulkMethod] = useState('cash');
+    const [bulkProcessing, setBulkProcessing] = useState(false);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -200,8 +203,21 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
     );
     const paged = useMemo(() => paginateItems(filtered, page, 20), [filtered, page]);
     const rows = paged.data;
+    const unpaidPageIds = useMemo(
+        () => rows.filter((item) => item.status === 'unpaid').map((item) => item.id),
+        [rows],
+    );
+    const allUnpaidPageSelected =
+        unpaidPageIds.length > 0 && unpaidPageIds.every((id) => selected.includes(id));
+    const selectedUnpaidCount = useMemo(() => {
+        const unpaidIds = new Set(
+            allInvoices.filter((item) => item.status === 'unpaid').map((item) => item.id),
+        );
+        return selected.filter((id) => unpaidIds.has(id)).length;
+    }, [allInvoices, selected]);
 
     const applyFilters = (key, value) => {
+        setSelected([]);
         setPage(1);
         router.get(
             '/admin/billing',
@@ -212,6 +228,54 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                 grace: key === 'grace' ? value : filters.grace || '',
             },
             { preserveState: true, replace: true },
+        );
+    };
+
+    const toggleOne = (id) => {
+        setSelected((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+        );
+    };
+
+    const togglePageUnpaid = () => {
+        if (allUnpaidPageSelected) {
+            setSelected((prev) => prev.filter((id) => !unpaidPageIds.includes(id)));
+            return;
+        }
+        setSelected((prev) => [...new Set([...prev, ...unpaidPageIds])]);
+    };
+
+    const bulkPay = () => {
+        if (selectedUnpaidCount === 0) {
+            window.alert('Pilih minimal satu tagihan berstatus belum bayar.');
+            return;
+        }
+
+        const methodLabel =
+            payment_methods.find((item) => item.value === bulkMethod)?.label || bulkMethod;
+
+        if (
+            !window.confirm(
+                `Tandai lunas ${selectedUnpaidCount} tagihan terpilih?\nMetode: ${methodLabel}`,
+            )
+        ) {
+            return;
+        }
+
+        setBulkProcessing(true);
+        router.post(
+            '/admin/billing/bulk-pay',
+            {
+                ids: selected,
+                method: bulkMethod,
+            },
+            {
+                ...keepPage,
+                onFinish: () => {
+                    setBulkProcessing(false);
+                    setSelected([]);
+                },
+            },
         );
     };
 
@@ -339,10 +403,69 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                 </div>
             </div>
 
+            {selected.length > 0 && (
+                <div className="mb-4 flex flex-col gap-3 border border-signal/20 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            {selectedUnpaidCount} tagihan belum bayar terpilih
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Tandai lunas massal untuk pelanggan yang sudah membayar.
+                            {selected.length > selectedUnpaidCount
+                                ? ` ${selected.length - selectedUnpaidCount} tagihan lain dilewati.`
+                                : null}
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={bulkMethod}
+                            onChange={(e) => setBulkMethod(e.target.value)}
+                            disabled={bulkProcessing}
+                            className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        >
+                            {payment_methods.map((item) => (
+                                <option key={item.value} value={item.value}>
+                                    {item.label}
+                                </option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            onClick={bulkPay}
+                            disabled={bulkProcessing || selectedUnpaidCount === 0}
+                            className="btn-action btn-action-sm btn-success"
+                        >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                            {bulkProcessing
+                                ? 'Memproses...'
+                                : `Tandai Lunas (${selectedUnpaidCount})`}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setSelected([])}
+                            disabled={bulkProcessing}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="admin-data-scroll border border-ink/10 bg-white">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
+                            <th className="px-3 py-3 font-semibold">
+                                <input
+                                    type="checkbox"
+                                    checked={allUnpaidPageSelected}
+                                    onChange={togglePageUnpaid}
+                                    disabled={unpaidPageIds.length === 0}
+                                    className="accent-signal-deep"
+                                    title="Pilih semua tagihan belum bayar di halaman ini"
+                                />
+                            </th>
                             <th className="px-4 py-3 font-semibold">Invoice</th>
                             <th className="px-4 py-3 font-semibold">Pelanggan</th>
                             <th className="hidden px-4 py-3 font-semibold md:table-cell">Tipe</th>
@@ -354,7 +477,26 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                     </thead>
                     <tbody>
                         {rows.map((item) => (
-                            <tr key={item.id} className="border-b border-ink/5 last:border-0">
+                            <tr
+                                key={item.id}
+                                className={`border-b border-ink/5 last:border-0 ${
+                                    selected.includes(item.id) ? 'bg-signal/5' : ''
+                                }`}
+                            >
+                                <td className="px-3 py-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.includes(item.id)}
+                                        onChange={() => toggleOne(item.id)}
+                                        disabled={item.status !== 'unpaid'}
+                                        className="accent-signal-deep disabled:opacity-40"
+                                        title={
+                                            item.status === 'unpaid'
+                                                ? 'Pilih untuk tandai lunas massal'
+                                                : 'Hanya tagihan belum bayar yang bisa dipilih'
+                                        }
+                                    />
+                                </td>
                                 <td className="px-4 py-3">
                                     <Link
                                         href={`/admin/billing/invoices/${item.id}`}
@@ -427,7 +569,7 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                         ))}
                         {rows.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
                                         ? 'Tidak ada tagihan yang cocok dengan pencarian.'
                                         : 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'}

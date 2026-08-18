@@ -302,6 +302,60 @@ class BillingService
         });
     }
 
+    /**
+     * Tandai lunas beberapa tagihan sekaligus. Tagihan yang bukan unpaid dilewati.
+     *
+     * @param  list<int>  $invoiceIds
+     * @return array{paid: int, skipped: int, numbers: list<string>}
+     */
+    public function markPaidMany(
+        array $invoiceIds,
+        string $method = 'cash',
+        ?string $reference = null,
+        ?string $notes = null,
+        ?int $receivedBy = null,
+        ?int $agentId = null,
+    ): array {
+        $ids = array_values(array_unique(array_map('intval', $invoiceIds)));
+
+        $query = Invoice::query()
+            ->with(['customer'])
+            ->whereIn('id', $ids);
+
+        if ($agentId) {
+            $query->whereHas('customer', fn ($customer) => $customer->where('agent_id', $agentId));
+        }
+
+        $invoices = $query->get()->keyBy('id');
+
+        $paid = 0;
+        $skipped = count($ids) - $invoices->count();
+        $numbers = [];
+
+        foreach ($ids as $id) {
+            $invoice = $invoices->get($id);
+            if (! $invoice) {
+                continue;
+            }
+
+            try {
+                $result = $this->markPaid(
+                    invoice: $invoice,
+                    method: $method,
+                    reference: $reference,
+                    notes: $notes,
+                    receivedBy: $receivedBy,
+                );
+                $paid++;
+                $numbers[] = $result['invoice']->number;
+            } catch (InvalidArgumentException) {
+                $skipped++;
+            }
+        }
+
+        return compact('paid', 'skipped', 'numbers');
+    }
+
     public function isWithinUpcomingWindow(Carbon|string $dueDate): bool
     {
         $due = Carbon::parse($dueDate)->startOfDay();
