@@ -33,11 +33,26 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'router_id', 'page',
+            'q', 'status', 'overdue', 'grace', 'router_id', 'sort', 'direction', 'page',
         ]);
 
         $user = $request->user();
         $routerId = $request->get('router_id', '');
+        $sort = (string) $request->get('sort', 'due_date');
+        $direction = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSorts = [
+            'number' => 'invoices.number',
+            'customer' => 'pppoe_customers.name',
+            'type' => 'invoices.type',
+            'due_date' => 'invoices.due_date',
+            'total' => 'invoices.total',
+            'status' => 'invoices.status',
+        ];
+
+        if (! array_key_exists($sort, $allowedSorts)) {
+            $sort = 'due_date';
+        }
 
         // Generate tagihan bulanan dalam jendela hari yang dikonfigurasi.
         // Tidak membuat ulang prorata yang sengaja dihapus.
@@ -45,8 +60,16 @@ class BillingController extends Controller
 
         $query = Invoice::query()
             ->with(['customer.router'])
-            ->latest('due_date')
-            ->latest('id');
+            ->select('invoices.*');
+
+        if ($sort === 'customer') {
+            $query->leftJoin(
+                'pppoe_customers',
+                'pppoe_customers.id',
+                '=',
+                'invoices.pppoe_customer_id'
+            );
+        }
 
         if ($user->isAgen()) {
             $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
@@ -57,12 +80,12 @@ class BillingController extends Controller
         }
 
         if ($status = $request->get('status')) {
-            $query->where('status', $status);
+            $query->where('invoices.status', $status);
         }
 
         if ($request->boolean('overdue')) {
-            $query->where('status', 'unpaid')
-                ->whereDate('due_date', '<', now()->toDateString());
+            $query->where('invoices.status', 'unpaid')
+                ->whereDate('invoices.due_date', '<', now()->toDateString());
         }
 
         $grace = (string) $request->get('grace', '');
@@ -82,6 +105,14 @@ class BillingController extends Controller
                     });
             });
         }
+
+        $query->orderBy($allowedSorts[$sort], $direction);
+
+        if ($sort === 'type') {
+            $query->orderBy('invoices.billing_months', $direction);
+        }
+
+        $query->orderBy('invoices.id', $direction);
 
         $invoices = $query->get()->map(
             fn (Invoice $invoice) => $invoice->toAdminArray()
@@ -122,6 +153,8 @@ class BillingController extends Controller
                 'overdue' => $request->boolean('overdue'),
                 'grace' => in_array($grace, ['active', 'none'], true) ? $grace : '',
                 'router_id' => $routerId ?: '',
+                'sort' => $sort,
+                'direction' => $direction,
             ],
             'routers' => MikrotikRouter::query()
                 ->where('is_active', true)

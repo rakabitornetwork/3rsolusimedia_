@@ -1,6 +1,8 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     CheckCircle2,
+    ChevronDown,
+    ChevronUp,
     Coins,
     FilePlus2,
     Hourglass,
@@ -16,6 +18,44 @@ import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { keepPage } from '../../../lib/keepPage';
 import { matchesSearch, paginateItems } from '../../../lib/search';
+
+function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
+    const active = sort === column;
+
+    return (
+        <th className={`px-4 py-3 font-semibold ${className}`}>
+            <span className="inline-flex items-center gap-1.5">
+                <span>{label}</span>
+                <span className="inline-flex flex-col -space-y-1">
+                    <button
+                        type="button"
+                        onClick={() => onSort(column, 'asc')}
+                        title={`Urutkan ${label} A → Z`}
+                        className={`leading-none ${
+                            active && direction === 'asc'
+                                ? 'text-signal-deep'
+                                : 'text-ink-soft/40 hover:text-ink-soft'
+                        }`}
+                    >
+                        <ChevronUp className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onSort(column, 'desc')}
+                        title={`Urutkan ${label} Z → A`}
+                        className={`leading-none ${
+                            active && direction === 'desc'
+                                ? 'text-signal-deep'
+                                : 'text-ink-soft/40 hover:text-ink-soft'
+                        }`}
+                    >
+                        <ChevronDown className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                </span>
+            </span>
+        </th>
+    );
+}
 
 function StatusBadge({ status, overdue, graceUntil }) {
     if (graceUntil && status === 'unpaid') {
@@ -226,6 +266,22 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                 [key]: value,
                 overdue: key === 'overdue' ? value : filters.overdue || false,
                 grace: key === 'grace' ? value : filters.grace || '',
+            },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    const applySort = (column, direction) => {
+        setSelected([]);
+        setPage(1);
+        router.get(
+            '/admin/billing',
+            {
+                ...filters,
+                sort: column,
+                direction,
+                overdue: filters.overdue || false,
+                grace: filters.grace || '',
             },
             { preserveState: true, replace: true },
         );
@@ -478,12 +534,49 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                     title="Pilih semua tagihan belum bayar di halaman ini"
                                 />
                             </th>
-                            <th className="px-4 py-3 font-semibold">Invoice</th>
-                            <th className="px-4 py-3 font-semibold">Pelanggan</th>
-                            <th className="hidden px-4 py-3 font-semibold md:table-cell">Tipe</th>
-                            <th className="px-4 py-3 font-semibold">Jatuh tempo</th>
-                            <th className="px-4 py-3 font-semibold">Total</th>
-                            <th className="px-4 py-3 font-semibold">Status</th>
+                            <SortableHeader
+                                label="Invoice"
+                                column="number"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Pelanggan"
+                                column="customer"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Tipe"
+                                column="type"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                                className="hidden md:table-cell"
+                            />
+                            <SortableHeader
+                                label="Jatuh tempo"
+                                column="due_date"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Total"
+                                column="total"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
+                            <SortableHeader
+                                label="Status"
+                                column="status"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                            />
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
