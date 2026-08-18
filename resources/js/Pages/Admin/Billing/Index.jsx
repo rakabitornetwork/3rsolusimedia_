@@ -179,7 +179,7 @@ function QuickPayButton({ invoice, methods }) {
     );
 }
 
-export default function Index({ invoices = [], filters, stats, payment_methods }) {
+export default function Index({ invoices = [], filters, stats, payment_methods, routers = [] }) {
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
     const [selected, setSelected] = useState([]);
@@ -363,6 +363,18 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                         />
                     </div>
                     <select
+                        value={filters.router_id || ''}
+                        onChange={(e) => applyFilters('router_id', e.target.value)}
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
+                    >
+                        <option value="">Semua router</option>
+                        {routers.map((routerItem) => (
+                            <option key={routerItem.id} value={routerItem.id}>
+                                {routerItem.name}
+                            </option>
+                        ))}
+                    </select>
+                    <select
                         value={filters.status || ''}
                         onChange={(e) => applyFilters('status', e.target.value)}
                         className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
@@ -509,6 +521,9 @@ export default function Index({ invoices = [], filters, stats, payment_methods }
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{item.customer?.name || '—'}</p>
                                     <p className="text-xs text-ink-soft">{item.customer?.username}</p>
+                                    {item.customer?.router?.name ? (
+                                        <p className="text-xs text-ink-soft">{item.customer.router.name}</p>
+                                    ) : null}
                                     {item.customer?.phone ? (
                                         <p className="text-xs text-ink-soft">{item.customer.phone}</p>
                                     ) : null}

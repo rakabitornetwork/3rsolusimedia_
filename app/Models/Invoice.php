@@ -126,6 +126,12 @@ class Invoice extends Model
                 'package_price' => $this->customer->relationLoaded('package')
                     ? $this->customer->package?->price
                     : ($this->package_price ?? null),
+                'router' => $this->customer->relationLoaded('router') && $this->customer->router
+                    ? [
+                        'id' => $this->customer->router->id,
+                        'name' => $this->customer->router->name,
+                    ]
+                    : null,
             ] : null,
             'payments' => $this->relationLoaded('payments')
                 ? $this->payments->map(fn (Payment $payment) => $payment->toAdminArray())->values()->all()

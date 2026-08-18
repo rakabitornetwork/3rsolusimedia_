@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\MikrotikRouter;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Services\BillingService;
@@ -32,22 +33,27 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'page',
+            'q', 'status', 'overdue', 'grace', 'router_id', 'page',
         ]);
 
         $user = $request->user();
+        $routerId = $request->get('router_id', '');
 
         // Generate tagihan bulanan dalam jendela hari yang dikonfigurasi.
         // Tidak membuat ulang prorata yang sengaja dihapus.
         $this->billing->generateOpenInvoices();
 
         $query = Invoice::query()
-            ->with(['customer'])
+            ->with(['customer.router'])
             ->latest('due_date')
             ->latest('id');
 
         if ($user->isAgen()) {
             $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+        }
+
+        if ($routerId) {
+            $query->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
         }
 
         if ($status = $request->get('status')) {
@@ -98,6 +104,14 @@ class BillingController extends Controller
             $isolatedCustomerQuery->where('agent_id', $user->id);
         }
 
+        if ($routerId) {
+            $unpaidQuery->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
+            $overdueQuery->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
+            $paidMonthQuery->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
+            $paymentMonthQuery->whereHas('invoice.customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
+            $isolatedCustomerQuery->where('mikrotik_router_id', $routerId);
+        }
+
         $collectedAmount = (int) $paymentMonthQuery->sum('amount');
 
         return Inertia::render('Admin/Billing/Index', [
@@ -107,7 +121,12 @@ class BillingController extends Controller
                 'status' => $request->get('status', ''),
                 'overdue' => $request->boolean('overdue'),
                 'grace' => in_array($grace, ['active', 'none'], true) ? $grace : '',
+                'router_id' => $routerId ?: '',
             ],
+            'routers' => MikrotikRouter::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'host']),
             'stats' => [
                 'unpaid' => $unpaidQuery->count(),
                 'overdue' => $overdueQuery->count(),

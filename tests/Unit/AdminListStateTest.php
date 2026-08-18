@@ -25,14 +25,14 @@ class AdminListStateTest extends TestCase
             'q' => 'budi',
         ]);
         AdminListState::apply($first, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'page',
+            'q', 'status', 'overdue', 'grace', 'router_id', 'page',
         ]);
 
         $this->assertSame('unpaid', $first->session()->get(AdminListState::sessionKey(AdminListState::BILLING))['status']);
 
         $second = $this->request('/admin/billing');
         AdminListState::apply($second, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'page',
+            'q', 'status', 'overdue', 'grace', 'router_id', 'page',
         ]);
 
         $this->assertSame('unpaid', $second->query('status'));
