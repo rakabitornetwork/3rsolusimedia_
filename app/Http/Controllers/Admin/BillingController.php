@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Services\BillingService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
+use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +31,10 @@ class BillingController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::BILLING, [
+            'q', 'status', 'overdue', 'grace', 'page',
+        ]);
+
         $user = $request->user();
 
         // Generate tagihan bulanan dalam jendela hari yang dikonfigurasi.
@@ -136,7 +141,8 @@ class BillingController extends Controller
     {
         $user = $request->user();
         if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
-            return redirect()->route('admin.billing')->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
+            return AdminListState::to('admin.billing.index', AdminListState::BILLING)
+                ->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
         }
 
         $invoice->load(['customer.package', 'customer.router', 'payments.receiver', 'package', 'paymentTransactions']);
@@ -195,7 +201,8 @@ class BillingController extends Controller
     {
         $user = $request->user();
         if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
-            return redirect()->route('admin.billing')->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
+            return AdminListState::to('admin.billing.index', AdminListState::BILLING)
+                ->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
         }
 
         $half = (string) $request->get('half', 'top');
@@ -250,9 +257,7 @@ class BillingController extends Controller
                 ". Tagihan baru akan muncul {$windowDays} hari sebelum tanggal tersebut.";
         }
 
-        return redirect()
-            ->route('admin.billing.show', $result['invoice'])
-            ->with('success', $message);
+        return back()->with('success', $message);
     }
 
     public function generate(): RedirectResponse
@@ -276,8 +281,7 @@ class BillingController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()
-            ->route('admin.billing.index')
+        return AdminListState::to('admin.billing.index', AdminListState::BILLING)
             ->with('success', "Tagihan {$number} berhasil dihapus.");
     }
 
@@ -293,9 +297,7 @@ class BillingController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()
-            ->route('admin.billing.show', $voided)
-            ->with('success', "Tagihan {$voided->number} dibatalkan (void).");
+        return back()->with('success', "Tagihan {$voided->number} dibatalkan (void).");
     }
 
     public function grantGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse
@@ -352,11 +354,9 @@ class BillingController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()
-            ->route('admin.billing.show', $invoice)
-            ->with(
-                'success',
-                'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number
-            );
+        return back()->with(
+            'success',
+            'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number
+        );
     }
 }

@@ -1,12 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import { keepPage } from '../../../../lib/keepPage';
 
 export default function Index({ packages }) {
 
     const remove = (id, name) => {
         if (!window.confirm(`Hapus Profile Layanan Hotspot "${name}"?`)) return;
-        router.delete(`/admin/customers/hotspot/service-profiles/${id}`);
+        router.delete(`/admin/customers/hotspot/service-profiles/${id}`, keepPage);
     };
 
     return (

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Support\AdminListState;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ class FinancialReportController extends Controller
 {
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::BILLING_REPORTS, [
+            'preset', 'from', 'to',
+        ]);
+
         $preset = (string) $request->get('preset', 'this_month');
         [$from, $to, $preset] = $this->resolvePeriod(
             $preset,

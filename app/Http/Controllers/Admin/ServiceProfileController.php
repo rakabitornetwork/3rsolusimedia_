@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Models\SubscriptionPackage;
+use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,8 @@ class ServiceProfileController extends Controller
 {
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::SERVICE_PROFILES, ['router_id']);
+
         $this->debugLog('index', $request);
         $routers = MikrotikRouter::query()
             ->where('is_active', true)
@@ -53,7 +56,8 @@ class ServiceProfileController extends Controller
     public function create(Request $request): Response
     {
         $this->debugLog('create', $request);
-        $routerId = $request->integer('router_id') ?: null;
+        $routerId = $request->integer('router_id')
+            ?: AdminListState::lastRouterId($request);
 
         return Inertia::render('Admin/Customers/ServiceProfiles/Form', [
             'package' => null,
@@ -72,11 +76,9 @@ class ServiceProfileController extends Controller
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
 
-        return redirect()
-            ->route('admin.customers.pppoe.service-profiles', array_filter([
-                'router_id' => $validated['mikrotik_router_id'] ?? null,
-            ]))
-            ->with('success', 'Paket layanan berhasil ditambahkan.');
+        return AdminListState::to('admin.customers.pppoe.service-profiles', AdminListState::SERVICE_PROFILES, array_filter([
+            'router_id' => $validated['mikrotik_router_id'] ?? null,
+        ]))->with('success', 'Paket layanan berhasil ditambahkan.');
     }
 
     public function edit(Request $request, SubscriptionPackage $service_profile): Response
@@ -106,11 +108,9 @@ class ServiceProfileController extends Controller
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
 
-        return redirect()
-            ->route('admin.customers.pppoe.service-profiles', array_filter([
-                'router_id' => $validated['mikrotik_router_id'] ?? null,
-            ]))
-            ->with('success', 'Paket layanan berhasil diperbarui.');
+        return AdminListState::to('admin.customers.pppoe.service-profiles', AdminListState::SERVICE_PROFILES, array_filter([
+            'router_id' => $validated['mikrotik_router_id'] ?? null,
+        ]))->with('success', 'Paket layanan berhasil diperbarui.');
     }
 
     public function destroy(Request $request, SubscriptionPackage $service_profile): RedirectResponse
@@ -126,11 +126,9 @@ class ServiceProfileController extends Controller
         $routerId = $service_profile->mikrotik_router_id;
         $service_profile->delete();
 
-        return redirect()
-            ->route('admin.customers.pppoe.service-profiles', array_filter([
-                'router_id' => $request->get('router_id', $routerId),
-            ]))
-            ->with('success', 'Paket layanan berhasil dihapus.');
+        return AdminListState::to('admin.customers.pppoe.service-profiles', AdminListState::SERVICE_PROFILES, array_filter([
+            'router_id' => $request->get('router_id', $routerId),
+        ]))->with('success', 'Paket layanan berhasil dihapus.');
     }
 
     private function formOptions(?int $routerId = null): array

@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import { keepPage } from '../../../lib/keepPage';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
@@ -26,7 +27,7 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         if (!window.confirm(`Konfirmasi pembayaran ${invoice.total_label} untuk ${invoice.number}?`)) {
             return;
         }
-        post(`/admin/billing/invoices/${invoice.id}/pay`);
+        post(`/admin/billing/invoices/${invoice.id}/pay`, keepPage);
     };
 
     const createOnlineLink = () => {
@@ -62,7 +63,7 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         ) {
             return;
         }
-        router.delete(`/admin/billing/invoices/${invoice.id}`);
+        router.delete(`/admin/billing/invoices/${invoice.id}`, keepPage);
     };
 
     const voidInvoice = () => {
@@ -73,7 +74,7 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         ) {
             return;
         }
-        router.post(`/admin/billing/invoices/${invoice.id}/void`);
+        router.post(`/admin/billing/invoices/${invoice.id}/void`, {}, keepPage);
     };
 
     const grantGrace = (days) => {
@@ -86,13 +87,13 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         router.post(`/admin/billing/customers/${invoice.customer.id}/grace`, {
             days,
             note: note || undefined,
-        });
+        }, keepPage);
     };
 
     const clearGrace = () => {
         if (!invoice.customer?.id) return;
         if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
-        router.delete(`/admin/billing/customers/${invoice.customer.id}/grace`);
+        router.delete(`/admin/billing/customers/${invoice.customer.id}/grace`, keepPage);
     };
 
     const combineBilling = () => {
@@ -110,7 +111,7 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         }
         router.post(`/admin/billing/customers/${invoice.customer.id}/combine-billing`, {
             months: 2,
-        });
+        }, keepPage);
     };
 
     const canCombine =

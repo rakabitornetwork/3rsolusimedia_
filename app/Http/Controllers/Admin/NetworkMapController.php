@@ -7,6 +7,7 @@ use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Services\GenieAcsService;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,8 @@ class NetworkMapController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::MAP, ['q', 'status']);
+
         $user = $request->user();
         $search = trim((string) $request->get('q', ''));
         $status = (string) $request->get('status', '');

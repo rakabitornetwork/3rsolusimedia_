@@ -8,6 +8,7 @@ use App\Models\MikrotikRouter;
 use App\Models\User;
 use App\Services\HotspotVoucherService;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -25,6 +26,10 @@ class HotspotVoucherController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::HOTSPOT, [
+            'router_id', 'q', 'profile', 'comment', 'status', 'per_page', 'page',
+        ], preferLastRouter: true);
+
         $routers = $this->activeRouters();
         $routerId = (int) $request->query('router_id', $routers->first()?->id ?? 0);
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
@@ -172,12 +177,14 @@ class HotspotVoucherController extends Controller
         $routers = $this->activeRouters();
 
         if ($routers->isEmpty()) {
-            return redirect()
-                ->route('admin.network.hotspot')
+            return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT)
                 ->with('error', 'Tambahkan router MikroTik aktif terlebih dahulu.');
         }
 
-        $routerId = (int) $request->query('router_id', $routers->first()->id);
+        $routerId = (int) $request->query(
+            'router_id',
+            AdminListState::lastRouterId($request) ?? $routers->first()->id
+        );
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
         $router = MikrotikRouter::query()->findOrFail($selected->id);
 
@@ -260,8 +267,9 @@ class HotspotVoucherController extends Controller
             return back()->withInput()->with('error', $result['message']);
         }
 
-        return redirect()
-            ->route('admin.network.hotspot', ['router_id' => $router->id])
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])
             ->with('success', $result['message'])
             ->with('generated_vouchers', $result['vouchers'] ?? [])
             ->with('generated_batch_id', $result['batch_id'] ?? null);
@@ -284,9 +292,9 @@ class HotspotVoucherController extends Controller
             $this->vouchers->markDeletedLocally($router, $username);
         }
 
-        return redirect()
-            ->route('admin.network.hotspot', ['router_id' => $router->id])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function toggle(Request $request, MikrotikRouter $router, string $user): RedirectResponse
@@ -301,9 +309,9 @@ class HotspotVoucherController extends Controller
             $request->boolean('disabled'),
         );
 
-        return redirect()
-            ->route('admin.network.hotspot', ['router_id' => $router->id])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function destroyByComment(Request $request): RedirectResponse
@@ -316,12 +324,10 @@ class HotspotVoucherController extends Controller
         $router = MikrotikRouter::query()->findOrFail($validated['router_id']);
         $result = $this->vouchers->deleteByComment($router, $validated['comment']);
 
-        return redirect()
-            ->route('admin.network.hotspot', [
-                'router_id' => $router->id,
-                'comment' => $validated['comment'],
-            ])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+            'comment' => $validated['comment'],
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function purge(Request $request): RedirectResponse
@@ -333,9 +339,9 @@ class HotspotVoucherController extends Controller
         $router = MikrotikRouter::query()->findOrFail($validated['router_id']);
         $result = $this->vouchers->purgeUsed($router);
 
-        return redirect()
-            ->route('admin.network.hotspot', ['router_id' => $router->id])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function printCards(Request $request): Response|RedirectResponse
@@ -361,14 +367,12 @@ class HotspotVoucherController extends Controller
                 ->filter()
                 ->values();
         } else {
-            return redirect()
-                ->route('admin.network.hotspot')
+            return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT)
                 ->with('error', 'Tidak ada voucher untuk dicetak.');
         }
 
         if ($vouchers->isEmpty()) {
-            return redirect()
-                ->route('admin.network.hotspot')
+            return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT)
                 ->with('error', 'Voucher tidak ditemukan.');
         }
 

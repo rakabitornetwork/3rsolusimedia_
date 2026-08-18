@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../../lib/keepPage';
 
 const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
 
@@ -107,6 +108,7 @@ export default function Sessions({
 
         router.delete(
             `/admin/customers/pppoe/sessions/${selected_router_id}/${encodeURIComponent(session.id)}`,
+            keepPage,
         );
     };
 
@@ -190,7 +192,7 @@ export default function Sessions({
     const submitImport = (e) => {
         e.preventDefault();
         importForm.post('/admin/customers/pppoe/import-sessions', {
-            preserveScroll: true,
+            ...keepPage,
             onSuccess: () => {
                 setShowImport(false);
                 setSelected([]);

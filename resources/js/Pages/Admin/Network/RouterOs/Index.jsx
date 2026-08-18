@@ -1,6 +1,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Cable, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import { keepPage } from '../../../../lib/keepPage';
 
 function StatusBadge({ status }) {
     if (status === 'online') {
@@ -24,11 +25,11 @@ export default function Index({ routers }) {
 
     const remove = (id, name) => {
         if (!window.confirm(`Hapus router "${name}"?`)) return;
-        router.delete(`/admin/network/routeros/${id}`);
+        router.delete(`/admin/network/routeros/${id}`, keepPage);
     };
 
     const test = (id) => {
-        router.post(`/admin/network/routeros/${id}/test`);
+        router.post(`/admin/network/routeros/${id}/test`, {}, keepPage);
     };
 
     return (

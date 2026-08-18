@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import { keepPage } from '../../../../lib/keepPage';
 
 export default function Index({ routers, selected_router_id, profiles, error }) {
 
@@ -17,6 +18,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
         if (!window.confirm(`Hapus profile PPP "${profile.name}" dari MikroTik?`)) return;
         router.delete(
             `/admin/customers/pppoe/mikrotik-profiles/${selected_router_id}/${encodeURIComponent(profile.id)}`,
+            keepPage,
         );
     };
 

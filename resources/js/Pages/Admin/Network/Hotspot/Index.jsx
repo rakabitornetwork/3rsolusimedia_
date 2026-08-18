@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../../lib/keepPage';
 
 const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
 
@@ -123,6 +124,7 @@ export default function Index({
         if (!window.confirm(`Hapus voucher "${user.name}" dari MikroTik?`)) return;
         router.delete(
             `/admin/network/hotspot/${selected_router_id}/${encodeURIComponent(user.id)}`,
+            keepPage,
         );
     };
 
@@ -131,6 +133,7 @@ export default function Index({
         router.post(
             `/admin/network/hotspot/${selected_router_id}/${encodeURIComponent(user.id)}/toggle`,
             { disabled: !user.disabled },
+            keepPage,
         );
     };
 
@@ -158,7 +161,7 @@ export default function Index({
         router.post('/admin/network/hotspot/delete-by-comment', {
             router_id: selected_router_id,
             comment,
-        });
+        }, keepPage);
     };
 
     const copyGenerated = async () => {

@@ -3,6 +3,7 @@ import { Activity, RefreshCw, Search, Unplug, UserPlus, Users } from 'lucide-rea
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../../lib/keepPage';
 
 function formatBytes(value) {
     if (value == null) return '—';
@@ -66,6 +67,7 @@ export default function Sessions({
 
         router.delete(
             `/admin/network/hotspot/sessions/${selected_router_id}/${encodeURIComponent(session.id)}`,
+            keepPage,
         );
     };
 

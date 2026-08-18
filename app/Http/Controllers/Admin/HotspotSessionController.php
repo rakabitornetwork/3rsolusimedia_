@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,6 +19,10 @@ class HotspotSessionController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::HOTSPOT_SESSIONS, [
+            'router_id', 'q',
+        ], preferLastRouter: true);
+
         $routers = $this->activeRouters();
         $selectedRouterId = $request->integer('router_id') ?: $routers->first()?->id;
         $search = trim((string) $request->get('q', ''));

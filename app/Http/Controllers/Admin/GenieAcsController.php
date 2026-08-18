@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
 use App\Services\GenieAcsService;
+use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ class GenieAcsController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::GENIEACS, ['q', 'per_page', 'page']);
+
         $search = trim((string) $request->get('q', ''));
         $page = max(1, (int) $request->integer('page', 1));
         $perPage = (int) $request->integer('per_page', 10);
@@ -122,8 +125,7 @@ class GenieAcsController extends Controller
 
         SiteSetting::setMany($values);
 
-        return redirect()
-            ->route('admin.network.genieacs')
+        return AdminListState::to('admin.network.genieacs', AdminListState::GENIEACS)
             ->with('success', 'Pengaturan GenieACS berhasil disimpan.');
     }
 
@@ -142,8 +144,7 @@ class GenieAcsController extends Controller
         $result = $this->genie->getDevice($device);
 
         if (! ($result['ok'] ?? false)) {
-            return redirect()
-                ->route('admin.network.genieacs')
+            return AdminListState::to('admin.network.genieacs', AdminListState::GENIEACS)
                 ->with('error', $result['message'] ?? 'Perangkat tidak ditemukan.');
         }
 

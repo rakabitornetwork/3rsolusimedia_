@@ -11,6 +11,7 @@ use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
+use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,10 @@ class PppoeCustomerController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::PPPOE, [
+            'q', 'status', 'router_id', 'sort', 'direction', 'page',
+        ]);
+
         $user = $request->user();
         $sort = (string) $request->get('sort', 'name');
         $direction = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -150,10 +155,13 @@ class PppoeCustomerController extends Controller
     public function create(Request $request): Response|RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
         }
 
-        $routerId = $request->integer('router_id') ?: null;
+        $routerId = $request->filled('router_id')
+            ? $request->integer('router_id')
+            : AdminListState::lastRouterId($request);
         $username = trim((string) $request->get('username', ''));
 
         if ($routerId && $username !== '') {
@@ -181,7 +189,8 @@ class PppoeCustomerController extends Controller
     public function store(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
         }
 
         $validated = $this->validateCustomer($request);
@@ -214,15 +223,15 @@ class PppoeCustomerController extends Controller
             $message .= ' Invoice: '.$invoice->number.'.';
         }
 
-        return redirect()
-            ->route('admin.customers.pppoe')
+        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with('success', $message);
     }
 
     public function edit(Request $request, PppoeCustomer $pppoe): Response|RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
         }
 
         $pppoe->load(['router', 'package']);
@@ -236,7 +245,8 @@ class PppoeCustomerController extends Controller
     public function update(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
         }
 
         $validated = $this->validateCustomer($request, $pppoe);
@@ -271,15 +281,15 @@ class PppoeCustomerController extends Controller
         $pppoe->update($payload);
         $this->sync->sync($pppoe->fresh(['router', 'package']), pushPassword: $passwordChanged);
 
-        return redirect()
-            ->route('admin.customers.pppoe')
+        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with('success', 'Pelanggan PPPoE berhasil diperbarui.');
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
         }
 
         $removeSecret = $request->boolean('remove_secret');
@@ -294,8 +304,7 @@ class PppoeCustomerController extends Controller
 
         $pppoe->delete();
 
-        return redirect()
-            ->route('admin.customers.pppoe')
+        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with(
                 'success',
                 'Pelanggan PPPoE berhasil dihapus.'.($removeSecret
@@ -307,7 +316,8 @@ class PppoeCustomerController extends Controller
     public function bulkDestroy(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return redirect()->route('admin.customers.pppoe')->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
+            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
         }
 
         $validated = $request->validate([
@@ -351,8 +361,7 @@ class PppoeCustomerController extends Controller
             $message .= ' Secret di RouterOS dibiarkan.';
         }
 
-        return redirect()
-            ->route('admin.customers.pppoe')
+        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
@@ -560,9 +569,9 @@ class PppoeCustomerController extends Controller
         }
         $message .= '.';
 
-        return redirect()
-            ->route('admin.customers.pppoe.sessions', ['router_id' => $router->id])
-            ->with($failed > 0 && $created === 0 ? 'error' : 'success', $message);
+        return AdminListState::to('admin.customers.pppoe.sessions', AdminListState::PPPOE_SESSIONS, [
+            'router_id' => $router->id,
+        ])->with($failed > 0 && $created === 0 ? 'error' : 'success', $message);
     }
 
     private function formOptions(?int $routerId = null, mixed $currentPackageId = null): array

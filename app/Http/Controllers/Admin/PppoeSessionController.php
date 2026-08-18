@@ -7,6 +7,7 @@ use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,10 @@ class PppoeSessionController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::PPPOE_SESSIONS, [
+            'router_id', 'q', 'only_unknown', 'per_page', 'page',
+        ], preferLastRouter: true);
+
         $routers = $this->activeRouters();
         $selectedRouterId = $request->integer('router_id') ?: $routers->first()?->id;
         $search = trim((string) $request->get('q', ''));

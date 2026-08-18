@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../../lib/keepPage';
 
 function whatsappHref(phone) {
     const digits = String(phone || '').replace(/\D/g, '');
@@ -170,7 +171,7 @@ export default function Index({ customers, filters, routers, stats }) {
     };
 
     const sync = (id) => {
-        router.post(`/admin/customers/pppoe/${id}/sync`);
+        router.post(`/admin/customers/pppoe/${id}/sync`, {}, keepPage);
     };
 
     const submitBulkDelete = () => {
@@ -196,6 +197,7 @@ export default function Index({ customers, filters, routers, stats }) {
                 remove_secret: removeSecret,
             },
             {
+                ...keepPage,
                 onFinish: () => {
                     setProcessing(false);
                     setSelected([]);
@@ -304,6 +306,7 @@ export default function Index({ customers, filters, routers, stats }) {
                                 if (confirm('Jalankan proses auto isolir untuk semua pelanggan yang lewat jatuh tempo?')) {
                                     setProcessing(true);
                                     router.post('/admin/customers/pppoe/sync-overdue', {}, {
+                                        ...keepPage,
                                         onFinish: () => setProcessing(false),
                                     });
                                 }

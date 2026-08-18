@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\HotspotVoucher;
 use App\Models\User;
+use App\Support\AdminListState;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ class HotspotVoucherReportController extends Controller
 {
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::HOTSPOT_REPORTS, [
+            'preset', 'from', 'to', 'agent_id',
+        ]);
+
         $preset = (string) $request->get('preset', 'this_month');
         [$from, $to, $preset] = $this->resolvePeriod(
             $preset,

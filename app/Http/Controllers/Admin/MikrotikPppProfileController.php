@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,10 @@ class MikrotikPppProfileController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::MIKROTIK_PROFILES, [
+            'router_id',
+        ], preferLastRouter: true);
+
         $routers = $this->activeRouters();
         $routerId = (int) $request->query('router_id', $routers->first()?->id ?? 0);
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
@@ -50,12 +55,14 @@ class MikrotikPppProfileController extends Controller
         $routers = $this->activeRouters();
 
         if ($routers->isEmpty()) {
-            return redirect()
-                ->route('admin.customers.pppoe.mikrotik-profiles')
+            return AdminListState::to('admin.customers.pppoe.mikrotik-profiles', AdminListState::MIKROTIK_PROFILES)
                 ->with('error', 'Tambahkan router MikroTik aktif terlebih dahulu.');
         }
 
-        $routerId = (int) $request->query('router_id', $routers->first()->id);
+        $routerId = (int) $request->query(
+            'router_id',
+            AdminListState::lastRouterId($request) ?? $routers->first()->id
+        );
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
         $router = MikrotikRouter::query()->findOrFail($selected->id);
 
@@ -102,9 +109,9 @@ class MikrotikPppProfileController extends Controller
             return back()->withInput()->with('error', $result['message']);
         }
 
-        return redirect()
-            ->route('admin.customers.pppoe.mikrotik-profiles', ['router_id' => $router->id])
-            ->with('success', $result['message']);
+        return AdminListState::to('admin.customers.pppoe.mikrotik-profiles', AdminListState::MIKROTIK_PROFILES, [
+            'router_id' => $router->id,
+        ])->with('success', $result['message']);
     }
 
     public function edit(Request $request, MikrotikRouter $router, string $profile): Response|RedirectResponse
@@ -112,9 +119,9 @@ class MikrotikPppProfileController extends Controller
         $result = $this->api->getPppProfile($router, $profile);
 
         if (! $result['ok']) {
-            return redirect()
-                ->route('admin.customers.pppoe.mikrotik-profiles', ['router_id' => $router->id])
-                ->with('error', $result['message'] ?? 'Profile tidak ditemukan.');
+            return AdminListState::to('admin.customers.pppoe.mikrotik-profiles', AdminListState::MIKROTIK_PROFILES, [
+                'router_id' => $router->id,
+            ])->with('error', $result['message'] ?? 'Profile tidak ditemukan.');
         }
 
         return Inertia::render('Admin/Customers/MikrotikProfiles/Form', [
@@ -134,9 +141,9 @@ class MikrotikPppProfileController extends Controller
             return back()->withInput()->with('error', $result['message']);
         }
 
-        return redirect()
-            ->route('admin.customers.pppoe.mikrotik-profiles', ['router_id' => $router->id])
-            ->with('success', $result['message']);
+        return AdminListState::to('admin.customers.pppoe.mikrotik-profiles', AdminListState::MIKROTIK_PROFILES, [
+            'router_id' => $router->id,
+        ])->with('success', $result['message']);
     }
 
     public function destroy(MikrotikRouter $router, string $profile): RedirectResponse
@@ -150,9 +157,9 @@ class MikrotikPppProfileController extends Controller
 
         $result = $this->api->removePppProfile($router, $profile);
 
-        return redirect()
-            ->route('admin.customers.pppoe.mikrotik-profiles', ['router_id' => $router->id])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.customers.pppoe.mikrotik-profiles', AdminListState::MIKROTIK_PROFILES, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     private function activeRouters()

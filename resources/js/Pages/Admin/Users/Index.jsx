@@ -14,6 +14,7 @@ import StatCard from '../../../Components/Admin/StatCard';
 import UserAvatar from '../../../Components/UserAvatar';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../lib/keepPage';
 
 const roleBadge = {
     superadmin: 'bg-indigo-100 text-indigo-800',
@@ -44,7 +45,7 @@ export default function Index({ users, filters, role_options, stats, can_manage 
 
     const remove = (user) => {
         if (!window.confirm(`Hapus pengguna "${user.name}"?`)) return;
-        router.delete(`/admin/users/${user.id}`);
+        router.delete(`/admin/users/${user.id}`, keepPage);
     };
 
     return (

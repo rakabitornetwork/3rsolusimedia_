@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Services\MikrotikApiService;
+use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -19,6 +20,10 @@ class HotspotProfileController extends Controller
 
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::HOTSPOT_PROFILES, [
+            'router_id',
+        ], preferLastRouter: true);
+
         $routers = $this->activeRouters();
         $routerId = (int) $request->query('router_id', $routers->first()?->id ?? 0);
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
@@ -50,12 +55,14 @@ class HotspotProfileController extends Controller
         $routers = $this->activeRouters();
 
         if ($routers->isEmpty()) {
-            return redirect()
-                ->route('admin.network.hotspot.profiles')
+            return AdminListState::to('admin.network.hotspot.profiles', AdminListState::HOTSPOT_PROFILES)
                 ->with('error', 'Tambahkan router MikroTik aktif terlebih dahulu.');
         }
 
-        $routerId = (int) $request->query('router_id', $routers->first()->id);
+        $routerId = (int) $request->query(
+            'router_id',
+            AdminListState::lastRouterId($request) ?? $routers->first()->id
+        );
         $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
         $router = MikrotikRouter::query()->findOrFail($selected->id);
 
@@ -78,9 +85,9 @@ class HotspotProfileController extends Controller
             return back()->withInput()->with('error', $result['message']);
         }
 
-        return redirect()
-            ->route('admin.network.hotspot.profiles', ['router_id' => $router->id])
-            ->with('success', $result['message']);
+        return AdminListState::to('admin.network.hotspot.profiles', AdminListState::HOTSPOT_PROFILES, [
+            'router_id' => $router->id,
+        ])->with('success', $result['message']);
     }
 
     public function edit(MikrotikRouter $router, string $profile): Response|RedirectResponse
@@ -88,9 +95,9 @@ class HotspotProfileController extends Controller
         $result = $this->api->getHotspotUserProfile($router, $profile);
 
         if (! $result['ok']) {
-            return redirect()
-                ->route('admin.network.hotspot.profiles', ['router_id' => $router->id])
-                ->with('error', $result['message'] ?? 'Profile tidak ditemukan.');
+            return AdminListState::to('admin.network.hotspot.profiles', AdminListState::HOTSPOT_PROFILES, [
+                'router_id' => $router->id,
+            ])->with('error', $result['message'] ?? 'Profile tidak ditemukan.');
         }
 
         return Inertia::render('Admin/Network/Hotspot/Profiles/Form', [
@@ -111,9 +118,9 @@ class HotspotProfileController extends Controller
             return back()->withInput()->with('error', $result['message']);
         }
 
-        return redirect()
-            ->route('admin.network.hotspot.profiles', ['router_id' => $router->id])
-            ->with('success', $result['message']);
+        return AdminListState::to('admin.network.hotspot.profiles', AdminListState::HOTSPOT_PROFILES, [
+            'router_id' => $router->id,
+        ])->with('success', $result['message']);
     }
 
     public function destroy(MikrotikRouter $router, string $profile): RedirectResponse
@@ -127,9 +134,9 @@ class HotspotProfileController extends Controller
 
         $result = $this->api->removeHotspotUserProfile($router, $profile);
 
-        return redirect()
-            ->route('admin.network.hotspot.profiles', ['router_id' => $router->id])
-            ->with($result['ok'] ? 'success' : 'error', $result['message']);
+        return AdminListState::to('admin.network.hotspot.profiles', AdminListState::HOTSPOT_PROFILES, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     private function activeRouters()

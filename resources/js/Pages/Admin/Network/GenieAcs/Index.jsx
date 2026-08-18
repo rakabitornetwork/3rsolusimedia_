@@ -20,6 +20,7 @@ import { useState } from 'react';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../../lib/keepPage';
 import {
     faultsTone,
     onlineTone,
@@ -185,7 +186,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                     {canWrite && (
                         <button
                             type="button"
-                            onClick={() => router.post('/admin/network/genieacs/test')}
+                            onClick={() => router.post('/admin/network/genieacs/test', {}, keepPage)}
                             className="btn-action btn-action-xs btn-primary"
                         >
                             <Wifi className="mr-1.5 h-3.5 w-3.5" />
@@ -512,6 +513,8 @@ export default function Index({ config, connection, devices, devices_error, stat
                                                     onClick={() =>
                                                         router.post(
                                                             `/admin/network/genieacs/devices/${encodeURIComponent(item.id)}/summon`,
+                                                            {},
+                                                            keepPage,
                                                         )
                                                     }
                                                     className="btn-action btn-action-xs btn-sync"

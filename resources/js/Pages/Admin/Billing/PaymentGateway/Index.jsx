@@ -2,6 +2,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { CheckCircle2, Copy, ExternalLink, Wallet, Wifi } from 'lucide-react';
 import { useState } from 'react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import { keepPage } from '../../../../lib/keepPage';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal disabled:bg-mist';
@@ -103,7 +104,7 @@ export default function Index({ config, webhook_urls, portal_url, enabled_gatewa
 
     const testGateway = (gateway) => {
         if (!canWrite) return;
-        router.post('/admin/billing/payment-gateway/test', { gateway });
+        router.post('/admin/billing/payment-gateway/test', { gateway }, keepPage);
     };
 
     return (

@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
+import { keepPage } from '../../../../lib/keepPage';
 
 export default function Index({ packages, routers = [], filters = {} }) {
     const routerId = filters.router_id || '';
@@ -8,7 +9,7 @@ export default function Index({ packages, routers = [], filters = {} }) {
     const changeRouter = (value) => {
         router.get(
             '/admin/customers/pppoe/service-profiles',
-            { router_id: value || undefined },
+            { router_id: value || '' },
             { preserveState: true, replace: true },
         );
     };
@@ -16,7 +17,7 @@ export default function Index({ packages, routers = [], filters = {} }) {
     const remove = (id, name) => {
         if (!window.confirm(`Hapus paket layanan "${name}"?`)) return;
         const qs = routerId ? `?router_id=${encodeURIComponent(routerId)}` : '';
-        router.delete(`/admin/customers/pppoe/service-profiles/${id}${qs}`);
+        router.delete(`/admin/customers/pppoe/service-profiles/${id}${qs}`, keepPage);
     };
 
     return (

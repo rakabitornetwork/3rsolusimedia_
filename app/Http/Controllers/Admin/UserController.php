@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -15,6 +16,8 @@ class UserController extends Controller
 {
     public function index(Request $request): Response
     {
+        AdminListState::apply($request, AdminListState::USERS, ['q', 'role', 'page']);
+
         $actor = $request->user();
 
         $query = User::query()->latest();
@@ -63,8 +66,7 @@ class UserController extends Controller
         $actor = $request->user();
 
         if (! $actor->canManageUsers()) {
-            return redirect()
-                ->route('admin.users.index')
+            return AdminListState::to('admin.users.index', AdminListState::USERS)
                 ->with('error', 'Anda tidak memiliki akses untuk menambah pengguna.');
         }
 
@@ -104,8 +106,7 @@ class UserController extends Controller
             }
         }
 
-        return redirect()
-            ->route('admin.users.index')
+        return AdminListState::to('admin.users.index', AdminListState::USERS)
             ->with('success', 'Pengguna berhasil ditambahkan.');
     }
 
@@ -114,8 +115,7 @@ class UserController extends Controller
         $actor = $request->user();
 
         if (! $actor->canEditUser($user)) {
-            return redirect()
-                ->route('admin.users.index')
+            return AdminListState::to('admin.users.index', AdminListState::USERS)
                 ->with('error', 'Anda tidak dapat mengedit akun ini.');
         }
 
@@ -186,8 +186,7 @@ class UserController extends Controller
                 ->update(['agent_id' => null]);
         }
 
-        return redirect()
-            ->route('admin.users.index')
+        return AdminListState::to('admin.users.index', AdminListState::USERS)
             ->with('success', 'Pengguna berhasil diperbarui.');
     }
 
@@ -211,8 +210,7 @@ class UserController extends Controller
         $user->deleteAvatarFile();
         $user->delete();
 
-        return redirect()
-            ->route('admin.users.index')
+        return AdminListState::to('admin.users.index', AdminListState::USERS)
             ->with('success', 'Pengguna berhasil dihapus.');
     }
 

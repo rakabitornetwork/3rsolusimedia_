@@ -13,6 +13,7 @@ import {
 import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import useDebouncedCallback from '../../../hooks/useDebouncedCallback';
+import { keepPage } from '../../../lib/keepPage';
 
 function StatusBadge({ status, overdue, graceUntil }) {
     if (graceUntil && status === 'unpaid') {
@@ -62,12 +63,12 @@ function GraceMenu({ customer }) {
         router.post(`/admin/billing/customers/${customer.id}/grace`, {
             days,
             note: note || undefined,
-        });
+        }, keepPage);
     };
 
     const clearGrace = () => {
         if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
-        router.delete(`/admin/billing/customers/${customer.id}/grace`);
+        router.delete(`/admin/billing/customers/${customer.id}/grace`, keepPage);
     };
 
     return (
@@ -120,7 +121,7 @@ function CombineBillingButton({ customer, invoice }) {
         ) {
             return;
         }
-        router.post(`/admin/billing/customers/${customer.id}/combine-billing`, { months: 2 });
+        router.post(`/admin/billing/customers/${customer.id}/combine-billing`, { months: 2 }, keepPage);
     };
 
     return (
@@ -147,7 +148,7 @@ function QuickPayButton({ invoice, methods }) {
         if (!window.confirm(`Tandai lunas tagihan ${invoice.number} (${invoice.total_label})?`)) {
             return;
         }
-        post(`/admin/billing/invoices/${invoice.id}/pay`);
+        post(`/admin/billing/invoices/${invoice.id}/pay`, keepPage);
     };
 
     return (
@@ -203,7 +204,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
         ) {
             return;
         }
-        router.post('/admin/billing/generate');
+        router.post('/admin/billing/generate', {}, keepPage);
     };
 
     const remove = (invoice) => {
@@ -215,7 +216,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
             ) {
                 return;
             }
-            router.post(`/admin/billing/invoices/${invoice.id}/void`);
+            router.post(`/admin/billing/invoices/${invoice.id}/void`, {}, keepPage);
             return;
         }
 
@@ -226,7 +227,7 @@ export default function Index({ invoices, filters, stats, payment_methods }) {
         ) {
             return;
         }
-        router.delete(`/admin/billing/invoices/${invoice.id}`);
+        router.delete(`/admin/billing/invoices/${invoice.id}`, keepPage);
     };
 
     return (
