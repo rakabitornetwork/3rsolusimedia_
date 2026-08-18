@@ -132,12 +132,11 @@ function QuickPayMenu({ invoice, methods }) {
                 Lunas
                 <ChevronDown className="h-3 w-3 opacity-80" />
             </summary>
-            <div className="admin-row-menu p-2">
-                <p className="admin-row-menu-label px-1 pt-0">Metode pembayaran</p>
+            <div className="admin-row-menu admin-pay-menu">
+                <p className="admin-row-menu-label">Metode pembayaran</p>
                 <select
                     value={data.method}
                     onChange={(e) => setData('method', e.target.value)}
-                    className="mt-1 w-full border border-ink/15 px-2 py-1.5 text-xs outline-none focus:border-signal"
                 >
                     {methods.map((item) => (
                         <option key={item.value} value={item.value}>
@@ -149,7 +148,7 @@ function QuickPayMenu({ invoice, methods }) {
                     type="button"
                     onClick={pay}
                     disabled={processing}
-                    className="btn-action btn-action-xs btn-success-solid mt-2 w-full"
+                    className="btn-action btn-action-xs btn-success-solid"
                 >
                     {processing ? 'Memproses...' : 'Konfirmasi lunas'}
                 </button>

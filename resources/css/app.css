@@ -163,8 +163,7 @@
 
 .admin-actions > a,
 .admin-actions > button,
-.admin-actions > select,
-.admin-actions > details {
+.admin-actions > select {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -176,6 +175,9 @@
 
 .admin-actions > details {
     position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
 }
 
 .admin-actions > details > summary {
@@ -203,13 +205,52 @@
 
 .admin-row-menu {
     position: absolute;
+    top: calc(100% + 0.25rem);
     right: 0;
     z-index: 30;
-    margin-top: 0.25rem;
-    min-width: 13.5rem;
+    display: flex;
+    width: 13.5rem;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
     border: 1px solid color-mix(in oklab, var(--color-ink) 10%, transparent);
     background: #fff;
+    white-space: normal;
     box-shadow: 0 10px 30px color-mix(in oklab, var(--color-ink) 8%, transparent);
+}
+
+.admin-pay-menu {
+    left: 0;
+    right: auto;
+    width: 12.75rem;
+    gap: 0.5rem;
+    padding: 0.625rem;
+}
+
+.admin-pay-menu select,
+.admin-pay-menu .btn-action {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.admin-pay-menu select {
+    height: 2rem;
+    padding: 0 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    border: 1px solid color-mix(in oklab, var(--color-ink) 15%, transparent);
+    outline: none;
+    background: #fff;
+}
+
+.admin-pay-menu select:focus {
+    border-color: var(--color-signal);
+}
+
+.admin-pay-menu .admin-row-menu-label {
+    padding: 0;
 }
 
 .admin-row-menu-label {
