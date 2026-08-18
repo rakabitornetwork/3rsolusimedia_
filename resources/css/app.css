@@ -163,7 +163,8 @@
 
 .admin-actions > a,
 .admin-actions > button,
-.admin-actions > select {
+.admin-actions > select,
+.admin-actions > details {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -173,9 +174,80 @@
     box-sizing: border-box;
 }
 
-.admin-actions > select {
-    padding-top: 0;
-    padding-bottom: 0;
+.admin-actions > details {
+    position: relative;
+}
+
+.admin-actions > details > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.admin-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2rem;
+    width: 2rem;
+    padding: 0;
+    color: var(--color-ink-soft);
+    background: #fff;
+    border: 1px solid color-mix(in oklab, var(--color-ink) 12%, transparent);
+}
+
+.admin-icon-btn:hover:not(:disabled) {
+    background: var(--color-mist);
+    color: var(--color-ink);
+}
+
+.admin-row-menu {
+    position: absolute;
+    right: 0;
+    z-index: 30;
+    margin-top: 0.25rem;
+    min-width: 13.5rem;
+    border: 1px solid color-mix(in oklab, var(--color-ink) 10%, transparent);
+    background: #fff;
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--color-ink) 8%, transparent);
+}
+
+.admin-row-menu-label {
+    padding: 0.5rem 0.75rem 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+}
+
+.admin-row-menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1rem;
+    color: var(--color-ink);
+    background: transparent;
+    border: 0;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.admin-row-menu-item:hover {
+    background: var(--color-mist);
+}
+
+.admin-row-menu-item.is-danger {
+    color: #b91c1c;
+}
+
+.admin-row-menu-item.is-danger:hover {
+    background: #fef2f2;
 }
 
 /* Cluster tombol di toolbar halaman (HP & desktop) */

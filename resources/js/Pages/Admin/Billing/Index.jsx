@@ -1,11 +1,16 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
+    Ban,
+    CalendarRange,
     CheckCircle2,
     ChevronDown,
     ChevronUp,
+    Clock,
     Coins,
+    Eye,
     FilePlus2,
     Hourglass,
+    MoreHorizontal,
     Printer,
     Search,
     ShieldCheck,
@@ -93,8 +98,74 @@ function StatusBadge({ status, overdue, graceUntil }) {
     );
 }
 
-function GraceMenu({ customer }) {
-    if (!customer?.id) return null;
+function closeMenu(event) {
+    event.currentTarget.closest('details')?.removeAttribute('open');
+}
+
+function QuickPayMenu({ invoice, methods }) {
+    const { data, setData, post, processing } = useForm({
+        method: 'cash',
+        reference: '',
+        notes: '',
+    });
+
+    if (invoice.status !== 'unpaid') return null;
+
+    const methodLabel =
+        methods.find((item) => item.value === data.method)?.label || data.method;
+
+    const pay = () => {
+        if (
+            !window.confirm(
+                `Tandai lunas tagihan ${invoice.number} (${invoice.total_label}) via ${methodLabel}?`,
+            )
+        ) {
+            return;
+        }
+        post(`/admin/billing/invoices/${invoice.id}/pay`, keepPage);
+    };
+
+    return (
+        <details className="relative">
+            <summary className="btn-action btn-action-xs btn-success-solid cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Lunas
+                <ChevronDown className="h-3 w-3 opacity-80" />
+            </summary>
+            <div className="admin-row-menu p-2">
+                <p className="admin-row-menu-label px-1 pt-0">Metode pembayaran</p>
+                <select
+                    value={data.method}
+                    onChange={(e) => setData('method', e.target.value)}
+                    className="mt-1 w-full border border-ink/15 px-2 py-1.5 text-xs outline-none focus:border-signal"
+                >
+                    {methods.map((item) => (
+                        <option key={item.value} value={item.value}>
+                            {item.label}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    onClick={pay}
+                    disabled={processing}
+                    className="btn-action btn-action-xs btn-success-solid mt-2 w-full"
+                >
+                    {processing ? 'Memproses...' : 'Konfirmasi lunas'}
+                </button>
+            </div>
+        </details>
+    );
+}
+
+function MoreActions({ invoice, onRemove }) {
+    const customer = invoice.customer;
+    const canCombine =
+        Boolean(customer?.id) &&
+        !(
+            invoice.status === 'unpaid' &&
+            (invoice.billing_months > 1 || invoice.type === 'multi_month')
+        );
 
     const grantGrace = (days) => {
         const note = window.prompt(
@@ -102,56 +173,17 @@ function GraceMenu({ customer }) {
             customer.grace_note || '',
         );
         if (note === null) return;
-        router.post(`/admin/billing/customers/${customer.id}/grace`, {
-            days,
-            note: note || undefined,
-        }, keepPage);
+        router.post(
+            `/admin/billing/customers/${customer.id}/grace`,
+            { days, note: note || undefined },
+            keepPage,
+        );
     };
 
     const clearGrace = () => {
         if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
         router.delete(`/admin/billing/customers/${customer.id}/grace`, keepPage);
     };
-
-    return (
-        <div className="relative inline-flex">
-            <details className="group">
-                <summary className="btn-action btn-action-xs btn-warn cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                    Toleransi
-                </summary>
-                <div className="absolute right-0 z-20 mt-1 min-w-[140px] border border-ink/10 bg-white py-1 shadow-sm">
-                    {[3, 7, 14].map((days) => (
-                        <button
-                            key={days}
-                            type="button"
-                            onClick={() => grantGrace(days)}
-                            className="btn-action btn-action-xs btn-warn w-full justify-start text-left"
-                        >
-                            +{days} hari
-                        </button>
-                    ))}
-                    {customer.has_active_grace && (
-                        <button
-                            type="button"
-                            onClick={clearGrace}
-                            className="btn-action btn-action-xs btn-danger w-full justify-start border-t border-ink/5 text-left"
-                        >
-                            Cabut toleransi
-                        </button>
-                    )}
-                </div>
-            </details>
-        </div>
-    );
-}
-
-function CombineBillingButton({ customer, invoice }) {
-    if (!customer?.id) return null;
-
-    // Sudah tagihan gabungan unpaid — jangan tawarkan lagi di baris yang sama.
-    if (invoice?.status === 'unpaid' && (invoice.billing_months > 1 || invoice.type === 'multi_month')) {
-        return null;
-    }
 
     const combine = () => {
         const price = Number(customer.package_price || invoice?.package_price || 0);
@@ -167,55 +199,84 @@ function CombineBillingButton({ customer, invoice }) {
     };
 
     return (
-        <button
-            type="button"
-            onClick={combine}
-            className="btn-action btn-action-xs btn-warn"
-        >
-            Gabung 2 bln
-        </button>
-    );
-}
-
-function QuickPayButton({ invoice, methods }) {
-    const { data, setData, post, processing } = useForm({
-        method: 'cash',
-        reference: '',
-        notes: '',
-    });
-
-    if (invoice.status !== 'unpaid') return null;
-
-    const pay = () => {
-        if (!window.confirm(`Tandai lunas tagihan ${invoice.number} (${invoice.total_label})?`)) {
-            return;
-        }
-        post(`/admin/billing/invoices/${invoice.id}/pay`, keepPage);
-    };
-
-    return (
-        <>
-            <select
-                value={data.method}
-                onChange={(e) => setData('method', e.target.value)}
-                className="border border-ink/15 px-2 text-xs outline-none focus:border-signal"
+        <details className="relative">
+            <summary
+                className="admin-icon-btn cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+                title="Aksi lainnya"
             >
-                {methods.map((item) => (
-                    <option key={item.value} value={item.value}>
-                        {item.label}
-                    </option>
-                ))}
-            </select>
-            <button
-                type="button"
-                onClick={pay}
-                disabled={processing}
-                className="btn-action btn-action-xs btn-success"
-            >
-                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                Lunas
-            </button>
-        </>
+                <MoreHorizontal className="h-4 w-4" />
+            </summary>
+            <div className="admin-row-menu py-1">
+                <Link
+                    href={`/admin/billing/invoices/${invoice.id}`}
+                    className="admin-row-menu-item"
+                    onClick={closeMenu}
+                >
+                    <Eye className="h-3.5 w-3.5 text-ink-soft" />
+                    Detail tagihan
+                </Link>
+
+                {customer?.id ? (
+                    <>
+                        <p className="admin-row-menu-label">Toleransi isolir</p>
+                        {[3, 7, 14].map((days) => (
+                            <button
+                                key={days}
+                                type="button"
+                                onClick={(event) => {
+                                    closeMenu(event);
+                                    grantGrace(days);
+                                }}
+                                className="admin-row-menu-item"
+                            >
+                                <Clock className="h-3.5 w-3.5 text-ink-soft" />
+                                +{days} hari
+                            </button>
+                        ))}
+                        {customer.has_active_grace ? (
+                            <button
+                                type="button"
+                                onClick={(event) => {
+                                    closeMenu(event);
+                                    clearGrace();
+                                }}
+                                className="admin-row-menu-item is-danger"
+                            >
+                                <Ban className="h-3.5 w-3.5" />
+                                Cabut toleransi
+                            </button>
+                        ) : null}
+                    </>
+                ) : null}
+
+                {canCombine ? (
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            closeMenu(event);
+                            combine();
+                        }}
+                        className="admin-row-menu-item"
+                    >
+                        <CalendarRange className="h-3.5 w-3.5 text-ink-soft" />
+                        Gabung 2 bulan
+                    </button>
+                ) : null}
+
+                <div className="my-1 border-t border-ink/5" />
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        closeMenu(event);
+                        onRemove(invoice);
+                    }}
+                    className="admin-row-menu-item is-danger"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {invoice.status === 'paid' ? 'Batalkan (void)' : 'Hapus tagihan'}
+                </button>
+            </div>
+        </details>
     );
 }
 
@@ -639,38 +700,17 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
-                                        <QuickPayButton invoice={item} methods={payment_methods} />
-                                        <GraceMenu customer={item.customer} />
-                                        <CombineBillingButton customer={item.customer} invoice={item} />
+                                        <QuickPayMenu invoice={item} methods={payment_methods} />
                                         <a
                                             href={`/admin/billing/invoices/${item.id}/print`}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="btn-action btn-action-xs btn-print"
-                                            title="Cetak invoice setengah A4"
+                                            className="admin-icon-btn"
+                                            title="Cetak invoice"
                                         >
                                             <Printer className="h-3.5 w-3.5" />
-                                            Cetak
                                         </a>
-                                        <Link
-                                            href={`/admin/billing/invoices/${item.id}`}
-                                            className="btn-action btn-action-xs btn-edit"
-                                        >
-                                            Detail
-                                        </Link>
-                                        <button
-                                            type="button"
-                                            onClick={() => remove(item)}
-                                            className="btn-action btn-action-xs btn-danger"
-                                            title={
-                                                item.status === 'paid'
-                                                    ? 'Batalkan (void)'
-                                                    : 'Hapus tagihan'
-                                            }
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            {item.status === 'paid' ? 'Void' : 'Hapus'}
-                                        </button>
+                                        <MoreActions invoice={item} onRemove={remove} />
                                     </div>
                                 </td>
                             </tr>
