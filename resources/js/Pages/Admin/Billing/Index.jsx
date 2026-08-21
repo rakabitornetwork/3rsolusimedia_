@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import LocalPagination from '../../../Components/Admin/LocalPagination';
+import OverflowMenu from '../../../Components/Admin/OverflowMenu';
 import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { keepPage } from '../../../lib/keepPage';
@@ -98,10 +99,6 @@ function StatusBadge({ status, overdue, graceUntil }) {
     );
 }
 
-function closeMenu(event) {
-    event.currentTarget.closest('details')?.removeAttribute('open');
-}
-
 function QuickPayMenu({ invoice, methods }) {
     const { data, setData, post, processing } = useForm({
         method: 'cash',
@@ -126,34 +123,38 @@ function QuickPayMenu({ invoice, methods }) {
     };
 
     return (
-        <details className="relative">
-            <summary className="btn-action btn-action-xs btn-success-solid cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Lunas
-                <ChevronDown className="h-3 w-3 opacity-80" />
-            </summary>
-            <div className="admin-row-menu admin-pay-menu">
-                <p className="admin-row-menu-label">Metode pembayaran</p>
-                <select
-                    value={data.method}
-                    onChange={(e) => setData('method', e.target.value)}
-                >
-                    {methods.map((item) => (
-                        <option key={item.value} value={item.value}>
-                            {item.label}
-                        </option>
-                    ))}
-                </select>
-                <button
-                    type="button"
-                    onClick={pay}
-                    disabled={processing}
-                    className="btn-action btn-action-xs btn-success-solid"
-                >
-                    {processing ? 'Memproses...' : 'Konfirmasi lunas'}
-                </button>
-            </div>
-        </details>
+        <OverflowMenu
+            trigger={
+                <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Lunas
+                    <ChevronDown className="h-3 w-3 opacity-80" />
+                </>
+            }
+            triggerClassName="btn-action btn-action-xs btn-success-solid"
+            menuClassName="admin-pay-menu"
+            align="start"
+        >
+            <p className="admin-row-menu-label">Metode pembayaran</p>
+            <select
+                value={data.method}
+                onChange={(e) => setData('method', e.target.value)}
+            >
+                {methods.map((item) => (
+                    <option key={item.value} value={item.value}>
+                        {item.label}
+                    </option>
+                ))}
+            </select>
+            <button
+                type="button"
+                onClick={pay}
+                disabled={processing}
+                className="btn-action btn-action-xs btn-success-solid"
+            >
+                {processing ? 'Memproses...' : 'Konfirmasi lunas'}
+            </button>
+        </OverflowMenu>
     );
 }
 
@@ -198,84 +199,85 @@ function MoreActions({ invoice, onRemove }) {
     };
 
     return (
-        <details className="relative">
-            <summary
-                className="admin-icon-btn cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                title="Aksi lainnya"
-            >
-                <MoreHorizontal className="h-4 w-4" />
-            </summary>
-            <div className="admin-row-menu py-1">
-                <Link
-                    href={`/admin/billing/invoices/${invoice.id}`}
-                    className="admin-row-menu-item"
-                    onClick={closeMenu}
-                >
-                    <Eye className="h-3.5 w-3.5 text-ink-soft" />
-                    Detail tagihan
-                </Link>
+        <OverflowMenu
+            trigger={<MoreHorizontal className="h-4 w-4" />}
+            triggerClassName="admin-icon-btn"
+            triggerTitle="Aksi lainnya"
+            menuClassName="py-1"
+        >
+            {(close) => (
+                <>
+                    <Link
+                        href={`/admin/billing/invoices/${invoice.id}`}
+                        className="admin-row-menu-item"
+                        onClick={close}
+                    >
+                        <Eye className="h-3.5 w-3.5 text-ink-soft" />
+                        Detail tagihan
+                    </Link>
 
-                {customer?.id ? (
-                    <>
-                        <p className="admin-row-menu-label">Toleransi isolir</p>
-                        {[3, 7, 14].map((days) => (
-                            <button
-                                key={days}
-                                type="button"
-                                onClick={(event) => {
-                                    closeMenu(event);
-                                    grantGrace(days);
-                                }}
-                                className="admin-row-menu-item"
-                            >
-                                <Clock className="h-3.5 w-3.5 text-ink-soft" />
-                                +{days} hari
-                            </button>
-                        ))}
-                        {customer.has_active_grace ? (
-                            <button
-                                type="button"
-                                onClick={(event) => {
-                                    closeMenu(event);
-                                    clearGrace();
-                                }}
-                                className="admin-row-menu-item is-danger"
-                            >
-                                <Ban className="h-3.5 w-3.5" />
-                                Cabut toleransi
-                            </button>
-                        ) : null}
-                    </>
-                ) : null}
+                    {customer?.id ? (
+                        <>
+                            <p className="admin-row-menu-label">Toleransi isolir</p>
+                            {[3, 7, 14].map((days) => (
+                                <button
+                                    key={days}
+                                    type="button"
+                                    onClick={() => {
+                                        close();
+                                        grantGrace(days);
+                                    }}
+                                    className="admin-row-menu-item"
+                                >
+                                    <Clock className="h-3.5 w-3.5 text-ink-soft" />
+                                    +{days} hari
+                                </button>
+                            ))}
+                            {customer.has_active_grace ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        close();
+                                        clearGrace();
+                                    }}
+                                    className="admin-row-menu-item is-danger"
+                                >
+                                    <Ban className="h-3.5 w-3.5" />
+                                    Cabut toleransi
+                                </button>
+                            ) : null}
+                        </>
+                    ) : null}
 
-                {canCombine ? (
+                    {canCombine ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                close();
+                                combine();
+                            }}
+                            className="admin-row-menu-item"
+                        >
+                            <CalendarRange className="h-3.5 w-3.5 text-ink-soft" />
+                            Gabung 2 bulan
+                        </button>
+                    ) : null}
+
+                    <div className="my-1 border-t border-ink/5" />
                     <button
                         type="button"
-                        onClick={(event) => {
-                            closeMenu(event);
-                            combine();
+                        onClick={() => {
+                            close();
+                            onRemove(invoice);
                         }}
-                        className="admin-row-menu-item"
+                        className="admin-row-menu-item is-danger"
                     >
-                        <CalendarRange className="h-3.5 w-3.5 text-ink-soft" />
-                        Gabung 2 bulan
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {invoice.status === 'paid' ? 'Batalkan (void)' : 'Hapus tagihan'}
                     </button>
-                ) : null}
-
-                <div className="my-1 border-t border-ink/5" />
-                <button
-                    type="button"
-                    onClick={(event) => {
-                        closeMenu(event);
-                        onRemove(invoice);
-                    }}
-                    className="admin-row-menu-item is-danger"
-                >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {invoice.status === 'paid' ? 'Batalkan (void)' : 'Hapus tagihan'}
-                </button>
-            </div>
-        </details>
+                </>
+            )}
+        </OverflowMenu>
     );
 }
 
