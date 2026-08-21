@@ -4,11 +4,28 @@ import AdminLayout from '../../../../../Layouts/AdminLayout';
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
+const expiredModeAliases = {
+    remove: 'rem',
+    notice: 'ntf',
+    'remove,notice': 'remc',
+};
+
+function canonicalExpiredMode(value) {
+    if (!value) return '';
+    return expiredModeAliases[value] || value;
+}
+
+function moneyField(value) {
+    if (value == null || value === '' || Number(value) === 0) return '';
+    return String(value);
+}
+
 export default function Form({
     profile,
     routers,
     selected_router_id,
     parent_queues = [],
+    address_pools = [],
     expired_modes = [],
 }) {
     const editing = Boolean(profile);
@@ -21,8 +38,11 @@ export default function Form({
         idle_timeout: profile?.idle_timeout || '',
         shared_users: profile?.shared_users ? Number(profile.shared_users) : 1,
         address_list: profile?.address_list || '',
-        expired_mode: profile?.expired_mode ?? (editing ? '' : 'remove'),
+        address_pool: profile?.address_pool || '',
+        expired_mode: canonicalExpiredMode(profile?.expired_mode) || (editing ? '' : 'rem'),
         validity: profile?.validity || '',
+        price: moneyField(profile?.price),
+        selling_price: moneyField(profile?.selling_price),
         lock_user: Boolean(profile?.lock_user),
         parent_queue: profile?.parent_queue || '',
     });
@@ -37,10 +57,13 @@ export default function Form({
             parent_queue: form.parent_queue || null,
             expired_mode: form.expired_mode || null,
             validity: form.validity || null,
+            price: form.price === '' ? 0 : Number(form.price),
+            selling_price: form.selling_price === '' ? 0 : Number(form.selling_price),
             rate_limit: form.rate_limit || null,
             session_timeout: form.session_timeout || null,
             idle_timeout: form.idle_timeout || null,
             address_list: form.address_list || null,
+            address_pool: form.address_pool || null,
         }));
 
         if (editing) {
@@ -167,6 +190,32 @@ export default function Form({
                         </span>
                     </label>
                     <label className="block text-sm font-medium text-ink">
+                        Address pool
+                        <select
+                            value={data.address_pool || ''}
+                            onChange={(e) => setData('address_pool', e.target.value)}
+                            className={fieldClass}
+                        >
+                            <option value="">none</option>
+                            {address_pools.map((pool) => (
+                                <option key={pool.name} value={pool.name}>
+                                    {pool.name}
+                                    {pool.ranges ? ` (${pool.ranges})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        <span className="mt-1 block text-xs text-ink-soft">
+                            Pool IP untuk user hotspot. Ambil dari `/ip/pool`.
+                        </span>
+                        {errors.address_pool && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.address_pool}
+                            </span>
+                        )}
+                    </label>
+                    </div>
+
+                    <label className="block text-sm font-medium text-ink">
                         Address list
                         <input
                             type="text"
@@ -176,9 +225,8 @@ export default function Form({
                             placeholder="opsional"
                         />
                     </label>
-                </div>
 
-                <div className="border border-ink/10 bg-mist/30 p-4">
+                    <div className="border border-ink/10 bg-mist/30 p-4">
                     <p className="text-sm font-semibold text-ink">Kontrol expired & antrian</p>
                     <p className="mt-1 text-xs text-ink-soft">
                         Sesuaikan perilaku saat voucher habis, penguncian MAC, dan parent queue
@@ -227,6 +275,45 @@ export default function Form({
                             {errors.validity && (
                                 <span className="mt-1 block text-xs text-red-600">
                                     {errors.validity}
+                                </span>
+                            )}
+                        </label>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Price
+                            <input
+                                type="number"
+                                min={0}
+                                value={data.price}
+                                onChange={(e) => setData('price', e.target.value)}
+                                className={fieldClass}
+                                placeholder="0"
+                            />
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Harga internal. Dipakai catatan penjualan Mikhmon (remc/ntfc).
+                            </span>
+                            {errors.price && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.price}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Selling price
+                            <input
+                                type="number"
+                                min={0}
+                                value={data.selling_price}
+                                onChange={(e) => setData('selling_price', e.target.value)}
+                                className={fieldClass}
+                                placeholder="0"
+                            />
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Harga yang tampil di voucher. 0 = pakai Price.
+                            </span>
+                            {errors.selling_price && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.selling_price}
                                 </span>
                             )}
                         </label>

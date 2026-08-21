@@ -71,6 +71,7 @@ class HotspotProfileController extends Controller
             'routers' => $routers->values(),
             'selected_router_id' => $selected->id,
             'parent_queues' => $this->api->listSimpleQueues($router)['queues'] ?? [],
+            'address_pools' => $this->api->listIpPools($router)['pools'] ?? [],
             'expired_modes' => $this->expiredModes(),
         ]);
     }
@@ -105,6 +106,7 @@ class HotspotProfileController extends Controller
             'routers' => $this->activeRouters()->values(),
             'selected_router_id' => $router->id,
             'parent_queues' => $this->api->listSimpleQueues($router)['queues'] ?? [],
+            'address_pools' => $this->api->listIpPools($router)['pools'] ?? [],
             'expired_modes' => $this->expiredModes(),
         ]);
     }
@@ -156,7 +158,11 @@ class HotspotProfileController extends Controller
             'idle_timeout' => ['nullable', 'string', 'max:40'],
             'shared_users' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'address_list' => ['nullable', 'string', 'max:120'],
-            'expired_mode' => ['nullable', 'string', Rule::in(['remove', 'notice', 'remove,notice'])],
+            'address_pool' => ['nullable', 'string', 'max:120'],
+            'expired_mode' => ['nullable', 'string', Rule::in([
+                'rem', 'ntf', 'remc', 'ntfc',
+                'remove', 'notice', 'remove,notice',
+            ])],
             'validity' => [
                 Rule::requiredIf(fn () => filled($request->input('expired_mode'))),
                 'nullable',
@@ -164,6 +170,8 @@ class HotspotProfileController extends Controller
                 'max:40',
                 'regex:/^(?:[1-9]\d*[wdhms])+$/i',
             ],
+            'price' => ['nullable', 'integer', 'min:0'],
+            'selling_price' => ['nullable', 'integer', 'min:0'],
             'lock_user' => ['nullable', 'boolean'],
             'parent_queue' => ['nullable', 'string', 'max:120'],
         ];
@@ -178,13 +186,17 @@ class HotspotProfileController extends Controller
         ]);
         $validated['lock_user'] = $request->boolean('lock_user');
         $validated['parent_queue'] = trim((string) ($validated['parent_queue'] ?? '')) ?: null;
-        $validated['expired_mode'] = trim((string) ($validated['expired_mode'] ?? '')) ?: null;
+        $mode = $this->api->normalizeHotspotExpiredMode($validated['expired_mode'] ?? null);
+        $validated['expired_mode'] = $mode !== '' ? $mode : null;
         $validated['rate_limit'] = trim((string) ($validated['rate_limit'] ?? '')) ?: null;
         $validated['session_timeout'] = trim((string) ($validated['session_timeout'] ?? '')) ?: null;
         $validated['idle_timeout'] = trim((string) ($validated['idle_timeout'] ?? '')) ?: null;
         $validated['address_list'] = trim((string) ($validated['address_list'] ?? '')) ?: null;
+        $validated['address_pool'] = trim((string) ($validated['address_pool'] ?? '')) ?: null;
         $validity = strtolower(trim((string) ($validated['validity'] ?? '')));
         $validated['validity'] = in_array($validity, ['', '0', '0s', 'none'], true) ? null : $validity;
+        $validated['price'] = max(0, (int) ($validated['price'] ?? 0));
+        $validated['selling_price'] = max(0, (int) ($validated['selling_price'] ?? 0));
 
         return $validated;
     }
@@ -201,19 +213,24 @@ class HotspotProfileController extends Controller
                 'description' => 'Tidak memasang skrip expire. Session timeout RouterOS tetap berlaku terpisah',
             ],
             [
-                'value' => 'remove',
+                'value' => 'rem',
                 'label' => 'Remove',
-                'description' => 'Auto-hapus user di RouterOS setelah validity habis (scheduler Mikhmon). Penjualan dicatat di app saat first use',
+                'description' => 'Hapus user di RouterOS setelah validity habis',
             ],
             [
-                'value' => 'notice',
+                'value' => 'ntf',
                 'label' => 'Notice',
-                'description' => 'Set limit-uptime 1s setelah expired (user tetap ada). Penjualan dicatat di app saat first use',
+                'description' => 'User tetap ada, limit-uptime diset 1s setelah expired',
             ],
             [
-                'value' => 'remove,notice',
-                'label' => 'Remove + Notice',
-                'description' => 'Auto-hapus user setelah expired. Penjualan dicatat di app saat first use',
+                'value' => 'remc',
+                'label' => 'Remove & Record',
+                'description' => 'Hapus user setelah expired dan catat penjualan di /system/script (Mikhmon)',
+            ],
+            [
+                'value' => 'ntfc',
+                'label' => 'Notice & Record',
+                'description' => 'Notice (1s) setelah expired dan catat penjualan di /system/script (Mikhmon)',
             ],
         ];
     }

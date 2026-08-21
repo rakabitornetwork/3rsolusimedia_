@@ -51,14 +51,19 @@ class HotspotProfileFeatureTest extends TestCase
         $router = $this->router();
 
         $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('normalizeHotspotExpiredMode')
+            ->andReturnUsing(fn ($value) => (new MikrotikApiService)->normalizeHotspotExpiredMode($value));
         $api->shouldReceive('createHotspotUserProfile')
             ->once()
             ->withArgs(function (MikrotikRouter $passedRouter, array $data) use ($router) {
                 return $passedRouter->is($router)
                     && ($data['name'] ?? null) === '30hari'
-                    && ($data['expired_mode'] ?? null) === 'remove'
+                    && ($data['expired_mode'] ?? null) === 'rem'
                     && ($data['validity'] ?? null) === '30d'
-                    && ($data['session_timeout'] ?? null) === null;
+                    && ($data['session_timeout'] ?? null) === null
+                    && ($data['address_pool'] ?? null) === 'hotspot-pool'
+                    && ($data['price'] ?? null) === 5000
+                    && ($data['selling_price'] ?? null) === 7000;
             })
             ->andReturn(['ok' => true, 'message' => 'ok']);
         $this->app->instance(MikrotikApiService::class, $api);
@@ -67,9 +72,12 @@ class HotspotProfileFeatureTest extends TestCase
             ->post('/admin/network/hotspot/profiles', [
                 'router_id' => $router->id,
                 'name' => '30hari',
-                'expired_mode' => 'remove',
+                'expired_mode' => 'rem',
                 'validity' => '30d',
                 'session_timeout' => '',
+                'address_pool' => 'hotspot-pool',
+                'price' => 5000,
+                'selling_price' => 7000,
                 'shared_users' => 1,
             ])
             ->assertRedirect();

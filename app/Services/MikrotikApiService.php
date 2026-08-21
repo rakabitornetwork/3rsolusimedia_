@@ -1604,6 +1604,10 @@ class MikrotikApiService
         if (is_string($parentQueue) && in_array(strtolower($parentQueue), ['none', ''], true)) {
             $parentQueue = null;
         }
+        $addressPool = $row['address-pool'] ?? null;
+        if (is_string($addressPool) && in_array(strtolower($addressPool), ['none', ''], true)) {
+            $addressPool = null;
+        }
 
         return [
             'id' => $row['.id'] ?? '',
@@ -1612,9 +1616,12 @@ class MikrotikApiService
             'session_timeout' => $row['session-timeout'] ?? null,
             'idle_timeout' => $row['idle-timeout'] ?? null,
             'shared_users' => $row['shared-users'] ?? null,
+            'address_pool' => $addressPool,
             'address_list' => $row['address-list'] ?? null,
             'expired_mode' => $parsed['expired_mode'],
             'validity' => $parsed['validity'],
+            'price' => $parsed['price'],
+            'selling_price' => $parsed['selling_price'],
             'lock_user' => $parsed['lock_user'],
             'parent_queue' => $parentQueue,
             'on_login' => $onLogin !== '' ? $onLogin : null,
@@ -1630,14 +1637,17 @@ class MikrotikApiService
      *     address_list?: ?string,
      *     expired_mode?: ?string,
      *     validity?: ?string,
+     *     price?: int|string|null,
+     *     selling_price?: int|string|null,
      *     lock_user?: bool|string|null,
-     *     parent_queue?: ?string
+     *     parent_queue?: ?string,
+     *     address_pool?: ?string
      * }  $data
      */
     private function applyHotspotUserProfileFields(Query $query, array $data): void
     {
         // Native RouterOS /ip/hotspot/user/profile fields only.
-        // expired-mode / validity / lock-user are NOT RouterOS properties — they live in on-login.
+        // expired-mode / validity / lock-user / prices are NOT RouterOS properties — they live in on-login.
         $fields = [
             'rate-limit' => $data['rate_limit'] ?? null,
             'session-timeout' => $data['session_timeout'] ?? null,
@@ -1647,6 +1657,7 @@ class MikrotikApiService
                 : null,
             'address-list' => $data['address_list'] ?? null,
             'parent-queue' => $data['parent_queue'] ?? null,
+            'address-pool' => $data['address_pool'] ?? null,
         ];
 
         foreach ($fields as $key => $value) {
@@ -1661,10 +1672,16 @@ class MikrotikApiService
             $query->equal('parent-queue', 'none');
         }
 
+        if (array_key_exists('address_pool', $data) && ($data['address_pool'] === null || $data['address_pool'] === '')) {
+            $query->equal('address-pool', 'none');
+        }
+
         if (
             array_key_exists('expired_mode', $data)
             || array_key_exists('validity', $data)
             || array_key_exists('lock_user', $data)
+            || array_key_exists('price', $data)
+            || array_key_exists('selling_price', $data)
         ) {
             $query->equal('on-login', $this->buildHotspotProfileOnLogin($data));
         }
@@ -1673,30 +1690,31 @@ class MikrotikApiService
     /**
      * Build Mikhmon-compatible on-login script for expire mode + MAC lock.
      * Validity (voucher lifetime from first login) is independent of session-timeout.
+     * remc/ntfc also write a /system/script sales record (comment=mikhmon).
      * Compatible with RouterOS 7.10+ ISO dates (2024-01-15) and classic (jan/15/2024).
      *
      * @param  array<string, mixed>  $data
      */
     private function buildHotspotProfileOnLogin(array $data): string
     {
-        $expiredMode = trim((string) ($data['expired_mode'] ?? ''));
+        $modeKey = $this->normalizeHotspotExpiredMode($data['expired_mode'] ?? null);
         $lockUser = (bool) filter_var($data['lock_user'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $validity = $this->normalizeHotspotValidity($data['validity'] ?? null);
+        $price = max(0, (int) ($data['price'] ?? 0));
+        $sprice = max(0, (int) ($data['selling_price'] ?? 0));
+        $profileName = $this->sanitizeHotspotScriptToken($data['name'] ?? '');
 
-        $modeKey = match ($expiredMode) {
-            'notice' => 'ntf',
-            'remove,notice' => 'remc',
-            'remove' => 'rem',
-            default => '',
-        };
-        $scriptMode = $modeKey === 'ntf' ? 'N' : 'X';
+        $scriptMode = $modeKey === 'ntf' || $modeKey === 'ntfc' ? 'N' : 'X';
         $lockLabel = $lockUser ? 'Enable' : 'Disable';
+        $recordsSale = in_array($modeKey, ['remc', 'ntfc'], true);
 
         $lines = [];
         $lines[] = sprintf(
-            ':put (",%s,0,%s,0,,%s,Disable,");',
+            ':put (",%s,%d,%s,%d,,%s,Disable,");',
             $modeKey !== '' ? $modeKey : '0',
+            $price,
             $validity !== '' ? $validity : '0',
+            $sprice,
             $lockLabel
         );
 
@@ -1705,6 +1723,15 @@ class MikrotikApiService
             $lines[] = '{';
             $lines[] = ' :local date [ /system clock get date ];';
             $lines[] = ' :local time [ /system clock get time ];';
+            $lines[] = ' :local year "";';
+            $lines[] = ' :local month "";';
+            $lines[] = ' :if ([:pick $date 4 5] = "-") do={';
+            $lines[] = '  :set year [:pick $date 0 4];';
+            $lines[] = '  :set month [:pick $date 5 7];';
+            $lines[] = ' } else={';
+            $lines[] = '  :set year [:pick $date 7 11];';
+            $lines[] = '  :set month [:pick $date 0 3];';
+            $lines[] = ' };';
             $lines[] = ' :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment];';
             $lines[] = ' :local ucode [:pick $comment 0 2];';
             // vc/up = Mikhmon; vo = voucher-app (legacy app comments).
@@ -1725,7 +1752,6 @@ class MikrotikApiService
             $lines[] = '   };';
             $lines[] = '  } else={';
             // Classic date jan/15/2024 (RouterOS 6 / pre-7.10).
-            $lines[] = '   :local year [ :pick $date 7 11 ];';
             $lines[] = '   :if ($getxp = 15) do={';
             $lines[] = '    :local d [:pick $exp 0 6];';
             $lines[] = '    :local t [:pick $exp 7 16];';
@@ -1740,6 +1766,9 @@ class MikrotikApiService
             $lines[] = '   };';
             $lines[] = '  };';
             $lines[] = '  /sys sch remove [find where name="$user"];';
+            if ($recordsSale) {
+                $lines[] = '  :local mac $"mac-address"; /system script add name="$date-|-$time-|-$user-|-'.$price.'-|-$address-|-$mac-|-'.$validity.'-|-'.$profileName.'-|-$comment" owner="$month$year" source=$date comment=mikhmon;';
+            }
             $lines[] = ' };';
             $lines[] = '}';
         }
@@ -1750,6 +1779,26 @@ class MikrotikApiService
         }
 
         return implode("\n", $lines);
+    }
+
+    public function normalizeHotspotExpiredMode(mixed $value): string
+    {
+        return match (strtolower(trim((string) $value))) {
+            'rem', 'remove', 'x' => 'rem',
+            'ntf', 'notice', 'n' => 'ntf',
+            'remc', 'remove,notice' => 'remc',
+            'ntfc' => 'ntfc',
+            default => '',
+        };
+    }
+
+    private function sanitizeHotspotScriptToken(mixed $value): string
+    {
+        $token = trim((string) $value);
+        $token = preg_replace('/\s+/', '-', $token) ?? $token;
+        $token = str_replace(['\\', '"', '$', "\n", "\r"], '', $token);
+
+        return $token !== '' ? $token : 'hotspot';
     }
 
     private function normalizeHotspotValidity(mixed $value): string
@@ -1763,30 +1812,33 @@ class MikrotikApiService
     }
 
     /**
-     * @return array{expired_mode: ?string, validity: ?string, lock_user: bool}
+     * @return array{expired_mode: ?string, validity: ?string, price: int, selling_price: int, lock_user: bool}
      */
     private function parseHotspotProfileOnLogin(string $onLogin): array
     {
         $expiredMode = null;
         $validity = null;
+        $price = 0;
+        $sprice = 0;
         $lockUser = false;
 
         if ($onLogin === '') {
-            return ['expired_mode' => null, 'validity' => null, 'lock_user' => false];
+            return [
+                'expired_mode' => null,
+                'validity' => null,
+                'price' => 0,
+                'selling_price' => 0,
+                'lock_user' => false,
+            ];
         }
 
         if (preg_match('/:put\s*\(\s*",([^"]*)"/i', $onLogin, $matches)) {
             $parts = array_map('trim', explode(',', $matches[1]));
-            $mode = strtolower((string) ($parts[0] ?? ''));
-            $expiredMode = match ($mode) {
-                'rem', 'remove', 'x' => 'remove',
-                'ntf', 'notice', 'n' => 'notice',
-                'remc', 'ntfc', 'remove,notice' => 'remove,notice',
-                default => null,
-            };
-
+            $expiredMode = $this->normalizeHotspotExpiredMode($parts[0] ?? '') ?: null;
+            $price = max(0, (int) ($parts[1] ?? 0));
             $rawValidity = $this->normalizeHotspotValidity($parts[2] ?? '');
             $validity = $rawValidity !== '' ? $rawValidity : null;
+            $sprice = max(0, (int) ($parts[3] ?? 0));
 
             $lock = strtolower((string) ($parts[5] ?? ''));
             $lockUser = in_array($lock, ['enable', 'yes', 'true', '1'], true);
@@ -1806,6 +1858,8 @@ class MikrotikApiService
         return [
             'expired_mode' => $expiredMode,
             'validity' => $validity,
+            'price' => $price,
+            'selling_price' => $sprice,
             'lock_user' => $lockUser,
         ];
     }
@@ -1905,8 +1959,8 @@ class MikrotikApiService
      */
     public function buildHotspotExpireMonitorScript(string $profileName, string $expiredMode): string
     {
-        $action = match (trim($expiredMode)) {
-            'notice' => 'set limit-uptime=1s',
+        $action = match ($this->normalizeHotspotExpiredMode($expiredMode)) {
+            'ntf', 'ntfc' => 'set limit-uptime=1s',
             default => 'remove',
         };
 

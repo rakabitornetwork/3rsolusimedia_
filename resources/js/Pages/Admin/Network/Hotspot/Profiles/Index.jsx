@@ -3,6 +3,29 @@ import { Plus, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../../Layouts/AdminLayout';
 import { keepPage } from '../../../../../lib/keepPage';
 
+const expiredLabels = {
+    rem: 'Remove',
+    ntf: 'Notice',
+    remc: 'Remove & Record',
+    ntfc: 'Notice & Record',
+    remove: 'Remove',
+    notice: 'Notice',
+    'remove,notice': 'Remove & Record',
+};
+
+function expiredLabel(mode) {
+    if (!mode) return '—';
+    return expiredLabels[mode] || mode;
+}
+
+function formatPrice(profile) {
+    const sell = Number(profile.selling_price || 0);
+    const price = Number(profile.price || 0);
+    const shown = sell > 0 ? sell : price;
+    if (!shown) return '—';
+    return `Rp ${shown.toLocaleString('id-ID')}`;
+}
+
 export default function Index({ routers, selected_router_id, profiles, error }) {
 
     const changeRouter = (routerId) => {
@@ -79,9 +102,10 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                                 Session / Idle
                             </th>
                             <th className="px-4 py-3 font-semibold">Expired</th>
+                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">Harga</th>
                             <th className="hidden px-4 py-3 font-semibold md:table-cell">Lock</th>
                             <th className="hidden px-4 py-3 font-semibold xl:table-cell">
-                                Parent Queue
+                                Pool / Queue
                             </th>
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
@@ -100,12 +124,15 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                                 <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {(item.session_timeout || '—') + ' / ' + (item.idle_timeout || '—')}
                                 </td>
-                                <td className="px-4 py-3 text-ink-soft">{item.expired_mode || '—'}</td>
+                                <td className="px-4 py-3 text-ink-soft">{expiredLabel(item.expired_mode)}</td>
+                                <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
+                                    {formatPrice(item)}
+                                </td>
                                 <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
                                     {item.lock_user ? 'Ya' : 'Tidak'}
                                 </td>
                                 <td className="hidden px-4 py-3 text-ink-soft xl:table-cell">
-                                    {item.parent_queue || '—'}
+                                    {(item.address_pool || '—') + ' / ' + (item.parent_queue || '—')}
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
@@ -129,7 +156,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         ))}
                         {profiles.length === 0 && (
                             <tr>
-                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={9} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
                                         ? 'Belum ada hotspot user profile di router ini.'
                                         : 'Pilih atau tambahkan router terlebih dahulu.'}

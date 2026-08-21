@@ -66,7 +66,7 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
 
         $this->assertStringContainsString(':if ([:pick $date 4 5] = "-") do={', $script);
         $this->assertStringContainsString('start-time=$time', $script);
-        $this->assertStringContainsString(':local year [ :pick $date 7 11 ];', $script);
+        $this->assertStringContainsString(':set year [:pick $date 7 11];', $script);
     }
 
     #[Test]
@@ -93,6 +93,15 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
     }
 
     #[Test]
+    public function expire_monitor_script_notices_users_for_ntfc_mode(): void
+    {
+        $script = (new MikrotikApiService)->buildHotspotExpireMonitorScript('Paket-1Jam', 'ntfc');
+
+        $this->assertStringContainsString('set limit-uptime=1s', $script);
+        $this->assertStringNotContainsString('/ip hotspot user remove', $script);
+    }
+
+    #[Test]
     public function parser_detects_lock_from_mac_address_script(): void
     {
         $parsed = $this->parseOnLogin(
@@ -100,7 +109,7 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
             '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]];'
         );
 
-        $this->assertSame('remove', $parsed['expired_mode']);
+        $this->assertSame('rem', $parsed['expired_mode']);
         $this->assertSame('1h', $parsed['validity']);
         $this->assertTrue($parsed['lock_user']);
     }
@@ -137,8 +146,55 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
     {
         $parsed = $this->parseOnLogin(':put (",ntf,5000,7d,7000,,Enable,");');
 
-        $this->assertSame('notice', $parsed['expired_mode']);
+        $this->assertSame('ntf', $parsed['expired_mode']);
         $this->assertSame('7d', $parsed['validity']);
+        $this->assertSame(5000, $parsed['price']);
+        $this->assertSame(7000, $parsed['selling_price']);
         $this->assertTrue($parsed['lock_user']);
+    }
+
+    #[Test]
+    public function remc_on_login_records_sale_to_system_script(): void
+    {
+        $script = $this->buildOnLogin([
+            'name' => '1hari',
+            'expired_mode' => 'remc',
+            'validity' => '1d',
+            'price' => 5000,
+            'selling_price' => 7000,
+        ]);
+
+        $this->assertStringContainsString(':put (",remc,5000,1d,7000,,Disable,Disable,");', $script);
+        $this->assertStringContainsString('/system script add', $script);
+        $this->assertStringContainsString('comment=mikhmon', $script);
+        $this->assertStringContainsString('|-5000-|', $script);
+        $this->assertStringContainsString('|-1d-|-1hari-|', $script);
+        $this->assertStringContainsString(':local mode "X";', $script);
+    }
+
+    #[Test]
+    public function rem_on_login_does_not_write_sales_script(): void
+    {
+        $script = $this->buildOnLogin([
+            'name' => '1hari',
+            'expired_mode' => 'rem',
+            'validity' => '1d',
+            'price' => 5000,
+        ]);
+
+        $this->assertStringContainsString(':put (",rem,5000,1d,0,,Disable,Disable,");', $script);
+        $this->assertStringNotContainsString('/system script add', $script);
+    }
+
+    #[Test]
+    public function legacy_remove_notice_mode_maps_to_remc(): void
+    {
+        $script = $this->buildOnLogin([
+            'expired_mode' => 'remove,notice',
+            'validity' => '12h',
+        ]);
+
+        $this->assertStringContainsString(':put (",remc,0,12h,0,,Disable,Disable,");', $script);
+        $this->assertStringContainsString('/system script add', $script);
     }
 }
