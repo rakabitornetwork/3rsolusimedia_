@@ -542,7 +542,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx": {
-    "file": "assets/Generate-IXhP0siO.js",
+    "file": "assets/Generate-DEwNRJPK.js",
     "name": "Generate",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Generate.jsx",
     "isDynamicEntry": true,
@@ -570,7 +570,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/PrintCards.jsx": {
-    "file": "assets/PrintCards-egQVr1w_.js",
+    "file": "assets/PrintCards-DLx1Tf5W.js",
     "name": "PrintCards",
     "src": "resources/js/Pages/Admin/Network/Hotspot/PrintCards.jsx",
     "isDynamicEntry": true,
@@ -979,7 +979,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DUcOkm00.js",
+    "file": "assets/app-C8CuGBbb.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
