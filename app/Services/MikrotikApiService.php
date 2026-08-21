@@ -21,7 +21,7 @@ class MikrotikApiService
 
         // Always cast to expected types — partial Eloquent selects can leave
         // username/password null and trigger ConfigException in the SDK.
-        $config = (new Config())
+        $config = (new Config)
             ->set('host', (string) $router->host)
             ->set('port', (int) ($router->port ?: 8728))
             ->set('user', (string) ($router->username ?? ''))
@@ -470,13 +470,15 @@ class MikrotikApiService
                 ->map(function (array $row) use ($activeNames) {
                     $name = $row['name'] ?? '';
 
+                    $limitUptime = $row['limit-uptime'] ?? null;
+
                     return [
                         'id' => $row['.id'] ?? '',
                         'name' => $name,
                         'password' => $row['password'] ?? null,
                         'profile' => $row['profile'] ?? null,
                         'server' => $row['server'] ?? 'all',
-                        'limit_uptime' => $row['limit-uptime'] ?? null,
+                        'limit_uptime' => $limitUptime,
                         'limit_bytes_total' => isset($row['limit-bytes-total']) ? (int) $row['limit-bytes-total'] : null,
                         'uptime' => $row['uptime'] ?? null,
                         'bytes_in' => isset($row['bytes-in']) ? (int) $row['bytes-in'] : null,
@@ -484,6 +486,7 @@ class MikrotikApiService
                         'comment' => $row['comment'] ?? null,
                         'disabled' => ($row['disabled'] ?? 'false') === 'true',
                         'is_online' => isset($activeNames[$name]),
+                        'is_expired' => self::isHotspotLimitExpired(is_string($limitUptime) ? $limitUptime : null),
                     ];
                 })
                 ->filter(fn (array $row) => $row['name'] !== '')
@@ -662,6 +665,451 @@ class MikrotikApiService
                 'message' => $this->friendlyError($e),
                 'servers' => [],
             ];
+        }
+    }
+
+    /**
+     * Notice/expired user: Mikhmon sets limit-uptime=1s (RouterOS may show 00:00:01).
+     */
+    public static function isHotspotLimitExpired(?string $limitUptime): bool
+    {
+        $value = strtolower(preg_replace('/\s+/', '', (string) $limitUptime) ?? '');
+
+        return in_array($value, ['1s', '00:00:01'], true);
+    }
+
+    /**
+     * Mikhmon adduser: comment prefixed vc- when username=password, otherwise up-.
+     */
+    public static function prefixHotspotUserComment(string $username, string $password, string $comment): string
+    {
+        $comment = trim($comment);
+        if (preg_match('/^(?:vc|up|vo)-/i', $comment) === 1) {
+            return $comment;
+        }
+
+        $mode = $username === $password ? 'vc-' : 'up-';
+
+        return $mode.$comment;
+    }
+
+    /**
+     * @return array{user: ?string, detail: string, login_event: bool}
+     */
+    public static function parseHotspotLogMessage(string $message): array
+    {
+        $message = trim($message);
+        if (! str_starts_with($message, '->')) {
+            return [
+                'user' => null,
+                'detail' => $message,
+                'login_event' => false,
+            ];
+        }
+
+        $parts = explode(':', $message);
+        $isMacStyle = count($parts) > 6;
+        $user = $isMacStyle
+            ? implode(':', array_slice($parts, 1, 6))
+            : trim((string) ($parts[1] ?? ''));
+        $detailParts = $isMacStyle ? array_slice($parts, 7) : array_slice($parts, 2);
+        $detail = trim(str_replace('trying to', '', implode(' ', $detailParts)));
+
+        return [
+            'user' => $user !== '' ? $user : null,
+            'detail' => $detail,
+            'login_event' => true,
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, hosts?: array<int, array<string, mixed>>}
+     */
+    public function listHotspotHosts(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/host/print'))->read();
+
+            $hosts = collect($rows)
+                ->map(function (array $row) {
+                    $authorized = ($row['authorized'] ?? 'false') === 'true';
+                    $bypassed = ($row['bypassed'] ?? 'false') === 'true';
+                    $dhcp = ($row['DHCP'] ?? $row['dhcp'] ?? 'false') === 'true';
+                    $dynamic = ($row['dynamic'] ?? 'false') === 'true';
+
+                    $flags = [];
+                    if ($authorized) {
+                        $flags[] = 'A';
+                    }
+                    if ($dhcp) {
+                        $flags[] = 'H';
+                    }
+                    if ($dynamic) {
+                        $flags[] = 'D';
+                    }
+                    if ($bypassed) {
+                        $flags[] = 'P';
+                    }
+
+                    return [
+                        'id' => $row['.id'] ?? '',
+                        'mac_address' => $row['mac-address'] ?? null,
+                        'address' => $row['address'] ?? null,
+                        'to_address' => $row['to-address'] ?? null,
+                        'server' => $row['server'] ?? null,
+                        'comment' => $row['comment'] ?? null,
+                        'authorized' => $authorized,
+                        'bypassed' => $bypassed,
+                        'dhcp' => $dhcp,
+                        'dynamic' => $dynamic,
+                        'flags' => implode(' ', $flags),
+                    ];
+                })
+                ->filter(fn (array $row) => ($row['id'] ?? '') !== '')
+                ->values()
+                ->all();
+
+            return ['ok' => true, 'hosts' => $hosts];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'hosts' => [],
+            ];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function removeHotspotHost(MikrotikRouter $router, string $hostId): array
+    {
+        return $this->removeHotspotPathItem(
+            $router,
+            '/ip/hotspot/host/print',
+            '/ip/hotspot/host/remove',
+            $hostId,
+            'Host hotspot'
+        );
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, cookies?: array<int, array<string, mixed>>}
+     */
+    public function listHotspotCookies(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/cookie/print'))->read();
+
+            $cookies = collect($rows)
+                ->map(fn (array $row) => [
+                    'id' => $row['.id'] ?? '',
+                    'user' => $row['user'] ?? null,
+                    'mac_address' => $row['mac-address'] ?? null,
+                    'domain' => $row['domain'] ?? null,
+                    'expires_in' => $row['expires-in'] ?? null,
+                ])
+                ->filter(fn (array $row) => ($row['id'] ?? '') !== '')
+                ->values()
+                ->all();
+
+            return ['ok' => true, 'cookies' => $cookies];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'cookies' => [],
+            ];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function removeHotspotCookie(MikrotikRouter $router, string $cookieId): array
+    {
+        return $this->removeHotspotPathItem(
+            $router,
+            '/ip/hotspot/cookie/print',
+            '/ip/hotspot/cookie/remove',
+            $cookieId,
+            'Cookie hotspot'
+        );
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, bindings?: array<int, array<string, mixed>>}
+     */
+    public function listHotspotIpBindings(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/ip-binding/print'))->read();
+
+            $bindings = collect($rows)
+                ->map(function (array $row) {
+                    $bypassed = ($row['bypassed'] ?? 'false') === 'true';
+                    $type = (string) ($row['type'] ?? ($bypassed ? 'bypassed' : 'regular'));
+
+                    return [
+                        'id' => $row['.id'] ?? '',
+                        'mac_address' => $row['mac-address'] ?? null,
+                        'address' => $row['address'] ?? null,
+                        'to_address' => $row['to-address'] ?? null,
+                        'server' => $row['server'] ?? null,
+                        'comment' => $row['comment'] ?? null,
+                        'type' => $type,
+                        'bypassed' => $bypassed || $type === 'bypassed',
+                        'disabled' => ($row['disabled'] ?? 'false') === 'true',
+                    ];
+                })
+                ->filter(fn (array $row) => ($row['id'] ?? '') !== '')
+                ->values()
+                ->all();
+
+            return ['ok' => true, 'bindings' => $bindings];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'bindings' => [],
+            ];
+        }
+    }
+
+    /**
+     * @param  array{mac_address?: ?string, address?: ?string, to_address?: ?string, server?: ?string, type?: ?string, comment?: ?string}  $data
+     * @return array{ok: bool, message: string}
+     */
+    public function addHotspotIpBinding(MikrotikRouter $router, array $data): array
+    {
+        try {
+            $mac = strtoupper(trim((string) ($data['mac_address'] ?? '')));
+            $address = trim((string) ($data['address'] ?? ''));
+            if ($mac === '' && $address === '') {
+                return ['ok' => false, 'message' => 'Isi MAC address atau IP address untuk binding.'];
+            }
+
+            $type = strtolower(trim((string) ($data['type'] ?? 'bypassed')));
+            if (! in_array($type, ['regular', 'bypassed', 'blocked'], true)) {
+                $type = 'bypassed';
+            }
+
+            $query = (new Query('/ip/hotspot/ip-binding/add'))
+                ->equal('type', $type)
+                ->equal('disabled', 'no');
+
+            if ($mac !== '') {
+                $query->equal('mac-address', $mac);
+            }
+            if ($address !== '') {
+                $query->equal('address', $address);
+            }
+
+            $toAddress = trim((string) ($data['to_address'] ?? ''));
+            if ($toAddress !== '') {
+                $query->equal('to-address', $toAddress);
+            }
+
+            $server = trim((string) ($data['server'] ?? ''));
+            if ($server !== '' && $server !== 'all') {
+                $query->equal('server', $server);
+            }
+
+            $comment = trim((string) ($data['comment'] ?? ''));
+            if ($comment !== '') {
+                $query->equal('comment', $comment);
+            }
+
+            $client = $this->makeClient($router);
+            $this->assertWriteOk($client->query($query)->read());
+
+            return ['ok' => true, 'message' => 'IP binding hotspot ditambahkan.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function setHotspotIpBindingDisabled(MikrotikRouter $router, string $bindingId, bool $disabled): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $existing = $this->findHotspotPathItem($client, '/ip/hotspot/ip-binding/print', $bindingId);
+            if (! $existing) {
+                return ['ok' => false, 'message' => 'IP binding tidak ditemukan di RouterOS.'];
+            }
+
+            $this->assertWriteOk(
+                $client->query(
+                    (new Query('/ip/hotspot/ip-binding/set'))
+                        ->equal('.id', (string) $existing['.id'])
+                        ->equal('disabled', $disabled ? 'yes' : 'no')
+                )->read()
+            );
+
+            return [
+                'ok' => true,
+                'message' => $disabled ? 'IP binding dinonaktifkan.' : 'IP binding diaktifkan.',
+            ];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function removeHotspotIpBinding(MikrotikRouter $router, string $bindingId): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $existing = $this->findHotspotPathItem($client, '/ip/hotspot/ip-binding/print', $bindingId);
+            if (! $existing) {
+                return ['ok' => false, 'message' => 'IP binding tidak ditemukan di RouterOS.'];
+            }
+
+            $this->assertWriteOk(
+                $client->query(
+                    (new Query('/ip/hotspot/ip-binding/remove'))->equal('.id', (string) $existing['.id'])
+                )->read()
+            );
+
+            $mac = trim((string) ($existing['mac-address'] ?? ''));
+            $address = trim((string) ($existing['address'] ?? ''));
+            $this->removeFirstHotspotMatch($client, '/queue/simple/print', '/queue/simple/remove', 'name', $mac);
+            $this->removeFirstHotspotMatch($client, '/system/scheduler/print', '/system/scheduler/remove', 'name', $mac);
+            $this->removeFirstHotspotMatch($client, '/ip/arp/print', '/ip/arp/remove', 'address', $address);
+            $this->removeFirstHotspotMatch(
+                $client,
+                '/ip/dhcp-server/lease/print',
+                '/ip/dhcp-server/lease/remove',
+                'address',
+                $address
+            );
+
+            return ['ok' => true, 'message' => 'IP binding hotspot dihapus.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message?: string, logs?: array<int, array<string, mixed>>}
+     */
+    public function listHotspotLogs(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = [];
+
+            try {
+                $rows = $client->query(
+                    (new Query('/log/print'))->where('topics', 'hotspot,info,debug')
+                )->read();
+            } catch (Throwable) {
+                $rows = [];
+            }
+
+            if ($rows === []) {
+                $all = $client->query(new Query('/log/print'))->read();
+                $rows = collect($all)
+                    ->filter(function ($row) {
+                        if (! is_array($row)) {
+                            return false;
+                        }
+
+                        return str_contains((string) ($row['topics'] ?? ''), 'hotspot');
+                    })
+                    ->values()
+                    ->all();
+            }
+
+            $logs = collect($rows)
+                ->reverse()
+                ->map(function (array $row) {
+                    $parsed = self::parseHotspotLogMessage((string) ($row['message'] ?? ''));
+
+                    return [
+                        'id' => $row['.id'] ?? null,
+                        'time' => $row['time'] ?? null,
+                        'topics' => $row['topics'] ?? null,
+                        'user' => $parsed['user'],
+                        'message' => $parsed['detail'] !== '' ? $parsed['detail'] : ($row['message'] ?? ''),
+                        'login_event' => $parsed['login_event'],
+                    ];
+                })
+                ->filter(fn (array $row) => $row['login_event'] === true)
+                ->values()
+                ->all();
+
+            return ['ok' => true, 'logs' => $logs];
+        } catch (Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $this->friendlyError($e),
+                'logs' => [],
+            ];
+        }
+    }
+
+    /**
+     * Reset expired hotspot user like Mikhmon: clear comment, limit-uptime=0, counters, per-user scheduler.
+     *
+     * @return array{ok: bool, message: string, username?: string}
+     */
+    public function resetHotspotUser(MikrotikRouter $router, string $userId): array
+    {
+        try {
+            $client = $this->makeClient($router);
+            $rows = $client->query(new Query('/ip/hotspot/user/print'))->read();
+            $existing = collect($rows)->first(
+                fn (array $row) => (string) ($row['.id'] ?? '') === $userId
+                    || (string) ($row['name'] ?? '') === $userId
+            );
+
+            if (! $existing) {
+                return ['ok' => false, 'message' => 'User hotspot tidak ditemukan di RouterOS.'];
+            }
+
+            $id = (string) $existing['.id'];
+            $name = (string) ($existing['name'] ?? $userId);
+
+            $this->assertWriteOk(
+                $client->query(
+                    (new Query('/ip/hotspot/user/set'))
+                        ->equal('.id', $id)
+                        ->equal('limit-uptime', '0')
+                        ->equal('comment', '')
+                )->read()
+            );
+
+            try {
+                $client->query(
+                    (new Query('/ip/hotspot/user/reset-counters'))->equal('.id', $id)
+                )->read();
+            } catch (Throwable) {
+            }
+
+            $this->removeFirstHotspotMatch(
+                $client,
+                '/system/scheduler/print',
+                '/system/scheduler/remove',
+                'name',
+                $name
+            );
+
+            return [
+                'ok' => true,
+                'message' => 'User hotspot "'.$name.'" direset (limit & comment dikosongkan).',
+                'username' => $name,
+            ];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
         }
     }
 
@@ -1573,6 +2021,85 @@ class MikrotikApiService
             }
         } catch (Throwable) {
             // Cookie list/remove can fail on restricted API users; still disconnect the session.
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    private function removeHotspotPathItem(
+        MikrotikRouter $router,
+        string $printPath,
+        string $removePath,
+        string $itemId,
+        string $label,
+    ): array {
+        try {
+            $client = $this->makeClient($router);
+            $existing = $this->findHotspotPathItem($client, $printPath, $itemId);
+            if (! $existing) {
+                return ['ok' => false, 'message' => $label.' tidak ditemukan di RouterOS.'];
+            }
+
+            $this->assertWriteOk(
+                $client->query(
+                    (new Query($removePath))->equal('.id', (string) $existing['.id'])
+                )->read()
+            );
+
+            return ['ok' => true, 'message' => $label.' dihapus.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'message' => $this->friendlyError($e)];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findHotspotPathItem(Client $client, string $printPath, string $itemId): ?array
+    {
+        $itemId = trim($itemId);
+        if ($itemId === '') {
+            return null;
+        }
+
+        $rows = $client->query(new Query($printPath))->read();
+
+        $match = collect($rows)->first(
+            fn ($row) => is_array($row) && (string) ($row['.id'] ?? '') === $itemId
+        );
+
+        return is_array($match) ? $match : null;
+    }
+
+    private function removeFirstHotspotMatch(
+        Client $client,
+        string $printPath,
+        string $removePath,
+        string $field,
+        string $value,
+    ): void {
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
+
+        try {
+            $rows = $client->query((new Query($printPath))->where($field, $value))->read();
+            $id = null;
+            foreach ($rows as $row) {
+                if (is_array($row) && isset($row['.id']) && (string) $row['.id'] !== '') {
+                    $id = (string) $row['.id'];
+                    break;
+                }
+            }
+
+            if ($id === null) {
+                return;
+            }
+
+            $client->query((new Query($removePath))->equal('.id', $id))->read();
+        } catch (Throwable) {
         }
     }
 

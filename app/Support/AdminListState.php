@@ -23,6 +23,8 @@ class AdminListState
 
     public const HOTSPOT_PROFILES = 'hotspot-profiles';
 
+    public const HOTSPOT_TOOLS = 'hotspot-tools';
+
     public const MIKROTIK_PROFILES = 'mikrotik-profiles';
 
     public const SERVICE_PROFILES = 'service-profiles';

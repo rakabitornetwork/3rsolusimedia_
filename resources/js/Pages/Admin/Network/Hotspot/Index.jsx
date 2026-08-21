@@ -7,8 +7,10 @@ import {
     Plus,
     Power,
     Printer,
+    RotateCcw,
     Ticket,
     Trash2,
+    UserPlus,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import LocalPagination from '../../../../Components/Admin/LocalPagination';
@@ -142,6 +144,22 @@ export default function Index({
         router.post(
             `/admin/network/hotspot/${selected_router_id}/${encodeURIComponent(user.id)}/toggle`,
             { disabled: !user.disabled },
+            keepPage,
+        );
+    };
+
+    const resetExpired = (user) => {
+        if (!selected_router_id) return;
+        if (
+            !window.confirm(
+                `Reset user expired "${user.name}"? Comment dan limit-uptime akan dikosongkan.`,
+            )
+        ) {
+            return;
+        }
+        router.post(
+            `/admin/network/hotspot/${selected_router_id}/${encodeURIComponent(user.id)}/reset`,
+            {},
             keepPage,
         );
     };
@@ -455,6 +473,15 @@ export default function Index({
                         Laporan
                     </Link>
                     <Link
+                        href={`/admin/network/hotspot/users/create${
+                            selected_router_id ? `?router_id=${selected_router_id}` : ''
+                        }`}
+                        className="btn-action btn-action-sm btn-secondary"
+                    >
+                        <UserPlus className="mr-1.5 h-4 w-4" />
+                        Tambah User
+                    </Link>
+                    <Link
                         href={`/admin/network/hotspot/generate${
                             selected_router_id ? `?router_id=${selected_router_id}` : ''
                         }`}
@@ -537,6 +564,10 @@ export default function Index({
                                         <span className="bg-ink/10 px-2 py-1 text-xs font-semibold text-ink-soft">
                                             Nonaktif
                                         </span>
+                                    ) : user.is_expired ? (
+                                        <span className="bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                                            Expired
+                                        </span>
                                     ) : user.is_online ? (
                                         <span className="bg-signal/15 px-2 py-1 text-xs font-semibold text-signal-deep">
                                             Online
@@ -549,6 +580,16 @@ export default function Index({
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
+                                        {user.is_expired && (
+                                            <button
+                                                type="button"
+                                                onClick={() => resetExpired(user)}
+                                                className="btn-action btn-action-xs btn-secondary"
+                                            >
+                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                Reset
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => toggle(user)}

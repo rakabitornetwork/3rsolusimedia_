@@ -1,16 +1,17 @@
 <?php
 
-use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\AgentCommissionReportController;
-use App\Http\Controllers\Admin\FinancialReportController;
+use App\Http\Controllers\Admin\AppSettingController;
+use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FinancialReportController;
 use App\Http\Controllers\Admin\GenieAcsController;
+use App\Http\Controllers\Admin\HotspotOpsController;
 use App\Http\Controllers\Admin\HotspotProfileController;
 use App\Http\Controllers\Admin\HotspotSessionController;
 use App\Http\Controllers\Admin\HotspotVoucherController;
 use App\Http\Controllers\Admin\HotspotVoucherReportController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
-use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\NetworkMapController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\PppoeCustomerController;
@@ -18,7 +19,6 @@ use App\Http\Controllers\Admin\PppoeSessionController;
 use App\Http\Controllers\Admin\RouterOsController;
 use App\Http\Controllers\Admin\SectionController;
 use App\Http\Controllers\Admin\ServiceProfileController;
-use App\Http\Controllers\Admin\AppSettingController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\UpdateController;
 use App\Http\Controllers\Admin\UserController;
@@ -26,10 +26,10 @@ use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LegalPageController;
-use App\Http\Controllers\RobotsController;
-use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
+use App\Http\Controllers\RobotsController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -140,6 +140,8 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/network/hotspot', [HotspotVoucherController::class, 'index'])->name('network.hotspot');
     Route::get('/network/hotspot/generate', [HotspotVoucherController::class, 'create'])->name('network.hotspot.generate');
+    Route::get('/network/hotspot/users/create', [HotspotVoucherController::class, 'createUser'])->name('network.hotspot.users.create');
+    Route::post('/network/hotspot/users', [HotspotVoucherController::class, 'storeUser'])->name('network.hotspot.users.store');
     Route::get('/network/hotspot/reports', [HotspotVoucherReportController::class, 'index'])->name('network.hotspot.reports');
     Route::get('/network/hotspot/print', [HotspotVoucherController::class, 'printCards'])->name('network.hotspot.print');
     Route::post('/network/hotspot', [HotspotVoucherController::class, 'store'])->name('network.hotspot.store');
@@ -157,7 +159,27 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::put('/network/hotspot/profiles/{router}/{profile}', [HotspotProfileController::class, 'update'])->name('network.hotspot.profiles.update');
     Route::delete('/network/hotspot/profiles/{router}/{profile}', [HotspotProfileController::class, 'destroy'])->name('network.hotspot.profiles.destroy');
 
+    Route::get('/network/hotspot/tools', [HotspotOpsController::class, 'index'])->name('network.hotspot.tools');
+    Route::delete('/network/hotspot/tools/{router}/hosts/{id}', [HotspotOpsController::class, 'destroyHost'])
+        ->where('id', '.*')
+        ->name('network.hotspot.tools.hosts.destroy');
+    Route::post('/network/hotspot/tools/{router}/hosts/{id}/bind', [HotspotOpsController::class, 'bindHost'])
+        ->where('id', '.*')
+        ->name('network.hotspot.tools.hosts.bind');
+    Route::delete('/network/hotspot/tools/{router}/cookies/{id}', [HotspotOpsController::class, 'destroyCookie'])
+        ->where('id', '.*')
+        ->name('network.hotspot.tools.cookies.destroy');
+    Route::post('/network/hotspot/tools/{router}/bindings', [HotspotOpsController::class, 'storeBinding'])
+        ->name('network.hotspot.tools.bindings.store');
+    Route::post('/network/hotspot/tools/{router}/bindings/{id}/toggle', [HotspotOpsController::class, 'toggleBinding'])
+        ->where('id', '.*')
+        ->name('network.hotspot.tools.bindings.toggle');
+    Route::delete('/network/hotspot/tools/{router}/bindings/{id}', [HotspotOpsController::class, 'destroyBinding'])
+        ->where('id', '.*')
+        ->name('network.hotspot.tools.bindings.destroy');
+
     Route::post('/network/hotspot/{router}/{user}/toggle', [HotspotVoucherController::class, 'toggle'])->name('network.hotspot.toggle');
+    Route::post('/network/hotspot/{router}/{user}/reset', [HotspotVoucherController::class, 'reset'])->name('network.hotspot.reset');
     Route::delete('/network/hotspot/{router}/{user}', [HotspotVoucherController::class, 'destroy'])->name('network.hotspot.destroy');
 
     Route::get('/customers/pppoe', [PppoeCustomerController::class, 'index'])->name('customers.pppoe');

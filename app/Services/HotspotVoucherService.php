@@ -5,15 +5,14 @@ namespace App\Services;
 use App\Models\HotspotVoucher;
 use App\Models\MikrotikRouter;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Throwable;
 
 class HotspotVoucherService
 {
-    public function __construct(private readonly MikrotikApiService $api)
-    {
-    }
+    public function __construct(private readonly MikrotikApiService $api) {}
 
     /**
      * @param  array{
@@ -181,6 +180,116 @@ class HotspotVoucherService
             'batch_id' => $batchId,
             'vouchers' => $created,
         ];
+    }
+
+    /**
+     * Tambah satu user hotspot bernama (bukan generate batch).
+     *
+     * @param  array{
+     *     name: string,
+     *     password: string,
+     *     profile: string,
+     *     server?: ?string,
+     *     limit_uptime?: ?string,
+     *     limit_bytes_total?: ?int,
+     *     comment?: ?string,
+     *     created_by?: ?int
+     * }  $options
+     * @return array{ok: bool, message: string, vouchers?: array<int, array<string, mixed>>}
+     */
+    public function addUser(MikrotikRouter $router, array $options): array
+    {
+        $name = trim((string) ($options['name'] ?? ''));
+        $password = (string) ($options['password'] ?? '');
+        if ($name === '') {
+            return ['ok' => false, 'message' => 'Username hotspot wajib diisi.', 'vouchers' => []];
+        }
+        if ($password === '') {
+            $password = $name;
+        }
+
+        $comment = MikrotikApiService::prefixHotspotUserComment(
+            $name,
+            $password,
+            (string) ($options['comment'] ?? '')
+        );
+
+        $pending = [[
+            'name' => $name,
+            'password' => $password,
+            'profile' => $options['profile'] ?? null,
+            'server' => $options['server'] ?? null,
+            'limit_uptime' => $options['limit_uptime'] ?? null,
+            'limit_bytes_total' => $options['limit_bytes_total'] ?? null,
+            'comment' => $comment !== '' ? $comment : null,
+        ]];
+
+        $apiResult = $this->api->createHotspotUsers($router, $pending);
+        if (! ($apiResult['ok'] ?? false) || ($apiResult['created'] ?? []) === []) {
+            return [
+                'ok' => false,
+                'message' => $apiResult['errors'][0] ?? $apiResult['message'] ?? 'Gagal menambah user hotspot.',
+                'vouchers' => [],
+            ];
+        }
+
+        $batchId = (string) Str::uuid();
+        $now = now();
+        HotspotVoucher::query()->updateOrCreate(
+            [
+                'mikrotik_router_id' => $router->id,
+                'username' => $name,
+            ],
+            [
+                'batch_id' => $batchId,
+                'agent_id' => null,
+                'created_by' => $options['created_by'] ?? null,
+                'password' => $password,
+                'profile' => $options['profile'] ?? null,
+                'server' => $options['server'] ?? null,
+                'limit_uptime' => $options['limit_uptime'] ?? null,
+                'limit_bytes_total' => $options['limit_bytes_total'] ?? null,
+                'comment' => $comment !== '' ? $comment : null,
+                'code_format' => 'numbers',
+                'agent_name' => null,
+                'base_price' => 0,
+                'commission' => 0,
+                'sell_price' => 0,
+                'status' => HotspotVoucher::STATUS_AVAILABLE,
+                'used_at' => null,
+                'deleted_from_router_at' => null,
+                'updated_at' => $now,
+            ]
+        );
+
+        $created = HotspotVoucher::query()
+            ->where('batch_id', $batchId)
+            ->get()
+            ->map(fn (HotspotVoucher $voucher) => $voucher->toCardArray())
+            ->all();
+
+        return [
+            'ok' => true,
+            'message' => 'User hotspot "'.$name.'" ditambahkan.',
+            'batch_id' => $batchId,
+            'vouchers' => $created,
+        ];
+    }
+
+    public function markResetLocally(MikrotikRouter $router, string $username): void
+    {
+        try {
+            HotspotVoucher::query()
+                ->where('mikrotik_router_id', $router->id)
+                ->where('username', $username)
+                ->update([
+                    'status' => HotspotVoucher::STATUS_AVAILABLE,
+                    'used_at' => null,
+                    'deleted_from_router_at' => null,
+                    'comment' => null,
+                ]);
+        } catch (Throwable) {
+        }
     }
 
     /**
@@ -476,10 +585,7 @@ class HotspotVoucherService
         return true;
     }
 
-    /**
-     * @return \Carbon\Carbon|null
-     */
-    public function parseExpireComment(string $comment): ?\Carbon\Carbon
+    public function parseExpireComment(string $comment): ?Carbon
     {
         $comment = trim($comment);
         if ($comment === '') {
@@ -493,7 +599,7 @@ class HotspotVoucherService
             $m
         )) {
             try {
-                return \Carbon\Carbon::create(
+                return Carbon::create(
                     (int) $m[1],
                     (int) $m[2],
                     (int) $m[3],
@@ -526,7 +632,7 @@ class HotspotVoucherService
         }
 
         try {
-            return \Carbon\Carbon::create(
+            return Carbon::create(
                 (int) $m[3],
                 $month,
                 (int) $m[2],

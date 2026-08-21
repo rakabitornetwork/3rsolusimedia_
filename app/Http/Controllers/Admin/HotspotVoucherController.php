@@ -11,6 +11,7 @@ use App\Services\MikrotikApiService;
 use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,8 +21,7 @@ class HotspotVoucherController extends Controller
     public function __construct(
         private readonly MikrotikApiService $api,
         private readonly HotspotVoucherService $vouchers,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -182,6 +182,84 @@ class HotspotVoucherController extends Controller
             'agents' => $agents,
             'code_formats' => HotspotVoucherService::codeFormatOptions(),
         ]);
+    }
+
+    public function createUser(Request $request): Response|RedirectResponse
+    {
+        $routers = $this->activeRouters();
+
+        if ($routers->isEmpty()) {
+            return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT)
+                ->with('error', 'Tambahkan router MikroTik aktif terlebih dahulu.');
+        }
+
+        $routerId = (int) $request->query(
+            'router_id',
+            AdminListState::lastRouterId($request) ?? $routers->first()->id
+        );
+        $selected = $routers->firstWhere('id', $routerId) ?? $routers->first();
+        $router = MikrotikRouter::query()->findOrFail($selected->id);
+
+        return Inertia::render('Admin/Network/Hotspot/AddUser', [
+            'routers' => $routers->values(),
+            'selected_router_id' => $router->id,
+            'profiles' => $this->api->listHotspotUserProfiles($router)['profiles'] ?? [],
+            'servers' => $this->api->listHotspotServers($router)['servers'] ?? [],
+        ]);
+    }
+
+    public function storeUser(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'router_id' => ['required', 'exists:mikrotik_routers,id'],
+            'name' => ['required', 'string', 'max:80'],
+            'password' => ['nullable', 'string', 'max:80'],
+            'profile' => ['required', 'string', 'max:120'],
+            'server' => ['nullable', 'string', 'max:120'],
+            'limit_uptime' => ['nullable', 'string', 'max:40'],
+            'limit_bytes_mb' => ['nullable', 'integer', 'min:1', 'max:1048576'],
+            'comment' => ['nullable', 'string', 'max:240'],
+        ]);
+
+        $router = MikrotikRouter::query()->findOrFail($validated['router_id']);
+        $bytes = isset($validated['limit_bytes_mb'])
+            ? ((int) $validated['limit_bytes_mb']) * 1024 * 1024
+            : null;
+
+        $result = $this->vouchers->addUser($router, [
+            'name' => $validated['name'],
+            'password' => $validated['password'] ?? '',
+            'profile' => $validated['profile'],
+            'server' => $validated['server'] ?? null,
+            'limit_uptime' => $validated['limit_uptime'] ?? null,
+            'limit_bytes_total' => $bytes,
+            'comment' => $validated['comment'] ?? '',
+            'created_by' => $request->user()?->id,
+        ]);
+
+        if (! $result['ok']) {
+            return back()->withInput()->with('error', $result['message']);
+        }
+
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])
+            ->with('success', $result['message'])
+            ->with('generated_vouchers', $result['vouchers'] ?? [])
+            ->with('generated_batch_id', $result['batch_id'] ?? null);
+    }
+
+    public function reset(MikrotikRouter $router, string $user): RedirectResponse
+    {
+        $result = $this->api->resetHotspotUser($router, $user);
+
+        if (($result['ok'] ?? false) && ! empty($result['username'])) {
+            $this->vouchers->markResetLocally($router, (string) $result['username']);
+        }
+
+        return AdminListState::to('admin.network.hotspot', AdminListState::HOTSPOT, [
+            'router_id' => $router->id,
+        ])->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function store(Request $request): RedirectResponse
@@ -358,7 +436,7 @@ class HotspotVoucherController extends Controller
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, HotspotVoucher>  $vouchers
+     * @param  Collection<int, HotspotVoucher>  $vouchers
      * @return array<int, array<string, mixed>>
      */
     private function cardsWithHotspotDns($vouchers): array
