@@ -236,7 +236,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-D1kKwfDN.css",
+    "file": "assets/app-BVGpYxjB.css",
     "name": "app",
     "names": [
       "app.css"
@@ -570,7 +570,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx": {
-    "file": "assets/Form-dOU_1Cnx.js",
+    "file": "assets/Form-D92_e9rw.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Form.jsx",
     "isDynamicEntry": true,
@@ -581,7 +581,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx": {
-    "file": "assets/Index-BNIDHg9k2.js",
+    "file": "assets/Index-DF0bi1Pt2.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx",
     "isDynamicEntry": true,
@@ -954,7 +954,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-hUXO6G61.js",
+    "file": "assets/app-6F4YCS41.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1010,7 +1010,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-D1kKwfDN.css"
+      "assets/app-BVGpYxjB.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

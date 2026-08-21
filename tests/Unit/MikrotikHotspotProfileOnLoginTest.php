@@ -31,7 +31,8 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
         $script = $this->buildOnLogin([
             'expired_mode' => 'remove',
             'lock_user' => true,
-            'session_timeout' => '1h',
+            'validity' => '1h',
+            'session_timeout' => '0s',
         ]);
 
         $this->assertStringContainsString('$"mac-address"', $script);
@@ -45,7 +46,7 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
         $script = $this->buildOnLogin([
             'expired_mode' => 'remove',
             'lock_user' => false,
-            'session_timeout' => '1d',
+            'validity' => '1d',
         ]);
 
         $this->assertStringContainsString(
@@ -60,7 +61,7 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
         $script = $this->buildOnLogin([
             'expired_mode' => 'remove',
             'lock_user' => false,
-            'session_timeout' => '1h',
+            'validity' => '1h',
         ]);
 
         $this->assertStringContainsString(':if ([:pick $date 4 5] = "-") do={', $script);
@@ -100,6 +101,44 @@ class MikrotikHotspotProfileOnLoginTest extends TestCase
         );
 
         $this->assertSame('remove', $parsed['expired_mode']);
+        $this->assertSame('1h', $parsed['validity']);
+        $this->assertTrue($parsed['lock_user']);
+    }
+
+    #[Test]
+    public function on_login_uses_validity_not_session_timeout(): void
+    {
+        $script = $this->buildOnLogin([
+            'expired_mode' => 'remove',
+            'validity' => '30d',
+            'session_timeout' => '1h',
+        ]);
+
+        $this->assertStringContainsString('interval="30d"', $script);
+        $this->assertStringNotContainsString('interval="1h"', $script);
+        $this->assertStringContainsString(':put (",rem,0,30d,0,,Disable,Disable,");', $script);
+    }
+
+    #[Test]
+    public function empty_or_zero_session_timeout_does_not_become_one_day_validity(): void
+    {
+        $script = $this->buildOnLogin([
+            'expired_mode' => 'remove',
+            'session_timeout' => '0s',
+        ]);
+
+        $this->assertStringNotContainsString('interval="1d"', $script);
+        $this->assertStringNotContainsString('/sys sch add', $script);
+        $this->assertStringContainsString(':put (",rem,0,0,0,,Disable,Disable,");', $script);
+    }
+
+    #[Test]
+    public function parser_reads_validity_from_on_login_metadata(): void
+    {
+        $parsed = $this->parseOnLogin(':put (",ntf,5000,7d,7000,,Enable,");');
+
+        $this->assertSame('notice', $parsed['expired_mode']);
+        $this->assertSame('7d', $parsed['validity']);
         $this->assertTrue($parsed['lock_user']);
     }
 }

@@ -52,7 +52,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         </select>
                     </label>
                     <p className="max-w-md pb-2 text-sm text-ink-soft">
-                        Profile ini dipakai saat generate voucher (bandwidth, session timeout, dll).
+                        Profile ini dipakai saat generate voucher (bandwidth, validity, dll).
                     </p>
                 </div>
                 <div className="admin-toolbar-actions">
@@ -74,6 +74,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         <tr>
                             <th className="px-4 py-3 font-semibold">Nama</th>
                             <th className="px-4 py-3 font-semibold">Rate Limit</th>
+                            <th className="px-4 py-3 font-semibold">Validity</th>
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">
                                 Session / Idle
                             </th>
@@ -95,6 +96,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                                     </p>
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">{item.rate_limit || '—'}</td>
+                                <td className="px-4 py-3 text-ink-soft">{item.validity || '—'}</td>
                                 <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {(item.session_timeout || '—') + ' / ' + (item.idle_timeout || '—')}
                                 </td>
@@ -127,7 +129,7 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
                         ))}
                         {profiles.length === 0 && (
                             <tr>
-                                <td colSpan={7} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     {selected_router_id
                                         ? 'Belum ada hotspot user profile di router ini.'
                                         : 'Pilih atau tambahkan router terlebih dahulu.'}

@@ -21,7 +21,8 @@ export default function Form({
         idle_timeout: profile?.idle_timeout || '',
         shared_users: profile?.shared_users ? Number(profile.shared_users) : 1,
         address_list: profile?.address_list || '',
-        expired_mode: profile?.expired_mode || 'remove',
+        expired_mode: profile?.expired_mode ?? (editing ? '' : 'remove'),
+        validity: profile?.validity || '',
         lock_user: Boolean(profile?.lock_user),
         parent_queue: profile?.parent_queue || '',
     });
@@ -35,6 +36,7 @@ export default function Form({
             lock_user: Boolean(form.lock_user),
             parent_queue: form.parent_queue || null,
             expired_mode: form.expired_mode || null,
+            validity: form.validity || null,
             rate_limit: form.rate_limit || null,
             session_timeout: form.session_timeout || null,
             idle_timeout: form.idle_timeout || null,
@@ -133,7 +135,8 @@ export default function Form({
                             placeholder="1h / 1d / 0s"
                         />
                         <span className="mt-1 block text-xs text-ink-soft">
-                            Lama sesi maksimal. 0s = tanpa batas
+                            Lama satu sesi koneksi di RouterOS. Terpisah dari validity
+                            voucher. Kosongkan jika sesi boleh berjalan sampai voucher expired.
                         </span>
                     </label>
                     <label className="block text-sm font-medium text-ink">
@@ -191,15 +194,14 @@ export default function Form({
                                 className={fieldClass}
                             >
                                 {expired_modes.map((mode) => (
-                                    <option key={mode.value} value={mode.value}>
+                                    <option key={mode.value || 'none'} value={mode.value}>
                                         {mode.label}
                                     </option>
                                 ))}
                             </select>
                             <span className="mt-1 block text-xs text-ink-soft">
-                                {(expired_modes.find((mode) => mode.value === data.expired_mode)
-                                    ?.description || 'Perilaku saat voucher expired') +
-                                    '. Disimpan di on-login RouterOS; validity memakai Session timeout.'}
+                                {expired_modes.find((mode) => mode.value === (data.expired_mode || ''))
+                                    ?.description || 'Perilaku saat voucher expired'}
                             </span>
                             {errors.expired_mode && (
                                 <span className="mt-1 block text-xs text-red-600">
@@ -208,6 +210,29 @@ export default function Form({
                             )}
                         </label>
 
+                        <label className="block text-sm font-medium text-ink">
+                            Validity
+                            <input
+                                type="text"
+                                value={data.validity}
+                                onChange={(e) => setData('validity', e.target.value)}
+                                className={fieldClass}
+                                placeholder="1d / 7d / 12h / 5h30m"
+                                required={Boolean(data.expired_mode)}
+                            />
+                            <span className="mt-1 block text-xs text-ink-soft">
+                                Umur voucher sejak login pertama. Dipakai skrip expire
+                                Mikhmon, bukan session-timeout.
+                            </span>
+                            {errors.validity && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.validity}
+                                </span>
+                            )}
+                        </label>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
                         <label className="block text-sm font-medium text-ink">
                             Parent queue
                             <select

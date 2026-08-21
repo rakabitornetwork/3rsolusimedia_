@@ -157,6 +157,13 @@ class HotspotProfileController extends Controller
             'shared_users' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'address_list' => ['nullable', 'string', 'max:120'],
             'expired_mode' => ['nullable', 'string', Rule::in(['remove', 'notice', 'remove,notice'])],
+            'validity' => [
+                Rule::requiredIf(fn () => filled($request->input('expired_mode'))),
+                'nullable',
+                'string',
+                'max:40',
+                'regex:/^(?:[1-9]\d*[wdhms])+$/i',
+            ],
             'lock_user' => ['nullable', 'boolean'],
             'parent_queue' => ['nullable', 'string', 'max:120'],
         ];
@@ -165,10 +172,19 @@ class HotspotProfileController extends Controller
             $rules['router_id'] = ['required', 'exists:mikrotik_routers,id'];
         }
 
-        $validated = $request->validate($rules);
+        $validated = $request->validate($rules, [
+            'validity.required' => 'Validity wajib diisi jika expired mode aktif. Contoh: 1d, 7d, 12h, 5h30m.',
+            'validity.regex' => 'Gunakan format RouterOS: 30d, 12h, 5h30m, 4w3d.',
+        ]);
         $validated['lock_user'] = $request->boolean('lock_user');
         $validated['parent_queue'] = trim((string) ($validated['parent_queue'] ?? '')) ?: null;
         $validated['expired_mode'] = trim((string) ($validated['expired_mode'] ?? '')) ?: null;
+        $validated['rate_limit'] = trim((string) ($validated['rate_limit'] ?? '')) ?: null;
+        $validated['session_timeout'] = trim((string) ($validated['session_timeout'] ?? '')) ?: null;
+        $validated['idle_timeout'] = trim((string) ($validated['idle_timeout'] ?? '')) ?: null;
+        $validated['address_list'] = trim((string) ($validated['address_list'] ?? '')) ?: null;
+        $validity = strtolower(trim((string) ($validated['validity'] ?? '')));
+        $validated['validity'] = in_array($validity, ['', '0', '0s', 'none'], true) ? null : $validity;
 
         return $validated;
     }
@@ -179,6 +195,11 @@ class HotspotProfileController extends Controller
     private function expiredModes(): array
     {
         return [
+            [
+                'value' => '',
+                'label' => 'Tidak ada',
+                'description' => 'Tidak memasang skrip expire. Session timeout RouterOS tetap berlaku terpisah',
+            ],
             [
                 'value' => 'remove',
                 'label' => 'Remove',
