@@ -12,7 +12,31 @@ use Throwable;
 
 class HotspotVoucherService
 {
+    public const MAX_GENERATE_QUANTITY = 500;
+
     public function __construct(private readonly MikrotikApiService $api) {}
+
+    /**
+     * Login URL Mikhmon-style: http://dns/login?username=&password=
+     */
+    public static function buildHotspotLoginUrl(?string $host, string $username, string $password): ?string
+    {
+        $host = trim((string) $host);
+        if ($host === '') {
+            return null;
+        }
+
+        $base = preg_match('#^https?://#i', $host) === 1 ? $host : 'http://'.$host;
+        $base = rtrim($base, '/');
+        if (preg_match('#/login$#i', $base) !== 1) {
+            $base .= '/login';
+        }
+
+        return $base.'?'.http_build_query([
+            'username' => $username,
+            'password' => $password,
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
 
     /**
      * @param  array{
@@ -36,7 +60,7 @@ class HotspotVoucherService
      */
     public function generate(MikrotikRouter $router, array $options): array
     {
-        $quantity = max(1, min(100, (int) ($options['quantity'] ?? 1)));
+        $quantity = max(1, min(self::MAX_GENERATE_QUANTITY, (int) ($options['quantity'] ?? 1)));
         $prefix = (string) ($options['prefix'] ?? '');
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
         $format = $this->normalizeFormat((string) ($options['code_format'] ?? 'numbers'));

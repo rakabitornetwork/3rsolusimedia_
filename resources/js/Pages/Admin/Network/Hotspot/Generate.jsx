@@ -218,6 +218,9 @@ export default function Generate({
                         {errors.quantity && (
                             <span className="mt-1 block text-xs text-red-600">{errors.quantity}</span>
                         )}
+                        <span className="mt-1 block text-xs text-ink-soft">
+                            Maksimal 500 voucher per batch.
+                        </span>
                     </label>
                     <label className="block text-sm font-medium text-ink">
                         Prefix

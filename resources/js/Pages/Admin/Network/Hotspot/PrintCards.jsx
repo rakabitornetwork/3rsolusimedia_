@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
-import { useEffect, useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import QrMark from '../../../../Components/Admin/QrMark';
 
 const CARDS_PER_PAGE = 56;
 const COLS = 7;
@@ -207,11 +208,13 @@ function CardArt({ theme, uid }) {
     );
 }
 
-function Card({ item, number }) {
+function Card({ item, number, showQr }) {
     const uid = useId().replace(/:/g, '');
     const theme = themeForPrice(item.sell_price);
     const voucherCode = item.username || item.password || '';
     const seq = String(number).padStart(2, '0');
+    const sameCode = item.same_code ?? item.username === item.password;
+    const qrValue = item.login_url || '';
 
     return (
         <article
@@ -242,17 +245,27 @@ function Card({ item, number }) {
             </div>
 
             <div className="voucher-card__body">
-                <div className="voucher-card__creds">
-                    <span className="voucher-card__label">Voucher</span>
-                    <span className="voucher-card__value">{voucherCode}</span>
+                <div className={`voucher-card__creds-row${showQr && qrValue ? ' has-qr' : ''}`}>
+                    <div className="voucher-card__creds">
+                        <span className="voucher-card__label">
+                            {sameCode ? 'Voucher' : 'User / Pass'}
+                        </span>
+                        <span className="voucher-card__value">{voucherCode}</span>
+                        {!sameCode && item.password && (
+                            <span className="voucher-card__value voucher-card__value--pass">
+                                {item.password}
+                            </span>
+                        )}
+                    </div>
+                    {showQr && qrValue && <QrMark value={qrValue} className="voucher-qr voucher-qr--a4" />}
                 </div>
 
                 <div className="voucher-card__footer">
                     <div className="voucher-card__footer-main">
                         {item.login_url || item.dns_name ? (
                             <span className="voucher-card__hint">
-                                <span>Portal tidak muncul?</span>
-                                <span>Buka {item.login_url || item.dns_name}</span>
+                                <span>Scan QR atau buka</span>
+                                <span>{item.dns_name || item.login_url}</span>
                             </span>
                         ) : (
                             <span className="voucher-card__hint">
@@ -269,22 +282,107 @@ function Card({ item, number }) {
     );
 }
 
-export default function PrintCards({ vouchers = [] }) {
+function SmallCard({ item, number, showQr }) {
+    const sameCode = item.same_code ?? item.username === item.password;
+    const qrValue = item.login_url || '';
+
+    return (
+        <article className="voucher-small">
+            <header className="voucher-small__head">
+                <strong>Hotspot</strong>
+                <span>#{String(number).padStart(2, '0')}</span>
+            </header>
+            <div className={`voucher-small__body${showQr && qrValue ? ' has-qr' : ''}`}>
+                <div>
+                    <p className="voucher-small__label">{sameCode ? 'Kode voucher' : 'Username'}</p>
+                    <p className="voucher-small__code">{item.username}</p>
+                    {!sameCode && (
+                        <>
+                            <p className="voucher-small__label">Password</p>
+                            <p className="voucher-small__code">{item.password}</p>
+                        </>
+                    )}
+                    <p className="voucher-small__meta">
+                        {[item.limit_uptime, item.profile, item.sell_price_label]
+                            .filter(Boolean)
+                            .join(' · ')}
+                    </p>
+                </div>
+                {showQr && qrValue && <QrMark value={qrValue} className="voucher-qr voucher-qr--small" />}
+            </div>
+        </article>
+    );
+}
+
+function ThermalCard({ item, number, showQr }) {
+    const sameCode = item.same_code ?? item.username === item.password;
+    const qrValue = item.login_url || '';
+    const now = new Date();
+    const stamped = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    return (
+        <article className="voucher-thermal">
+            <h2>Hotspot Voucher</h2>
+            <p className="voucher-thermal__sub">
+                #{String(number).padStart(2, '0')} · {stamped}
+            </p>
+            {showQr && qrValue && <QrMark value={qrValue} className="voucher-qr voucher-qr--thermal" />}
+            <p className="voucher-thermal__label">{sameCode ? 'Kode voucher' : 'Username'}</p>
+            <p className="voucher-thermal__code">{item.username}</p>
+            {!sameCode && (
+                <>
+                    <p className="voucher-thermal__label">Password</p>
+                    <p className="voucher-thermal__code">{item.password}</p>
+                </>
+            )}
+            <p className="voucher-thermal__meta">
+                {[item.profile, item.limit_uptime, item.sell_price_label].filter(Boolean).join(' · ')}
+            </p>
+            {(item.dns_name || item.login_url) && (
+                <p className="voucher-thermal__login">
+                    Login: {item.dns_name || item.login_url}
+                </p>
+            )}
+        </article>
+    );
+}
+
+function persistPrintQuery(layout, showQr) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('layout', layout);
+    url.searchParams.set('qr', showQr ? '1' : '0');
+    window.history.replaceState({}, '', url);
+}
+
+export default function PrintCards({
+    vouchers = [],
+    layout: initialLayout = 'a4',
+    show_qr: initialShowQr = true,
+}) {
     const pages = useMemo(() => chunkCards(vouchers, CARDS_PER_PAGE), [vouchers]);
+    const smallPages = useMemo(() => chunkCards(vouchers, 36), [vouchers]);
+    const [layout, setLayout] = useState(
+        ['a4', 'small', 'thermal'].includes(initialLayout) ? initialLayout : 'a4',
+    );
+    const [showQr, setShowQr] = useState(Boolean(initialShowQr));
 
     useEffect(() => {
-        const timer = window.setTimeout(() => window.print(), 400);
+        persistPrintQuery(layout, showQr);
+    }, [layout, showQr]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => window.print(), 500);
         return () => window.clearTimeout(timer);
     }, []);
 
     return (
-        <div className="voucher-print">
+        <div className={`voucher-print voucher-print--${layout}`}>
             <Head title="Cetak Kartu Voucher" />
 
             <style>{`
                 @page {
-                    size: A4 portrait;
-                    margin: 0;
+                    size: ${layout === 'thermal' ? '80mm auto' : 'A4 portrait'};
+                    margin: ${layout === 'thermal' ? '4mm' : '0'};
                 }
 
                 .voucher-print {
@@ -329,6 +427,23 @@ export default function PrintCards({ vouchers = [] }) {
                 }
 
                 .voucher-print__legend span {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    font-size: 11px;
+                    color: #2a3540;
+                    background: #f5f8fa;
+                    border: 1px solid rgba(16, 24, 32, 0.08);
+                    padding: 2px 8px;
+                }
+
+                .voucher-print__legend button,
+                .voucher-print__qr-toggle {
+                    font: inherit;
+                    cursor: pointer;
+                }
+
+                .voucher-print__qr-toggle {
                     display: inline-flex;
                     align-items: center;
                     gap: 5px;
@@ -486,12 +601,25 @@ export default function PrintCards({ vouchers = [] }) {
                     border-top: 0.35pt solid color-mix(in srgb, var(--vc-accent) 55%, white);
                 }
 
+                .voucher-card__creds-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.8mm;
+                    min-width: 0;
+                }
+
+                .voucher-card__creds-row.has-qr .voucher-card__value {
+                    font-size: 6.4pt;
+                }
+
                 .voucher-card__creds {
                     display: flex;
                     flex-direction: column;
                     align-items: stretch;
                     gap: 0.4mm;
                     min-width: 0;
+                    flex: 1;
                     max-width: 100%;
                 }
 
@@ -580,6 +708,156 @@ export default function PrintCards({ vouchers = [] }) {
                     white-space: nowrap;
                 }
 
+                .voucher-qr {
+                    display: block;
+                    flex-shrink: 0;
+                    background: #fff;
+                    image-rendering: pixelated;
+                }
+
+                .voucher-qr--a4 {
+                    width: 8.5mm;
+                    height: 8.5mm;
+                }
+
+                .voucher-qr--small {
+                    width: 14mm;
+                    height: 14mm;
+                }
+
+                .voucher-qr--thermal {
+                    width: 32mm;
+                    height: 32mm;
+                    margin: 2mm auto;
+                }
+
+                .voucher-print--small .voucher-print__sheets {
+                    align-items: center;
+                }
+
+                .voucher-small-sheet {
+                    width: 210mm;
+                    min-height: 297mm;
+                    box-sizing: border-box;
+                    padding: 8mm 6mm;
+                    background: #fff;
+                    box-shadow: 0 8px 28px rgba(16, 24, 32, 0.12);
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-content: flex-start;
+                    gap: 2mm;
+                    page-break-after: always;
+                    break-after: page;
+                }
+
+                .voucher-small-sheet:last-child {
+                    page-break-after: auto;
+                    break-after: auto;
+                }
+
+                .voucher-small {
+                    box-sizing: border-box;
+                    width: 48mm;
+                    min-height: 28mm;
+                    padding: 1.6mm 2mm;
+                    border: 0.4pt solid #111;
+                    background: #fff;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1mm;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+
+                .voucher-small__head {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 7.5pt;
+                    font-weight: 800;
+                    border-bottom: 0.4pt solid #111;
+                    padding-bottom: 0.6mm;
+                }
+
+                .voucher-small__body {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 1.5mm;
+                }
+
+                .voucher-small__label {
+                    margin: 0;
+                    font-size: 5.5pt;
+                    text-transform: uppercase;
+                    letter-spacing: 0.04em;
+                    color: #334155;
+                }
+
+                .voucher-small__code {
+                    margin: 0.3mm 0 0.8mm;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                    font-size: 10pt;
+                    font-weight: 800;
+                    line-height: 1.1;
+                }
+
+                .voucher-small__meta {
+                    margin: 0;
+                    font-size: 6pt;
+                    color: #334155;
+                }
+
+                .voucher-print--thermal .voucher-print__sheets {
+                    gap: 8px;
+                    padding: 12px;
+                }
+
+                .voucher-thermal {
+                    width: 72mm;
+                    box-sizing: border-box;
+                    padding: 4mm 3mm 5mm;
+                    background: #fff;
+                    border: 0.4pt dashed #111;
+                    text-align: center;
+                    page-break-after: always;
+                    break-after: page;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                }
+
+                .voucher-thermal:last-child {
+                    page-break-after: auto;
+                    break-after: auto;
+                }
+
+                .voucher-thermal h2 {
+                    margin: 0;
+                    font-size: 13pt;
+                }
+
+                .voucher-thermal__sub,
+                .voucher-thermal__meta,
+                .voucher-thermal__login {
+                    margin: 1mm 0 0;
+                    font-size: 8pt;
+                    color: #334155;
+                }
+
+                .voucher-thermal__label {
+                    margin: 2.5mm 0 0;
+                    font-size: 7pt;
+                    text-transform: uppercase;
+                    letter-spacing: 0.06em;
+                }
+
+                .voucher-thermal__code {
+                    margin: 0.6mm 0 0;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                    font-size: 16pt;
+                    font-weight: 800;
+                    line-height: 1.1;
+                }
+
                 @media print {
                     .voucher-print {
                         background: #fff;
@@ -594,7 +872,9 @@ export default function PrintCards({ vouchers = [] }) {
                         padding: 0;
                     }
 
-                    .voucher-sheet {
+                    .voucher-sheet,
+                    .voucher-small-sheet,
+                    .voucher-thermal {
                         box-shadow: none;
                         margin: 0;
                     }
@@ -612,21 +892,45 @@ export default function PrintCards({ vouchers = [] }) {
                 <div>
                     <h1>Cetak Kartu Voucher</h1>
                     <p>
-                        {vouchers.length} kartu · {pages.length} lembar A4 · layout {COLS}×{ROWS}{' '}
-                        (56/lembar) · warna otomatis dari harga
+                        {vouchers.length} kartu
+                        {layout === 'a4' && ` · ${pages.length} lembar A4 · ${COLS}×${ROWS}`}
+                        {layout === 'small' && ' · kartu kecil (seperti Print Small Mikhmon)'}
+                        {layout === 'thermal' && ' · struk 80mm (thermal)'}
+                        {showQr ? ' · QR login' : ' · tanpa QR'}
                     </p>
                     <div className="voucher-print__legend">
-                        {PRICE_THEMES.map((theme) => (
-                            <span key={theme.key}>
-                                <i style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }} />
-                                {theme.label}
-                                {theme.max === Number.POSITIVE_INFINITY
-                                    ? ' ≥25rb'
-                                    : theme.max === 0
-                                      ? ' Rp0'
-                                      : ` ≤${Math.round(theme.max / 1000)}rb`}
-                            </span>
+                        {['a4', 'small', 'thermal'].map((item) => (
+                            <button
+                                key={item}
+                                type="button"
+                                onClick={() => setLayout(item)}
+                                className={`btn-action btn-action-xs ${
+                                    layout === item ? 'btn-primary' : 'btn-secondary'
+                                }`}
+                            >
+                                {item === 'a4' ? 'A4' : item === 'small' ? 'Kecil' : 'Thermal'}
+                            </button>
                         ))}
+                        <label className="voucher-print__qr-toggle">
+                            <input
+                                type="checkbox"
+                                checked={showQr}
+                                onChange={(e) => setShowQr(e.target.checked)}
+                            />
+                            QR login
+                        </label>
+                        {layout === 'a4' &&
+                            PRICE_THEMES.map((theme) => (
+                                <span key={theme.key}>
+                                    <i style={{ background: `linear-gradient(135deg, ${theme.from}, ${theme.to})` }} />
+                                    {theme.label}
+                                    {theme.max === Number.POSITIVE_INFINITY
+                                        ? ' ≥25rb'
+                                        : theme.max === 0
+                                          ? ' Rp0'
+                                          : ` ≤${Math.round(theme.max / 1000)}rb`}
+                                </span>
+                            ))}
                     </div>
                 </div>
                 <button
@@ -639,21 +943,51 @@ export default function PrintCards({ vouchers = [] }) {
             </div>
 
             <div className="voucher-print__sheets">
-                {pages.map((pageCards, pageIndex) => (
-                    <section
-                        key={`page-${pageIndex}`}
-                        className="voucher-sheet"
-                        aria-label={`Lembar ${pageIndex + 1}`}
-                    >
-                        {pageCards.map((item, cardIndex) => (
-                            <Card
-                                key={item.id || item.username}
-                                item={item}
-                                number={pageIndex * CARDS_PER_PAGE + cardIndex + 1}
-                            />
-                        ))}
-                    </section>
-                ))}
+                {layout === 'a4' &&
+                    pages.map((pageCards, pageIndex) => (
+                        <section
+                            key={`page-${pageIndex}`}
+                            className="voucher-sheet"
+                            aria-label={`Lembar ${pageIndex + 1}`}
+                        >
+                            {pageCards.map((item, cardIndex) => (
+                                <Card
+                                    key={item.id || item.username}
+                                    item={item}
+                                    number={pageIndex * CARDS_PER_PAGE + cardIndex + 1}
+                                    showQr={showQr}
+                                />
+                            ))}
+                        </section>
+                    ))}
+
+                {layout === 'small' &&
+                    smallPages.map((pageCards, pageIndex) => (
+                        <section
+                            key={`small-${pageIndex}`}
+                            className="voucher-small-sheet"
+                            aria-label={`Lembar kecil ${pageIndex + 1}`}
+                        >
+                            {pageCards.map((item, cardIndex) => (
+                                <SmallCard
+                                    key={item.id || item.username}
+                                    item={item}
+                                    number={pageIndex * 36 + cardIndex + 1}
+                                    showQr={showQr}
+                                />
+                            ))}
+                        </section>
+                    ))}
+
+                {layout === 'thermal' &&
+                    vouchers.map((item, index) => (
+                        <ThermalCard
+                            key={item.id || item.username}
+                            item={item}
+                            number={index + 1}
+                            showQr={showQr}
+                        />
+                    ))}
             </div>
         </div>
     );

@@ -268,7 +268,7 @@ class HotspotVoucherController extends Controller
             'router_id' => ['required', 'exists:mikrotik_routers,id'],
             'profile' => ['required', 'string', 'max:120'],
             'server' => ['nullable', 'string', 'max:120'],
-            'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:'.HotspotVoucherService::MAX_GENERATE_QUANTITY],
             'prefix' => ['nullable', 'string', 'max:20'],
             'code_length' => ['required', 'integer', 'min:4', 'max:12'],
             'code_format' => ['required', Rule::in([
@@ -432,7 +432,16 @@ class HotspotVoucherController extends Controller
 
         return Inertia::render('Admin/Network/Hotspot/PrintCards', [
             'vouchers' => $this->cardsWithHotspotDns($vouchers),
+            'layout' => $this->printLayout($request),
+            'show_qr' => $request->query('qr', '1') !== '0',
         ]);
+    }
+
+    private function printLayout(Request $request): string
+    {
+        $layout = (string) $request->query('layout', 'a4');
+
+        return in_array($layout, ['a4', 'small', 'thermal'], true) ? $layout : 'a4';
     }
 
     /**
@@ -469,18 +478,16 @@ class HotspotVoucherController extends Controller
                     : ($map['default'] ?? null);
 
                 $loginHost = is_string($dns) && $dns !== '' ? $dns : null;
-                $loginUrl = null;
-
-                if ($loginHost !== null) {
-                    $loginUrl = preg_match('#^https?://#i', $loginHost)
-                        ? $loginHost
-                        : 'http://'.$loginHost;
-                }
 
                 return [
                     ...$voucher->toCardArray(),
                     'dns_name' => $loginHost,
-                    'login_url' => $loginUrl,
+                    'login_url' => HotspotVoucherService::buildHotspotLoginUrl(
+                        $loginHost,
+                        (string) $voucher->username,
+                        (string) $voucher->password,
+                    ),
+                    'same_code' => (string) $voucher->username === (string) $voucher->password,
                 ];
             })
             ->values()

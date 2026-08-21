@@ -1228,7 +1228,7 @@ class MikrotikApiService
         }
 
         try {
-            $timeout = max(30, min(180, count($users) * 2));
+            $timeout = max(30, min(600, count($users) * 2));
             $client = $this->makeClient($router, timeout: $timeout);
             $created = [];
             $errors = [];
@@ -1285,7 +1285,7 @@ class MikrotikApiService
      */
     public function createHotspotVoucherBatch(MikrotikRouter $router, array $options): array
     {
-        $quantity = max(1, min(100, (int) ($options['quantity'] ?? 1)));
+        $quantity = max(1, min(500, (int) ($options['quantity'] ?? 1)));
         $prefix = (string) ($options['prefix'] ?? 'VC');
         $length = max(4, min(12, (int) ($options['code_length'] ?? 6)));
         $format = (string) ($options['code_format'] ?? 'numbers');

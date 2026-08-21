@@ -361,4 +361,18 @@ class HotspotVoucherServiceTest extends TestCase
             HotspotVoucher::query()->where('username', 'EXPUSER')->value('deleted_from_router_at')
         );
     }
+
+    #[Test]
+    public function it_builds_mikhmon_login_url_with_username_and_password(): void
+    {
+        $this->assertSame(
+            'http://hotspot.local/login?username=vc01&password=secret',
+            HotspotVoucherService::buildHotspotLoginUrl('hotspot.local', 'vc01', 'secret')
+        );
+        $this->assertSame(
+            'https://wifi.example/login?username=a%40b&password=x%20y',
+            HotspotVoucherService::buildHotspotLoginUrl('https://wifi.example', 'a@b', 'x y')
+        );
+        $this->assertNull(HotspotVoucherService::buildHotspotLoginUrl(null, 'vc01', 'vc01'));
+    }
 }

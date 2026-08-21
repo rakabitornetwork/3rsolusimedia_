@@ -105,4 +105,31 @@ class HotspotVoucherFeatureTest extends TestCase
             'role' => User::ROLE_AGEN,
         ]);
     }
+
+    #[Test]
+    public function generate_rejects_quantity_above_five_hundred(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.1.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/admin/network/hotspot/generate')
+            ->post('/admin/network/hotspot', [
+                'router_id' => $router->id,
+                'profile' => '1jam',
+                'quantity' => 501,
+                'code_length' => 6,
+                'code_format' => 'numbers',
+                'password_mode' => 'same',
+            ])
+            ->assertRedirect('/admin/network/hotspot/generate')
+            ->assertSessionHasErrors('quantity');
+    }
 }

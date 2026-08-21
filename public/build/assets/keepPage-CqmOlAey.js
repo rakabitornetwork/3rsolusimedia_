@@ -1,1 +1,0 @@
-var e={preserveState:!0,preserveScroll:!0};export{e as t};
