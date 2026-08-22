@@ -236,6 +236,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/messaging/templates', [MessagingController::class, 'updateTemplates'])->name('messaging.templates');
     Route::post('/messaging/test', [MessagingController::class, 'test'])->name('messaging.test');
     Route::post('/messaging/webhook', [MessagingController::class, 'setWebhook'])->name('messaging.webhook');
+    Route::get('/messaging/telegram/status', [MessagingController::class, 'telegramStatus'])->name('messaging.telegram.status');
     Route::get('/messaging/whatsapp/status', [MessagingController::class, 'whatsappStatus'])->name('messaging.whatsapp.status');
     Route::post('/messaging/whatsapp/connect', [MessagingController::class, 'whatsappConnect'])->name('messaging.whatsapp.connect');
     Route::delete('/messaging/identities/{identity}', [MessagingController::class, 'unbind'])->name('messaging.unbind');

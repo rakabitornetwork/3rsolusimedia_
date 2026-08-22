@@ -13,10 +13,12 @@ use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class MessagingController extends Controller
 {
@@ -30,53 +32,37 @@ class MessagingController extends Controller
         $telegram = $this->channels->driver('telegram');
         $whatsapp = $this->channels->driver('whatsapp');
 
-        $telegramWebhook = $telegram->isConfigured()
-            ? $telegram->webhookInfo()
-            : ['ok' => false, 'message' => 'Token bot belum diisi.', 'url' => null, 'pending' => 0];
-
-        $whatsappStatus = [
-            'ok' => false,
-            'reachable' => false,
-            'state' => 'unconfigured',
-            'message' => 'Isi URL, API key, dan instance Evolution, lalu simpan.',
-        ];
-        if ($whatsapp instanceof EvolutionChannel && $whatsapp->isConfigured()) {
-            $whatsappStatus = $whatsapp->connectionStatus();
-        }
-
-        $identities = MessagingIdentity::query()
-            ->with('customer')
-            ->latest('verified_at')
-            ->limit(100)
-            ->get()
-            ->map(fn (MessagingIdentity $row) => $row->toAdminArray())
-            ->values()
-            ->all();
-
-        $logs = MessageLog::query()
-            ->with('customer')
-            ->latest('id')
-            ->limit(40)
-            ->get()
-            ->map(fn (MessageLog $row) => $row->toAdminArray())
-            ->values()
-            ->all();
-
         return Inertia::render('Admin/Messaging/Index', [
             'config' => $config,
             'webhook_urls' => [
                 'telegram' => url('/webhooks/telegram'),
                 'whatsapp' => url('/webhooks/evolution'),
             ],
-            'webhook' => $telegramWebhook,
-            'whatsapp_status' => $whatsappStatus,
+            'webhook' => $telegram->isConfigured()
+                ? [
+                    'ok' => false,
+                    'message' => 'Klik Tes koneksi atau Pasang webhook untuk memeriksa status Telegram.',
+                    'url' => null,
+                    'pending' => 0,
+                ]
+                : ['ok' => false, 'message' => 'Token bot belum diisi.', 'url' => null, 'pending' => 0],
+            'whatsapp_status' => $whatsapp instanceof EvolutionChannel && $whatsapp->isConfigured()
+                ? [
+                    'ok' => false,
+                    'reachable' => false,
+                    'state' => 'unknown',
+                    'message' => 'Klik Tes koneksi atau Hubungkan untuk memeriksa status WhatsApp.',
+                ]
+                : [
+                    'ok' => false,
+                    'reachable' => false,
+                    'state' => 'unconfigured',
+                    'message' => 'Isi URL, API key, dan instance Evolution, lalu simpan.',
+                ],
             'enabled_channels' => $this->channels->enabledChannels(),
-            'identities' => $identities,
-            'logs' => $logs,
-            'stats' => [
-                'bound' => MessagingIdentity::query()->count(),
-                'logs_today' => MessageLog::query()->where('created_at', '>=', now()->startOfDay())->count(),
-            ],
+            'identities' => $this->adminIdentities(),
+            'logs' => $this->adminLogs(),
+            'stats' => $this->adminStats(),
         ]);
     }
 
@@ -235,6 +221,11 @@ class MessagingController extends Controller
         );
     }
 
+    public function telegramStatus(): JsonResponse
+    {
+        return response()->json($this->channels->driver('telegram')->webhookInfo());
+    }
+
     public function whatsappStatus(): JsonResponse
     {
         $driver = $this->channels->driver('whatsapp');
@@ -276,5 +267,78 @@ class MessagingController extends Controller
         $identity->delete();
 
         return back()->with('success', 'Ikatan '.$identity->channel.' untuk '.$label.' dilepas.');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function adminIdentities(): array
+    {
+        if (! Schema::hasTable('messaging_identities')) {
+            return [];
+        }
+
+        try {
+            return MessagingIdentity::query()
+                ->with('customer')
+                ->latest('verified_at')
+                ->limit(100)
+                ->get()
+                ->map(fn (MessagingIdentity $row) => $row->toAdminArray())
+                ->values()
+                ->all();
+        } catch (Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function adminLogs(): array
+    {
+        if (! Schema::hasTable('message_logs')) {
+            return [];
+        }
+
+        try {
+            return MessageLog::query()
+                ->with('customer')
+                ->latest('id')
+                ->limit(40)
+                ->get()
+                ->map(fn (MessageLog $row) => $row->toAdminArray())
+                ->values()
+                ->all();
+        } catch (Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * @return array{bound: int, logs_today: int}
+     */
+    private function adminStats(): array
+    {
+        $stats = ['bound' => 0, 'logs_today' => 0];
+
+        try {
+            if (Schema::hasTable('messaging_identities')) {
+                $stats['bound'] = MessagingIdentity::query()->count();
+            }
+            if (Schema::hasTable('message_logs')) {
+                $stats['logs_today'] = MessageLog::query()
+                    ->where('created_at', '>=', now()->startOfDay())
+                    ->count();
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $stats;
     }
 }

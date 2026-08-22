@@ -98,6 +98,32 @@ class MessagingTelegramTest extends TestCase
     }
 
     #[Test]
+    public function admin_can_open_messaging_page_without_calling_channel_apis(): void
+    {
+        $this->enableTelegram();
+        SiteSetting::setMany([
+            'whatsapp_enabled' => '1',
+            'whatsapp_base_url' => 'http://127.0.0.1:9',
+            'whatsapp_api_key' => 'evo-key',
+            'whatsapp_instance' => 'teslatech',
+        ]);
+
+        Http::fake(function () {
+            $this->fail('Membuka halaman Notifikasi & Bot tidak boleh memanggil API kanal.');
+        });
+
+        $this->actingAs(User::factory()->superadmin()->create())
+            ->get('/admin/messaging')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Messaging/Index')
+                ->has('config.telegram')
+                ->has('config.whatsapp')
+                ->has('identities')
+                ->has('logs'));
+    }
+
+    #[Test]
     public function admin_can_open_and_save_telegram_settings(): void
     {
         $this->fakeTelegram();
@@ -119,6 +145,18 @@ class MessagingTelegramTest extends TestCase
         $this->assertSame('1', SiteSetting::getValue('telegram_enabled'));
         $this->assertSame('123456:NEWTOKEN', SiteSetting::getValue('telegram_bot_token'));
         $this->assertSame('99', SiteSetting::getValue('telegram_admin_chat_id'));
+    }
+
+    #[Test]
+    public function telegram_status_endpoint_reads_webhook_info(): void
+    {
+        $this->enableTelegram();
+        $this->fakeTelegram();
+
+        $this->actingAs(User::factory()->superadmin()->create())
+            ->getJson('/admin/messaging/telegram/status')
+            ->assertOk()
+            ->assertJsonPath('ok', true);
     }
 
     #[Test]

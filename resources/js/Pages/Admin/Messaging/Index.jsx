@@ -10,7 +10,7 @@ import {
     Unlink,
     Wifi,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { keepPage } from '../../../lib/keepPage';
 import { matchesSearch } from '../../../lib/search';
@@ -67,6 +67,8 @@ export default function Index({
     const [query, setQuery] = useState('');
     const [waBusy, setWaBusy] = useState(false);
     const [waConnect, setWaConnect] = useState(null);
+    const [telegramLive, setTelegramLive] = useState(webhook);
+    const [waLive, setWaLive] = useState(whatsapp_status);
 
     const { data, setData, post, processing, errors, transform } = useForm({
         telegram_enabled: Boolean(telegram.enabled),
@@ -87,6 +89,38 @@ export default function Index({
         msg_tpl_isolir: config?.templates?.isolir || '',
         msg_tpl_restore: config?.templates?.restore || '',
     });
+
+    useEffect(() => {
+        let cancelled = false;
+
+        if (telegram.has_bot_token) {
+            fetch('/admin/messaging/telegram/status', {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            })
+                .then((response) => (response.ok ? response.json() : null))
+                .then((json) => {
+                    if (!cancelled && json) setTelegramLive(json);
+                })
+                .catch(() => {});
+        }
+
+        if (whatsapp.has_api_key) {
+            fetch('/admin/messaging/whatsapp/status', {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            })
+                .then((response) => (response.ok ? response.json() : null))
+                .then((json) => {
+                    if (!cancelled && json) setWaLive(json);
+                })
+                .catch(() => {});
+        }
+
+        return () => {
+            cancelled = true;
+        };
+    }, [telegram.has_bot_token, whatsapp.has_api_key]);
 
     const filteredIdentities = useMemo(
         () =>
@@ -168,8 +202,8 @@ export default function Index({
         router.delete(`/admin/messaging/identities/${row.id}`, keepPage);
     };
 
-    const waState = waConnect?.state || whatsapp_status?.state;
-    const waMessage = waConnect?.message || whatsapp_status?.message;
+    const waState = waConnect?.state || waLive?.state;
+    const waMessage = waConnect?.message || waLive?.message;
     const waQr = waConnect?.qr_base64 || null;
 
     return (
@@ -300,7 +334,7 @@ export default function Index({
                                     {webhook_urls.telegram}
                                 </p>
                                 <p className="mt-1 text-xs text-ink-soft">
-                                    {webhook?.message || 'Belum diperiksa.'}
+                                    {telegramLive?.message || webhook?.message || 'Belum diperiksa.'}
                                 </p>
                             </div>
                             <button
