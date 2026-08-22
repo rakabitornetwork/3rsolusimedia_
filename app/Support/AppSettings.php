@@ -57,10 +57,12 @@ class AppSettings
         'whatsapp_webhook_secret' => '',
         'whatsapp_test_number' => '',
         'messaging_notify_isolir' => '0',
+        'messaging_notify_welcome' => '1',
         'msg_tpl_invoice' => '',
         'msg_tpl_reminder' => '',
         'msg_tpl_isolir' => '',
         'msg_tpl_restore' => '',
+        'msg_tpl_welcome' => '',
     ];
 
     /**
@@ -220,6 +222,7 @@ class AppSettings
             ],
             'notify_invoice' => self::bool('app_notif_whatsapp', false),
             'notify_isolir' => self::bool('messaging_notify_isolir', false),
+            'notify_welcome' => self::bool('messaging_notify_welcome', true),
             'templates' => \App\Services\Messaging\MessageTemplate::all(),
         ];
     }

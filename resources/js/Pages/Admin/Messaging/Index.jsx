@@ -84,10 +84,12 @@ export default function Index({
     const templates = useForm({
         app_notif_whatsapp: Boolean(config?.notify_invoice),
         messaging_notify_isolir: Boolean(config?.notify_isolir),
+        messaging_notify_welcome: config?.notify_welcome !== false,
         msg_tpl_invoice: config?.templates?.invoice || '',
         msg_tpl_reminder: config?.templates?.reminder || '',
         msg_tpl_isolir: config?.templates?.isolir || '',
         msg_tpl_restore: config?.templates?.restore || '',
+        msg_tpl_welcome: config?.templates?.welcome || '',
     });
 
     useEffect(() => {
@@ -566,7 +568,7 @@ export default function Index({
                     <div className="border border-ink/10 bg-white p-6">
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
-                            Variabel: {'{{nama}} {{username}} {{nomor}} {{total}} {{jatuh_tempo}} {{paket}} {{perusahaan}}'}.
+                            Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{portal}} {{telepon_kantor}} {{perusahaan}}'}.
                             Dikirim ke chat terikat; WhatsApp juga ke nomor HP di data pelanggan.
                         </p>
                         <div className="mt-4 space-y-2">
@@ -608,10 +610,31 @@ export default function Index({
                                     className="mt-1 h-4 w-4 accent-signal-deep"
                                 />
                             </label>
+                            <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
+                                <span>
+                                    <span className="block text-sm font-medium text-ink">
+                                        Selamat datang pelanggan baru
+                                    </span>
+                                    <span className="mt-0.5 block text-xs text-ink-soft">
+                                        Dikirim ke WhatsApp saat pelanggan PPPoE baru disimpan, termasuk akun,
+                                        paket, tagihan pertama, dan portal.
+                                    </span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(templates.data.messaging_notify_welcome)}
+                                    disabled={!canWrite}
+                                    onChange={(e) =>
+                                        templates.setData('messaging_notify_welcome', e.target.checked)
+                                    }
+                                    className="mt-1 h-4 w-4 accent-signal-deep"
+                                />
+                            </label>
                         </div>
                     </div>
 
                     {[
+                        ['msg_tpl_welcome', 'Selamat datang pelanggan baru'],
                         ['msg_tpl_invoice', 'Tagihan baru'],
                         ['msg_tpl_reminder', 'Pengingat jatuh tempo'],
                         ['msg_tpl_isolir', 'Isolir'],
@@ -620,7 +643,7 @@ export default function Index({
                         <label key={name} className="block border border-ink/10 bg-white p-6 text-sm font-medium text-ink">
                             {label}
                             <textarea
-                                rows={7}
+                                rows={name === 'msg_tpl_welcome' ? 16 : 7}
                                 value={templates.data[name] || ''}
                                 onChange={(e) => templates.setData(name, e.target.value)}
                                 disabled={!canWrite}

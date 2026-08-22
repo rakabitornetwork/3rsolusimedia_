@@ -244,6 +244,70 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function welcome_notification_sends_complete_customer_info(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setMany([
+            'messaging_notify_welcome' => '1',
+            'company_name' => 'TeslaTech',
+            'whatsapp' => '628111000111',
+        ]);
+
+        $customer = $this->customer([
+            'address' => 'Jl. Melati 1',
+            'start_date' => '2026-08-23',
+            'billing_day' => 5,
+            'first_bill_amount' => 75000,
+        ]);
+
+        $invoice = Invoice::query()->create([
+            'number' => 'INV-WELCOME',
+            'pppoe_customer_id' => $customer->id,
+            'type' => 'monthly',
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'due_date' => now()->addDays(3)->toDateString(),
+            'amount' => 75000,
+            'discount' => 0,
+            'total' => 75000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+        ]);
+
+        app(CustomerNotifier::class)->notifyWelcome($customer, $invoice);
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && ($request['number'] ?? null) === '6281234567890'
+                && str_contains($text, 'Selamat datang')
+                && str_contains($text, 'Budi Santoso')
+                && str_contains($text, 'budi01')
+                && str_contains($text, 'secret')
+                && str_contains($text, 'Jl. Melati 1')
+                && str_contains($text, 'INV-WELCOME')
+                && str_contains($text, 'tagihan');
+        });
+
+        $log = MessageLog::query()->where('command', 'welcome')->value('body');
+        $this->assertStringNotContainsString('secret', (string) $log);
+    }
+
+    #[Test]
+    public function welcome_notification_is_skipped_when_toggle_is_off(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setValue('messaging_notify_welcome', '0');
+
+        app(CustomerNotifier::class)->notifyWelcome($this->customer());
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
+    }
+
+    #[Test]
     public function connect_reads_v2_qr_payload_without_unknown_state(): void
     {
         $this->enableWhatsapp();

@@ -110,15 +110,18 @@ class MessagingController extends Controller
         $validated = $request->validate([
             'app_notif_whatsapp' => ['sometimes', 'boolean'],
             'messaging_notify_isolir' => ['sometimes', 'boolean'],
-            'msg_tpl_invoice' => ['nullable', 'string', 'max:2000'],
-            'msg_tpl_reminder' => ['nullable', 'string', 'max:2000'],
-            'msg_tpl_isolir' => ['nullable', 'string', 'max:2000'],
-            'msg_tpl_restore' => ['nullable', 'string', 'max:2000'],
+            'messaging_notify_welcome' => ['sometimes', 'boolean'],
+            'msg_tpl_invoice' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_reminder' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_isolir' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_restore' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_welcome' => ['nullable', 'string', 'max:4000'],
         ]);
 
         $values = [
             'app_notif_whatsapp' => $request->boolean('app_notif_whatsapp') ? '1' : '0',
             'messaging_notify_isolir' => $request->boolean('messaging_notify_isolir') ? '1' : '0',
+            'messaging_notify_welcome' => $request->boolean('messaging_notify_welcome') ? '1' : '0',
         ];
 
         foreach (array_keys(MessageTemplate::defaults()) as $key) {

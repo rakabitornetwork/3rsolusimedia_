@@ -9,6 +9,7 @@ use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
+use App\Services\Messaging\CustomerNotifier;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
 use App\Support\AdminListState;
@@ -27,6 +28,7 @@ class PppoeCustomerController extends Controller
         private readonly BillingCycleService $billing,
         private readonly BillingService $billingService,
         private readonly PppoeSyncService $sync,
+        private readonly CustomerNotifier $notifier,
     ) {
     }
 
@@ -207,6 +209,7 @@ class PppoeCustomerController extends Controller
 
         $invoice = $this->billingService->createProrataInvoice($customer->fresh('package'));
         $this->sync->sync($customer->fresh(['router', 'package']), pushPassword: true);
+        $this->notifier->notifyWelcome($customer->fresh('package'), $invoice);
 
         $message = 'Pelanggan PPPoE berhasil ditambahkan. Tagihan pertama (prorata): Rp '.
             number_format((int) $customer->first_bill_amount, 0, ',', '.').'.';

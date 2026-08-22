@@ -66,6 +66,16 @@ class CustomerNotifier
         $this->send($customer, MessageTemplate::RESTORE, $this->customerVars($customer));
     }
 
+    public function notifyWelcome(PppoeCustomer $customer, ?Invoice $invoice = null): void
+    {
+        if (! AppSettings::bool('messaging_notify_welcome', true)) {
+            return;
+        }
+
+        $customer->loadMissing('package');
+        $this->send($customer, MessageTemplate::WELCOME, $this->welcomeVars($customer, $invoice));
+    }
+
     /**
      * @param  array<string, scalar|null>  $vars
      */
@@ -88,7 +98,7 @@ class CustomerNotifier
                 continue;
             }
 
-            $this->deliver($channel, $identity->external_id, $body, $identity, $template);
+            $this->deliver($channel, $identity->external_id, $body, $identity, $template, $vars);
             $sentTo[$channel.':'.$identity->external_id] = true;
         }
 
@@ -101,7 +111,7 @@ class CustomerNotifier
             return;
         }
 
-        $this->deliver('whatsapp', $phone, $body, null, $template, $customer->id);
+        $this->deliver('whatsapp', $phone, $body, null, $template, $vars, $customer->id);
     }
 
     /**
@@ -127,7 +137,37 @@ class CustomerNotifier
             'nama' => (string) $customer->name,
             'username' => (string) $customer->username,
             'perusahaan' => AppSettings::companyName(),
-            'phone' => (string) ($customer->phone ?? ''),
+            'phone' => $this->dash((string) ($customer->phone ?? '')),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function welcomeVars(PppoeCustomer $customer, ?Invoice $invoice = null): array
+    {
+        $customer->loadMissing('package');
+        $package = $customer->package;
+        $officePhone = trim((string) AppSettings::get('whatsapp', ''))
+            ?: trim((string) AppSettings::get('phone', ''));
+
+        return [
+            ...$this->customerVars($customer),
+            'password' => $this->dash((string) $customer->password),
+            'alamat' => $this->dash((string) ($customer->address ?? '')),
+            'paket' => $this->dash((string) ($package?->name ?: '')),
+            'harga_paket' => $package
+                ? $this->rupiah((int) $package->price)
+                : '—',
+            'tanggal_mulai' => $customer->start_date?->format('d/m/Y') ?? '—',
+            'hari_tagihan' => $customer->billing_day ? (string) $customer->billing_day : '—',
+            'jatuh_tempo' => ($invoice?->due_date ?? $customer->due_date)?->format('d/m/Y') ?? '—',
+            'tagihan_pertama' => $this->rupiah((int) ($invoice?->total ?? $customer->first_bill_amount ?? 0)),
+            'hari_prorata' => $customer->first_bill_days ? (string) $customer->first_bill_days : '—',
+            'nomor' => $this->dash((string) ($invoice?->number ?? '')),
+            'portal' => url('/portal'),
+            'telepon_kantor' => $this->dash($officePhone),
+            'email_kantor' => $this->dash((string) AppSettings::get('email', '')),
         ];
     }
 
@@ -140,12 +180,16 @@ class CustomerNotifier
         }
     }
 
+    /**
+     * @param  array<string, scalar|null>  $vars
+     */
     private function deliver(
         string $channel,
         string $externalId,
         string $body,
         ?MessagingIdentity $identity,
         string $template,
+        array $vars = [],
         ?int $customerId = null,
     ): void {
         try {
@@ -158,7 +202,7 @@ class CustomerNotifier
                 'external_id' => $externalId,
                 'command' => $template,
                 'status' => ($result['ok'] ?? false) ? 'sent' : 'failed',
-                'body' => Str::limit($body, 480, ''),
+                'body' => Str::limit($this->redactSecrets($body, $vars), 480, ''),
                 'error_message' => ($result['ok'] ?? false) ? null : ($result['message'] ?? 'Gagal mengirim'),
             ]);
         } catch (Throwable $e) {
@@ -168,5 +212,30 @@ class CustomerNotifier
                 'message' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * @param  array<string, scalar|null>  $vars
+     */
+    private function redactSecrets(string $body, array $vars): string
+    {
+        $password = trim((string) ($vars['password'] ?? ''));
+        if ($password !== '' && $password !== '—') {
+            $body = str_replace($password, '••••', $body);
+        }
+
+        return $body;
+    }
+
+    private function dash(string $value): string
+    {
+        $value = trim($value);
+
+        return $value !== '' ? $value : '—';
+    }
+
+    private function rupiah(int $amount): string
+    {
+        return 'Rp '.number_format($amount, 0, ',', '.');
     }
 }
