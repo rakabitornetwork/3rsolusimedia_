@@ -147,6 +147,25 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function first_prorata_invoice_does_not_send_invoice_whatsapp(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+
+        $customer = $this->customer([
+            'start_date' => now()->toDateString(),
+            'due_date' => now()->addDays(10)->toDateString(),
+            'billing_day' => 1,
+            'first_bill_amount' => 75000,
+        ]);
+
+        $invoice = app(\App\Services\BillingService::class)->createProrataInvoice($customer);
+
+        $this->assertNotNull($invoice);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
+    }
+
+    #[Test]
     public function invoice_notification_is_sent_when_toggle_is_on(): void
     {
         $this->enableWhatsapp();

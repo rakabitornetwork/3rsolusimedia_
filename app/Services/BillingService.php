@@ -52,6 +52,7 @@ class BillingService
             dueDate: $firstDue->toDateString(),
             amount: $amount,
             notes: 'Tagihan pertama (prorata)',
+            notify: false,
         );
     }
 
@@ -525,6 +526,7 @@ class BillingService
         int $amount,
         ?string $notes = null,
         int $billingMonths = 1,
+        bool $notify = true,
     ): Invoice {
         $package = $customer->relationLoaded('package')
             ? $customer->package
@@ -551,7 +553,9 @@ class BillingService
             'notes' => $notes,
         ]);
 
-        $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+        if ($notify) {
+            $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+        }
 
         return $invoice;
     }
