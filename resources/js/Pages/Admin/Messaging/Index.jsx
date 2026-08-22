@@ -634,11 +634,11 @@ export default function Index({
                     </div>
 
                     {[
-                        ['msg_tpl_welcome', 'Selamat datang pelanggan baru'],
-                        ['msg_tpl_invoice', 'Tagihan baru'],
-                        ['msg_tpl_reminder', 'Pengingat jatuh tempo'],
-                        ['msg_tpl_isolir', 'Isolir'],
-                        ['msg_tpl_restore', 'Layanan aktif kembali'],
+                        ['msg_tpl_welcome', '🎉 Selamat datang pelanggan baru'],
+                        ['msg_tpl_invoice', '🧾 Tagihan baru'],
+                        ['msg_tpl_reminder', '⏰ Pengingat jatuh tempo'],
+                        ['msg_tpl_isolir', '⛔ Isolir'],
+                        ['msg_tpl_restore', '✅ Layanan aktif kembali'],
                     ].map(([name, label]) => (
                         <label key={name} className="block border border-ink/10 bg-white p-6 text-sm font-medium text-ink">
                             {label}

@@ -207,7 +207,26 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Budi', $text);
         $this->assertStringContainsString('INV-1', $text);
         $this->assertStringContainsString('TeslaTech', $text);
+        $this->assertStringContainsString('🧾', $text);
         $this->assertStringNotContainsString('{{nama}}', $text);
+    }
+
+    #[Test]
+    public function stored_legacy_templates_are_upgraded_with_icons(): void
+    {
+        SiteSetting::setValue(
+            'msg_tpl_isolir',
+            "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
+        );
+
+        $text = MessageTemplate::render('isolir', [
+            'nama' => 'Budi',
+            'username' => 'budi01',
+            'perusahaan' => 'TeslaTech',
+        ]);
+
+        $this->assertStringContainsString('⛔', $text);
+        $this->assertStringContainsString('diisolir', $text);
     }
 
     #[Test]

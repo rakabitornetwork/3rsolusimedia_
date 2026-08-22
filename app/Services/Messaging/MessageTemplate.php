@@ -22,10 +22,54 @@ class MessageTemplate
     public static function defaults(): array
     {
         return [
-            self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
-            self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
-            self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
-            self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
+            self::INVOICE => implode("\n", [
+                '🧾 *Tagihan baru*',
+                '',
+                'Halo {{nama}}, tagihan layanan internet Anda sudah terbit.',
+                '',
+                '🧾 Invoice: {{nomor}}',
+                '💰 Total: {{total}}',
+                '📅 Jatuh tempo: {{jatuh_tempo}}',
+                '📦 Paket: {{paket}}',
+                '🔐 Akun: {{username}}',
+                '',
+                '💬 Ketik *tagihan* atau *bayar* di chat ini.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::REMINDER => implode("\n", [
+                '⏰ *Pengingat tagihan*',
+                '',
+                'Halo {{nama}}, tagihan berikut belum lunas.',
+                '',
+                '🧾 Invoice: {{nomor}}',
+                '💰 Total: {{total}}',
+                '📅 Jatuh tempo: {{jatuh_tempo}}',
+                '',
+                '💬 Ketik *bayar* untuk tautan pembayaran.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::ISOLIR => implode("\n", [
+                '⛔ *Layanan diisolir*',
+                '',
+                'Halo {{nama}}, layanan *{{username}}* diisolir karena tagihan belum lunas.',
+                '',
+                'Segera lunasi agar koneksi aktif kembali.',
+                '',
+                '💬 Ketik *bayar* di chat ini.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::RESTORE => implode("\n", [
+                '✅ *Layanan aktif kembali*',
+                '',
+                'Halo {{nama}}, layanan *{{username}}* sudah aktif kembali. Terima kasih.',
+                '',
+                '💬 Ketik *tagihan* jika ingin cek tagihan.',
+                '',
+                '— {{perusahaan}}',
+            ]),
             self::WELCOME => implode("\n", [
                 '🎉 *Selamat datang di {{perusahaan}}!*',
                 '',
@@ -66,6 +110,22 @@ class MessageTemplate
         ];
     }
 
+    /**
+     * Teks default lama — dipakai agar template tersimpan yang belum diubah
+     * tetap naik ke versi berikon.
+     *
+     * @return array<string, string>
+     */
+    public static function legacyDefaults(): array
+    {
+        return [
+            self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
+            self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
+            self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
+            self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
+        ];
+    }
+
     public static function settingKey(string $template): string
     {
         return 'msg_tpl_'.$template;
@@ -79,8 +139,11 @@ class MessageTemplate
         }
 
         $stored = trim((string) AppSettings::get(self::settingKey($template), ''));
+        if ($stored === '' || $stored === (self::legacyDefaults()[$template] ?? null)) {
+            return $defaults[$template];
+        }
 
-        return $stored !== '' ? $stored : $defaults[$template];
+        return $stored;
     }
 
     /**
