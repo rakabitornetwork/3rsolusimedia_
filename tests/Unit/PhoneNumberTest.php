@@ -31,5 +31,6 @@ class PhoneNumberTest extends TestCase
         $this->assertSame('6281234567890', PhoneNumber::toInternational('081234567890'));
         $this->assertSame('6281234567890', PhoneNumber::toInternational('6281234567890@s.whatsapp.net'));
         $this->assertSame('6281234567890', PhoneNumber::toInternational('+62 812-3456-7890'));
+        $this->assertSame('', PhoneNumber::toInternational('89374763012229@lid'));
     }
 }

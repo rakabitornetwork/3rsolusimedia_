@@ -34,6 +34,10 @@ class PhoneNumber
      */
     public static function toInternational(string $phone): string
     {
+        if (str_contains($phone, '@lid') || str_contains($phone, '@g.us') || str_contains($phone, '@broadcast')) {
+            return '';
+        }
+
         $jid = strstr($phone, '@', true);
         $digits = self::normalize($jid !== false ? $jid : $phone);
 

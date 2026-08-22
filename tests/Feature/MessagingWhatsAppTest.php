@@ -147,6 +147,61 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function lid_remote_jid_uses_whatsapp_alt_number_for_tagihan(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $customer = $this->customer(['phone' => '087778888820']);
+
+        Invoice::query()->create([
+            'number' => 'INV-LID',
+            'pppoe_customer_id' => $customer->id,
+            'type' => 'monthly',
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'due_date' => now()->addDays(3)->toDateString(),
+            'amount' => 109000,
+            'discount' => 0,
+            'total' => 109000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+        ]);
+
+        $this->postJson('/webhooks/evolution?token=wa-secret-token', [
+            'event' => 'messages.upsert',
+            'instance' => 'teslatech',
+            'data' => [
+                'key' => [
+                    'remoteJid' => '89374763012229@lid',
+                    'remoteJidAlt' => '6287778888820@s.whatsapp.net',
+                    'fromMe' => false,
+                    'id' => 'LID1',
+                    'addressingMode' => 'lid',
+                ],
+                'pushName' => 'Nurohman',
+                'message' => [
+                    'conversation' => 'tagihan',
+                ],
+            ],
+            'sender' => '6285119888820@s.whatsapp.net',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('messaging_identities', [
+            'channel' => 'whatsapp',
+            'external_id' => '6287778888820',
+            'pppoe_customer_id' => $customer->id,
+        ]);
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('INV-LID', (string) $body);
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && ($request['number'] ?? null) === '6287778888820';
+        });
+    }
+
+    #[Test]
     public function first_prorata_invoice_does_not_send_invoice_whatsapp(): void
     {
         $this->enableWhatsapp();

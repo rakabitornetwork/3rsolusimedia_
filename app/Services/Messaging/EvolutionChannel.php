@@ -143,12 +143,7 @@ class EvolutionChannel implements MessagingChannelInterface
             return null;
         }
 
-        $remoteJid = (string) ($key['remoteJid'] ?? $payload['sender'] ?? '');
-        if ($remoteJid === '' || str_contains($remoteJid, '@g.us') || str_contains($remoteJid, '@broadcast')) {
-            return null;
-        }
-
-        $number = PhoneNumber::toInternational($remoteJid);
+        $number = $this->resolveChatNumber($key, $payload);
         if ($number === '') {
             return null;
         }
@@ -431,6 +426,35 @@ class EvolutionChannel implements MessagingChannelInterface
     /**
      * @param  array<string, mixed>  $data
      */
+    /**
+     * WhatsApp v2 sering mengirim remoteJid @lid. Nomor asli ada di remoteJidAlt.
+     *
+     * @param  array<string, mixed>  $key
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveChatNumber(array $key, array $payload): string
+    {
+        $candidates = [
+            $key['remoteJidAlt'] ?? null,
+            $key['participantAlt'] ?? null,
+            $key['remoteJid'] ?? null,
+            $key['participant'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            $number = PhoneNumber::toInternational($candidate);
+            if ($number !== '') {
+                return $number;
+            }
+        }
+
+        return '';
+    }
+
     private function extractText(array $data): string
     {
         $message = is_array($data['message'] ?? null) ? $data['message'] : [];
