@@ -241,7 +241,7 @@ class CustomerNotifier
         $lat = number_format((float) $customer->latitude, 6, '.', '');
         $lng = number_format((float) $customer->longitude, 6, '.', '');
 
-        return $lat.', '.$lng."\nhttps://maps.google.com/?q=".$lat.','.$lng;
+        return $lat.', '.$lng;
     }
 
     private function dash(string $value): string

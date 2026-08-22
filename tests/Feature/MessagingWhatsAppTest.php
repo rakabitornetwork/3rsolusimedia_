@@ -353,7 +353,8 @@ class MessagingWhatsAppTest extends TestCase
 
             return str_contains($request->url(), '/message/sendText/teslatech')
                 && str_contains($text, '-6.175392, 106.827153')
-                && str_contains($text, 'https://maps.google.com/?q=-6.175392,106.827153');
+                && ! str_contains($text, 'maps.google.com')
+                && str_contains($text, '/portal');
         });
     }
 

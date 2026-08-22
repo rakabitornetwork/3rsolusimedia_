@@ -75,6 +75,59 @@ class MessageTemplate
                 '',
                 'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
                 '',
+                '🌐 *Portal pelanggan*',
+                '{{portal}}',
+                'Masuk pakai username PPPoE atau nomor HP.',
+                '',
+                '👤 *Data pelanggan*',
+                'Nama: {{nama}}',
+                'HP: {{phone}}',
+                'Alamat: {{alamat}}',
+                '',
+                '📦 *Layanan*',
+                'Paket: {{paket}}',
+                'Harga/bulan: {{harga_paket}}',
+                'Mulai aktif: {{tanggal_mulai}}',
+                '',
+                '🔐 *Akun PPPoE* (isi di modem/router)',
+                'Username: {{username}}',
+                'Password: {{password}}',
+                '',
+                '🧾 *Tagihan*',
+                'Tagihan pertama: {{tagihan_pertama}}',
+                'Nomor invoice: {{nomor}}',
+                'Jatuh tempo: {{jatuh_tempo}}',
+                'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+                '',
+                '💬 *Bot WhatsApp* (ketik di chat ini)',
+                '• tagihan — cek tagihan belum lunas',
+                '• bayar — tautan pembayaran',
+                '• bantuan — daftar perintah',
+                '',
+                '📞 CS: {{telepon_kantor}}',
+                '— {{perusahaan}}',
+            ]),
+        ];
+    }
+
+    /**
+     * Teks default lama — dipakai agar template tersimpan yang belum diubah
+     * tetap naik ke versi berikon.
+     *
+     * @return array<string, string>
+     */
+    public static function legacyDefaults(): array
+    {
+        return [
+            self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
+            self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
+            self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
+            self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
+            self::WELCOME => implode("\n", [
+                '🎉 *Selamat datang di {{perusahaan}}!*',
+                '',
+                'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
+                '',
                 '👤 *Data pelanggan*',
                 'Nama: {{nama}}',
                 'HP: {{phone}}',
@@ -110,22 +163,6 @@ class MessageTemplate
         ];
     }
 
-    /**
-     * Teks default lama — dipakai agar template tersimpan yang belum diubah
-     * tetap naik ke versi berikon.
-     *
-     * @return array<string, string>
-     */
-    public static function legacyDefaults(): array
-    {
-        return [
-            self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
-            self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
-            self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
-            self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
-        ];
-    }
-
     public static function settingKey(string $template): string
     {
         return 'msg_tpl_'.$template;
@@ -139,7 +176,9 @@ class MessageTemplate
         }
 
         $stored = trim((string) AppSettings::get(self::settingKey($template), ''));
-        if ($stored === '' || $stored === (self::legacyDefaults()[$template] ?? null)) {
+        $legacy = self::legacyDefaults()[$template] ?? null;
+        $legacyList = is_array($legacy) ? $legacy : ($legacy !== null ? [$legacy] : []);
+        if ($stored === '' || in_array($stored, $legacyList, true)) {
             return $defaults[$template];
         }
 
