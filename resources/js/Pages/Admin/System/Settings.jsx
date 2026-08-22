@@ -415,11 +415,18 @@ export default function Settings({ settings, branding, timezones }) {
                 <Section
                     icon={Bell}
                     title="Notifikasi"
-                    description="Preferensi pengingat (siap untuk integrasi berikutnya)"
+                    description="Pengingat tagihan. Bot Telegram dikelola di menu Notifikasi & Bot."
                 >
+                    <p className="text-sm text-ink-soft">
+                        Hubungkan bot Telegram/WhatsApp, template, dan pengingat di{' '}
+                        <Link href="/admin/messaging" className="font-semibold text-signal-deep hover:underline">
+                            Notifikasi & Bot
+                        </Link>
+                        . Toggle di bawah mengirim tagihan baru dan pengingat jatuh tempo.
+                    </p>
                     <Toggle
-                        label="Notifikasi WhatsApp"
-                        description="Siapkan pengingat tagihan/jatuh tempo via WhatsApp."
+                        label="Notifikasi tagihan (WA / Telegram)"
+                        description="Kirim tagihan baru dan pengingat jatuh tempo ke kanal yang aktif."
                         checked={data.app_notif_whatsapp}
                         disabled={!canWrite}
                         onChange={(value) => setData('app_notif_whatsapp', value)}

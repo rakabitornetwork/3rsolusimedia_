@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\HotspotSessionController;
 use App\Http\Controllers\Admin\HotspotVoucherController;
 use App\Http\Controllers\Admin\HotspotVoucherReportController;
 use App\Http\Controllers\Admin\MikrotikPppProfileController;
+use App\Http\Controllers\Admin\MessagingController;
 use App\Http\Controllers\Admin\NetworkMapController;
 use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\Admin\PppoeCustomerController;
@@ -30,7 +31,9 @@ use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\Webhook\EvolutionWebhookController;
 use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
+use App\Http\Controllers\Webhook\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
@@ -90,6 +93,12 @@ Route::middleware('throttle:60,1')->group(function () {
 Route::post('/webhooks/xendit', [PaymentGatewayWebhookController::class, 'xendit'])->name('webhooks.xendit');
 Route::post('/webhooks/midtrans', [PaymentGatewayWebhookController::class, 'midtrans'])->name('webhooks.midtrans');
 Route::post('/webhooks/duitku', [PaymentGatewayWebhookController::class, 'duitku'])->name('webhooks.duitku');
+Route::post('/webhooks/telegram', TelegramWebhookController::class)
+    ->middleware('throttle:60,1')
+    ->name('webhooks.telegram');
+Route::post('/webhooks/evolution', EvolutionWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('webhooks.evolution');
 
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [LoginController::class, 'create'])->name('login');
@@ -221,6 +230,15 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/billing/payment-gateway', [PaymentGatewayController::class, 'index'])->name('billing.payment-gateway');
     Route::post('/billing/payment-gateway', [PaymentGatewayController::class, 'update'])->name('billing.payment-gateway.update');
     Route::post('/billing/payment-gateway/test', [PaymentGatewayController::class, 'test'])->name('billing.payment-gateway.test');
+
+    Route::get('/messaging', [MessagingController::class, 'index'])->name('messaging.index');
+    Route::post('/messaging', [MessagingController::class, 'update'])->name('messaging.update');
+    Route::post('/messaging/templates', [MessagingController::class, 'updateTemplates'])->name('messaging.templates');
+    Route::post('/messaging/test', [MessagingController::class, 'test'])->name('messaging.test');
+    Route::post('/messaging/webhook', [MessagingController::class, 'setWebhook'])->name('messaging.webhook');
+    Route::get('/messaging/whatsapp/status', [MessagingController::class, 'whatsappStatus'])->name('messaging.whatsapp.status');
+    Route::post('/messaging/whatsapp/connect', [MessagingController::class, 'whatsappConnect'])->name('messaging.whatsapp.connect');
+    Route::delete('/messaging/identities/{identity}', [MessagingController::class, 'unbind'])->name('messaging.unbind');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
     Route::post('/billing/bulk-pay', [BillingController::class, 'bulkPay'])->name('billing.bulk-pay');
     Route::post('/billing/customers/{pppoe}/grace', [BillingController::class, 'grantGrace'])->name('billing.grace');

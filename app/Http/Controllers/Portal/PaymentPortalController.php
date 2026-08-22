@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -52,12 +53,8 @@ class PaymentPortalController extends Controller
         $customer = PppoeCustomer::query()
             ->where('username', $username)
             ->get()
-            ->first(function (PppoeCustomer $row) use ($phoneDigits) {
-                $stored = $this->normalizePortalPhone((string) $row->phone);
-
-                return $stored === $phoneDigits
-                    || ($stored !== '' && str_ends_with($stored, $phoneDigits))
-                    || ($stored !== '' && str_ends_with($phoneDigits, $stored));
+            ->first(function (PppoeCustomer $row) use ($validated) {
+                return PhoneNumber::matches((string) $row->phone, $validated['phone']);
             });
 
         if (! $customer) {

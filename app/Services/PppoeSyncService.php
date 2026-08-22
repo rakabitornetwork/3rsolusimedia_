@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\PppoeCustomer;
+use App\Services\Messaging\CustomerNotifier;
 
 class PppoeSyncService
 {
-    public function __construct(private readonly MikrotikApiService $api)
-    {
+    public function __construct(
+        private readonly MikrotikApiService $api,
+        private readonly CustomerNotifier $notifier,
+    ) {
     }
 
     /**
@@ -79,5 +82,11 @@ class PppoeSyncService
             'sync_message' => $result['message'],
             'last_synced_at' => now(),
         ]);
+
+        if ($result['ok'] && $status === 'isolated' && ! $wasIsolated) {
+            $this->notifier->notifyIsolir($customer->fresh() ?? $customer);
+        } elseif ($result['ok'] && $wasIsolated && $status === 'active') {
+            $this->notifier->notifyRestore($customer->fresh() ?? $customer);
+        }
     }
 }

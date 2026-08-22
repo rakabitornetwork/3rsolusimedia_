@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
+use App\Services\Messaging\CustomerNotifier;
 use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ class BillingService
     public function __construct(
         private readonly BillingCycleService $cycle,
         private readonly PppoeSyncService $sync,
+        private readonly CustomerNotifier $notifier,
     ) {
     }
 
@@ -269,14 +271,11 @@ class BillingService
 
             if ($customer) {
                 $months = max(1, (int) ($invoice->billing_months ?: 1));
-                $cursor = $invoice->due_date->copy()->startOfDay();
-                $billingDay = (int) $customer->billing_day;
-
-                for ($i = 0; $i < $months; $i++) {
-                    $cursor = $this->cycle->advanceDueDate($cursor, $billingDay);
-                }
-
-                $nextDueDate = $cursor->toDateString();
+                $nextDueDate = $this->cycle->dueDateAfterPayment(
+                    $invoice->due_date,
+                    (int) $customer->billing_day,
+                    $months,
+                )->toDateString();
 
                 $customer->update([
                     'due_date' => $nextDueDate,
@@ -522,7 +521,7 @@ class BillingService
         $discount = 0;
         $total = max(0, $amount - $discount);
 
-        return Invoice::query()->create([
+        $invoice = Invoice::query()->create([
             'number' => $this->nextNumber(),
             'pppoe_customer_id' => $customer->id,
             'subscription_package_id' => $customer->subscription_package_id,
@@ -539,6 +538,10 @@ class BillingService
             'package_price' => $package?->price,
             'notes' => $notes,
         ]);
+
+        $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+
+        return $invoice;
     }
 
     private function periodStartBeforeDue(PppoeCustomer $customer): string

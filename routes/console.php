@@ -14,3 +14,6 @@ Schedule::command('pppoe:sync-overdue')->everyThirtyMinutes();
 // Bersihkan voucher hotspot terpakai dari RouterOS & aplikasi
 Schedule::command('hotspot:purge-used')->everyFiveMinutes();
 
+// Pengingat tagihan belum lunas (WhatsApp / Telegram terikat)
+Schedule::command('messaging:remind-invoices')->dailyAt('08:00');
+

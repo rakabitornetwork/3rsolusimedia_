@@ -45,6 +45,22 @@ class AppSettings
         'duitku_merchant_code' => '',
         'duitku_api_key' => '',
         'duitku_mode' => 'sandbox',
+        'telegram_enabled' => '0',
+        'telegram_bot_token' => '',
+        'telegram_bot_username' => '',
+        'telegram_webhook_secret' => '',
+        'telegram_admin_chat_id' => '',
+        'whatsapp_enabled' => '0',
+        'whatsapp_base_url' => 'http://127.0.0.1:8080',
+        'whatsapp_api_key' => '',
+        'whatsapp_instance' => 'teslatech',
+        'whatsapp_webhook_secret' => '',
+        'whatsapp_test_number' => '',
+        'messaging_notify_isolir' => '0',
+        'msg_tpl_invoice' => '',
+        'msg_tpl_reminder' => '',
+        'msg_tpl_isolir' => '',
+        'msg_tpl_restore' => '',
     ];
 
     /**
@@ -121,6 +137,68 @@ class AppSettings
     public static function duitkuMerchantCode(): string
     {
         return trim((string) self::get('duitku_merchant_code', ''));
+    }
+
+    public static function telegramBotToken(): string
+    {
+        return trim((string) self::get('telegram_bot_token', ''));
+    }
+
+    public static function telegramWebhookSecret(): string
+    {
+        return trim((string) self::get('telegram_webhook_secret', ''));
+    }
+
+    public static function whatsappBaseUrl(): string
+    {
+        return rtrim(trim((string) self::get('whatsapp_base_url', self::DEFAULTS['whatsapp_base_url'])), '/');
+    }
+
+    public static function whatsappApiKey(): string
+    {
+        return trim((string) self::get('whatsapp_api_key', ''));
+    }
+
+    public static function whatsappInstance(): string
+    {
+        $name = trim((string) self::get('whatsapp_instance', 'teslatech'));
+
+        return $name !== '' ? $name : 'teslatech';
+    }
+
+    public static function whatsappWebhookSecret(): string
+    {
+        return trim((string) self::get('whatsapp_webhook_secret', ''));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function messagingConfig(): array
+    {
+        $username = ltrim((string) self::get('telegram_bot_username', ''), '@');
+
+        return [
+            'telegram' => [
+                'enabled' => self::bool('telegram_enabled', false),
+                'username' => $username,
+                'bot_link' => $username !== '' ? 'https://t.me/'.$username : null,
+                'admin_chat_id' => (string) self::get('telegram_admin_chat_id', ''),
+                'has_bot_token' => self::telegramBotToken() !== '',
+                'has_webhook_secret' => self::telegramWebhookSecret() !== '',
+            ],
+            'whatsapp' => [
+                'enabled' => self::bool('whatsapp_enabled', false),
+                'base_url' => self::whatsappBaseUrl(),
+                'instance' => self::whatsappInstance(),
+                'test_number' => (string) self::get('whatsapp_test_number', ''),
+                'has_api_key' => self::whatsappApiKey() !== '',
+                'has_webhook_secret' => self::whatsappWebhookSecret() !== '',
+            ],
+            'notify_invoice' => self::bool('app_notif_whatsapp', false),
+            'notify_isolir' => self::bool('messaging_notify_isolir', false),
+            'templates' => \App\Services\Messaging\MessageTemplate::all(),
+        ];
     }
 
     public static function get(string $key, mixed $default = null): mixed

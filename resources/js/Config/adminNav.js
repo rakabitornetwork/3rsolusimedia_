@@ -1,6 +1,7 @@
 import {
     Activity,
     BarChart3,
+    Bell,
     Cable,
     Coins,
     CreditCard,
@@ -143,6 +144,17 @@ export const adminNav = [
                 href: '/admin/billing/payment-gateway',
                 icon: Wallet,
                 match: ['/admin/billing/payment-gateway'],
+            },
+        ],
+    },
+    {
+        title: 'Komunikasi',
+        items: [
+            {
+                label: 'Notifikasi & Bot',
+                href: '/admin/messaging',
+                icon: Bell,
+                match: ['/admin/messaging'],
             },
         ],
     },

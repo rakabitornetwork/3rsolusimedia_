@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal\Concerns;
 
 use App\Models\PppoeCustomer;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -39,13 +40,7 @@ trait ResolvesPortalCustomer
 
     protected function normalizePortalPhone(string $phone): string
     {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-
-        if (str_starts_with($digits, '62') && strlen($digits) > 10) {
-            $digits = '0'.substr($digits, 2);
-        }
-
-        return $digits;
+        return PhoneNumber::normalize($phone);
     }
 
     /**
