@@ -78,13 +78,13 @@ class AdminCustomerLookup
 
         return [
             'text' => implode("\n", [
-                'Pelanggan ditemukan',
+                '✅ Pelanggan ditemukan',
                 '',
-                'Nama: '.$customer->name,
-                'Username: '.$customer->username,
+                '👤 Nama: '.$customer->name,
+                '🔑 Username: '.$customer->username,
                 'Status: '.$this->statusLabel($customer),
-                'Paket: '.$this->packageLabel($customer),
-                'Profil: '.$this->profileLabel($customer),
+                '📦 Paket: '.$this->packageLabel($customer),
+                '📡 Profil: '.$this->profileLabel($customer),
                 '',
                 'Pilih informasi yang ingin dilihat:',
             ]),
@@ -100,8 +100,8 @@ class AdminCustomerLookup
     {
         $lines = [
             $total > $customers->count()
-                ? 'Ditemukan '.$total.' pelanggan. Menampilkan '.$customers->count().' teratas — perjelas nama jika belum tepat:'
-                : 'Ditemukan '.$customers->count().' pelanggan. Pilih salah satu:',
+                ? '🔎 Ditemukan '.$total.' pelanggan. Menampilkan '.$customers->count().' teratas — perjelas nama jika belum tepat:'
+                : '🔎 Ditemukan '.$customers->count().' pelanggan. Pilih salah satu:',
             '',
         ];
         $keyboard = [];
@@ -207,7 +207,7 @@ class AdminCustomerLookup
         );
 
         $lines = [
-            ($result['ok'] ?? false) ? 'WiFi berhasil diubah.' : 'Gagal mengubah WiFi.',
+            ($result['ok'] ?? false) ? '✅ WiFi berhasil diubah.' : '⚠️ Gagal mengubah WiFi.',
             $result['message'] ?? '',
             '',
             'Pelanggan: '.$customer->name.' ('.$customer->username.')',
@@ -260,16 +260,16 @@ class AdminCustomerLookup
 
         return [
             'text' => implode("\n", [
-                'Profil layanan — '.$customer->name,
+                '📡 Profil layanan — '.$customer->name,
                 '',
-                'Paket: '.($package?->name ?: '—').' ('.$price.')',
-                'Profil MikroTik: '.$this->profileLabel($customer),
-                'Profil isolir: '.($customer->isolir_profile ?: '—'),
-                'Router: '.($customer->router?->name ?: '—'),
+                '📦 Paket: '.($package?->name ?: '—').' ('.$price.')',
+                '🛠 Profil MikroTik: '.$this->profileLabel($customer),
+                '🚫 Profil isolir: '.($customer->isolir_profile ?: '—'),
+                '🖥 Router: '.($customer->router?->name ?: '—'),
                 'Status: '.$this->statusLabel($customer),
-                'Mulai: '.$this->dateLabel($customer->start_date),
-                'Hari tagihan: '.($customer->billing_day ?: '—'),
-                'Jatuh tempo: '.$this->dateLabel($customer->due_date),
+                '📅 Mulai: '.$this->dateLabel($customer->start_date),
+                '🗓 Hari tagihan: '.($customer->billing_day ?: '—'),
+                '⏰ Jatuh tempo: '.$this->dateLabel($customer->due_date),
             ]),
             'keyboard' => $this->actionKeyboard($customer),
         ];
@@ -292,15 +292,15 @@ class AdminCustomerLookup
 
         return [
             'text' => implode("\n", [
-                'RX Power — '.$customer->name.' ('.$customer->username.')',
+                '📶 RX Power — '.$customer->name.' ('.$customer->username.')',
                 '',
-                'ONU: '.$this->onuName($device),
-                'Serial: '.($device['serial'] ?? '—'),
-                'Status ONU: '.(($device['online'] ?? false) ? 'Online' : 'Offline'),
-                'RX Power: '.($device['rx_power_label'] ?? '—'),
-                'TX Power: '.($device['tx_power_label'] ?? '—'),
-                'Redaman: '.($device['redaman_label'] ?? '—'),
-                'Inform terakhir: '.($device['last_inform_label'] ?? '—'),
+                '📟 ONU: '.$this->onuName($device),
+                '🔢 Serial: '.($device['serial'] ?? '—'),
+                $this->onuStatusLine($device),
+                '📥 RX Power: '.($device['rx_power_label'] ?? '—'),
+                '📤 TX Power: '.($device['tx_power_label'] ?? '—'),
+                '📉 Redaman: '.($device['redaman_label'] ?? '—'),
+                '🕒 Inform terakhir: '.($device['last_inform_label'] ?? '—'),
             ]),
             'keyboard' => $this->actionKeyboard($customer),
         ];
@@ -323,11 +323,11 @@ class AdminCustomerLookup
 
         return [
             'text' => implode("\n", [
-                'Suhu ONU — '.$customer->name.' ('.$customer->username.')',
+                '🌡 Suhu ONU — '.$customer->name.' ('.$customer->username.')',
                 '',
-                'Suhu: '.($device['temperature_label'] ?? '—'),
-                'Status ONU: '.(($device['online'] ?? false) ? 'Online' : 'Offline'),
-                'Inform terakhir: '.($device['last_inform_label'] ?? '—'),
+                '🌡 Suhu: '.($device['temperature_label'] ?? '—'),
+                $this->onuStatusLine($device),
+                '🕒 Inform terakhir: '.($device['last_inform_label'] ?? '—'),
             ]),
             'keyboard' => $this->actionKeyboard($customer),
         ];
@@ -350,10 +350,10 @@ class AdminCustomerLookup
         $ssid = (string) ($device['ssid'] ?? '');
         $password = (string) ($device['ssid_password'] ?? '');
         $text = implode("\n", [
-            'WiFi — '.$customer->name.' ('.$customer->username.')',
+            '🔐 WiFi — '.$customer->name.' ('.$customer->username.')',
             '',
-            'SSID: '.($ssid !== '' ? $ssid : '—'),
-            'Password: '.($password !== '' ? $password : '—'),
+            '📡 SSID: '.($ssid !== '' ? $ssid : '—'),
+            '🔑 Password: '.($password !== '' ? $password : '—'),
         ]);
 
         return [
@@ -376,9 +376,9 @@ class AdminCustomerLookup
 
         return [
             'text' => implode("\n", [
-                'Edit WiFi — '.$customer->name,
+                '✏️ Edit WiFi — '.$customer->name,
                 '',
-                'SSID saat ini: '.$currentSsid,
+                '📡 SSID saat ini: '.$currentSsid,
                 '',
                 'Kirim SSID dan/atau password baru, contoh:',
                 'RumahBudi | passwordbaru123',
@@ -413,7 +413,7 @@ class AdminCustomerLookup
 
         $unpaid = $invoices->where('status', 'unpaid');
         $lines = [
-            'Tagihan — '.$customer->name.' ('.$customer->username.')',
+            '💳 Tagihan — '.$customer->name.' ('.$customer->username.')',
             '',
         ];
 
@@ -422,20 +422,20 @@ class AdminCustomerLookup
         } else {
             $unpaidTotal = (int) $unpaid->sum('total');
             $lines[] = $unpaid->isEmpty()
-                ? 'Tidak ada tagihan yang belum lunas.'
-                : 'Belum lunas: '.$unpaid->count().' · Total '.$this->rupiah($unpaidTotal);
+                ? '✅ Tidak ada tagihan yang belum lunas.'
+                : '🔴 Belum lunas: '.$unpaid->count().' · Total '.$this->rupiah($unpaidTotal);
             $lines[] = '';
 
             foreach ($invoices as $invoice) {
                 $due = $invoice->due_date?->format('d/m/Y') ?? '—';
                 $late = $invoice->isOverdue() ? ' · terlambat' : '';
-                $status = $invoice->status === 'unpaid' ? 'belum lunas' : ($invoice->status === 'paid' ? 'lunas' : $invoice->status);
-                $lines[] = $invoice->number.' · '.$this->rupiah((int) $invoice->total).' · '.$status.' · '.$due.$late;
+                $status = $invoice->status === 'unpaid' ? '🔴 belum lunas' : ($invoice->status === 'paid' ? '🟢 lunas' : $invoice->status);
+                $lines[] = '📄 '.$invoice->number.' · '.$this->rupiah((int) $invoice->total).' · '.$status.' · '.$due.$late;
             }
         }
 
         $lines[] = '';
-        $lines[] = 'Jatuh tempo langganan: '.$this->dateLabel($customer->due_date);
+        $lines[] = '⏰ Jatuh tempo langganan: '.$this->dateLabel($customer->due_date);
 
         return [
             'text' => implode("\n", $lines),
@@ -449,26 +449,26 @@ class AdminCustomerLookup
     private function info(PppoeCustomer $customer): array
     {
         $lines = [
-            'Info — '.$customer->name,
+            'ℹ️ Info — '.$customer->name,
             '',
-            'Username: '.$customer->username,
-            'HP: '.($customer->phone ?: '—'),
-            'Alamat: '.($customer->address ?: '—'),
+            '🔑 Username: '.$customer->username,
+            '📱 HP: '.($customer->phone ?: '—'),
+            '📍 Alamat: '.($customer->address ?: '—'),
             'Status: '.$this->statusLabel($customer),
-            'Paket: '.$this->packageLabel($customer),
-            'Profil: '.$this->profileLabel($customer),
-            'Router: '.($customer->router?->name ?: '—'),
-            'Agen: '.($customer->agent?->name ?: '—'),
-            'Jatuh tempo: '.$this->dateLabel($customer->due_date),
-            'Grace: '.$this->graceLabel($customer),
-            'Catatan: '.($customer->notes ?: '—'),
+            '📦 Paket: '.$this->packageLabel($customer),
+            '📡 Profil: '.$this->profileLabel($customer),
+            '🖥 Router: '.($customer->router?->name ?: '—'),
+            '🤝 Agen: '.($customer->agent?->name ?: '—'),
+            '⏰ Jatuh tempo: '.$this->dateLabel($customer->due_date),
+            '⏳ Grace: '.$this->graceLabel($customer),
+            '📝 Catatan: '.($customer->notes ?: '—'),
         ];
 
         $owned = $this->ownedDevice($customer);
         if (($owned['ok'] ?? false)) {
             $device = $owned['device'];
             $lines[] = '';
-            $lines[] = 'ONU: '.(($device['online'] ?? false) ? 'Online' : 'Offline')
+            $lines[] = '📟 ONU: '.(($device['online'] ?? false) ? '🟢 Online' : '🔴 Offline')
                 .' · SN '.($device['serial'] ?? '—')
                 .' · RX '.($device['rx_power_label'] ?? '—')
                 .' · '.$this->nullToDash($device['temperature_label'] ?? null);
@@ -489,21 +489,21 @@ class AdminCustomerLookup
 
         return [
             [
-                ['text' => 'Profil layanan', 'callback_data' => $this->callback('prof', $id)],
+                ['text' => '📡 Profil layanan', 'callback_data' => $this->callback('prof', $id)],
             ],
             [
-                ['text' => 'RX Power', 'callback_data' => $this->callback('rx', $id)],
-                ['text' => 'Suhu', 'callback_data' => $this->callback('temp', $id)],
+                ['text' => '📶 RX Power', 'callback_data' => $this->callback('rx', $id)],
+                ['text' => '🌡 Suhu', 'callback_data' => $this->callback('temp', $id)],
             ],
             [
-                ['text' => 'Lihat SSID & Password', 'callback_data' => $this->callback('wifi', $id)],
+                ['text' => '🔐 Lihat SSID & Password', 'callback_data' => $this->callback('wifi', $id)],
             ],
             [
-                ['text' => 'Edit SSID & Password', 'callback_data' => $this->callback('ewifi', $id)],
+                ['text' => '✏️ Edit SSID & Password', 'callback_data' => $this->callback('ewifi', $id)],
             ],
             [
-                ['text' => 'Tagihan', 'callback_data' => $this->callback('bill', $id)],
-                ['text' => 'Info penting', 'callback_data' => $this->callback('info', $id)],
+                ['text' => '💳 Tagihan', 'callback_data' => $this->callback('bill', $id)],
+                ['text' => 'ℹ️ Info penting', 'callback_data' => $this->callback('info', $id)],
             ],
         ];
     }
@@ -542,9 +542,9 @@ class AdminCustomerLookup
     private function statusLabel(PppoeCustomer $customer): string
     {
         $label = match ($customer->status) {
-            'active' => 'Aktif',
-            'isolated' => 'Isolir',
-            'disabled' => 'Nonaktif',
+            'active' => '🟢 Aktif',
+            'isolated' => '🔴 Isolir',
+            'disabled' => '⚫ Nonaktif',
             default => (string) $customer->status,
         };
 
@@ -603,7 +603,7 @@ class AdminCustomerLookup
 
     private function buttonLabel(string $name, string $username): string
     {
-        $label = $name.' ('.$username.')';
+        $label = '👤 '.$name.' ('.$username.')';
 
         return mb_strlen($label) > 60 ? mb_substr($label, 0, 57).'…' : $label;
     }
@@ -632,5 +632,14 @@ class AdminCustomerLookup
         $name = trim(($device['manufacturer'] ?? '').' '.($device['model'] ?? ''));
 
         return $name !== '' ? $name : '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     */
+    private function onuStatusLine(array $device): string
+    {
+        return (($device['online'] ?? false) ? '🟢' : '🔴').' Status ONU: '
+            .(($device['online'] ?? false) ? 'Online' : 'Offline');
     }
 }

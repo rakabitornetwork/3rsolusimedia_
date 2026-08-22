@@ -496,12 +496,12 @@ class MessagingTelegramTest extends TestCase
         $this->assertNotNull($payload);
         $this->assertArrayHasKey('reply_markup', $payload);
         $buttons = collect($payload['reply_markup']['inline_keyboard'])->flatten(1)->pluck('text');
-        $this->assertTrue($buttons->contains('Profil layanan'));
-        $this->assertTrue($buttons->contains('RX Power'));
-        $this->assertTrue($buttons->contains('Suhu'));
-        $this->assertTrue($buttons->contains('Lihat SSID & Password'));
-        $this->assertTrue($buttons->contains('Edit SSID & Password'));
-        $this->assertTrue($buttons->contains('Tagihan'));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Profil layanan')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'RX Power')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Suhu')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Lihat SSID & Password')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Edit SSID & Password')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Tagihan')));
         $this->assertSame('cari:prof:'.$customer->id, $payload['reply_markup']['inline_keyboard'][0][0]['callback_data']);
     }
 
