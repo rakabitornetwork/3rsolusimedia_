@@ -43,10 +43,16 @@ class MessagingManager
     }
 
     /**
+     * @param  array<string, mixed>|null  $replyMarkup
      * @return array{ok: bool, message: string, latency_ms?: int}
      */
-    public function send(string $channel, string $externalId, string $text): array
+    public function send(string $channel, string $externalId, string $text, ?array $replyMarkup = null): array
     {
-        return $this->driver($channel)->send($externalId, $text);
+        $driver = $this->driver($channel);
+        if ($replyMarkup !== null && $replyMarkup !== [] && $driver instanceof TelegramChannel) {
+            return $driver->send($externalId, $text, $replyMarkup);
+        }
+
+        return $driver->send($externalId, $text);
     }
 }

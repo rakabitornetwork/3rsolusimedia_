@@ -8,7 +8,9 @@ use App\Models\MessagingIdentity;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
+use App\Models\SubscriptionPackage;
 use App\Models\User;
+use App\Services\GenieAcsService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -195,6 +197,7 @@ class MessagingTelegramTest extends TestCase
         $this->assertStringContainsString('/daftar', (string) $body);
         $this->assertStringContainsString('/tagihan', (string) $body);
         $this->assertStringContainsString('/bayar', (string) $body);
+        $this->assertStringNotContainsString('/cari', (string) $body);
     }
 
     #[Test]
@@ -349,5 +352,253 @@ class MessagingTelegramTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseCount('messaging_identities', 0);
+    }
+
+    private function enableAdminChat(int|string $chatId = 99): void
+    {
+        SiteSetting::setMany([
+            'telegram_admin_chat_id' => (string) $chatId,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function lastTelegramPayload(string $method = 'sendMessage'): ?array
+    {
+        foreach (Http::recorded()->reverse() as [$request]) {
+            if (str_contains($request->url(), $method)) {
+                return $request->data();
+            }
+        }
+
+        return null;
+    }
+
+    private function postCallback(string $data, int|string $chatId = 99): \Illuminate\Testing\TestResponse
+    {
+        return $this->postJson('/webhooks/telegram', [
+            'update_id' => 2,
+            'callback_query' => [
+                'id' => 'cb-1',
+                'from' => [
+                    'id' => $chatId,
+                    'username' => 'adminwa',
+                    'first_name' => 'Admin',
+                ],
+                'message' => [
+                    'message_id' => 20,
+                    'chat' => [
+                        'id' => $chatId,
+                        'type' => 'private',
+                    ],
+                ],
+                'data' => $data,
+            ],
+        ], [
+            'X-Telegram-Bot-Api-Secret-Token' => 'webhook-secret-token',
+        ]);
+    }
+
+    private function mockGenieDevice(array $device = []): void
+    {
+        $genie = Mockery::mock(GenieAcsService::class);
+        $genie->shouldReceive('isConfigured')->andReturn(true);
+        $genie->shouldReceive('findDeviceByPppoeUsername')->andReturn([
+            'ok' => true,
+            'device' => array_merge([
+                'id' => 'DEV1',
+                'manufacturer' => 'ZTE',
+                'model' => 'F670L',
+                'serial' => 'SN123',
+                'ssid' => 'RumahBudi',
+                'ssid_password' => 'wifiRahasia',
+                'rx_power' => -18.5,
+                'rx_power_label' => '-18.5 dBm',
+                'tx_power_label' => '2.1 dBm',
+                'redaman_label' => '20.6 dB',
+                'temperature' => 48,
+                'temperature_label' => '48 °C',
+                'online' => true,
+                'last_inform_label' => '23/08/2026 01:20',
+            ], $device),
+        ]);
+        $genie->shouldReceive('updateWifi')->andReturn([
+            'ok' => true,
+            'message' => 'SSID dan password diantrikan ke perangkat.',
+        ]);
+        $this->app->instance(GenieAcsService::class, $genie);
+    }
+
+    #[Test]
+    public function admin_bantuan_lists_cari_command(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+
+        $this->postUpdate('/bantuan')->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('/cari', (string) $body);
+    }
+
+    #[Test]
+    public function cari_is_rejected_for_non_admin(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat(55);
+        $this->fakeTelegram();
+        $this->customer();
+
+        $this->postUpdate('/cari Budi', 99)->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('khusus admin', (string) $body);
+        $this->assertStringContainsString('99', (string) $body);
+    }
+
+    #[Test]
+    public function admin_cari_shows_customer_menu(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+        $package = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '10 Mbps',
+            'price' => 150000,
+            'mikrotik_profile' => 'paket-10m',
+            'is_active' => true,
+        ]);
+        $customer = $this->customer([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'service_profile' => 'paket-10m',
+        ]);
+
+        $this->postUpdate('/cari Budi Santoso')->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Pelanggan ditemukan', (string) $body);
+        $this->assertStringContainsString('Budi Santoso', (string) $body);
+        $this->assertStringContainsString('10 Mbps', (string) $body);
+
+        $payload = $this->lastTelegramPayload();
+        $this->assertNotNull($payload);
+        $this->assertArrayHasKey('reply_markup', $payload);
+        $buttons = collect($payload['reply_markup']['inline_keyboard'])->flatten(1)->pluck('text');
+        $this->assertTrue($buttons->contains('Profil layanan'));
+        $this->assertTrue($buttons->contains('RX Power'));
+        $this->assertTrue($buttons->contains('Suhu'));
+        $this->assertTrue($buttons->contains('Lihat SSID & Password'));
+        $this->assertTrue($buttons->contains('Edit SSID & Password'));
+        $this->assertTrue($buttons->contains('Tagihan'));
+        $this->assertSame('cari:prof:'.$customer->id, $payload['reply_markup']['inline_keyboard'][0][0]['callback_data']);
+    }
+
+    #[Test]
+    public function admin_cari_lists_multiple_matches(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+        $this->customer();
+        $this->customer([
+            'name' => 'Budi Hartono',
+            'username' => 'budi02',
+            'phone' => '081200000002',
+        ]);
+
+        $this->postUpdate('/cari Budi')->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Ditemukan 2 pelanggan', (string) $body);
+        $this->assertStringContainsString('Budi Hartono', (string) $body);
+    }
+
+    #[Test]
+    public function admin_callback_shows_profile_and_bills(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+        $customer = $this->customer(['service_profile' => 'paket-10m']);
+
+        Invoice::query()->create([
+            'number' => 'INV-300',
+            'pppoe_customer_id' => $customer->id,
+            'type' => 'monthly',
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'due_date' => now()->addDays(3)->toDateString(),
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+        ]);
+
+        $this->postCallback('cari:prof:'.$customer->id)->assertOk();
+        $profile = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Profil layanan', (string) $profile);
+        $this->assertStringContainsString('paket-10m', (string) $profile);
+
+        $this->postCallback('cari:bill:'.$customer->id)->assertOk();
+        $bill = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('INV-300', (string) $bill);
+        $this->assertStringContainsString('150.000', (string) $bill);
+    }
+
+    #[Test]
+    public function admin_callback_shows_rx_power_and_wifi(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+        $this->mockGenieDevice();
+        $customer = $this->customer();
+
+        $this->postCallback('cari:rx:'.$customer->id)->assertOk();
+        $rx = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('-18.5 dBm', (string) $rx);
+        $this->assertStringContainsString('SN123', (string) $rx);
+
+        $this->postCallback('cari:wifi:'.$customer->id)->assertOk();
+        $wifi = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('RumahBudi', (string) $wifi);
+        $this->assertStringContainsString('••••••••', (string) $wifi);
+        $this->assertStringNotContainsString('wifiRahasia', (string) $wifi);
+
+        $payload = $this->lastTelegramPayload('editMessageText') ?? $this->lastTelegramPayload();
+        $this->assertStringContainsString('wifiRahasia', (string) ($payload['text'] ?? ''));
+    }
+
+    #[Test]
+    public function admin_can_edit_wifi_after_prompt(): void
+    {
+        $this->enableTelegram();
+        $this->enableAdminChat();
+        $this->fakeTelegram();
+        $this->mockGenieDevice();
+        $customer = $this->customer();
+
+        $this->postCallback('cari:ewifi:'.$customer->id)->assertOk();
+        $prompt = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Edit WiFi', (string) $prompt);
+
+        $this->postUpdate('RumahBaru | passwordbaru123')->assertOk();
+        $done = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('WiFi berhasil diubah', (string) $done);
+        $this->assertStringContainsString('RumahBaru', (string) $done);
+        $this->assertStringContainsString('••••••••', (string) $done);
     }
 }

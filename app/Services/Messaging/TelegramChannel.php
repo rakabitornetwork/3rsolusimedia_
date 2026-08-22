@@ -62,7 +62,11 @@ class TelegramChannel implements MessagingChannelInterface
         }
     }
 
-    public function send(string $externalId, string $text): array
+    /**
+     * @param  array<string, mixed>|null  $replyMarkup
+     * @return array{ok: bool, message: string, latency_ms?: int}
+     */
+    public function send(string $externalId, string $text, ?array $replyMarkup = null): array
     {
         if (! $this->isConfigured()) {
             return ['ok' => false, 'message' => 'Token bot Telegram belum diisi.'];
@@ -71,10 +75,15 @@ class TelegramChannel implements MessagingChannelInterface
         $started = microtime(true);
 
         try {
-            $response = $this->client()->post($this->methodUrl('sendMessage'), [
+            $payload = [
                 'chat_id' => $externalId,
                 'text' => $text,
-            ]);
+            ];
+            if ($replyMarkup !== null && $replyMarkup !== []) {
+                $payload['reply_markup'] = $replyMarkup;
+            }
+
+            $response = $this->client()->post($this->methodUrl('sendMessage'), $payload);
             $latency = (int) round((microtime(true) - $started) * 1000);
 
             if ($this->isOk($response->json())) {
@@ -98,6 +107,79 @@ class TelegramChannel implements MessagingChannelInterface
         }
     }
 
+    /**
+     * @param  array<string, mixed>|null  $replyMarkup
+     * @return array{ok: bool, message: string}
+     */
+    public function editMessage(string $externalId, int $messageId, string $text, ?array $replyMarkup = null): array
+    {
+        if (! $this->isConfigured()) {
+            return ['ok' => false, 'message' => 'Token bot Telegram belum diisi.'];
+        }
+
+        try {
+            $payload = [
+                'chat_id' => $externalId,
+                'message_id' => $messageId,
+                'text' => $text,
+            ];
+            if ($replyMarkup !== null && $replyMarkup !== []) {
+                $payload['reply_markup'] = $replyMarkup;
+            } else {
+                $payload['reply_markup'] = ['inline_keyboard' => []];
+            }
+
+            $response = $this->client()->post($this->methodUrl('editMessageText'), $payload);
+
+            if ($this->isOk($response->json())) {
+                return ['ok' => true, 'message' => 'Pesan diperbarui.'];
+            }
+
+            return [
+                'ok' => false,
+                'message' => $this->errorMessage($response->json(), $response->status()),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal memperbarui pesan Telegram: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public function answerCallback(string $callbackQueryId, ?string $text = null): array
+    {
+        if (! $this->isConfigured() || $callbackQueryId === '') {
+            return ['ok' => false, 'message' => 'Callback tidak valid.'];
+        }
+
+        try {
+            $payload = ['callback_query_id' => $callbackQueryId];
+            if ($text !== null && $text !== '') {
+                $payload['text'] = mb_substr($text, 0, 180);
+            }
+
+            $response = $this->client()->post($this->methodUrl('answerCallbackQuery'), $payload);
+
+            if ($this->isOk($response->json())) {
+                return ['ok' => true, 'message' => 'Callback dijawab.'];
+            }
+
+            return [
+                'ok' => false,
+                'message' => $this->errorMessage($response->json(), $response->status()),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal menjawab callback: '.$e->getMessage(),
+            ];
+        }
+    }
+
     public function verifyWebhook(Request $request): bool
     {
         $secret = AppSettings::telegramWebhookSecret();
@@ -113,6 +195,11 @@ class TelegramChannel implements MessagingChannelInterface
     public function parseIncoming(Request $request): ?IncomingMessage
     {
         $payload = $request->all();
+        $callback = $payload['callback_query'] ?? null;
+        if (is_array($callback)) {
+            return $this->parseCallback($payload, $callback);
+        }
+
         $message = $payload['message'] ?? null;
         if (! is_array($message)) {
             return null;
@@ -139,6 +226,40 @@ class TelegramChannel implements MessagingChannelInterface
             fromUsername: isset($from['username']) ? (string) $from['username'] : null,
             fromName: $name !== '' ? $name : null,
             raw: $payload,
+            messageId: isset($message['message_id']) ? (int) $message['message_id'] : null,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $callback
+     */
+    private function parseCallback(array $payload, array $callback): ?IncomingMessage
+    {
+        $message = is_array($callback['message'] ?? null) ? $callback['message'] : [];
+        $chat = is_array($message['chat'] ?? null) ? $message['chat'] : [];
+        $from = is_array($callback['from'] ?? null) ? $callback['from'] : [];
+        $chatId = (string) ($chat['id'] ?? $from['id'] ?? '');
+
+        if ($chatId === '') {
+            return null;
+        }
+
+        $first = trim((string) ($from['first_name'] ?? ''));
+        $last = trim((string) ($from['last_name'] ?? ''));
+        $name = trim($first.' '.$last);
+
+        return new IncomingMessage(
+            channel: $this->name(),
+            externalId: $chatId,
+            text: '',
+            isPrivate: ($chat['type'] ?? 'private') === 'private',
+            fromUsername: isset($from['username']) ? (string) $from['username'] : null,
+            fromName: $name !== '' ? $name : null,
+            raw: $payload,
+            callbackData: trim((string) ($callback['data'] ?? '')),
+            callbackQueryId: isset($callback['id']) ? (string) $callback['id'] : null,
+            messageId: isset($message['message_id']) ? (int) $message['message_id'] : null,
         );
     }
 
@@ -151,7 +272,7 @@ class TelegramChannel implements MessagingChannelInterface
         try {
             $payload = [
                 'url' => $url,
-                'allowed_updates' => ['message'],
+                'allowed_updates' => ['message', 'callback_query'],
                 'drop_pending_updates' => true,
             ];
             if ($secret !== '') {

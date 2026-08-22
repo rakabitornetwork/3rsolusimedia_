@@ -22,6 +22,7 @@ class BotCommandRouter
     public function __construct(
         private readonly MessagingManager $channels,
         private readonly PaymentGatewayManager $gateways,
+        private readonly AdminCustomerLookup $adminLookup,
     ) {
     }
 
@@ -39,7 +40,10 @@ class BotCommandRouter
 
         $identity = $this->identityFor($message) ?? $this->autoBindWhatsApp($message);
         $this->touchIdentity($identity, $message);
-        $this->log($message, 'inbound', $identity, $this->parseCommand($message->text)[0], 'received');
+        $inboundCommand = $message->isCallback()
+            ? 'cari'
+            : $this->parseCommand($message->text)[0];
+        $this->log($message, 'inbound', $identity, $inboundCommand, 'received');
 
         if (! $message->isPrivate) {
             $this->reply($message, 'Gunakan chat pribadi dengan bot ini.', $identity);
@@ -53,9 +57,21 @@ class BotCommandRouter
             return;
         }
 
+        if ($message->isCallback()) {
+            $this->handleAdminCallback($message, $identity);
+
+            return;
+        }
+
         [$command, $args] = $this->parseCommand($message->text);
 
         if ($command === null) {
+            if ($this->pendingAdminAction($message) !== null) {
+                $this->completeAdminAction($message, $identity);
+
+                return;
+            }
+
             if ($this->pendingBind($message) !== null) {
                 $this->completeBind($message, $message->text, $identity);
 
@@ -65,7 +81,7 @@ class BotCommandRouter
             $this->reply(
                 $message,
                 trim($message->text) === ''
-                    ? $this->helpText($identity !== null, $message->channel)
+                    ? $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message))
                     : 'Perintah tidak dikenali. Ketik /bantuan atau bantuan.',
                 $identity,
             );
@@ -73,13 +89,18 @@ class BotCommandRouter
             return;
         }
 
+        if ($command !== 'batal' && $command !== 'cari') {
+            $this->forgetAdminAction($message);
+        }
+
         match ($command) {
-            'start', 'bantuan', 'help', 'menu' => $this->reply($message, $this->helpText($identity !== null, $message->channel), $identity),
+            'start', 'bantuan', 'help', 'menu' => $this->reply($message, $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message)), $identity),
             'daftar' => $this->daftar($message, $args, $identity),
-            'batal' => $this->cancelBind($message, $identity),
+            'batal' => $this->batal($message, $identity),
             'lepas' => $this->lepas($message, $identity),
             'tagihan' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->tagihan($message, $bound)),
             'bayar' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->bayar($message, $bound)),
+            'cari' => $this->cari($message, $args, $identity),
             default => $this->reply($message, 'Perintah '.$command.' belum tersedia. Ketik bantuan.', $identity),
         };
     }
@@ -240,16 +261,196 @@ class BotCommandRouter
         );
     }
 
+    private function batal(IncomingMessage $message, ?MessagingIdentity $identity): void
+    {
+        if ($this->forgetAdminAction($message)) {
+            $this->reply($message, 'Perubahan WiFi dibatalkan. Ketik /cari untuk mencari pelanggan lagi.', $identity);
+
+            return;
+        }
+
+        $this->cancelBind($message, $identity);
+    }
+
     private function cancelBind(IncomingMessage $message, ?MessagingIdentity $identity): void
     {
         if ($this->pendingBind($message) === null) {
-            $this->reply($message, 'Tidak ada pendaftaran yang sedang berlangsung.', $identity);
+            $this->reply($message, 'Tidak ada proses yang sedang berlangsung.', $identity);
 
             return;
         }
 
         $this->forgetPending($message);
         $this->reply($message, 'Pendaftaran dibatalkan. Ketik /daftar untuk mulai lagi.', $identity);
+    }
+
+    private function cari(IncomingMessage $message, string $args, ?MessagingIdentity $identity): void
+    {
+        if ($message->channel !== 'telegram') {
+            $this->reply($message, 'Perintah cari hanya tersedia di Telegram.', $identity);
+
+            return;
+        }
+
+        if (! $this->adminLookup->isAdmin($message)) {
+            $hint = AppSettings::telegramAdminChatIds() === []
+                ? 'Isi Chat ID admin di menu Notifikasi & Bot, lalu pasang ulang webhook.'
+                : 'Chat ID Anda: '.$message->externalId.'. Minta admin menambahkannya di Notifikasi & Bot.';
+            $this->reply($message, 'Perintah /cari khusus admin/teknisi. '.$hint, $identity);
+
+            return;
+        }
+
+        $this->forgetAdminAction($message);
+        $term = trim($args);
+
+        if (mb_strlen($term) < 2) {
+            $this->reply($message, "Ketik nama, username, atau nomor HP pelanggan.\nContoh: /cari Budi Santoso", $identity);
+
+            return;
+        }
+
+        $total = $this->adminLookup->countMatches($term);
+        if ($total === 0) {
+            $this->reply($message, 'Pelanggan "'.$term.'" tidak ditemukan. Coba nama lain, username, atau nomor HP.', $identity);
+
+            return;
+        }
+
+        $customers = $this->adminLookup->search($term, 8);
+        if ($customers->count() === 1 && $total === 1) {
+            $result = $this->adminLookup->menu($customers->first());
+            $this->reply($message, $result['text'], $identity, $result['keyboard']);
+
+            return;
+        }
+
+        $result = $this->adminLookup->choices($customers, $total);
+        $this->reply($message, $result['text'], $identity, $result['keyboard']);
+    }
+
+    private function handleAdminCallback(IncomingMessage $message, ?MessagingIdentity $identity): void
+    {
+        $this->answerCallback($message);
+
+        if (! $this->adminLookup->isAdmin($message)) {
+            $this->reply($message, 'Tombol ini khusus admin/teknisi.', $identity);
+
+            return;
+        }
+
+        $parsed = $this->adminLookup->parseCallback((string) $message->callbackData);
+        if (! $parsed) {
+            $this->reply($message, 'Pilihan tidak valid. Ketik /cari nama_pelanggan.', $identity);
+
+            return;
+        }
+
+        $customer = PppoeCustomer::query()->with(['package', 'router', 'agent'])->find($parsed['customer_id']);
+        if (! $customer) {
+            $this->reply($message, 'Pelanggan tidak ditemukan lagi. Ketik /cari untuk mencari ulang.', $identity);
+
+            return;
+        }
+
+        $result = $this->adminLookup->action($parsed['action'], $customer);
+        if (isset($result['pending']) && is_array($result['pending'])) {
+            $this->rememberAdminAction($message, $result['pending']);
+        } else {
+            $this->forgetAdminAction($message);
+        }
+
+        $this->reply(
+            $message,
+            $result['text'],
+            $identity,
+            $result['keyboard'] ?? null,
+            $result['log_text'] ?? null,
+            true,
+        );
+    }
+
+    private function completeAdminAction(IncomingMessage $message, ?MessagingIdentity $identity): void
+    {
+        $pending = $this->pendingAdminAction($message);
+        if (! $pending || ($pending['type'] ?? '') !== 'edit_wifi') {
+            $this->forgetAdminAction($message);
+            $this->reply($message, 'Tidak ada perubahan yang sedang berlangsung.', $identity);
+
+            return;
+        }
+
+        $customer = PppoeCustomer::query()->find((int) ($pending['customer_id'] ?? 0));
+        if (! $customer) {
+            $this->forgetAdminAction($message);
+            $this->reply($message, 'Pelanggan tidak ditemukan lagi. Ketik /cari untuk mencari ulang.', $identity);
+
+            return;
+        }
+
+        $parsed = $this->adminLookup->parseWifiInput($message->text);
+        if (isset($parsed['error'])) {
+            $this->reply($message, $parsed['error']."\nKetik /batal untuk membatalkan.", $identity);
+
+            return;
+        }
+
+        $result = $this->adminLookup->applyWifi($customer, $parsed['ssid'], $parsed['password']);
+        $this->forgetAdminAction($message);
+        $this->reply(
+            $message,
+            $result['text'],
+            $identity,
+            $result['keyboard'] ?? null,
+            $result['log_text'] ?? null,
+        );
+    }
+
+    /**
+     * @return array{type: string, customer_id: int}|null
+     */
+    private function pendingAdminAction(IncomingMessage $message): ?array
+    {
+        $value = Cache::get($this->adminActionKey($message));
+
+        return is_array($value) ? $value : null;
+    }
+
+    /**
+     * @param  array{type: string, customer_id: int}  $payload
+     */
+    private function rememberAdminAction(IncomingMessage $message, array $payload): void
+    {
+        Cache::put($this->adminActionKey($message), $payload, now()->addMinutes(10));
+    }
+
+    private function forgetAdminAction(IncomingMessage $message): bool
+    {
+        $key = $this->adminActionKey($message);
+        if (! Cache::has($key)) {
+            return false;
+        }
+
+        Cache::forget($key);
+
+        return true;
+    }
+
+    private function adminActionKey(IncomingMessage $message): string
+    {
+        return 'messaging:admin-action:'.$message->channel.':'.$message->externalId;
+    }
+
+    private function answerCallback(IncomingMessage $message): void
+    {
+        if ($message->callbackQueryId === null || $message->callbackQueryId === '') {
+            return;
+        }
+
+        $channel = $this->channels->driver($message->channel);
+        if ($channel instanceof TelegramChannel) {
+            $channel->answerCallback($message->callbackQueryId);
+        }
     }
 
     private function lepas(IncomingMessage $message, ?MessagingIdentity $identity): void
@@ -374,7 +575,7 @@ class BotCommandRouter
         );
     }
 
-    private function helpText(bool $bound, string $channel = 'telegram'): string
+    private function helpText(bool $bound, string $channel = 'telegram', bool $admin = false): string
     {
         $company = AppSettings::companyName();
         $bot = ltrim((string) AppSettings::get('telegram_bot_username', ''), '@');
@@ -394,6 +595,12 @@ class BotCommandRouter
             $slash.'lepas — putuskan ikatan chat ini',
             $slash.'bantuan — tampilkan pesan ini',
         ];
+
+        if ($admin && $channel === 'telegram') {
+            $lines[] = '';
+            $lines[] = 'Admin/teknisi:';
+            $lines[] = $slash.'cari nama_pelanggan — cari pelanggan, lalu pilih profil, RX power, suhu, SSID/password, tagihan';
+        }
 
         if (! $bound && $channel === 'whatsapp') {
             $lines[] = '';
@@ -416,7 +623,7 @@ class BotCommandRouter
             return [strtolower($matches[1]), trim((string) ($matches[2] ?? ''))];
         }
 
-        if (preg_match('/^(daftar|tagihan|bayar|bantuan|help|menu|start|lepas|batal)(?:\s+([\s\S]+))?$/iu', $text, $matches)) {
+        if (preg_match('/^(daftar|tagihan|bayar|bantuan|help|menu|start|lepas|batal|cari)(?:\s+([\s\S]+))?$/iu', $text, $matches)) {
             $command = strtolower($matches[1]);
             if ($command === 'menu') {
                 $command = 'bantuan';
@@ -529,16 +736,41 @@ class BotCommandRouter
         ])->save();
     }
 
-    private function reply(IncomingMessage $message, string $text, ?MessagingIdentity $identity = null): void
-    {
-        $result = $this->channels->send($message->channel, $message->externalId, $text);
+    /**
+     * @param  array<int, array<int, array{text: string, callback_data: string}>>|null  $keyboard
+     */
+    private function reply(
+        IncomingMessage $message,
+        string $text,
+        ?MessagingIdentity $identity = null,
+        ?array $keyboard = null,
+        ?string $logText = null,
+        bool $preferEdit = false,
+    ): void {
+        $markup = $keyboard ? ['inline_keyboard' => $keyboard] : null;
+        $channel = $this->channels->driver($message->channel);
+        $result = ['ok' => false, 'message' => 'Gagal mengirim'];
+
+        if ($preferEdit && $message->messageId && $channel instanceof TelegramChannel) {
+            $result = $channel->editMessage($message->externalId, $message->messageId, $text, $markup);
+            if (! ($result['ok'] ?? false)) {
+                $result = $channel->send($message->externalId, $text, $markup);
+            }
+        } else {
+            $result = $this->channels->send($message->channel, $message->externalId, $text, $markup);
+        }
+
+        $command = $message->isCallback()
+            ? 'cari'
+            : $this->parseCommand($message->text)[0];
+
         $this->log(
             $message,
             'outbound',
             $identity,
-            $this->parseCommand($message->text)[0],
+            $command,
             ($result['ok'] ?? false) ? 'sent' : 'failed',
-            $text,
+            $logText ?? $text,
             ($result['ok'] ?? false) ? null : ($result['message'] ?? 'Gagal mengirim'),
         );
     }
@@ -556,6 +788,9 @@ class BotCommandRouter
             $text = $body ?? $message->text;
             if ($command === 'daftar' || $this->pendingBind($message) !== null) {
                 $text = $this->redactSensitive($text);
+            }
+            if ($direction === 'inbound' && $this->pendingAdminAction($message) !== null) {
+                $text = '[perubahan wifi]';
             }
 
             MessageLog::query()->create([

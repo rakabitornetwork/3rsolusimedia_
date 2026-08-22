@@ -71,7 +71,7 @@ class MessagingController extends Controller
         $validated = $request->validate([
             'telegram_enabled' => ['sometimes', 'boolean'],
             'telegram_bot_token' => ['nullable', 'string', 'max:255'],
-            'telegram_admin_chat_id' => ['nullable', 'string', 'max:40'],
+            'telegram_admin_chat_id' => ['nullable', 'string', 'max:255'],
             'whatsapp_enabled' => ['sometimes', 'boolean'],
             'whatsapp_base_url' => ['nullable', 'string', 'max:255'],
             'whatsapp_api_key' => ['nullable', 'string', 'max:255'],

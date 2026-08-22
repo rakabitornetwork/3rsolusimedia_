@@ -149,6 +149,29 @@ class AppSettings
         return trim((string) self::get('telegram_webhook_secret', ''));
     }
 
+    /**
+     * Chat ID admin/teknisi Telegram (bisa beberapa, dipisah koma/spasi/titik koma).
+     *
+     * @return list<string>
+     */
+    public static function telegramAdminChatIds(): array
+    {
+        $raw = trim((string) self::get('telegram_admin_chat_id', ''));
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            trim(...),
+            preg_split('/[\s,;]+/', $raw) ?: [],
+        ), fn (string $id) => $id !== ''));
+    }
+
+    public static function isTelegramAdminChat(string $chatId): bool
+    {
+        return in_array($chatId, self::telegramAdminChatIds(), true);
+    }
+
     public static function whatsappBaseUrl(): string
     {
         return rtrim(trim((string) self::get('whatsapp_base_url', self::DEFAULTS['whatsapp_base_url'])), '/');

@@ -312,16 +312,21 @@ export default function Index({
                                 )}
                             </label>
                             <label className="block text-sm font-medium text-ink">
-                                Chat ID admin (tes kirim)
+                                Chat ID admin / teknisi
                                 <input
                                     type="text"
                                     value={data.telegram_admin_chat_id}
                                     onChange={(e) => setData('telegram_admin_chat_id', e.target.value)}
                                     disabled={!canWrite}
                                     className={fieldClass}
-                                    placeholder="Dari /start ke bot, lihat tab Log"
+                                    placeholder="123456789, 987654321"
                                     autoComplete="off"
                                 />
+                                <p className="mt-1 text-xs font-normal text-ink-soft">
+                                    Bisa beberapa ID dipisah koma. Chat ini boleh memakai /cari nama_pelanggan
+                                    untuk profil, RX power, suhu, SSID, dan tagihan. Pasang ulang webhook setelah
+                                    menyimpan.
+                                </p>
                             </label>
                         </div>
 

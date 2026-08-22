@@ -15,6 +15,14 @@ final class IncomingMessage
         public readonly ?string $fromUsername = null,
         public readonly ?string $fromName = null,
         public readonly array $raw = [],
+        public readonly ?string $callbackData = null,
+        public readonly ?string $callbackQueryId = null,
+        public readonly ?int $messageId = null,
     ) {
+    }
+
+    public function isCallback(): bool
+    {
+        return $this->callbackData !== null && $this->callbackData !== '';
     }
 }
