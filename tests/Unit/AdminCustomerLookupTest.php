@@ -97,6 +97,10 @@ class AdminCustomerLookupTest extends TestCase
             ['action' => 'wifi', 'customer_id' => 12],
             $lookup->parseCallback('cari:wifi:12'),
         );
+        $this->assertSame(
+            ['action' => 'dev', 'customer_id' => 12],
+            $lookup->parseCallback('cari:dev:12'),
+        );
         $this->assertNull($lookup->parseCallback('lain:wifi:12'));
         $this->assertNull($lookup->parseCallback('cari:wifi'));
     }

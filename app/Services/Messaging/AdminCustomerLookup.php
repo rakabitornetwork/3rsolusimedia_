@@ -135,6 +135,7 @@ class AdminCustomerLookup
             'temp' => $this->temperature($customer),
             'wifi' => $this->wifi($customer),
             'ewifi' => $this->editWifiPrompt($customer),
+            'dev' => $this->connectedDevices($customer),
             'bill' => $this->bills($customer),
             'info' => $this->info($customer),
             default => [
@@ -349,17 +350,40 @@ class AdminCustomerLookup
         $device = $owned['device'];
         $ssid = (string) ($device['ssid'] ?? '');
         $password = (string) ($device['ssid_password'] ?? '');
-        $text = implode("\n", [
+        $text = implode("\n", array_merge([
             '🔐 WiFi — '.$customer->name.' ('.$customer->username.')',
             '',
             '📡 SSID: '.($ssid !== '' ? $ssid : '—'),
             '🔑 Password: '.($password !== '' ? $password : '—'),
-        ]);
+        ], $this->connectedDeviceLines($device, detailed: false)));
 
         return [
             'text' => $text,
             'keyboard' => $this->actionKeyboard($customer),
             'log_text' => $this->redactWifiText($text, $password !== '' ? $password : null),
+        ];
+    }
+
+    /**
+     * @return array{text: string, keyboard: array<int, array<int, array{text: string, callback_data: string}>>}
+     */
+    private function connectedDevices(PppoeCustomer $customer): array
+    {
+        $owned = $this->ownedDevice($customer);
+        if (! ($owned['ok'] ?? false)) {
+            return [
+                'text' => $owned['message'] ?? 'Daftar perangkat terhubung tidak tersedia.',
+                'keyboard' => $this->actionKeyboard($customer),
+            ];
+        }
+
+        $device = $owned['device'];
+
+        return [
+            'text' => implode("\n", array_merge([
+                '📱 Perangkat terhubung — '.$customer->name.' ('.$customer->username.')',
+            ], $this->connectedDeviceLines($device, detailed: true))),
+            'keyboard' => $this->actionKeyboard($customer),
         ];
     }
 
@@ -472,6 +496,7 @@ class AdminCustomerLookup
                 .' · SN '.($device['serial'] ?? '—')
                 .' · RX '.($device['rx_power_label'] ?? '—')
                 .' · '.$this->nullToDash($device['temperature_label'] ?? null);
+            $lines = array_merge($lines, $this->connectedDeviceLines($device, detailed: false));
         }
 
         return [
@@ -500,6 +525,9 @@ class AdminCustomerLookup
             ],
             [
                 ['text' => '✏️ Edit SSID & Password', 'callback_data' => $this->callback('ewifi', $id)],
+            ],
+            [
+                ['text' => '📱 Perangkat terhubung', 'callback_data' => $this->callback('dev', $id)],
             ],
             [
                 ['text' => '💳 Tagihan', 'callback_data' => $this->callback('bill', $id)],
@@ -641,5 +669,71 @@ class AdminCustomerLookup
     {
         return (($device['online'] ?? false) ? '🟢' : '🔴').' Status ONU: '
             .(($device['online'] ?? false) ? 'Online' : 'Offline');
+    }
+
+    /**
+     * @param  array<string, mixed>  $device
+     * @return list<string>
+     */
+    private function connectedDeviceLines(array $device, bool $detailed = true): array
+    {
+        $clients = collect($device['connected_clients'] ?? [])
+            ->filter(fn ($row) => is_array($row))
+            ->values();
+        $count = max((int) ($device['connected_count'] ?? 0), $clients->count());
+        $limit = $detailed ? 20 : 12;
+
+        $lines = [
+            '',
+            '📱 Jumlah perangkat terhubung: '.$count,
+        ];
+
+        if ($clients->isEmpty()) {
+            $lines[] = $count > 0
+                ? 'Nama perangkat belum tersedia dari ONU.'
+                : 'Tidak ada perangkat yang sedang terhubung.';
+
+            return $lines;
+        }
+
+        foreach ($clients->take($limit) as $index => $client) {
+            $name = $this->connectedDeviceName($client);
+            if ($detailed) {
+                $meta = array_values(array_filter([
+                    isset($client['ip']) && $client['ip'] !== '' ? (string) $client['ip'] : null,
+                    isset($client['mac']) && $client['mac'] !== '' ? (string) $client['mac'] : null,
+                    isset($client['ssid']) && $client['ssid'] !== '' ? (string) $client['ssid'] : null,
+                ], fn ($value) => $value !== null));
+                $lines[] = ($index + 1).'. '.$name;
+                if ($meta !== []) {
+                    $lines[] = '   '.implode(' · ', $meta);
+                }
+            } else {
+                $lines[] = '• '.$name;
+            }
+        }
+
+        if ($clients->count() > $limit) {
+            $lines[] = '… dan '.($clients->count() - $limit).' perangkat lain';
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string, mixed>  $client
+     */
+    private function connectedDeviceName(array $client): string
+    {
+        foreach (['hostname', 'name'] as $key) {
+            $value = trim((string) ($client[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        $mac = trim((string) ($client['mac'] ?? ''));
+
+        return $mac !== '' ? $mac : 'Perangkat';
     }
 }

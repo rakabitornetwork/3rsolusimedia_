@@ -599,7 +599,7 @@ class BotCommandRouter
         if ($admin && $channel === 'telegram') {
             $lines[] = '';
             $lines[] = 'Admin/teknisi:';
-            $lines[] = '🔎 '.$slash.'cari nama_pelanggan — cari pelanggan, lalu pilih profil, RX power, suhu, SSID/password, tagihan';
+            $lines[] = '🔎 '.$slash.'cari nama_pelanggan — cari pelanggan, lalu pilih profil, RX power, suhu, SSID/password, perangkat terhubung, tagihan';
         }
 
         if (! $bound && $channel === 'whatsapp') {

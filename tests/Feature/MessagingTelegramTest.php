@@ -421,6 +421,23 @@ class MessagingTelegramTest extends TestCase
                 'temperature_label' => '48 °C',
                 'online' => true,
                 'last_inform_label' => '23/08/2026 01:20',
+                'connected_count' => 2,
+                'connected_clients' => [
+                    [
+                        'name' => 'iPhone-Budi',
+                        'hostname' => 'iPhone-Budi',
+                        'mac' => 'AA:BB:CC:DD:EE:01',
+                        'ip' => '192.168.1.10',
+                        'ssid' => 'RumahBudi',
+                    ],
+                    [
+                        'name' => 'Laptop-Siti',
+                        'hostname' => 'Laptop-Siti',
+                        'mac' => 'AA:BB:CC:DD:EE:02',
+                        'ip' => '192.168.1.11',
+                        'ssid' => 'RumahBudi',
+                    ],
+                ],
             ], $device),
         ]);
         $genie->shouldReceive('updateWifi')->andReturn([
@@ -501,6 +518,7 @@ class MessagingTelegramTest extends TestCase
         $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Suhu')));
         $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Lihat SSID & Password')));
         $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Edit SSID & Password')));
+        $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Perangkat terhubung')));
         $this->assertTrue($buttons->contains(fn ($text) => str_contains((string) $text, 'Tagihan')));
         $this->assertSame('cari:prof:'.$customer->id, $payload['reply_markup']['inline_keyboard'][0][0]['callback_data']);
     }
@@ -576,10 +594,18 @@ class MessagingTelegramTest extends TestCase
         $wifi = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
         $this->assertStringContainsString('RumahBudi', (string) $wifi);
         $this->assertStringContainsString('••••••••', (string) $wifi);
+        $this->assertStringContainsString('Jumlah perangkat terhubung: 2', (string) $wifi);
+        $this->assertStringContainsString('iPhone-Budi', (string) $wifi);
         $this->assertStringNotContainsString('wifiRahasia', (string) $wifi);
 
-        $payload = $this->lastTelegramPayload('editMessageText') ?? $this->lastTelegramPayload();
-        $this->assertStringContainsString('wifiRahasia', (string) ($payload['text'] ?? ''));
+        $wifiPayload = $this->lastTelegramPayload('editMessageText') ?? $this->lastTelegramPayload();
+        $this->assertStringContainsString('wifiRahasia', (string) ($wifiPayload['text'] ?? ''));
+
+        $this->postCallback('cari:dev:'.$customer->id)->assertOk();
+        $devices = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Perangkat terhubung', (string) $devices);
+        $this->assertStringContainsString('Laptop-Siti', (string) $devices);
+        $this->assertStringContainsString('192.168.1.10', (string) $devices);
     }
 
     #[Test]
