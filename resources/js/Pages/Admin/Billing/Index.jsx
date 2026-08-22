@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Ban,
+    CalendarRange,
     CheckCircle2,
     ChevronDown,
     ChevronUp,
@@ -159,6 +160,12 @@ function QuickPayMenu({ invoice, methods }) {
 
 function MoreActions({ invoice, onRemove }) {
     const customer = invoice.customer;
+    const canCombine =
+        Boolean(customer?.id) &&
+        !(
+            invoice.status === 'unpaid' &&
+            (invoice.billing_months > 1 || invoice.type === 'multi_month')
+        );
 
     const grantGrace = ({ days, months } = {}) => {
         const label = months ? `+${months} bulan` : `+${days} hari`;
@@ -177,6 +184,19 @@ function MoreActions({ invoice, onRemove }) {
     const clearGrace = () => {
         if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
         router.delete(`/admin/billing/customers/${customer.id}/grace`, keepPage);
+    };
+
+    const combine = () => {
+        const price = Number(customer.package_price || invoice?.package_price || 0);
+        const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
+        if (
+            !window.confirm(
+                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nJika pelanggan sedang isolir, isolir dicabut (tempo 2 bulan) tanpa perlu lunas dulu.\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
+            )
+        ) {
+            return;
+        }
+        router.post(`/admin/billing/customers/${customer.id}/combine-billing`, { months: 2 }, keepPage);
     };
 
     return (
@@ -239,6 +259,20 @@ function MoreActions({ invoice, onRemove }) {
                                 </button>
                             ) : null}
                         </>
+                    ) : null}
+
+                    {canCombine ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                close();
+                                combine();
+                            }}
+                            className="admin-row-menu-item"
+                        >
+                            <CalendarRange className="h-3.5 w-3.5 text-ink-soft" />
+                            Gabung 2 bulan
+                        </button>
                     ) : null}
 
                     <div className="my-1 border-t border-ink/5" />
