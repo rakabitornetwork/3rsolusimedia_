@@ -513,8 +513,8 @@ export default function Form({
                 {editing && customer.has_active_grace && (
                     <div className="border border-sky-100 bg-sky-50/60 px-4 py-3 text-xs text-sky-800">
                         Grace aktif s/d {customer.grace_until}
-                        {customer.grace_note ? ` — ${customer.grace_note}` : ''}. Aksi toleransi &amp;
-                        gabung 2 bulan ada di Tagihan &amp; Pembayaran.
+                        {customer.grace_note ? ` — ${customer.grace_note}` : ''}. Aksi toleransi
+                        isolir ada di Tagihan &amp; Pembayaran.
                     </div>
                 )}
 
