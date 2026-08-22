@@ -312,25 +312,64 @@ class EvolutionChannel implements MessagingChannelInterface
         }
 
         try {
-            $response = $this->client()->get($this->url('/instance/connect/'.$this->instance()));
-            $json = $response->json();
+            $json = null;
+            $qr = $created['qr_base64'] ?? null;
+            $pairing = '';
+            $lastError = null;
 
-            if (! $response->successful() && $response->status() !== 201) {
+            if (is_string($qr) && $qr !== '') {
+                $state = $this->freshState();
+
                 return [
-                    'ok' => false,
-                    'message' => $this->errorMessage($json, $response->status()),
+                    'ok' => true,
+                    'message' => 'Scan QR di WhatsApp (Perangkat tertaut).',
+                    'state' => $state,
+                    'qr_base64' => $qr,
+                    'pairing_code' => null,
                 ];
             }
 
-            $qr = $this->readQr($json);
-            $pairing = $this->scalar($json, ['pairingCode', 'pairing_code']);
-            $state = $this->readState($json) ?: 'connecting';
+            for ($attempt = 1; $attempt <= 6; $attempt++) {
+                $response = $this->client()->timeout(25)->get($this->url('/instance/connect/'.$this->instance()));
+                $json = $response->json();
+
+                if (! $response->successful() && $response->status() !== 201) {
+                    $lastError = $this->errorMessage($json, $response->status());
+                    if ($attempt < 6) {
+                        $this->pauseBeforeRetry(800000);
+
+                        continue;
+                    }
+
+                    return [
+                        'ok' => false,
+                        'message' => $lastError,
+                    ];
+                }
+
+                $qr = $this->readQr($json);
+                $pairing = $this->scalar($json, ['pairingCode', 'pairing_code', 'qrcode.pairingCode']);
+                if ($qr || $pairing !== '') {
+                    break;
+                }
+
+                $this->pauseBeforeRetry(1200000);
+            }
+
+            $state = $this->readState($json);
+            if ($state === 'unknown' || $state === '') {
+                $state = $this->freshState();
+            }
 
             return [
                 'ok' => true,
                 'message' => $qr
                     ? 'Scan QR di WhatsApp (Perangkat tertaut).'
-                    : ($state === 'open' ? 'WhatsApp sudah terhubung.' : 'Menunggu koneksi WhatsApp.'),
+                    : ($pairing !== ''
+                        ? 'Masukkan kode pairing di WhatsApp (Perangkat tertaut).'
+                        : ($state === 'open'
+                            ? 'WhatsApp sudah terhubung.'
+                            : 'QR belum siap. Klik Hubungkan / QR lagi dalam beberapa detik.')),
                 'state' => $state,
                 'qr_base64' => $qr,
                 'pairing_code' => $pairing !== '' ? $pairing : null,
@@ -366,6 +405,15 @@ class EvolutionChannel implements MessagingChannelInterface
             $json = $response->json();
 
             if ($response->successful() || in_array($response->status(), [403, 409], true)) {
+                $qr = $this->readQr($json);
+                if ($qr) {
+                    return [
+                        'ok' => true,
+                        'message' => 'Instance Evolution siap.',
+                        'qr_base64' => $qr,
+                    ];
+                }
+
                 return ['ok' => true, 'message' => 'Instance Evolution siap.'];
             }
 
@@ -414,11 +462,34 @@ class EvolutionChannel implements MessagingChannelInterface
         }
 
         $state = $json['state']
+            ?? $json['connectionStatus']
             ?? data_get($json, 'instance.state')
+            ?? data_get($json, 'instance.connectionStatus')
             ?? data_get($json, 'instance.instance.state')
+            ?? data_get($json, '0.connectionStatus')
             ?? '';
 
-        return $state !== '' ? strtolower((string) $state) : 'unknown';
+        $state = strtolower(trim((string) $state));
+
+        return $state !== '' ? $state : 'unknown';
+    }
+
+    private function freshState(): string
+    {
+        $state = (string) ($this->connectionStatus()['state'] ?? 'connecting');
+
+        return in_array($state, ['unknown', 'unconfigured', 'unreachable', 'error', ''], true)
+            ? 'connecting'
+            : $state;
+    }
+
+    private function pauseBeforeRetry(int $microseconds): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        usleep($microseconds);
     }
 
     /**
@@ -434,6 +505,10 @@ class EvolutionChannel implements MessagingChannelInterface
             ?? data_get($json, 'qrcode.base64')
             ?? data_get($json, 'instance.qrcode.base64')
             ?? null;
+
+        if (is_string($raw) && $raw !== '' && ! str_starts_with($raw, 'data:') && ! preg_match('/^[A-Za-z0-9+\/=]+$/', substr($raw, 0, 80))) {
+            $raw = null;
+        }
 
         if (! is_string($raw) || $raw === '') {
             return null;

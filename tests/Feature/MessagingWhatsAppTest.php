@@ -242,4 +242,35 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertSame('1', SiteSetting::getValue('app_notif_whatsapp'));
         $this->assertSame('Halo {{nama}} tagihan {{nomor}}', SiteSetting::getValue('msg_tpl_invoice'));
     }
+
+    #[Test]
+    public function connect_reads_v2_qr_payload_without_unknown_state(): void
+    {
+        $this->enableWhatsapp();
+        Http::fake([
+            'http://evolution.test/instance/connectionState/teslatech' => Http::response([
+                'instance' => [
+                    'instanceName' => 'teslatech',
+                    'state' => 'connecting',
+                ],
+            ], 200),
+            'http://evolution.test/webhook/set/teslatech' => Http::response(['ok' => true], 201),
+            'http://evolution.test/instance/connect/teslatech' => Http::response([
+                'pairingCode' => null,
+                'code' => '2@abc,1,TEST',
+                'base64' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+                'count' => 1,
+            ], 200),
+        ]);
+
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->postJson('/admin/messaging/whatsapp/connect')
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('state', 'connecting')
+            ->assertJsonPath('message', 'Scan QR di WhatsApp (Perangkat tertaut).')
+            ->assertJsonFragment(['qr_base64' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==']);
+    }
 }
