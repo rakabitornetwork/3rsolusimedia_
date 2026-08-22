@@ -379,20 +379,31 @@ class BillingController extends Controller
     {
         $validated = $request->validate([
             'days' => ['nullable', 'integer', Rule::in([3, 7, 14])],
+            'months' => ['nullable', 'integer', Rule::in([2])],
             'grace_until' => ['nullable', 'date', 'after_or_equal:today'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
 
-        if (empty($validated['days']) && empty($validated['grace_until'])) {
+        if (
+            empty($validated['days'])
+            && empty($validated['months'])
+            && empty($validated['grace_until'])
+        ) {
             return back()->with('error', 'Pilih durasi toleransi atau tanggal akhir.');
         }
 
-        $until = ! empty($validated['grace_until'])
-            ? Carbon::parse($validated['grace_until'])->startOfDay()
-            : now()->startOfDay()->addDays((int) $validated['days']);
+        if (! empty($validated['grace_until'])) {
+            $until = Carbon::parse($validated['grace_until'])->startOfDay();
+        } elseif (! empty($validated['months'])) {
+            $until = now()->startOfDay()->addMonthsNoOverflow((int) $validated['months']);
+        } else {
+            $until = now()->startOfDay()->addDays((int) $validated['days']);
+        }
+
+        $wasIsolated = $pppoe->status === 'isolated';
 
         try {
-            $this->billing->grantGrace(
+            $updated = $this->billing->grantGrace(
                 $pppoe,
                 $until,
                 $validated['note'] ?? null,
@@ -401,10 +412,20 @@ class BillingController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with(
-            'success',
-            'Toleransi isolir aktif sampai '.$until->format('d M Y').'. Jatuh tempo tidak digeser.'
-        );
+        if ($updated->sync_status === 'error') {
+            return back()->with(
+                'error',
+                'Toleransi tersimpan sampai '.$until->format('d M Y').', tetapi sync MikroTik gagal: '.
+                ($updated->sync_message ?: 'tidak ada pesan.')
+            );
+        }
+
+        $message = 'Toleransi isolir aktif sampai '.$until->format('d M Y').'. Jatuh tempo tagihan tidak digeser.';
+        if ($wasIsolated) {
+            $message .= ' Profil paket dipulihkan dan sesi diputus agar reconnect.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function clearGrace(PppoeCustomer $pppoe): RedirectResponse
@@ -420,6 +441,8 @@ class BillingController extends Controller
             'months' => ['nullable', 'integer', 'min:2', 'max:6'],
         ]);
 
+        $wasIsolated = $pppoe->status === 'isolated' || $pppoe->isOverdue();
+
         try {
             $invoice = $this->billing->createCombinedMonthlyInvoice(
                 $pppoe->load('package'),
@@ -429,9 +452,21 @@ class BillingController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with(
-            'success',
-            'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number
-        );
+        $customer = $pppoe->fresh();
+        $message = 'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number;
+
+        if ($wasIsolated && $customer?->hasActiveGrace()) {
+            $message .= ' Tempo isolir aktif sampai '.$customer->grace_until->format('d M Y').
+                '. Profil paket dipulihkan (tagihan tetap belum lunas).';
+
+            if ($customer->sync_status === 'error') {
+                return back()->with(
+                    'error',
+                    $message.' Sync MikroTik gagal: '.($customer->sync_message ?: 'tidak ada pesan.')
+                );
+            }
+        }
+
+        return back()->with('success', $message);
     }
 }

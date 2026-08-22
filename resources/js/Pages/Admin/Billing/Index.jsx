@@ -167,15 +167,16 @@ function MoreActions({ invoice, onRemove }) {
             (invoice.billing_months > 1 || invoice.type === 'multi_month')
         );
 
-    const grantGrace = (days) => {
+    const grantGrace = ({ days, months } = {}) => {
+        const label = months ? `+${months} bulan` : `+${days} hari`;
         const note = window.prompt(
-            `Toleransi isolir +${days} hari (jatuh tempo tidak digeser).\nCatatan opsional:`,
+            `Tempo isolir ${label} (tagihan tetap belum lunas, jatuh tempo tidak digeser).\nProfil paket akan dipulihkan.\nCatatan opsional:`,
             customer.grace_note || '',
         );
         if (note === null) return;
         router.post(
             `/admin/billing/customers/${customer.id}/grace`,
-            { days, note: note || undefined },
+            { days, months, note: note || undefined },
             keepPage,
         );
     };
@@ -190,7 +191,7 @@ function MoreActions({ invoice, onRemove }) {
         const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
         if (
             !window.confirm(
-                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
+                `Buat tagihan gabungan 2 bulan untuk ${customer.name}?\nTotal: ${totalLabel}\n\nJika pelanggan sedang isolir, isolir dicabut (tempo 2 bulan) tanpa perlu lunas dulu.\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
             )
         ) {
             return;
@@ -225,7 +226,7 @@ function MoreActions({ invoice, onRemove }) {
                                     type="button"
                                     onClick={() => {
                                         close();
-                                        grantGrace(days);
+                                        grantGrace({ days });
                                     }}
                                     className="admin-row-menu-item"
                                 >
@@ -233,6 +234,17 @@ function MoreActions({ invoice, onRemove }) {
                                     +{days} hari
                                 </button>
                             ))}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    close();
+                                    grantGrace({ months: 2 });
+                                }}
+                                className="admin-row-menu-item"
+                            >
+                                <Clock className="h-3.5 w-3.5 text-ink-soft" />
+                                +2 bulan
+                            </button>
                             {customer.has_active_grace ? (
                                 <button
                                     type="button"

@@ -492,7 +492,7 @@ class BillingService
 
         $amount = $price * $months;
 
-        return $this->createInvoice(
+        $invoice = $this->createInvoice(
             customer: $customer,
             type: 'multi_month',
             periodStart: $this->periodStartBeforeDue($customer),
@@ -502,6 +502,18 @@ class BillingService
             notes: 'Tagihan gabungan '.$months.' bulan ('.$customer->package?->name.')',
             billingMonths: $months,
         );
+
+        // Gabung N bulan untuk pelanggan terisolir/nunggak = tempo N bulan
+        // tanpa perlu lunas dulu: cabut isolir, pulihkan profil, putus sesi.
+        if ($customer->isOverdue() || $customer->status === 'isolated') {
+            $this->grantGrace(
+                $customer,
+                now()->startOfDay()->addMonthsNoOverflow($months),
+                'Tempo '.$months.' bulan (tagihan gabungan)',
+            );
+        }
+
+        return $invoice;
     }
 
     private function createInvoice(

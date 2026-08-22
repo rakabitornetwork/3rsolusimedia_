@@ -77,15 +77,17 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         router.post(`/admin/billing/invoices/${invoice.id}/void`, {}, keepPage);
     };
 
-    const grantGrace = (days) => {
+    const grantGrace = ({ days, months } = {}) => {
         if (!invoice.customer?.id) return;
+        const label = months ? `+${months} bulan` : `+${days} hari`;
         const note = window.prompt(
-            `Toleransi isolir +${days} hari (jatuh tempo tidak digeser).\nCatatan opsional:`,
+            `Tempo isolir ${label} (tagihan tetap belum lunas, jatuh tempo tidak digeser).\nProfil paket akan dipulihkan.\nCatatan opsional:`,
             invoice.customer.grace_note || '',
         );
         if (note === null) return;
         router.post(`/admin/billing/customers/${invoice.customer.id}/grace`, {
             days,
+            months,
             note: note || undefined,
         }, keepPage);
     };
@@ -104,7 +106,7 @@ export default function Show({ invoice, payment_methods, online_pay }) {
         const totalLabel = `Rp ${Number(price * 2).toLocaleString('id-ID')}`;
         if (
             !window.confirm(
-                `Buat tagihan gabungan 2 bulan untuk ${invoice.customer.name}?\nTotal: ${totalLabel}\n\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
+                `Buat tagihan gabungan 2 bulan untuk ${invoice.customer.name}?\nTotal: ${totalLabel}\n\nJika pelanggan sedang isolir, isolir dicabut (tempo 2 bulan) tanpa perlu lunas dulu.\nInvoice unpaid bulanan/prorata yang ada akan diganti.`,
             )
         ) {
             return;
@@ -302,12 +304,19 @@ export default function Show({ invoice, payment_methods, online_pay }) {
                                     <button
                                         key={days}
                                         type="button"
-                                        onClick={() => grantGrace(days)}
+                                        onClick={() => grantGrace({ days })}
                                         className="btn-action btn-action-xs btn-warn"
                                     >
                                         +{days} hari
                                     </button>
                                 ))}
+                                <button
+                                    type="button"
+                                    onClick={() => grantGrace({ months: 2 })}
+                                    className="btn-action btn-action-xs btn-warn"
+                                >
+                                    +2 bulan
+                                </button>
                                 {invoice.customer.has_active_grace && (
                                     <button
                                         type="button"
@@ -325,8 +334,9 @@ export default function Show({ invoice, payment_methods, online_pay }) {
                                         Gabung bayar 2 bulan
                                     </h3>
                                     <p className="mt-1 text-sm text-ink-soft">
-                                        Satu tagihan 2× harga paket. Saat lunas, jatuh tempo maju 2
-                                        bulan. Tagihan unpaid bulanan/prorata diganti.
+                                        Satu tagihan 2× harga paket. Pelanggan isolir langsung
+                                        dibuka (tempo 2 bulan) tanpa perlu lunas. Saat lunas, jatuh
+                                        tempo maju 2 bulan. Tagihan unpaid bulanan/prorata diganti.
                                     </p>
                                     <button
                                         type="button"

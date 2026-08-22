@@ -114,4 +114,117 @@ class BillingIsolirRestoreTest extends TestCase
         $this->assertFalse($customer->shouldIsolir());
         $this->assertSame('active', $customer->status);
     }
+
+    #[Test]
+    public function two_month_tempo_without_payment_restores_isolated_profile(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-22 11:00:00', 'Asia/Jakarta'));
+
+        [$customer] = $this->isolatedCustomer();
+
+        $this->mockProfileRestore('10Mbps');
+
+        $updated = app(BillingService::class)->grantGrace(
+            $customer,
+            now()->startOfDay()->addMonthsNoOverflow(2),
+            'Tempo 2 bulan',
+        );
+
+        $this->assertSame('2026-10-22', $updated->grace_until?->toDateString());
+        $this->assertSame('2026-06-20', $updated->due_date?->toDateString());
+        $this->assertTrue($updated->hasActiveGrace());
+        $this->assertFalse($updated->shouldIsolir());
+        $this->assertSame('active', $updated->status);
+        $this->assertFalse(
+            Invoice::query()->where('pppoe_customer_id', $customer->id)->where('status', 'paid')->exists()
+        );
+    }
+
+    #[Test]
+    public function combining_two_months_for_isolated_customer_grants_tempo_and_restores_profile(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-22 11:00:00', 'Asia/Jakarta'));
+
+        [$customer] = $this->isolatedCustomer();
+
+        $this->mockProfileRestore('10Mbps');
+
+        $invoice = app(BillingService::class)->createCombinedMonthlyInvoice($customer, 2);
+        $customer->refresh();
+
+        $this->assertSame('multi_month', $invoice->type);
+        $this->assertSame(2, $invoice->billing_months);
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertSame('2026-10-22', $customer->grace_until?->toDateString());
+        $this->assertSame('2026-06-20', $customer->due_date?->toDateString());
+        $this->assertFalse($customer->shouldIsolir());
+        $this->assertSame('active', $customer->status);
+    }
+
+    /**
+     * @return array{0: PppoeCustomer, 1: SubscriptionPackage}
+     */
+    private function isolatedCustomer(): array
+    {
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        $package = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '10 Mbps',
+            'price' => 150000,
+            'mikrotik_profile' => '10Mbps',
+            'is_active' => true,
+        ]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Amanda',
+            'username' => 'amanda',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'isolir_profile' => 'ISOLIR',
+            'overdue_action' => 'isolir',
+            'billing_day' => 20,
+            'start_date' => '2026-01-20',
+            'due_date' => '2026-06-20',
+            'status' => 'isolated',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        return [$customer, $package];
+    }
+
+    private function mockProfileRestore(string $profile): void
+    {
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')
+            ->once()
+            ->withArgs(function (
+                $passedRouter,
+                string $username,
+                string $password,
+                ?string $targetProfile,
+                ?string $comment,
+                bool $disabled,
+                bool $disconnectActive,
+            ) use ($profile) {
+                return $targetProfile === $profile
+                    && $disabled === false
+                    && $disconnectActive === true;
+            })
+            ->andReturn([
+                'ok' => true,
+                'message' => 'Secret PPPoE berhasil diperbarui di RouterOS.',
+            ]);
+        $this->app->instance(MikrotikApiService::class, $api);
+    }
 }
