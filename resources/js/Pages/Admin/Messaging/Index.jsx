@@ -569,6 +569,7 @@ export default function Index({
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
                             Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{portal}} {{telepon_kantor}} {{perusahaan}}'}.
+                            {'{{alamat}}'} memakai teks alamat; jika kosong, koordinat GPS + tautan peta.
                             Dikirim ke chat terikat; WhatsApp juga ke nomor HP di data pelanggan.
                         </p>
                         <div className="mt-4 space-y-2">

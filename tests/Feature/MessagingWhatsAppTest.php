@@ -334,6 +334,30 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function welcome_address_falls_back_to_gps_coordinates(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setValue('messaging_notify_welcome', '1');
+
+        $customer = $this->customer([
+            'address' => null,
+            'latitude' => -6.175392,
+            'longitude' => 106.827153,
+        ]);
+
+        app(CustomerNotifier::class)->notifyWelcome($customer);
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && str_contains($text, '-6.175392, 106.827153')
+                && str_contains($text, 'https://maps.google.com/?q=-6.175392,106.827153');
+        });
+    }
+
+    #[Test]
     public function welcome_notification_is_skipped_when_toggle_is_off(): void
     {
         $this->enableWhatsapp();

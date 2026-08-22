@@ -154,7 +154,7 @@ class CustomerNotifier
         return [
             ...$this->customerVars($customer),
             'password' => $this->dash((string) $customer->password),
-            'alamat' => $this->dash((string) ($customer->address ?? '')),
+            'alamat' => $this->customerAddress($customer),
             'paket' => $this->dash((string) ($package?->name ?: '')),
             'harga_paket' => $package
                 ? $this->rupiah((int) $package->price)
@@ -225,6 +225,23 @@ class CustomerNotifier
         }
 
         return $body;
+    }
+
+    private function customerAddress(PppoeCustomer $customer): string
+    {
+        $address = trim((string) ($customer->address ?? ''));
+        if ($address !== '') {
+            return $address;
+        }
+
+        if ($customer->latitude === null || $customer->longitude === null) {
+            return '—';
+        }
+
+        $lat = number_format((float) $customer->latitude, 6, '.', '');
+        $lng = number_format((float) $customer->longitude, 6, '.', '');
+
+        return $lat.', '.$lng."\nhttps://maps.google.com/?q=".$lat.','.$lng;
     }
 
     private function dash(string $value): string
