@@ -85,6 +85,8 @@ export default function Index({
         app_notif_whatsapp: Boolean(config?.notify_invoice),
         messaging_notify_isolir: Boolean(config?.notify_isolir),
         messaging_notify_welcome: config?.notify_welcome !== false,
+        messaging_notify_pppoe_session: Boolean(config?.notify_pppoe_session),
+        messaging_pppoe_session_debounce: Number(config?.pppoe_session_debounce ?? 3),
         msg_tpl_invoice: config?.templates?.invoice || '',
         msg_tpl_reminder: config?.templates?.reminder || '',
         msg_tpl_isolir: config?.templates?.isolir || '',
@@ -219,6 +221,7 @@ export default function Index({
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Pelanggan mengikat chat, cek tagihan, dan bayar. Pengingat tagihan/isolir memakai
                     template di tab ini dan dikirim ke chat terikat atau nomor HP pelanggan (WhatsApp).
+                    Perubahan sesi PPPoE connected/disconnected dikirim ke Chat ID admin Telegram.
                 </p>
                 <div className="text-xs text-ink-soft">
                     Aktif:{' '}
@@ -326,8 +329,8 @@ export default function Index({
                                 />
                                 <p className="mt-1 text-xs font-normal text-ink-soft">
                                     Bisa beberapa ID dipisah koma. Chat ini boleh memakai /cari nama_pelanggan
-                                    untuk profil, RX power, suhu, SSID, dan tagihan. Pasang ulang webhook setelah
-                                    menyimpan.
+                                    untuk profil, RX power, suhu, SSID, dan tagihan, serta menerima notifikasi
+                                    sesi PPPoE. Pasang ulang webhook setelah menyimpan.
                                 </p>
                             </label>
                         </div>
@@ -630,6 +633,47 @@ export default function Index({
                                     }
                                     className="mt-1 h-4 w-4 accent-signal-deep"
                                 />
+                            </label>
+                            <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
+                                <span>
+                                    <span className="block text-sm font-medium text-ink">
+                                        Sesi PPPoE connected & disconnected
+                                    </span>
+                                    <span className="mt-0.5 block text-xs text-ink-soft">
+                                        Dikirim ke Chat ID admin Telegram. Reconnect singkat diabaikan sesuai
+                                        jeda di bawah. Banyak sesi sekaligus diringkas jadi satu pesan.
+                                        Butuh scheduler Laravel (`pppoe:watch-sessions` setiap menit).
+                                    </span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(templates.data.messaging_notify_pppoe_session)}
+                                    disabled={!canWrite}
+                                    onChange={(e) =>
+                                        templates.setData('messaging_notify_pppoe_session', e.target.checked)
+                                    }
+                                    className="mt-1 h-4 w-4 accent-signal-deep"
+                                />
+                            </label>
+                            <label className="block border border-ink/10 px-4 py-3 text-sm font-medium text-ink">
+                                Jeda disconnect (menit)
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={30}
+                                    value={templates.data.messaging_pppoe_session_debounce}
+                                    disabled={!canWrite}
+                                    onChange={(e) =>
+                                        templates.setData(
+                                            'messaging_pppoe_session_debounce',
+                                            e.target.value === '' ? 0 : Number(e.target.value),
+                                        )
+                                    }
+                                    className={fieldClass}
+                                />
+                                <span className="mt-1 block text-xs font-normal text-ink-soft">
+                                    0 = kirim langsung. Nilai 3–5 menghindari banjir saat modem restart.
+                                </span>
                             </label>
                         </div>
                     </div>

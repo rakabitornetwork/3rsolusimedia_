@@ -111,6 +111,8 @@ class MessagingController extends Controller
             'app_notif_whatsapp' => ['sometimes', 'boolean'],
             'messaging_notify_isolir' => ['sometimes', 'boolean'],
             'messaging_notify_welcome' => ['sometimes', 'boolean'],
+            'messaging_notify_pppoe_session' => ['sometimes', 'boolean'],
+            'messaging_pppoe_session_debounce' => ['nullable', 'integer', 'min:0', 'max:30'],
             'msg_tpl_invoice' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_reminder' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_isolir' => ['nullable', 'string', 'max:4000'],
@@ -122,6 +124,8 @@ class MessagingController extends Controller
             'app_notif_whatsapp' => $request->boolean('app_notif_whatsapp') ? '1' : '0',
             'messaging_notify_isolir' => $request->boolean('messaging_notify_isolir') ? '1' : '0',
             'messaging_notify_welcome' => $request->boolean('messaging_notify_welcome') ? '1' : '0',
+            'messaging_notify_pppoe_session' => $request->boolean('messaging_notify_pppoe_session') ? '1' : '0',
+            'messaging_pppoe_session_debounce' => (string) max(0, min(30, (int) ($validated['messaging_pppoe_session_debounce'] ?? 3))),
         ];
 
         foreach (array_keys(MessageTemplate::defaults()) as $key) {

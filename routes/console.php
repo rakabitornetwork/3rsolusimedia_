@@ -17,3 +17,6 @@ Schedule::command('hotspot:purge-used')->everyFiveMinutes();
 // Pengingat tagihan belum lunas (WhatsApp / Telegram terikat)
 Schedule::command('messaging:remind-invoices')->dailyAt('08:00');
 
+// Pantau sesi PPPoE connected/disconnected → Telegram admin
+Schedule::command('pppoe:watch-sessions')->everyMinute()->withoutOverlapping(5);
+

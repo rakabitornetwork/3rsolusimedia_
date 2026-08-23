@@ -58,6 +58,8 @@ class AppSettings
         'whatsapp_test_number' => '',
         'messaging_notify_isolir' => '0',
         'messaging_notify_welcome' => '1',
+        'messaging_notify_pppoe_session' => '0',
+        'messaging_pppoe_session_debounce' => '3',
         'msg_tpl_invoice' => '',
         'msg_tpl_reminder' => '',
         'msg_tpl_isolir' => '',
@@ -223,6 +225,8 @@ class AppSettings
             'notify_invoice' => self::bool('app_notif_whatsapp', false),
             'notify_isolir' => self::bool('messaging_notify_isolir', false),
             'notify_welcome' => self::bool('messaging_notify_welcome', true),
+            'notify_pppoe_session' => self::bool('messaging_notify_pppoe_session', false),
+            'pppoe_session_debounce' => max(0, min(30, self::int('messaging_pppoe_session_debounce', 3))),
             'templates' => \App\Services\Messaging\MessageTemplate::all(),
         ];
     }
