@@ -1818,6 +1818,73 @@ class MikrotikApiService
     }
 
     /**
+     * Total byte Rx/Tx interface dinamis <pppoe-username>.
+     *
+     * @return array{rx_byte: int, tx_byte: int}|null
+     */
+    public function pppoeInterfaceBytes(MikrotikRouter $router, string $username): ?array
+    {
+        $username = trim($username);
+        if ($username === '') {
+            return null;
+        }
+
+        try {
+            $client = $this->makeClient($router, timeout: 5);
+            $name = '<pppoe-'.$username.'>';
+            $rows = $client->query((new Query('/interface/print'))->where('name', $name))->read();
+            $row = $rows[0] ?? null;
+            if (! is_array($row)) {
+                return null;
+            }
+
+            return [
+                'rx_byte' => (int) ($row['rx-byte'] ?? 0),
+                'tx_byte' => (int) ($row['tx-byte'] ?? 0),
+            ];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array<string, array{rx_byte: int, tx_byte: int}>
+     */
+    public function pppoeInterfaceBytesMap(MikrotikRouter $router): array
+    {
+        try {
+            $client = $this->makeClient($router, timeout: 8);
+            $rows = $client->query(new Query('/interface/print'))->read();
+            $map = [];
+
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $name = (string) ($row['name'] ?? '');
+                if (! preg_match('/^<pppoe-(.+)>$/i', $name, $matches)) {
+                    continue;
+                }
+
+                $user = strtolower(trim($matches[1]));
+                if ($user === '') {
+                    continue;
+                }
+
+                $map[$user] = [
+                    'rx_byte' => (int) ($row['rx-byte'] ?? 0),
+                    'tx_byte' => (int) ($row['tx-byte'] ?? 0),
+                ];
+            }
+
+            return $map;
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message: string}
      */
     public function disconnectPppActiveSession(MikrotikRouter $router, string $sessionId): array

@@ -25,6 +25,7 @@ class PppoeSessionMonitor
     public function __construct(
         private readonly MikrotikApiService $api,
         private readonly MessagingManager $channels,
+        private readonly GenieAcsService $genie,
     ) {}
 
     public function isEnabled(): bool
@@ -169,7 +170,10 @@ class PppoeSessionMonitor
             return $empty;
         }
 
-        $current = $this->indexSessions($fetched['sessions'] ?? []);
+        $current = $this->mergeInterfaceBytes(
+            $router,
+            $this->indexSessions($fetched['sessions'] ?? []),
+        );
         $previous = $this->rememberedOnline($router);
         $pending = $this->rememberedPending($router);
 
@@ -328,6 +332,8 @@ class PppoeSessionMonitor
                 'address' => $session['address'] ?? null,
                 'caller_id' => $session['caller_id'] ?? null,
                 'uptime' => $session['uptime'] ?? null,
+                'rx_byte' => $session['rx_byte'] ?? null,
+                'tx_byte' => $session['tx_byte'] ?? null,
             ];
         }
 
@@ -347,6 +353,8 @@ class PppoeSessionMonitor
             'address' => $session['address'] ?? $session['ip'] ?? null,
             'caller_id' => $session['caller_id'] ?? $session['mac'] ?? null,
             'uptime' => $session['uptime'] ?? null,
+            'rx_byte' => $session['rx_byte'] ?? null,
+            'tx_byte' => $session['tx_byte'] ?? null,
         ];
 
         if ($event === 'up') {
@@ -383,6 +391,10 @@ class PppoeSessionMonitor
                 return ['ok' => true, 'message' => 'Mass connect diringkas.', 'sent' => $sent, 'type' => 'mass_up'];
             }
 
+            $row = $this->withInterfaceBytes($router, $username, $row);
+            $online[$username] = $row;
+            $this->storeOnline($router, $online);
+
             $customer = $this->findCustomer($router, $username);
             $payload = $this->sessionEvent('up', $router, $username, $row, $customer);
             $sent = $this->deliver($payload, $this->sessionMessage($payload), true, $customer?->id);
@@ -390,7 +402,7 @@ class PppoeSessionMonitor
             return ['ok' => true, 'message' => 'PPPoE connected.', 'sent' => $sent, 'type' => 'up'];
         }
 
-        $previous = $online[$username] ?? $row;
+        $previous = $this->withInterfaceBytes($router, $username, $online[$username] ?? $row);
         unset($online[$username]);
         $burst = $this->incrementBurst($router, 'down');
 
@@ -566,6 +578,8 @@ class PppoeSessionMonitor
         array $session,
         ?PppoeCustomer $customer,
     ): array {
+        $optical = $this->opticalSnapshot($customer);
+
         return [
             'type' => $type,
             'router_id' => $router->id,
@@ -573,11 +587,17 @@ class PppoeSessionMonitor
             'username' => $username,
             'name' => $customer?->name,
             'phone' => $customer?->phone,
+            'customer_address' => $customer?->address,
+            'password_masked' => $this->maskedPassword($customer),
             'status' => $customer?->status,
             'package' => $customer?->package?->name,
             'address' => $session['address'] ?? null,
             'caller_id' => $session['caller_id'] ?? null,
             'uptime' => $session['uptime'] ?? null,
+            'rx_byte' => $session['rx_byte'] ?? null,
+            'tx_byte' => $session['tx_byte'] ?? null,
+            'rx_power' => $optical['rx_power_label'] ?? null,
+            'temperature' => $optical['temperature_label'] ?? null,
             'registered' => $customer !== null,
         ];
     }
@@ -594,11 +614,17 @@ class PppoeSessionMonitor
             '🖥 Router: '.$this->dash($event['router'] ?? null),
             '👤 Nama: '.$this->dash($event['name'] ?? null),
             '🔑 Username: '.$this->dash($event['username'] ?? null),
+            '🔐 Password: '.$this->dash($event['password_masked'] ?? null),
             '📱 HP: '.$this->dash($event['phone'] ?? null),
+            '📍 Alamat: '.$this->dash($event['customer_address'] ?? null),
             'Status: '.$this->statusLabel($event['status'] ?? null),
             '📦 Paket: '.$this->dash($event['package'] ?? null),
             '🌐 IP: '.$this->dash($event['address'] ?? null),
             '📟 MAC: '.$this->dash($event['caller_id'] ?? null),
+            '⬇️ Rx: '.$this->formatBytes($event['rx_byte'] ?? null),
+            '⬆️ Tx: '.$this->formatBytes($event['tx_byte'] ?? null),
+            '📶 Rx power: '.$this->dash($event['rx_power'] ?? null),
+            '🌡 Suhu: '.$this->dash($event['temperature'] ?? null),
         ];
 
         if ($up && ! empty($event['uptime'])) {
@@ -614,6 +640,135 @@ class PppoeSessionMonitor
         $lines[] = $this->stamp();
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $current
+     * @return array<string, array<string, mixed>>
+     */
+    private function mergeInterfaceBytes(MikrotikRouter $router, array $current): array
+    {
+        if ($current === []) {
+            return $current;
+        }
+
+        try {
+            $map = $this->api->pppoeInterfaceBytesMap($router);
+        } catch (Throwable) {
+            return $current;
+        }
+
+        foreach ($current as $user => $session) {
+            if (! isset($map[$user])) {
+                continue;
+            }
+
+            $current[$user]['rx_byte'] = $map[$user]['rx_byte'];
+            $current[$user]['tx_byte'] = $map[$user]['tx_byte'];
+        }
+
+        return $current;
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     * @return array<string, mixed>
+     */
+    private function withInterfaceBytes(MikrotikRouter $router, string $username, array $session): array
+    {
+        if (isset($session['rx_byte'], $session['tx_byte'])) {
+            return $session;
+        }
+
+        try {
+            $bytes = $this->api->pppoeInterfaceBytes($router, $username);
+        } catch (Throwable) {
+            return $session;
+        }
+
+        if (! $bytes) {
+            return $session;
+        }
+
+        $session['rx_byte'] = $bytes['rx_byte'];
+        $session['tx_byte'] = $bytes['tx_byte'];
+
+        return $session;
+    }
+
+    /**
+     * @return array{rx_power_label: ?string, temperature_label: ?string}
+     */
+    private function opticalSnapshot(?PppoeCustomer $customer): array
+    {
+        $empty = ['rx_power_label' => null, 'temperature_label' => null];
+        $username = strtolower(trim((string) ($customer?->username ?? '')));
+        if ($username === '' || ! $this->genie->isConfigured()) {
+            return $empty;
+        }
+
+        $key = 'pppoe:optical:'.$username;
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        try {
+            $result = $this->genie->findDeviceByPppoeUsername($username);
+            $device = is_array($result['device'] ?? null) ? $result['device'] : null;
+            $snap = $empty;
+            if (($result['ok'] ?? false) && $device) {
+                $rx = trim((string) ($device['rx_power_label'] ?? ''));
+                $temp = trim((string) ($device['temperature_label'] ?? ''));
+                $snap = [
+                    'rx_power_label' => ($rx !== '' && $rx !== '—') ? $rx : null,
+                    'temperature_label' => ($temp !== '' && $temp !== '—') ? $temp : null,
+                ];
+            }
+            Cache::put($key, $snap, now()->addMinutes(5));
+
+            return $snap;
+        } catch (Throwable) {
+            return $empty;
+        }
+    }
+
+    private function maskedPassword(?PppoeCustomer $customer): ?string
+    {
+        $plain = (string) ($customer?->password ?? '');
+        if ($plain === '') {
+            return null;
+        }
+
+        $len = mb_strlen($plain);
+        if ($len <= 2) {
+            return str_repeat('*', 4);
+        }
+
+        return mb_substr($plain, 0, 1).str_repeat('*', $len - 2).mb_substr($plain, -1);
+    }
+
+    private function formatBytes(mixed $bytes): string
+    {
+        if ($bytes === null || $bytes === '') {
+            return '—';
+        }
+
+        $value = (float) $bytes;
+        if ($value < 0) {
+            return '—';
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $i = 0;
+        while ($value >= 1024 && $i < count($units) - 1) {
+            $value /= 1024;
+            $i++;
+        }
+
+        $decimals = $i === 0 ? 0 : 1;
+
+        return number_format($value, $decimals, ',', '.').' '.$units[$i];
     }
 
     private function massMessage(MikrotikRouter $router, string $direction, int $changed, int $previous, int $current): string
@@ -662,7 +817,7 @@ class PppoeSessionMonitor
                     'external_id' => $chatId,
                     'command' => $command,
                     'status' => $ok ? 'sent' : 'failed',
-                    'body' => Str::limit($body, 480, ''),
+                    'body' => Str::limit($body, 900, ''),
                     'error_message' => $ok ? null : ($result['message'] ?? 'Gagal mengirim'),
                 ]);
                 if ($ok) {
@@ -676,7 +831,7 @@ class PppoeSessionMonitor
                     'external_id' => $chatId,
                     'command' => $command,
                     'status' => 'failed',
-                    'body' => Str::limit($body, 480, ''),
+                    'body' => Str::limit($body, 900, ''),
                     'error_message' => $e->getMessage(),
                 ]);
             }

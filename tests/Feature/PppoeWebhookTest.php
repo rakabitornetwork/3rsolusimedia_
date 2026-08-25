@@ -7,15 +7,27 @@ use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Services\MikrotikApiService;
 use App\Services\PppoeWebhookScript;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class PppoeWebhookTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('pppoeInterfaceBytes')->andReturn(null);
+        $api->shouldReceive('pppoeInterfaceBytesMap')->andReturn([]);
+        $this->app->instance(MikrotikApiService::class, $api);
+    }
 
     private function enableWatch(int $debounce = 3): void
     {
