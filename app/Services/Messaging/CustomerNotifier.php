@@ -134,6 +134,77 @@ class CustomerNotifier
     }
 
     /**
+     * Kirim satu template ke WhatsApp pelanggan (bukan welcome). Toggle otomatis diabaikan.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function notifyManualWhatsapp(Invoice $invoice, string $template): array
+    {
+        if (! MessageTemplate::isManual($template)) {
+            return ['ok' => false, 'message' => 'Template ini tidak bisa dikirim manual.'];
+        }
+
+        if (! $this->channelEnabled('whatsapp')) {
+            return ['ok' => false, 'message' => 'WhatsApp belum aktif. Aktifkan di Notifikasi & Bot.'];
+        }
+
+        $invoice->loadMissing(['customer.package']);
+        $customer = $invoice->customer;
+        if (! $customer) {
+            return ['ok' => false, 'message' => 'Tagihan tidak memiliki pelanggan.'];
+        }
+
+        $vars = match ($template) {
+            MessageTemplate::INVOICE, MessageTemplate::REMINDER, MessageTemplate::PAID => $this->invoiceVars($invoice, $customer),
+            default => $this->customerVars($customer),
+        };
+
+        if ($template === MessageTemplate::PAID) {
+            $nextDue = $customer->due_date?->format('d/m/Y');
+            if ($nextDue) {
+                $vars['jatuh_tempo'] = $nextDue;
+            }
+        }
+
+        $body = MessageTemplate::render($template, $vars);
+        if ($body === '') {
+            return ['ok' => false, 'message' => 'Isi template kosong.'];
+        }
+
+        $identity = MessagingIdentity::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('channel', 'whatsapp')
+            ->orderByDesc('id')
+            ->first();
+
+        $target = $identity?->external_id
+            ?: PhoneNumber::toInternational((string) $customer->phone);
+
+        $phone = PhoneNumber::toInternational($target);
+        if ($phone === '') {
+            return ['ok' => false, 'message' => 'Nomor WhatsApp pelanggan kosong dan belum terikat.'];
+        }
+
+        return $this->deliver('whatsapp', $phone, $body, $identity, $template, $vars, $customer->id);
+    }
+
+    /**
+     * @return array{enabled: bool, templates: list<array{value: string, label: string}>}
+     */
+    public function whatsappManualUi(): array
+    {
+        $templates = [];
+        foreach (MessageTemplate::manualChoices() as $value => $label) {
+            $templates[] = ['value' => $value, 'label' => $label];
+        }
+
+        return [
+            'enabled' => $this->channelEnabled('whatsapp'),
+            'templates' => $templates,
+        ];
+    }
+
+    /**
      * @return array<string, string>
      */
     public function invoiceVars(Invoice $invoice, PppoeCustomer $customer): array
@@ -201,6 +272,7 @@ class CustomerNotifier
 
     /**
      * @param  array<string, scalar|null>  $vars
+     * @return array{ok: bool, message: string}
      */
     private function deliver(
         string $channel,
@@ -210,9 +282,10 @@ class CustomerNotifier
         string $template,
         array $vars = [],
         ?int $customerId = null,
-    ): void {
+    ): array {
         try {
             $result = $this->channels->send($channel, $externalId, $body);
+            $ok = (bool) ($result['ok'] ?? false);
             MessageLog::query()->create([
                 'channel' => $channel,
                 'direction' => 'outbound',
@@ -220,16 +293,28 @@ class CustomerNotifier
                 'pppoe_customer_id' => $identity?->pppoe_customer_id ?? $customerId,
                 'external_id' => $externalId,
                 'command' => $template,
-                'status' => ($result['ok'] ?? false) ? 'sent' : 'failed',
+                'status' => $ok ? 'sent' : 'failed',
                 'body' => Str::limit($this->redactSecrets($body, $vars), 480, ''),
-                'error_message' => ($result['ok'] ?? false) ? null : ($result['message'] ?? 'Gagal mengirim'),
+                'error_message' => $ok ? null : ($result['message'] ?? 'Gagal mengirim'),
             ]);
+
+            return [
+                'ok' => $ok,
+                'message' => $ok
+                    ? 'Pesan WhatsApp terkirim.'
+                    : (string) ($result['message'] ?? 'Gagal mengirim WhatsApp.'),
+            ];
         } catch (Throwable $e) {
             Log::warning('CustomerNotifier gagal mengirim', [
                 'channel' => $channel,
                 'template' => $template,
                 'message' => $e->getMessage(),
             ]);
+
+            return [
+                'ok' => false,
+                'message' => 'Gagal mengirim WhatsApp: '.$e->getMessage(),
+            ];
         }
     }
 

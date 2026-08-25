@@ -7,7 +7,10 @@ use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
+use App\Models\SiteSetting;
 use App\Services\BillingService;
+use App\Services\Messaging\CustomerNotifier;
+use App\Services\Messaging\MessageTemplate;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
@@ -27,13 +30,13 @@ class BillingController extends Controller
     public function __construct(
         private readonly BillingService $billing,
         private readonly PaymentGatewayManager $gateways,
-    ) {
-    }
+        private readonly CustomerNotifier $notifier,
+    ) {}
 
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'router_id', 'sort', 'direction', 'page',
+            'q', 'status', 'overdue', 'grace', 'customer_status', 'router_id', 'sort', 'direction', 'page',
         ]);
 
         $user = $request->user();
@@ -106,6 +109,11 @@ class BillingController extends Controller
             });
         }
 
+        $customerStatus = (string) $request->get('customer_status', '');
+        if ($customerStatus === 'isolated') {
+            $query->whereHas('customer', fn ($customer) => $customer->where('status', 'isolated'));
+        }
+
         $query->orderBy($allowedSorts[$sort], $direction);
 
         if ($sort === 'type') {
@@ -152,6 +160,7 @@ class BillingController extends Controller
                 'status' => $request->get('status', ''),
                 'overdue' => $request->boolean('overdue'),
                 'grace' => in_array($grace, ['active', 'none'], true) ? $grace : '',
+                'customer_status' => $customerStatus === 'isolated' ? 'isolated' : '',
                 'router_id' => $routerId ?: '',
                 'sort' => $sort,
                 'direction' => $direction,
@@ -168,6 +177,7 @@ class BillingController extends Controller
                 'collected_this_month_label' => 'Rp '.number_format($collectedAmount, 0, ',', '.'),
                 'isolated' => $isolatedCustomerQuery->count(),
             ],
+            'whatsapp' => $this->notifier->whatsappManualUi(),
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
@@ -195,6 +205,7 @@ class BillingController extends Controller
                 ['value' => 'qris', 'label' => 'QRIS'],
                 ['value' => 'other', 'label' => 'Lainnya'],
             ],
+            'whatsapp' => $this->notifier->whatsappManualUi(),
             'online_pay' => [
                 'available' => $this->gateways->hasEnabledGateway(),
                 'enabled_gateways' => $this->gateways->enabledGateways(),
@@ -258,10 +269,10 @@ class BillingController extends Controller
             'company' => [
                 'name' => AppSettings::companyName(),
                 'logo' => AppSettings::branding()['logo_mark'] ?? AppSettings::branding()['logo_full'],
-                'address' => trim((string) \App\Models\SiteSetting::getValue('address', '')),
-                'phone' => trim((string) \App\Models\SiteSetting::getValue('phone', '')),
-                'whatsapp' => trim((string) \App\Models\SiteSetting::getValue('whatsapp', '')),
-                'tagline' => trim((string) \App\Models\SiteSetting::getValue('tagline', '')),
+                'address' => trim((string) SiteSetting::getValue('address', '')),
+                'phone' => trim((string) SiteSetting::getValue('phone', '')),
+                'whatsapp' => trim((string) SiteSetting::getValue('whatsapp', '')),
+                'tagline' => trim((string) SiteSetting::getValue('tagline', '')),
             ],
         ]);
     }
@@ -330,6 +341,83 @@ class BillingController extends Controller
         $message = $result['paid'].' tagihan ditandai lunas.';
         if ($result['skipped'] > 0) {
             $message .= ' '.$result['skipped'].' dilewati (sudah lunas, dibatalkan, atau tidak dapat diakses).';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    public function sendWhatsapp(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $user = $request->user();
+        if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk mengirim WhatsApp tagihan ini.');
+        }
+
+        $validated = $request->validate([
+            'template' => ['required', 'string', Rule::in(array_keys(MessageTemplate::manualChoices()))],
+        ]);
+
+        $result = $this->notifier->notifyManualWhatsapp($invoice, $validated['template']);
+        $label = MessageTemplate::manualChoices()[$validated['template']];
+
+        return back()->with(
+            ($result['ok'] ?? false) ? 'success' : 'error',
+            ($result['ok'] ?? false)
+                ? 'WhatsApp "'.$label.'" terkirim ke '.$invoice->customer?->name.'.'
+                : ($result['message'] ?? 'Gagal mengirim WhatsApp.')
+        );
+    }
+
+    public function bulkSendWhatsapp(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:invoices,id'],
+            'template' => ['required', 'string', Rule::in(array_keys(MessageTemplate::manualChoices()))],
+        ]);
+
+        $query = Invoice::query()
+            ->with(['customer'])
+            ->whereIn('id', $validated['ids']);
+
+        if ($user->isAgen()) {
+            $query->whereHas('customer', fn ($customer) => $customer->where('agent_id', $user->id));
+        }
+
+        $invoices = $query->get();
+        $sent = 0;
+        $failed = 0;
+        $lastError = null;
+
+        foreach ($invoices as $invoice) {
+            $result = $this->notifier->notifyManualWhatsapp($invoice, $validated['template']);
+            if ($result['ok'] ?? false) {
+                $sent++;
+            } else {
+                $failed++;
+                $lastError = $result['message'] ?? 'Gagal mengirim';
+            }
+        }
+
+        $skipped = count($validated['ids']) - $invoices->count();
+        $label = MessageTemplate::manualChoices()[$validated['template']];
+
+        if ($sent === 0) {
+            $message = $lastError ?: 'Tidak ada WhatsApp yang terkirim.';
+            if ($skipped > 0) {
+                $message .= ' '.$skipped.' tagihan dilewati.';
+            }
+
+            return back()->with('error', $message);
+        }
+
+        $message = $sent.' WhatsApp "'.$label.'" terkirim.';
+        if ($failed > 0) {
+            $message .= ' '.$failed.' gagal.';
+        }
+        if ($skipped > 0) {
+            $message .= ' '.$skipped.' dilewati.';
         }
 
         return back()->with('success', $message);

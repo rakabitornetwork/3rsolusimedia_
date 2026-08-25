@@ -82,6 +82,14 @@
       "_vendor-react-Dyo4ernH.js"
     ]
   },
+  "_billingWhatsapp-BcjTJcK3.js": {
+    "file": "assets/billingWhatsapp-BcjTJcK3.js",
+    "name": "billingWhatsapp",
+    "imports": [
+      "_vendor-ui-MghJUXd6.js",
+      "_keepPage-CqmOlAey.js"
+    ]
+  },
   "_genieacsMetrics-Ba_bFl71.js": {
     "file": "assets/genieacsMetrics-Ba_bFl71.js",
     "name": "genieacsMetrics"
@@ -236,7 +244,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-COWrI5Bw.css",
+    "file": "assets/app-CE-csKSn.css",
     "name": "app",
     "names": [
       "app.css"
@@ -277,7 +285,7 @@
     ]
   },
   "resources/js/Pages/Admin/Billing/Index.jsx": {
-    "file": "assets/Index-aIMrVB_-.js",
+    "file": "assets/Index-cdtWXWL3.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Billing/Index.jsx",
     "isDynamicEntry": true,
@@ -289,6 +297,7 @@
       "_AdminLayout-fVlNEVre.js",
       "_LocalPagination-KTbWCbhG.js",
       "_keepPage-CqmOlAey.js",
+      "_billingWhatsapp-BcjTJcK3.js",
       "_search-C70jlkfG.js"
     ]
   },
@@ -319,7 +328,7 @@
     ]
   },
   "resources/js/Pages/Admin/Billing/Show.jsx": {
-    "file": "assets/Show-BmPjBfwY.js",
+    "file": "assets/Show-BGD31Hyh.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Billing/Show.jsx",
     "isDynamicEntry": true,
@@ -328,7 +337,8 @@
       "_vendor-ui-MghJUXd6.js",
       "_vendor-react-Dyo4ernH.js",
       "_AdminLayout-fVlNEVre.js",
-      "_keepPage-CqmOlAey.js"
+      "_keepPage-CqmOlAey.js",
+      "_billingWhatsapp-BcjTJcK3.js"
     ]
   },
   "resources/js/Pages/Admin/ComingSoon.jsx": {
@@ -993,7 +1003,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-dzPl-teG.js",
+    "file": "assets/app-BujPPpUj.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1052,7 +1062,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-COWrI5Bw.css"
+      "assets/app-CE-csKSn.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

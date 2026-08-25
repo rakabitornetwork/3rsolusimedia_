@@ -1,12 +1,14 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import { sendBillingWhatsapp } from '../../../lib/billingWhatsapp';
 import { keepPage } from '../../../lib/keepPage';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
-export default function Show({ invoice, payment_methods, online_pay }) {
+export default function Show({ invoice, payment_methods, online_pay, whatsapp = { enabled: false, templates: [] } }) {
     const { flash } = usePage().props;
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
@@ -184,6 +186,13 @@ export default function Show({ invoice, payment_methods, online_pay }) {
                                     {invoice.customer?.name || '—'}
                                 </dd>
                                 <dd className="text-xs text-ink-soft">{invoice.customer?.username}</dd>
+                                {invoice.customer?.status === 'isolated' ? (
+                                    <dd className="mt-1">
+                                        <span className="inline-block bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-700 uppercase">
+                                            Isolir
+                                        </span>
+                                    </dd>
+                                ) : null}
                                 {invoice.customer?.phone ? (
                                     <dd className="text-xs text-ink-soft">{invoice.customer.phone}</dd>
                                 ) : null}
@@ -283,6 +292,41 @@ export default function Show({ invoice, payment_methods, online_pay }) {
                 </div>
 
                 <div className="space-y-5">
+                    {invoice.customer && (
+                        <div className="border border-ink/10 bg-white p-6">
+                            <h3 className="text-sm font-semibold text-ink">Kirim WhatsApp</h3>
+                            <p className="mt-1 text-sm text-ink-soft">
+                                Kirim template ke nomor HP pelanggan atau chat WhatsApp yang sudah
+                                terikat. Selamat datang tidak tersedia di sini.
+                            </p>
+                            {whatsapp.enabled ? (
+                                <div className="mt-4 flex flex-col gap-2">
+                                    {(whatsapp.templates || []).map((item) => (
+                                        <button
+                                            key={item.value}
+                                            type="button"
+                                            onClick={() =>
+                                                sendBillingWhatsapp(
+                                                    invoice.id,
+                                                    item.value,
+                                                    item.label,
+                                                )
+                                            }
+                                            className="btn-action btn-action-xs btn-secondary justify-start"
+                                        >
+                                            <Send className="mr-1.5 h-3.5 w-3.5" />
+                                            {item.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="mt-3 text-sm text-amber-700">
+                                    WhatsApp belum aktif. Aktifkan di Notifikasi & Bot.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {invoice.customer && (
                         <div className="border border-ink/10 bg-white p-6">
                             <h3 className="text-sm font-semibold text-ink">Toleransi isolir</h3>

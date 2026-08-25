@@ -227,4 +227,25 @@ class MessageTemplate
 
         return $all;
     }
+
+    /**
+     * Template yang boleh dikirim manual dari tagihan (bukan welcome).
+     *
+     * @return array<string, string>
+     */
+    public static function manualChoices(): array
+    {
+        return [
+            self::INVOICE => 'Tagihan baru',
+            self::REMINDER => 'Pengingat jatuh tempo',
+            self::PAID => 'Pembayaran diterima',
+            self::ISOLIR => 'Isolir',
+            self::RESTORE => 'Layanan aktif kembali',
+        ];
+    }
+
+    public static function isManual(string $template): bool
+    {
+        return array_key_exists($template, self::manualChoices());
+    }
 }

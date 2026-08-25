@@ -13,6 +13,8 @@ import {
     MoreHorizontal,
     Printer,
     Search,
+    Send,
+    ShieldAlert,
     ShieldCheck,
     Trash2,
     WalletCards,
@@ -23,6 +25,7 @@ import OverflowMenu from '../../../Components/Admin/OverflowMenu';
 import StatCard from '../../../Components/Admin/StatCard';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { keepPage } from '../../../lib/keepPage';
+import { bulkBillingWhatsapp, sendBillingWhatsapp } from '../../../lib/billingWhatsapp';
 import { matchesSearch, paginateItems } from '../../../lib/search';
 
 function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
@@ -158,7 +161,7 @@ function QuickPayMenu({ invoice, methods }) {
     );
 }
 
-function MoreActions({ invoice, onRemove }) {
+function MoreActions({ invoice, onRemove, whatsapp }) {
     const customer = invoice.customer;
     const canCombine =
         Boolean(customer?.id) &&
@@ -216,6 +219,36 @@ function MoreActions({ invoice, onRemove }) {
                         <Eye className="h-3.5 w-3.5 text-ink-soft" />
                         Detail tagihan
                     </Link>
+
+                    {customer?.id ? (
+                        <>
+                            <p className="admin-row-menu-label">Kirim WhatsApp</p>
+                            {whatsapp?.enabled
+                                ? (whatsapp.templates || []).map((item) => (
+                                      <button
+                                          key={item.value}
+                                          type="button"
+                                          onClick={() => {
+                                              close();
+                                              sendBillingWhatsapp(
+                                                  invoice.id,
+                                                  item.value,
+                                                  item.label,
+                                              );
+                                          }}
+                                          className="admin-row-menu-item"
+                                      >
+                                          <Send className="h-3.5 w-3.5 text-ink-soft" />
+                                          {item.label}
+                                      </button>
+                                  ))
+                                : (
+                                      <p className="px-3 py-2 text-xs text-ink-soft">
+                                          Aktifkan WhatsApp di Notifikasi & Bot.
+                                      </p>
+                                  )}
+                        </>
+                    ) : null}
 
                     {customer?.id ? (
                         <>
@@ -293,12 +326,23 @@ function MoreActions({ invoice, onRemove }) {
     );
 }
 
-export default function Index({ invoices = [], filters, stats, payment_methods, routers = [] }) {
+export default function Index({
+    invoices = [],
+    filters,
+    stats,
+    payment_methods,
+    routers = [],
+    whatsapp = { enabled: false, templates: [] },
+}) {
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
     const [selected, setSelected] = useState([]);
     const [bulkMethod, setBulkMethod] = useState('cash');
+    const [bulkWaTemplate, setBulkWaTemplate] = useState(
+        whatsapp.templates?.[0]?.value || 'reminder',
+    );
     const [bulkProcessing, setBulkProcessing] = useState(false);
+    const [bulkWaProcessing, setBulkWaProcessing] = useState(false);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -317,12 +361,9 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
     );
     const paged = useMemo(() => paginateItems(filtered, page, 20), [filtered, page]);
     const rows = paged.data;
-    const unpaidPageIds = useMemo(
-        () => rows.filter((item) => item.status === 'unpaid').map((item) => item.id),
-        [rows],
-    );
-    const allUnpaidPageSelected =
-        unpaidPageIds.length > 0 && unpaidPageIds.every((id) => selected.includes(id));
+    const pageIds = useMemo(() => rows.map((item) => item.id), [rows]);
+    const allPageSelected =
+        pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
     const selectedUnpaidCount = useMemo(() => {
         const unpaidIds = new Set(
             allInvoices.filter((item) => item.status === 'unpaid').map((item) => item.id),
@@ -340,6 +381,8 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                 [key]: value,
                 overdue: key === 'overdue' ? value : filters.overdue || false,
                 grace: key === 'grace' ? value : filters.grace || '',
+                customer_status:
+                    key === 'customer_status' ? value : filters.customer_status || '',
             },
             { preserveState: true, replace: true },
         );
@@ -356,6 +399,7 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                 direction,
                 overdue: filters.overdue || false,
                 grace: filters.grace || '',
+                customer_status: filters.customer_status || '',
             },
             { preserveState: true, replace: true },
         );
@@ -367,12 +411,12 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
         );
     };
 
-    const togglePageUnpaid = () => {
-        if (allUnpaidPageSelected) {
-            setSelected((prev) => prev.filter((id) => !unpaidPageIds.includes(id)));
+    const togglePage = () => {
+        if (allPageSelected) {
+            setSelected((prev) => prev.filter((id) => !pageIds.includes(id)));
             return;
         }
-        setSelected((prev) => [...new Set([...prev, ...unpaidPageIds])]);
+        setSelected((prev) => [...new Set([...prev, ...pageIds])]);
     };
 
     const bulkPay = () => {
@@ -407,6 +451,36 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                 },
             },
         );
+    };
+
+    const bulkWhatsapp = () => {
+        if (selected.length === 0) {
+            window.alert('Pilih minimal satu tagihan.');
+            return;
+        }
+        if (!whatsapp?.enabled) {
+            window.alert('WhatsApp belum aktif. Aktifkan di Notifikasi & Bot.');
+            return;
+        }
+
+        const choice =
+            (whatsapp.templates || []).find((item) => item.value === bulkWaTemplate) || {
+                value: bulkWaTemplate,
+                label: bulkWaTemplate,
+            };
+
+        if (
+            !window.confirm(
+                `Kirim WhatsApp "${choice.label}" ke ${selected.length} tagihan terpilih?`,
+            )
+        ) {
+            return;
+        }
+
+        setBulkWaProcessing(true);
+        bulkBillingWhatsapp(selected, choice.value, {
+            onFinish: () => setBulkWaProcessing(false),
+        });
     };
 
     const generate = () => {
@@ -450,7 +524,7 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
         >
             <Head title="Tagihan & Pembayaran" />
 
-            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 <StatCard
                     label="Belum bayar"
                     value={stats.unpaid}
@@ -462,6 +536,20 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                     value={stats.overdue}
                     tone="amber"
                     icon={Hourglass}
+                />
+                <StatCard
+                    label="Isolir"
+                    value={stats.isolated ?? 0}
+                    hint={
+                        filters.customer_status === 'isolated'
+                            ? 'Filter aktif — klik untuk lepas'
+                            : 'Klik untuk filter tagihan pelanggan isolir'
+                    }
+                    tone="violet"
+                    icon={ShieldAlert}
+                    href={`/admin/billing?customer_status=${
+                        filters.customer_status === 'isolated' ? '' : 'isolated'
+                    }`}
                 />
                 <StatCard
                     label="Lunas bulan ini"
@@ -531,6 +619,19 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                         />
                         Jatuh tempo saja
                     </label>
+                    <label className="inline-flex items-center gap-2 border border-ink/15 px-3 py-2 text-sm text-ink">
+                        <input
+                            type="checkbox"
+                            checked={filters.customer_status === 'isolated'}
+                            onChange={(e) =>
+                                applyFilters(
+                                    'customer_status',
+                                    e.target.checked ? 'isolated' : '',
+                                )
+                            }
+                        />
+                        Isolir saja
+                    </label>
                 </div>
 
                 <div className="admin-toolbar-actions">
@@ -582,6 +683,35 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                 ? 'Memproses...'
                                 : `Tandai Lunas (${selectedUnpaidCount})`}
                         </button>
+                        {whatsapp?.templates?.length ? (
+                            <>
+                                <select
+                                    value={bulkWaTemplate}
+                                    onChange={(e) => setBulkWaTemplate(e.target.value)}
+                                    disabled={bulkWaProcessing || !whatsapp.enabled}
+                                    className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                                >
+                                    {whatsapp.templates.map((item) => (
+                                        <option key={item.value} value={item.value}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={bulkWhatsapp}
+                                    disabled={
+                                        bulkWaProcessing ||
+                                        selected.length === 0 ||
+                                        !whatsapp.enabled
+                                    }
+                                    className="btn-action btn-action-sm btn-secondary"
+                                >
+                                    <Send className="mr-1.5 h-4 w-4" />
+                                    {bulkWaProcessing ? 'Mengirim...' : 'Kirim WA'}
+                                </button>
+                            </>
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => setSelected([])}
@@ -601,11 +731,11 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                             <th className="px-3 py-3 font-semibold">
                                 <input
                                     type="checkbox"
-                                    checked={allUnpaidPageSelected}
-                                    onChange={togglePageUnpaid}
-                                    disabled={unpaidPageIds.length === 0}
+                                    checked={allPageSelected}
+                                    onChange={togglePage}
+                                    disabled={pageIds.length === 0}
                                     className="accent-signal-deep"
-                                    title="Pilih semua tagihan belum bayar di halaman ini"
+                                    title="Pilih semua tagihan di halaman ini"
                                 />
                             </th>
                             <SortableHeader
@@ -667,13 +797,8 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                         type="checkbox"
                                         checked={selected.includes(item.id)}
                                         onChange={() => toggleOne(item.id)}
-                                        disabled={item.status !== 'unpaid'}
-                                        className="accent-signal-deep disabled:opacity-40"
-                                        title={
-                                            item.status === 'unpaid'
-                                                ? 'Pilih untuk tandai lunas massal'
-                                                : 'Hanya tagihan belum bayar yang bisa dipilih'
-                                        }
+                                        className="accent-signal-deep"
+                                        title="Pilih untuk lunas massal atau kirim WhatsApp"
                                     />
                                 </td>
                                 <td className="px-4 py-3">
@@ -688,6 +813,11 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                 <td className="px-4 py-3">
                                     <p className="font-medium text-ink">{item.customer?.name || '—'}</p>
                                     <p className="text-xs text-ink-soft">{item.customer?.username}</p>
+                                    {item.customer?.status === 'isolated' ? (
+                                        <span className="mt-1 inline-block bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-red-700 uppercase">
+                                            Isolir
+                                        </span>
+                                    ) : null}
                                     {item.customer?.router?.name ? (
                                         <p className="text-xs text-ink-soft">{item.customer.router.name}</p>
                                     ) : null}
@@ -723,7 +853,11 @@ export default function Index({ invoices = [], filters, stats, payment_methods, 
                                         >
                                             <Printer className="h-3.5 w-3.5" />
                                         </a>
-                                        <MoreActions invoice={item} onRemove={remove} />
+                                        <MoreActions
+                                            invoice={item}
+                                            onRemove={remove}
+                                            whatsapp={whatsapp}
+                                        />
                                     </div>
                                 </td>
                             </tr>
