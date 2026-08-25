@@ -51,6 +51,7 @@ class AppSettings
         'telegram_bot_username' => '',
         'telegram_webhook_secret' => '',
         'telegram_admin_chat_id' => '',
+        'pppoe_webhook_secret' => '',
         'whatsapp_enabled' => '0',
         'whatsapp_base_url' => 'http://127.0.0.1:8080',
         'whatsapp_api_key' => '',
@@ -153,6 +154,11 @@ class AppSettings
     public static function telegramWebhookSecret(): string
     {
         return trim((string) self::get('telegram_webhook_secret', ''));
+    }
+
+    public static function pppoeWebhookSecret(): string
+    {
+        return trim((string) self::get('pppoe_webhook_secret', ''));
     }
 
     /**

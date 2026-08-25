@@ -7,6 +7,7 @@ use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Services\Messaging\MessagingManager;
 use App\Support\AppSettings;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -24,8 +25,7 @@ class PppoeSessionMonitor
     public function __construct(
         private readonly MikrotikApiService $api,
         private readonly MessagingManager $channels,
-    ) {
-    }
+    ) {}
 
     public function isEnabled(): bool
     {
@@ -37,6 +37,37 @@ class PppoeSessionMonitor
     public function debounceMinutes(): int
     {
         return max(0, min(30, AppSettings::int('messaging_pppoe_session_debounce', 3)));
+    }
+
+    /**
+     * Event realtime dari script RouterOS (on-up / on-down).
+     *
+     * @param  array<string, mixed>  $session
+     * @return array{ok: bool, message: string, sent: int, type?: string}
+     */
+    public function handlePush(MikrotikRouter $router, string $event, string $username, array $session = []): array
+    {
+        if (! $this->isEnabled()) {
+            return [
+                'ok' => false,
+                'message' => 'Notifikasi sesi PPPoE nonaktif, Telegram belum aktif, atau Chat ID admin kosong.',
+                'sent' => 0,
+            ];
+        }
+
+        $username = strtolower(trim($username));
+        if ($username === '') {
+            return ['ok' => false, 'message' => 'Username kosong.', 'sent' => 0];
+        }
+
+        $event = strtolower($event) === 'down' ? 'down' : 'up';
+        $lock = Cache::lock('pppoe:session-watch:'.$router->id, 15);
+
+        try {
+            return $lock->block(8, fn () => $this->processPush($router, $event, $username, $session));
+        } catch (LockTimeoutException) {
+            return ['ok' => false, 'message' => 'Pemantauan sesi masih sibuk.', 'sent' => 0];
+        }
     }
 
     /**
@@ -301,6 +332,146 @@ class PppoeSessionMonitor
         }
 
         return $indexed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     * @return array{ok: bool, message: string, sent: int, type?: string}
+     */
+    private function processPush(MikrotikRouter $router, string $event, string $username, array $session): array
+    {
+        $online = $this->rememberedOnline($router) ?? [];
+        $pending = $this->rememberedPending($router);
+        $row = [
+            'name' => (string) ($session['name'] ?? $username),
+            'address' => $session['address'] ?? $session['ip'] ?? null,
+            'caller_id' => $session['caller_id'] ?? $session['mac'] ?? null,
+            'uptime' => $session['uptime'] ?? null,
+        ];
+
+        if ($event === 'up') {
+            if (isset($pending[$username])) {
+                unset($pending[$username]);
+                $online[$username] = $row;
+                $this->storeOnline($router, $online);
+                $this->storePending($router, $pending);
+
+                return ['ok' => true, 'message' => 'Reconnect singkat diabaikan.', 'sent' => 0, 'type' => 'flap'];
+            }
+
+            $online[$username] = $row;
+            $burst = $this->incrementBurst($router, 'up');
+            $this->storeOnline($router, $online);
+            $this->storePending($router, $pending);
+
+            if ($this->isMassEvent($burst, max(count($online), 1))) {
+                $sent = 0;
+                if ($this->markMassSent($router, 'up')) {
+                    $payload = [
+                        'type' => 'mass_up',
+                        'router_id' => $router->id,
+                        'router' => $router->name,
+                        'count' => $burst,
+                    ];
+                    $sent = $this->deliver(
+                        $payload,
+                        $this->massMessage($router, 'up', $burst, max(0, count($online) - 1), count($online)),
+                        true,
+                    );
+                }
+
+                return ['ok' => true, 'message' => 'Mass connect diringkas.', 'sent' => $sent, 'type' => 'mass_up'];
+            }
+
+            $customer = $this->findCustomer($router, $username);
+            $payload = $this->sessionEvent('up', $router, $username, $row, $customer);
+            $sent = $this->deliver($payload, $this->sessionMessage($payload), true, $customer?->id);
+
+            return ['ok' => true, 'message' => 'PPPoE connected.', 'sent' => $sent, 'type' => 'up'];
+        }
+
+        $previous = $online[$username] ?? $row;
+        unset($online[$username]);
+        $burst = $this->incrementBurst($router, 'down');
+
+        if ($this->isMassEvent($burst, max(count($online) + $burst, 1))) {
+            $this->storeOnline($router, $online);
+            $this->storePending($router, []);
+            $sent = 0;
+            if ($this->markMassSent($router, 'down')) {
+                $payload = [
+                    'type' => 'mass_down',
+                    'router_id' => $router->id,
+                    'router' => $router->name,
+                    'count' => $burst,
+                ];
+                $sent = $this->deliver(
+                    $payload,
+                    $this->massMessage($router, 'down', $burst, $burst + count($online), count($online)),
+                    true,
+                );
+            }
+
+            return ['ok' => true, 'message' => 'Mass disconnect diringkas.', 'sent' => $sent, 'type' => 'mass_down'];
+        }
+
+        $debounce = $this->debounceMinutes();
+        if ($debounce === 0) {
+            unset($pending[$username]);
+            $this->storeOnline($router, $online);
+            $this->storePending($router, $pending);
+            $customer = $this->findCustomer($router, $username);
+            $payload = $this->sessionEvent('down', $router, $username, $previous, $customer);
+            $sent = $this->deliver($payload, $this->sessionMessage($payload), true, $customer?->id);
+
+            return ['ok' => true, 'message' => 'PPPoE disconnected.', 'sent' => $sent, 'type' => 'down'];
+        }
+
+        if (! isset($pending[$username])) {
+            $pending[$username] = [
+                'since' => now()->toIso8601String(),
+                'session' => $previous,
+            ];
+        }
+        $this->storeOnline($router, $online);
+        $this->storePending($router, $pending);
+
+        return ['ok' => true, 'message' => 'Disconnect ditunda sesuai jeda.', 'sent' => 0, 'type' => 'pending'];
+    }
+
+    private function findCustomer(MikrotikRouter $router, string $username): ?PppoeCustomer
+    {
+        return PppoeCustomer::query()
+            ->with('package')
+            ->where('mikrotik_router_id', $router->id)
+            ->whereRaw('LOWER(username) = ?', [$username])
+            ->first();
+    }
+
+    private function incrementBurst(MikrotikRouter $router, string $direction): int
+    {
+        $key = 'pppoe:webhook-burst:'.$router->id.':'.$direction;
+        $now = now();
+        $data = Cache::get($key);
+        $started = is_array($data) ? $this->parseTime($data['started'] ?? null) : null;
+        if (! is_array($data) || ! $started || $started->lt($now->copy()->subMinutes(2))) {
+            $data = ['started' => $now->toIso8601String(), 'count' => 0];
+        }
+        $data['count'] = (int) ($data['count'] ?? 0) + 1;
+        Cache::put($key, $data, $now->copy()->addMinutes(5));
+
+        return (int) $data['count'];
+    }
+
+    private function markMassSent(MikrotikRouter $router, string $direction): bool
+    {
+        $key = 'pppoe:webhook-mass:'.$router->id.':'.$direction;
+        if (Cache::get($key)) {
+            return false;
+        }
+        Cache::put($key, 1, now()->addMinutes(10));
+
+        return true;
     }
 
     /**

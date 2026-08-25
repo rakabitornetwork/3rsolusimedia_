@@ -9,6 +9,7 @@ use App\Models\SiteSetting;
 use App\Services\Messaging\EvolutionChannel;
 use App\Services\Messaging\MessageTemplate;
 use App\Services\Messaging\MessagingManager;
+use App\Services\PppoeWebhookScript;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -29,13 +30,16 @@ class MessagingController extends Controller
         $config = AppSettings::messagingConfig();
         $telegram = $this->channels->driver('telegram');
         $whatsapp = $this->channels->driver('whatsapp');
+        $scripts = PppoeWebhookScript::forActiveRouters();
 
         return Inertia::render('Admin/Messaging/Index', [
             'config' => $config,
             'webhook_urls' => [
                 'telegram' => url('/webhooks/telegram'),
                 'whatsapp' => url('/webhooks/evolution'),
+                'pppoe' => url('/webhooks/pppoe'),
             ],
+            'pppoe_scripts' => $scripts,
             'webhook' => $telegram->isConfigured()
                 ? [
                     'ok' => false,
@@ -225,6 +229,15 @@ class MessagingController extends Controller
             $result['ok'] ? 'success' : 'error',
             $result['message']
         );
+    }
+
+    public function regeneratePppoeWebhookSecret(): RedirectResponse
+    {
+        PppoeWebhookScript::regenerateSecret();
+
+        return redirect()
+            ->route('admin.messaging.index')
+            ->with('success', 'Token webhook PPPoE diganti. Salin ulang script ke ketiga router.');
     }
 
     public function telegramStatus(): JsonResponse

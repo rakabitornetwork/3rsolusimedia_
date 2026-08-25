@@ -14,6 +14,7 @@ use App\Services\GenieAcsService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -47,7 +48,7 @@ class MessagingTelegramTest extends TestCase
         ]);
     }
 
-    private function postUpdate(string $text, int|string $chatId = 99, array $headers = []): \Illuminate\Testing\TestResponse
+    private function postUpdate(string $text, int|string $chatId = 99, array $headers = []): TestResponse
     {
         return $this->postJson('/webhooks/telegram', [
             'update_id' => 1,
@@ -122,7 +123,9 @@ class MessagingTelegramTest extends TestCase
                 ->has('config.telegram')
                 ->has('config.whatsapp')
                 ->has('identities')
-                ->has('logs'));
+                ->has('logs')
+                ->has('pppoe_scripts')
+                ->has('webhook_urls.pppoe'));
     }
 
     #[Test]
@@ -375,7 +378,7 @@ class MessagingTelegramTest extends TestCase
         return null;
     }
 
-    private function postCallback(string $data, int|string $chatId = 99): \Illuminate\Testing\TestResponse
+    private function postCallback(string $data, int|string $chatId = 99): TestResponse
     {
         return $this->postJson('/webhooks/telegram', [
             'update_id' => 2,

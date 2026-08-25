@@ -21,9 +21,38 @@ const fieldClass =
 const TABS = [
     { id: 'kanal', label: 'Kanal' },
     { id: 'template', label: 'Template' },
+    { id: 'pppoe', label: 'PPPoE realtime' },
     { id: 'binding', label: 'Binding' },
     { id: 'log', label: 'Log' },
 ];
+
+function ScriptCommand({ copyKey, copied, onCopy, label, hint, command }) {
+    return (
+        <div className="border border-ink/10 bg-mist/50 p-3">
+            <div className="mb-2 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-xs font-semibold text-ink">{label}</p>
+                    {hint ? <p className="mt-0.5 text-xs font-normal text-ink-soft">{hint}</p> : null}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => onCopy(copyKey, command)}
+                    className="btn-action btn-action-xs btn-secondary shrink-0"
+                >
+                    {copied === copyKey ? (
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                        <Copy className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
+                    )}
+                    Salin
+                </button>
+            </div>
+            <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-ink">
+                {command}
+            </pre>
+        </div>
+    );
+}
 
 function formatWhen(value) {
     if (!value) return '—';
@@ -51,6 +80,7 @@ function csrfHeaders() {
 export default function Index({
     config,
     webhook_urls = {},
+    pppoe_scripts = [],
     webhook,
     whatsapp_status,
     enabled_channels = [],
@@ -207,6 +237,18 @@ export default function Index({
         router.delete(`/admin/messaging/identities/${row.id}`, keepPage);
     };
 
+    const regeneratePppoeSecret = () => {
+        if (!canWrite) return;
+        if (
+            !window.confirm(
+                'Token baru membuat script lama di ketiga router berhenti bekerja. Salin ulang script setelah ini. Lanjutkan?',
+            )
+        ) {
+            return;
+        }
+        router.post('/admin/messaging/pppoe-webhook-secret', {}, keepPage);
+    };
+
     const waState = waConnect?.state || waLive?.state;
     const waMessage = waConnect?.message || waLive?.message;
     const waQr = waConnect?.qr_base64 || null;
@@ -214,7 +256,7 @@ export default function Index({
     return (
         <AdminLayout
             title="Notifikasi & Bot"
-            subtitle="Telegram Bot API dan WhatsApp via Evolution API"
+            subtitle="Telegram, WhatsApp, dan script realtime RouterOS"
         >
             <Head title="Notifikasi & Bot" />
 
@@ -222,7 +264,8 @@ export default function Index({
                 <p className="max-w-2xl text-sm text-ink-soft">
                     Pelanggan mengikat chat, cek tagihan, dan bayar. Pengingat tagihan/isolir memakai
                     template di tab ini dan dikirim ke chat terikat atau nomor HP pelanggan (WhatsApp).
-                    Perubahan sesi PPPoE connected/disconnected dikirim ke Chat ID admin Telegram.
+                    Perubahan sesi PPPoE connected/disconnected dikirim ke Chat ID admin Telegram
+                    secara realtime (tab PPPoE realtime) dengan cron sebagai cadangan.
                 </p>
                 <div className="text-xs text-ink-soft">
                     Aktif:{' '}
@@ -642,9 +685,11 @@ export default function Index({
                                         Sesi PPPoE connected & disconnected
                                     </span>
                                     <span className="mt-0.5 block text-xs text-ink-soft">
-                                        Dikirim ke Chat ID admin Telegram. Reconnect singkat diabaikan sesuai
-                                        jeda di bawah. Banyak sesi sekaligus diringkas jadi satu pesan.
-                                        Butuh scheduler Laravel (`pppoe:watch-sessions` setiap menit).
+                                        Dikirim ke Chat ID admin Telegram. Utama: script on-up/on-down
+                                        di RouterOS (tab PPPoE realtime). Cadangan: scheduler
+                                        (`pppoe:watch-sessions` setiap menit) untuk jeda disconnect
+                                        dan jika webhook router gagal. Reconnect singkat diabaikan.
+                                        Banyak sesi sekaligus diringkas jadi satu pesan.
                                     </span>
                                 </span>
                                 <input
@@ -712,6 +757,169 @@ export default function Index({
                         </div>
                     )}
                 </form>
+            )}
+
+            {tab === 'pppoe' && (
+                <div className="space-y-5">
+                    <div className="border border-ink/10 bg-white p-6">
+                        <div className="flex items-start gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center bg-signal/10 text-signal-deep">
+                                <Wifi className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-semibold text-ink">
+                                    PPPoE connected / disconnected realtime
+                                </h2>
+                                <p className="mt-1 text-sm text-ink-soft">
+                                    RouterOS memanggil panel saat sesi naik atau turun. Panel mengirim Telegram
+                                    ke Chat ID admin. Pasang script yang sama polanya di ketiga router — bedanya
+                                    hanya parameter <span className="font-mono">router=ID</span>.
+                                </p>
+                            </div>
+                        </div>
+
+                        <ol className="mt-5 list-decimal space-y-3 pl-5 text-sm text-ink">
+                            <li>
+                                Tab Template: nyalakan <strong>Sesi PPPoE connected & disconnected</strong>,
+                                atur jeda disconnect (disarankan 3 menit), lalu simpan. Telegram harus aktif
+                                dan Chat ID admin terisi.
+                            </li>
+                            <li>
+                                Cron tetap jalan:{' '}
+                                <span className="font-mono text-xs">
+                                    * * * * * cd /home/teslatech/public_html && php artisan schedule:run
+                                </span>
+                                . Scheduler mengirim disconnect yang ditunda dan jadi cadangan jika fetch
+                                router gagal.
+                            </li>
+                            <li>
+                                Di Winbox/Terminal setiap router, pastikan router bisa buka{' '}
+                                <span className="font-mono text-xs">{webhook_urls.pppoe || '/webhooks/pppoe'}</span>{' '}
+                                (HTTPS ke panel publik).
+                            </li>
+                            <li>
+                                Tempel perintah di bawah. Terminal: satu perintah per baris. Winbox: PPP →
+                                Profiles → setiap profile → Scripts → On Up / On Down (hanya baris{' '}
+                                <span className="font-mono text-xs">/tool fetch</span>, tanpa perintah{' '}
+                                <span className="font-mono text-xs">/ppp profile set</span>).
+                            </li>
+                            <li>
+                                Tes dulu perintah ping. Lalu cabut/pasang satu pelanggan: Telegram connected
+                                harus segera muncul; disconnected menunggu jeda (kecuali jeda = 0).
+                            </li>
+                        </ol>
+
+                        <p className="mt-4 text-xs text-ink-soft">
+                            <span className="font-mono">keep-result=no</span> agar file fetch tidak menumpuk.{' '}
+                            <span className="font-mono">check-certificate=no</span> agar HTTPS tetap jalan
+                            jika jam router atau CA belum lengkap. Perintah{' '}
+                            <span className="font-mono">/ppp profile set [find]</span> memasang ke semua PPP
+                            profile di router itu.
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs tracking-wide text-ink-soft uppercase">Webhook URL</p>
+                                <p className="mt-1 truncate font-mono text-xs text-ink">
+                                    {webhook_urls.pppoe}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => copyText('pppoe-url', webhook_urls.pppoe)}
+                                className="btn-action btn-action-xs btn-secondary"
+                            >
+                                {copied === 'pppoe-url' ? (
+                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                                ) : (
+                                    <Copy className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
+                                )}
+                                Salin URL
+                            </button>
+                            {canWrite && (
+                                <button
+                                    type="button"
+                                    onClick={regeneratePppoeSecret}
+                                    className="btn-action btn-action-xs btn-secondary"
+                                >
+                                    Ganti token
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {pppoe_scripts.length === 0 ? (
+                        <div className="border border-ink/10 bg-white p-6 text-sm text-ink-soft">
+                            Belum ada router aktif. Tambah dan aktifkan di Network → RouterOS, lalu buka
+                            ulang halaman ini. Script akan muncul per router.
+                        </div>
+                    ) : (
+                        pppoe_scripts.map((item, index) => (
+                            <div key={item.router_id} className="border border-ink/10 bg-white p-6">
+                                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs tracking-wide text-ink-soft uppercase">
+                                            Router {index + 1} dari {pppoe_scripts.length}
+                                        </p>
+                                        <h3 className="mt-1 text-sm font-semibold text-ink">
+                                            {item.router_name}
+                                            <span className="ml-2 font-mono text-xs font-normal text-ink-soft">
+                                                id={item.router_id}
+                                            </span>
+                                        </h3>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => copyText(`all-${item.router_id}`, item.all)}
+                                        className="btn-action btn-action-xs btn-primary"
+                                    >
+                                        {copied === `all-${item.router_id}` ? (
+                                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                        ) : (
+                                            <Copy className="mr-1.5 h-3.5 w-3.5" />
+                                        )}
+                                        Salin 4 perintah
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <ScriptCommand
+                                        copyKey={`ping-${item.router_id}`}
+                                        copied={copied}
+                                        onCopy={copyText}
+                                        label="1. Tes webhook (Terminal)"
+                                        hint="Jalankan sekali. Panel membalas OK jika token dan URL benar."
+                                        command={item.ping}
+                                    />
+                                    <ScriptCommand
+                                        copyKey={`up-${item.router_id}`}
+                                        copied={copied}
+                                        onCopy={copyText}
+                                        label="2. On-up (Winbox Scripts → On Up, atau dipakai perintah no. 4)"
+                                        hint="Satu baris. Jangan bungkus dengan kurung kurawal tambahan."
+                                        command={item.on_up}
+                                    />
+                                    <ScriptCommand
+                                        copyKey={`down-${item.router_id}`}
+                                        copied={copied}
+                                        onCopy={copyText}
+                                        label="3. On-down (Winbox Scripts → On Down, atau dipakai perintah no. 4)"
+                                        hint="Satu baris. Username ikut dikirim; IP/MAC tidak wajib saat putus."
+                                        command={item.on_down}
+                                    />
+                                    <ScriptCommand
+                                        copyKey={`apply-${item.router_id}`}
+                                        copied={copied}
+                                        onCopy={copyText}
+                                        label="4. Pasang ke semua PPP profile (Terminal saja)"
+                                        hint="Satu baris. Menimpa on-up/on-down yang sudah ada di semua profile router ini."
+                                        command={item.apply_all}
+                                    />
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
             )}
 
             {tab === 'binding' && (

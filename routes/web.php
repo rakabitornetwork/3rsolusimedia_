@@ -33,6 +33,7 @@ use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Webhook\EvolutionWebhookController;
 use App\Http\Controllers\Webhook\PaymentGatewayWebhookController;
+use App\Http\Controllers\Webhook\PppoeWebhookController;
 use App\Http\Controllers\Webhook\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +100,9 @@ Route::post('/webhooks/telegram', TelegramWebhookController::class)
 Route::post('/webhooks/evolution', EvolutionWebhookController::class)
     ->middleware('throttle:120,1')
     ->name('webhooks.evolution');
+Route::match(['get', 'post'], '/webhooks/pppoe', PppoeWebhookController::class)
+    ->middleware('throttle:600,1')
+    ->name('webhooks.pppoe');
 
 Route::middleware('guest')->group(function () {
     Route::get('/admin/login', [LoginController::class, 'create'])->name('login');
@@ -236,6 +240,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/messaging/templates', [MessagingController::class, 'updateTemplates'])->name('messaging.templates');
     Route::post('/messaging/test', [MessagingController::class, 'test'])->name('messaging.test');
     Route::post('/messaging/webhook', [MessagingController::class, 'setWebhook'])->name('messaging.webhook');
+    Route::post('/messaging/pppoe-webhook-secret', [MessagingController::class, 'regeneratePppoeWebhookSecret'])->name('messaging.pppoe-webhook-secret');
     Route::get('/messaging/telegram/status', [MessagingController::class, 'telegramStatus'])->name('messaging.telegram.status');
     Route::get('/messaging/whatsapp/status', [MessagingController::class, 'whatsappStatus'])->name('messaging.whatsapp.status');
     Route::post('/messaging/whatsapp/connect', [MessagingController::class, 'whatsappConnect'])->name('messaging.whatsapp.connect');

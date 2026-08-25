@@ -6,6 +6,7 @@ use App\Models\MessageLog;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
+use App\Models\User;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSessionMonitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -316,7 +317,7 @@ class PppoeSessionMonitorTest extends TestCase
     #[Test]
     public function admin_can_save_session_notification_settings(): void
     {
-        $admin = \App\Models\User::factory()->superadmin()->create();
+        $admin = User::factory()->superadmin()->create();
 
         $this->actingAs($admin)
             ->post('/admin/messaging/templates', [
@@ -327,5 +328,84 @@ class PppoeSessionMonitorTest extends TestCase
 
         $this->assertSame('1', SiteSetting::getValue('messaging_notify_pppoe_session'));
         $this->assertSame('5', SiteSetting::getValue('messaging_pppoe_session_debounce'));
+    }
+
+    #[Test]
+    public function webhook_push_notifies_connected_immediately(): void
+    {
+        $this->enableWatch(3);
+        $this->fakeTelegram();
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+        $this->customer($router);
+
+        $result = app(PppoeSessionMonitor::class)->handlePush($router, 'up', 'budi01', [
+            'address' => '10.10.10.5',
+            'caller_id' => 'AA:BB:CC:DD:EE:FF',
+        ]);
+
+        $this->assertSame('up', $result['type'] ?? null);
+        $this->assertSame(1, $result['sent']);
+        $this->assertDatabaseHas('message_logs', [
+            'command' => 'pppoe_up',
+            'status' => 'sent',
+        ]);
+        $this->assertStringContainsString('10.10.10.5', (string) MessageLog::query()->value('body'));
+    }
+
+    #[Test]
+    public function webhook_disconnect_waits_for_watch_flush(): void
+    {
+        $this->enableWatch(3);
+        $this->fakeTelegram();
+        $router = $this->mockSessions([], 1);
+        $this->customer($router);
+
+        $early = app(PppoeSessionMonitor::class)->handlePush($router, 'down', 'budi01', [
+            'address' => '10.10.10.5',
+        ]);
+        $this->assertSame('pending', $early['type'] ?? null);
+        $this->assertSame(0, $early['sent']);
+        $this->assertDatabaseCount('message_logs', 0);
+
+        Carbon::setTestNow(now()->addMinutes(3));
+        $late = app(PppoeSessionMonitor::class)->run();
+
+        $this->assertSame(1, $late['disconnected']);
+        $this->assertDatabaseHas('message_logs', [
+            'command' => 'pppoe_down',
+            'status' => 'sent',
+        ]);
+    }
+
+    #[Test]
+    public function webhook_flap_within_debounce_notifies_neither(): void
+    {
+        $this->enableWatch(3);
+        $this->fakeTelegram();
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+        $this->customer($router);
+        $monitor = app(PppoeSessionMonitor::class);
+
+        $down = $monitor->handlePush($router, 'down', 'budi01');
+        $up = $monitor->handlePush($router, 'up', 'budi01', ['address' => '10.10.10.8']);
+
+        $this->assertSame('pending', $down['type'] ?? null);
+        $this->assertSame('flap', $up['type'] ?? null);
+        $this->assertSame(0, $up['sent']);
+        $this->assertDatabaseCount('message_logs', 0);
     }
 }
