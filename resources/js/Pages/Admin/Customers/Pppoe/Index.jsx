@@ -308,7 +308,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                         <button
                             type="button"
                             onClick={() => {
-                                if (confirm('Jalankan proses auto isolir untuk semua pelanggan yang lewat jatuh tempo?')) {
+                                if (confirm('Jalankan proses isolir sekarang untuk semua pelanggan yang lewat jatuh tempo? Jadwal otomatis tetap jalan setiap hari jam 00:00.')) {
                                     setProcessing(true);
                                     router.post('/admin/customers/pppoe/sync-overdue', {}, {
                                         ...keepPage,
@@ -318,7 +318,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                             }}
                             disabled={processing}
                             className="btn-action btn-action-sm btn-secondary"
-                            title="Proses isolir otomatis untuk semua pelanggan yang lewat jatuh tempo"
+                            title="Jalankan isolir sekarang. Otomatis juga jalan setiap hari jam 00:00 setelah lewat jatuh tempo."
                         >
                             <RefreshCw className={`mr-1.5 h-4 w-4 ${processing ? 'animate-spin' : ''}`} />
                             Sync Jatuh Tempo

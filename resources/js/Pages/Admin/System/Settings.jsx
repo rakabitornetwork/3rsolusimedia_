@@ -447,7 +447,7 @@ export default function Settings({ settings, branding, timezones }) {
                 >
                     <Toggle
                         label="Auto isolir saat overdue"
-                        description="Pelanggan dengan aksi isolir dapat disinkronkan ke profile isolir MikroTik."
+                        description="Setiap hari jam 00:00 (zona waktu aplikasi), pelanggan dengan aksi Isolir yang tanggal jatuh temponya sudah lewat disinkronkan ke profile isolir MikroTik. Tombol Sync Jatuh Tempo di daftar pelanggan tetap bisa dijalankan manual."
                         checked={data.app_auto_isolir}
                         disabled={!canWrite}
                         onChange={(value) => setData('app_auto_isolir', value)}
