@@ -402,7 +402,7 @@ class PppoeSessionMonitor
             return ['ok' => true, 'message' => 'PPPoE connected.', 'sent' => $sent, 'type' => 'up'];
         }
 
-        $previous = $this->withInterfaceBytes($router, $username, $online[$username] ?? $row);
+        $previous = $this->withInterfaceBytes($router, $username, $online[$username] ?? $row, refresh: true);
         unset($online[$username]);
         $burst = $this->incrementBurst($router, 'down');
 
@@ -674,9 +674,10 @@ class PppoeSessionMonitor
      * @param  array<string, mixed>  $session
      * @return array<string, mixed>
      */
-    private function withInterfaceBytes(MikrotikRouter $router, string $username, array $session): array
+    private function withInterfaceBytes(MikrotikRouter $router, string $username, array $session, bool $refresh = false): array
     {
-        if (isset($session['rx_byte'], $session['tx_byte'])) {
+        $hasBytes = isset($session['rx_byte'], $session['tx_byte']);
+        if ($hasBytes && ! $refresh) {
             return $session;
         }
 

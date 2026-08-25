@@ -483,4 +483,80 @@ class PppoeSessionMonitorTest extends TestCase
         $this->assertStringContainsString('Rx power', $body);
         $this->assertStringContainsString('Suhu', $body);
     }
+
+    #[Test]
+    public function disconnect_notification_includes_rx_tx_totals(): void
+    {
+        $this->enableWatch(0);
+        $this->fakeTelegram();
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('pppoeInterfaceBytes')
+            ->once()
+            ->andReturn([
+                'rx_byte' => 2 * 1024 * 1024 * 1024,
+                'tx_byte' => 50 * 1024 * 1024,
+            ]);
+        $api->shouldReceive('pppoeInterfaceBytesMap')->andReturn([]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+        $this->customer($router);
+
+        app(PppoeSessionMonitor::class)->handlePush($router, 'down', 'budi01', [
+            'rx_byte' => 0,
+            'tx_byte' => 0,
+        ]);
+
+        $body = (string) MessageLog::query()->value('body');
+        $this->assertDatabaseHas('message_logs', ['command' => 'pppoe_down', 'status' => 'sent']);
+        $this->assertStringContainsString('PPPoE disconnected', $body);
+        $this->assertStringContainsString('2,0 GB', $body);
+        $this->assertStringContainsString('50,0 MB', $body);
+    }
+
+    #[Test]
+    public function disconnect_uses_last_known_rx_tx_when_interface_is_gone(): void
+    {
+        $this->enableWatch(0);
+        $this->fakeTelegram();
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('pppoeInterfaceBytes')->andReturn(null);
+        $api->shouldReceive('pppoeInterfaceBytesMap')->andReturn([]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $router = MikrotikRouter::query()->create([
+            'name' => 'Router 1',
+            'host' => '192.168.88.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+        $this->customer($router);
+
+        Cache::put('pppoe:session-watch:'.$router->id.':online', [
+            'budi01' => [
+                'name' => 'budi01',
+                'address' => '10.10.10.5',
+                'rx_byte' => 800 * 1024 * 1024,
+                'tx_byte' => 12 * 1024 * 1024,
+            ],
+        ], now()->addHours(2));
+
+        app(PppoeSessionMonitor::class)->handlePush($router, 'down', 'budi01');
+
+        $body = (string) MessageLog::query()->value('body');
+        $this->assertStringContainsString('PPPoE disconnected', $body);
+        $this->assertStringContainsString('800,0 MB', $body);
+        $this->assertStringContainsString('12,0 MB', $body);
+    }
 }
