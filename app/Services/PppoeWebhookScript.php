@@ -37,6 +37,8 @@ class PppoeWebhookScript
      *     ping: string,
      *     on_up: string,
      *     on_down: string,
+     *     apply_up: string,
+     *     apply_down: string,
      *     apply_all: string,
      *     all: string
      * }>
@@ -62,6 +64,8 @@ class PppoeWebhookScript
      *     ping: string,
      *     on_up: string,
      *     on_down: string,
+     *     apply_up: string,
+     *     apply_down: string,
      *     apply_all: string,
      *     all: string
      * }
@@ -73,7 +77,8 @@ class PppoeWebhookScript
         $ping = self::fetchCommand($base, $secret, (int) $router->id, 'ping');
         $onUp = self::fetchCommand($base, $secret, (int) $router->id, 'up');
         $onDown = self::fetchCommand($base, $secret, (int) $router->id, 'down');
-        $applyAll = '/ppp profile set [find] on-up={'.$onUp.'} on-down={'.$onDown.'}';
+        $applyUp = '/ppp profile set [find] on-up='.self::quoteCli($onUp);
+        $applyDown = '/ppp profile set [find] on-down='.self::quoteCli($onDown);
 
         return [
             'router_id' => (int) $router->id,
@@ -81,11 +86,16 @@ class PppoeWebhookScript
             'ping' => $ping,
             'on_up' => $onUp,
             'on_down' => $onDown,
-            'apply_all' => $applyAll,
-            'all' => implode("\n", [$ping, $onUp, $onDown, $applyAll]),
+            'apply_up' => $applyUp,
+            'apply_down' => $applyDown,
+            'apply_all' => $applyUp."\n".$applyDown,
+            'all' => implode("\n", [$ping, $applyUp, $applyDown]),
         ];
     }
 
+    /**
+     * Script body for Winbox PPP profile On Up / On Down (already a script editor).
+     */
     private static function fetchCommand(string $base, string $secret, int $routerId, string $event): string
     {
         $query = $base.'?token='.rawurlencode($secret).'&event='.$event.'&router='.$routerId;
@@ -99,5 +109,14 @@ class PppoeWebhookScript
         }
 
         return '/tool fetch url=("'.$query.'&user=".$user) keep-result=no check-certificate=no';
+    }
+
+    /**
+     * Quote a script as a RouterOS CLI property value.
+     * PPP profile on-up/on-down reject { ... } blocks (syntax error at `{`).
+     */
+    private static function quoteCli(string $script): string
+    {
+        return '"'.str_replace(['\\', '"', '$'], ['\\\\', '\\"', '\\$'], $script).'"';
     }
 }

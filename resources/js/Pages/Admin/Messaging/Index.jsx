@@ -47,7 +47,7 @@ function ScriptCommand({ copyKey, copied, onCopy, label, hint, command }) {
                     Salin
                 </button>
             </div>
-            <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-ink">
+            <pre className="overflow-x-auto whitespace-pre font-mono text-[11px] leading-relaxed text-ink">
                 {command}
             </pre>
         </div>
@@ -798,10 +798,11 @@ export default function Index({
                                 (HTTPS ke panel publik).
                             </li>
                             <li>
-                                Tempel perintah di bawah. Terminal: satu perintah per baris. Winbox: PPP →
-                                Profiles → setiap profile → Scripts → On Up / On Down (hanya baris{' '}
-                                <span className="font-mono text-xs">/tool fetch</span>, tanpa perintah{' '}
-                                <span className="font-mono text-xs">/ppp profile set</span>).
+                                Terminal: tempel <strong>satu perintah, lalu Enter</strong> (jangan Enter di
+                                tengah URL). Jangan bungkus dengan {'{ }'} — RouterOS menolak{' '}
+                                <span className="font-mono text-xs">on-up={'{...}'}</span>. Winbox: PPP →
+                                Profiles → Scripts → On Up / On Down, tempel hanya baris{' '}
+                                <span className="font-mono text-xs">/tool fetch</span>.
                             </li>
                             <li>
                                 Tes dulu perintah ping. Lalu cabut/pasang satu pelanggan: Telegram connected
@@ -812,9 +813,8 @@ export default function Index({
                         <p className="mt-4 text-xs text-ink-soft">
                             <span className="font-mono">keep-result=no</span> agar file fetch tidak menumpuk.{' '}
                             <span className="font-mono">check-certificate=no</span> agar HTTPS tetap jalan
-                            jika jam router atau CA belum lengkap. Perintah{' '}
-                            <span className="font-mono">/ppp profile set [find]</span> memasang ke semua PPP
-                            profile di router itu.
+                            jika jam router atau CA belum lengkap. Perintah 4 dan 5 di Terminal memasang ke
+                            semua PPP profile. Pakai tombol Salin — jangan mengetik ulang URL yang terbungkus.
                         </p>
 
                         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4">
@@ -878,7 +878,7 @@ export default function Index({
                                         ) : (
                                             <Copy className="mr-1.5 h-3.5 w-3.5" />
                                         )}
-                                        Salin 4 perintah
+                                        Salin 3 perintah Terminal
                                     </button>
                                 </div>
 
@@ -895,25 +895,33 @@ export default function Index({
                                         copyKey={`up-${item.router_id}`}
                                         copied={copied}
                                         onCopy={copyText}
-                                        label="2. On-up (Winbox Scripts → On Up, atau dipakai perintah no. 4)"
-                                        hint="Satu baris. Jangan bungkus dengan kurung kurawal tambahan."
+                                        label="2. On-up (Winbox saja — Scripts → On Up)"
+                                        hint="Jangan tempel ini di Terminal. Jangan tambah kurung kurawal."
                                         command={item.on_up}
                                     />
                                     <ScriptCommand
                                         copyKey={`down-${item.router_id}`}
                                         copied={copied}
                                         onCopy={copyText}
-                                        label="3. On-down (Winbox Scripts → On Down, atau dipakai perintah no. 4)"
-                                        hint="Satu baris. Username ikut dikirim; IP/MAC tidak wajib saat putus."
+                                        label="3. On-down (Winbox saja — Scripts → On Down)"
+                                        hint="Jangan tempel ini di Terminal. Username ikut dikirim saat putus."
                                         command={item.on_down}
                                     />
                                     <ScriptCommand
-                                        copyKey={`apply-${item.router_id}`}
+                                        copyKey={`apply-up-${item.router_id}`}
                                         copied={copied}
                                         onCopy={copyText}
-                                        label="4. Pasang ke semua PPP profile (Terminal saja)"
-                                        hint="Satu baris. Menimpa on-up/on-down yang sudah ada di semua profile router ini."
-                                        command={item.apply_all}
+                                        label="4. Pasang on-up ke semua PPP profile (Terminal)"
+                                        hint="Pakai tombol Salin, lalu tempel sekali dan Enter. Menimpa on-up di semua profile."
+                                        command={item.apply_up}
+                                    />
+                                    <ScriptCommand
+                                        copyKey={`apply-down-${item.router_id}`}
+                                        copied={copied}
+                                        onCopy={copyText}
+                                        label="5. Pasang on-down ke semua PPP profile (Terminal)"
+                                        hint="Pakai tombol Salin, lalu tempel sekali dan Enter. Menimpa on-down di semua profile."
+                                        command={item.apply_down}
                                     />
                                 </div>
                             </div>

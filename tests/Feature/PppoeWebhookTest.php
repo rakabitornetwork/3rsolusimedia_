@@ -171,8 +171,16 @@ class PppoeWebhookTest extends TestCase
         $this->assertStringContainsString('event=down', $script['on_down']);
         $this->assertStringNotContainsString("\n", $script['on_down']);
         $this->assertStringContainsString('event=ping', $script['ping']);
-        $this->assertStringContainsString('/ppp profile set [find]', $script['apply_all']);
-        $this->assertCount(4, explode("\n", $script['all']));
+        $this->assertStringStartsWith('/ppp profile set [find] on-up="', $script['apply_up']);
+        $this->assertStringStartsWith('/ppp profile set [find] on-down="', $script['apply_down']);
+        $this->assertStringNotContainsString('on-up={', $script['apply_up']);
+        $this->assertStringNotContainsString('on-down={', $script['apply_down']);
+        $this->assertStringContainsString('\\$user', $script['apply_up']);
+        $this->assertStringContainsString('\\$user', $script['apply_down']);
+        $this->assertStringNotContainsString("\n", $script['apply_up']);
+        $this->assertStringNotContainsString("\n", $script['apply_down']);
+        $this->assertSame($script['apply_up']."\n".$script['apply_down'], $script['apply_all']);
+        $this->assertCount(3, explode("\n", $script['all']));
     }
 
     #[Test]
@@ -193,6 +201,8 @@ class PppoeWebhookTest extends TestCase
                 ->where('pppoe_scripts.0.router_id', $alpha->id)
                 ->has('pppoe_scripts.0.on_up')
                 ->has('pppoe_scripts.0.on_down')
+                ->has('pppoe_scripts.0.apply_up')
+                ->has('pppoe_scripts.0.apply_down')
                 ->has('pppoe_scripts.0.apply_all')
                 ->has('webhook_urls.pppoe'));
     }
