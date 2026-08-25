@@ -20,8 +20,7 @@ class BillingService
         private readonly BillingCycleService $cycle,
         private readonly PppoeSyncService $sync,
         private readonly CustomerNotifier $notifier,
-    ) {
-    }
+    ) {}
 
     public function createProrataInvoice(PppoeCustomer $customer): ?Invoice
     {
@@ -166,11 +165,13 @@ class BillingService
 
             if ($hasUnpaid) {
                 $skipped++;
+
                 continue;
             }
 
             if (! $this->isWithinUpcomingWindow($customer->due_date)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -183,6 +184,7 @@ class BillingService
 
             if ($existsForDue) {
                 $skipped++;
+
                 continue;
             }
 
@@ -197,6 +199,7 @@ class BillingService
                 $price = (int) ($customer->package?->price ?? 0);
                 if ($price <= 0) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -238,7 +241,7 @@ class BillingService
 
         $paidAt ??= now();
 
-        return DB::transaction(function () use ($invoice, $method, $reference, $notes, $receivedBy, $paidAt) {
+        $result = DB::transaction(function () use ($invoice, $method, $reference, $notes, $receivedBy, $paidAt) {
             $invoice->loadMissing(['customer.agent', 'customer.package']);
 
             $agent = $invoice->customer?->agent;
@@ -300,6 +303,16 @@ class BillingService
                 'next_due_date' => $nextDueDate,
             ];
         });
+
+        if ($result['invoice']->customer) {
+            try {
+                $this->notifier->notifyPaid($result['invoice']);
+            } catch (\Throwable) {
+                // Pelunasan tetap sah meski WhatsApp gagal.
+            }
+        }
+
+        return $result;
     }
 
     /**

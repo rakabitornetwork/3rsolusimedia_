@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\SiteSetting;
+use App\Services\Messaging\MessageTemplate;
 
 class AppSettings
 {
@@ -62,6 +63,7 @@ class AppSettings
         'messaging_pppoe_session_debounce' => '3',
         'msg_tpl_invoice' => '',
         'msg_tpl_reminder' => '',
+        'msg_tpl_paid' => '',
         'msg_tpl_isolir' => '',
         'msg_tpl_restore' => '',
         'msg_tpl_welcome' => '',
@@ -227,7 +229,7 @@ class AppSettings
             'notify_welcome' => self::bool('messaging_notify_welcome', true),
             'notify_pppoe_session' => self::bool('messaging_notify_pppoe_session', false),
             'pppoe_session_debounce' => max(0, min(30, self::int('messaging_pppoe_session_debounce', 3))),
-            'templates' => \App\Services\Messaging\MessageTemplate::all(),
+            'templates' => MessageTemplate::all(),
         ];
     }
 

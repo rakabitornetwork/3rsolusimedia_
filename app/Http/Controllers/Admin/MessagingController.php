@@ -22,9 +22,7 @@ use Throwable;
 
 class MessagingController extends Controller
 {
-    public function __construct(private readonly MessagingManager $channels)
-    {
-    }
+    public function __construct(private readonly MessagingManager $channels) {}
 
     public function index(): Response
     {
@@ -115,6 +113,7 @@ class MessagingController extends Controller
             'messaging_pppoe_session_debounce' => ['nullable', 'integer', 'min:0', 'max:30'],
             'msg_tpl_invoice' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_reminder' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_paid' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_isolir' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_restore' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_welcome' => ['nullable', 'string', 'max:4000'],

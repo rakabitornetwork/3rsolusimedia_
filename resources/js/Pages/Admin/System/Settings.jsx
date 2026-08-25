@@ -422,11 +422,11 @@ export default function Settings({ settings, branding, timezones }) {
                         <Link href="/admin/messaging" className="font-semibold text-signal-deep hover:underline">
                             Notifikasi & Bot
                         </Link>
-                        . Toggle di bawah mengirim tagihan baru dan pengingat jatuh tempo.
+                        . Toggle di bawah mengirim tagihan baru, pengingat jatuh tempo, dan konfirmasi lunas.
                     </p>
                     <Toggle
                         label="Notifikasi tagihan (WA / Telegram)"
-                        description="Kirim tagihan baru dan pengingat jatuh tempo ke kanal yang aktif."
+                        description="Kirim tagihan baru, pengingat jatuh tempo, dan konfirmasi lunas ke kanal yang aktif."
                         checked={data.app_notif_whatsapp}
                         disabled={!canWrite}
                         onChange={(value) => setData('app_notif_whatsapp', value)}

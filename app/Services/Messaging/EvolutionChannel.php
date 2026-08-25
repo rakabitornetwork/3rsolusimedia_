@@ -5,6 +5,7 @@ namespace App\Services\Messaging;
 use App\Services\Messaging\Contracts\MessagingChannelInterface;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -476,9 +477,6 @@ class EvolutionChannel implements MessagingChannelInterface
         return '';
     }
 
-    /**
-     * @param  mixed  $json
-     */
     private function readState(mixed $json): string
     {
         if (! is_array($json)) {
@@ -516,9 +514,6 @@ class EvolutionChannel implements MessagingChannelInterface
         usleep($microseconds);
     }
 
-    /**
-     * @param  mixed  $json
-     */
     private function readQr(mixed $json): ?string
     {
         if (! is_array($json)) {
@@ -546,7 +541,6 @@ class EvolutionChannel implements MessagingChannelInterface
     }
 
     /**
-     * @param  mixed  $json
      * @param  list<string>  $keys
      */
     private function scalar(mixed $json, array $keys): string
@@ -565,7 +559,7 @@ class EvolutionChannel implements MessagingChannelInterface
         return '';
     }
 
-    private function client(): \Illuminate\Http\Client\PendingRequest
+    private function client(): PendingRequest
     {
         return Http::acceptJson()
             ->asJson()
@@ -585,9 +579,6 @@ class EvolutionChannel implements MessagingChannelInterface
         return AppSettings::whatsappInstance();
     }
 
-    /**
-     * @param  mixed  $json
-     */
     private function looksLikeError(mixed $json, int $status): bool
     {
         if ($status >= 400) {
@@ -598,16 +589,14 @@ class EvolutionChannel implements MessagingChannelInterface
             return false;
         }
 
-        if (($json['status'] ?? null) >= 400) {
+        $statusCode = $json['status'] ?? null;
+        if (is_numeric($statusCode) && (int) $statusCode >= 400) {
             return true;
         }
 
         return ($json['error'] ?? false) === true || is_string($json['error'] ?? null);
     }
 
-    /**
-     * @param  mixed  $json
-     */
     private function errorMessage(mixed $json, int $status): string
     {
         if (is_array($json)) {

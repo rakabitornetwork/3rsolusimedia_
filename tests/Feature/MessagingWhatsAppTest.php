@@ -4,15 +4,18 @@ namespace Tests\Feature;
 
 use App\Models\Invoice;
 use App\Models\MessageLog;
-use App\Models\MessagingIdentity;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\MessageTemplate;
+use App\Services\MikrotikApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
+use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -68,7 +71,7 @@ class MessagingWhatsAppTest extends TestCase
         ], $overrides));
     }
 
-    private function postUpsert(string $text, string $jid = '6281234567890@s.whatsapp.net', bool $fromMe = false): \Illuminate\Testing\TestResponse
+    private function postUpsert(string $text, string $jid = '6281234567890@s.whatsapp.net', bool $fromMe = false): TestResponse
     {
         return $this->postJson('/webhooks/evolution?token=wa-secret-token', [
             'event' => 'MESSAGES_UPSERT',
@@ -214,7 +217,7 @@ class MessagingWhatsAppTest extends TestCase
             'first_bill_amount' => 75000,
         ]);
 
-        $invoice = app(\App\Services\BillingService::class)->createProrataInvoice($customer);
+        $invoice = app(BillingService::class)->createProrataInvoice($customer);
 
         $this->assertNotNull($invoice);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
@@ -263,6 +266,99 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Budi Santoso', (string) $body);
         $this->assertStringContainsString('budi01', (string) $body);
         $this->assertStringContainsString('diisolir', (string) $body);
+    }
+
+    #[Test]
+    public function marking_invoice_paid_sends_paid_whatsapp(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->mockRouterSync();
+        $customer = $this->customer(['billing_day' => 1]);
+        $invoice = $this->unpaidInvoice($customer, 'INV-LUNAS');
+
+        app(BillingService::class)->markPaid($invoice);
+
+        $log = MessageLog::query()->where('command', 'paid')->first();
+        $this->assertNotNull($log);
+        $this->assertSame('sent', $log->status, (string) $log->error_message);
+
+        $body = (string) MessageLog::query()->where('command', 'paid')->value('body');
+        $this->assertStringContainsString('Pembayaran diterima', $body);
+        $this->assertStringContainsString('INV-LUNAS', $body);
+        $this->assertStringContainsString('Budi Santoso', $body);
+        $this->assertDatabaseMissing('message_logs', ['command' => 'restore']);
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && ($request['number'] ?? null) === '6281234567890'
+                && str_contains((string) ($request['text'] ?? ''), 'INV-LUNAS');
+        });
+    }
+
+    #[Test]
+    public function marking_invoice_paid_skips_whatsapp_when_billing_toggle_is_off(): void
+    {
+        $this->enableWhatsapp();
+        SiteSetting::setValue('app_notif_whatsapp', '0');
+        $this->fakeEvolution();
+        $this->mockRouterSync();
+        $invoice = $this->unpaidInvoice($this->customer(['billing_day' => 1]), 'INV-SKIP');
+
+        app(BillingService::class)->markPaid($invoice);
+
+        $this->assertDatabaseMissing('message_logs', ['command' => 'paid']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
+    }
+
+    #[Test]
+    public function paying_isolated_customer_sends_paid_and_restore_whatsapp(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->mockRouterSync();
+        $customer = $this->customer([
+            'billing_day' => 20,
+            'due_date' => now()->subDays(10)->toDateString(),
+            'status' => 'isolated',
+            'overdue_action' => 'isolir',
+            'service_profile' => '10Mbps',
+            'isolir_profile' => 'ISOLIR',
+        ]);
+        $invoice = $this->unpaidInvoice($customer, 'INV-RESTORE');
+
+        app(BillingService::class)->markPaid($invoice);
+
+        $this->assertDatabaseHas('message_logs', ['command' => 'paid', 'status' => 'sent']);
+        $this->assertDatabaseHas('message_logs', ['command' => 'restore', 'status' => 'sent']);
+        $this->assertStringContainsString('aktif kembali', (string) MessageLog::query()->where('command', 'restore')->value('body'));
+    }
+
+    private function unpaidInvoice(PppoeCustomer $customer, string $number): Invoice
+    {
+        return Invoice::query()->create([
+            'number' => $number,
+            'pppoe_customer_id' => $customer->id,
+            'type' => 'monthly',
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'due_date' => $customer->due_date?->toDateString() ?? now()->toDateString(),
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+        ]);
+    }
+
+    private function mockRouterSync(): void
+    {
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')->andReturn([
+            'ok' => true,
+            'message' => 'Secret PPPoE berhasil diperbarui di RouterOS.',
+        ]);
+        $this->app->instance(MikrotikApiService::class, $api);
     }
 
     #[Test]

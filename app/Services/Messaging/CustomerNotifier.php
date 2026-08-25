@@ -14,9 +14,7 @@ use Throwable;
 
 class CustomerNotifier
 {
-    public function __construct(private readonly MessagingManager $channels)
-    {
-    }
+    public function __construct(private readonly MessagingManager $channels) {}
 
     public function notifyInvoice(Invoice $invoice): void
     {
@@ -46,6 +44,27 @@ class CustomerNotifier
         }
 
         $this->send($customer, MessageTemplate::REMINDER, $this->invoiceVars($invoice, $customer));
+    }
+
+    public function notifyPaid(Invoice $invoice): void
+    {
+        if (! AppSettings::bool('app_notif_whatsapp', false)) {
+            return;
+        }
+
+        $invoice->loadMissing(['customer.package']);
+        $customer = $invoice->customer;
+        if (! $customer) {
+            return;
+        }
+
+        $vars = $this->invoiceVars($invoice, $customer);
+        $nextDue = $customer->due_date?->format('d/m/Y');
+        if ($nextDue) {
+            $vars['jatuh_tempo'] = $nextDue;
+        }
+
+        $this->send($customer, MessageTemplate::PAID, $vars);
     }
 
     public function notifyIsolir(PppoeCustomer $customer): void

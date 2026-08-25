@@ -10,6 +10,8 @@ class MessageTemplate
 
     public const REMINDER = 'reminder';
 
+    public const PAID = 'paid';
+
     public const ISOLIR = 'isolir';
 
     public const RESTORE = 'restore';
@@ -47,6 +49,19 @@ class MessageTemplate
                 '📅 Jatuh tempo: {{jatuh_tempo}}',
                 '',
                 '💬 Ketik *bayar* untuk tautan pembayaran.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::PAID => implode("\n", [
+                '✅ *Pembayaran diterima*',
+                '',
+                'Halo {{nama}}, terima kasih. Tagihan *{{nomor}}* sebesar {{total}} sudah lunas.',
+                '',
+                '📦 Paket: {{paket}}',
+                '🔐 Akun: {{username}}',
+                '📅 Jatuh tempo berikutnya: {{jatuh_tempo}}',
+                '',
+                '💬 Ketik *tagihan* jika ingin cek tagihan.',
                 '',
                 '— {{perusahaan}}',
             ]),
@@ -121,6 +136,7 @@ class MessageTemplate
         return [
             self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
             self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
+            self::PAID => "Halo {{nama}},\n\nTerima kasih. Tagihan {{nomor}} sebesar {{total}} sudah lunas.\nJatuh tempo berikutnya: {{jatuh_tempo}}.\n\n— {{perusahaan}}",
             self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
             self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
             self::WELCOME => implode("\n", [

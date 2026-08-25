@@ -89,6 +89,7 @@ export default function Index({
         messaging_pppoe_session_debounce: Number(config?.pppoe_session_debounce ?? 3),
         msg_tpl_invoice: config?.templates?.invoice || '',
         msg_tpl_reminder: config?.templates?.reminder || '',
+        msg_tpl_paid: config?.templates?.paid || '',
         msg_tpl_isolir: config?.templates?.isolir || '',
         msg_tpl_restore: config?.templates?.restore || '',
         msg_tpl_welcome: config?.templates?.welcome || '',
@@ -571,7 +572,7 @@ export default function Index({
                     <div className="border border-ink/10 bg-white p-6">
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
-                            Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{portal}} {{telepon_kantor}} {{perusahaan}}'}.
+                            Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}}'}.
                             {'{{alamat}}'} memakai teks alamat, atau koordinat GPS (tanpa tautan peta) jika kosong.
                             Dikirim ke chat terikat; WhatsApp juga ke nomor HP di data pelanggan.
                         </p>
@@ -579,10 +580,11 @@ export default function Index({
                             <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
                                 <span>
                                     <span className="block text-sm font-medium text-ink">
-                                        Tagihan baru & pengingat jatuh tempo
+                                        Tagihan baru, pengingat, & konfirmasi lunas
                                     </span>
                                     <span className="mt-0.5 block text-xs text-ink-soft">
-                                        Mengganti toggle stub di Pengaturan Aplikasi (app_notif_whatsapp).
+                                        Tagihan baru, pengingat jatuh tempo, dan WhatsApp saat tombol
+                                        Lunas (atau pembayaran online) berhasil.
                                     </span>
                                 </span>
                                 <input
@@ -682,6 +684,7 @@ export default function Index({
                         ['msg_tpl_welcome', '🎉 Selamat datang pelanggan baru'],
                         ['msg_tpl_invoice', '🧾 Tagihan baru'],
                         ['msg_tpl_reminder', '⏰ Pengingat jatuh tempo'],
+                        ['msg_tpl_paid', '✅ Pembayaran diterima (lunas)'],
                         ['msg_tpl_isolir', '⛔ Isolir'],
                         ['msg_tpl_restore', '✅ Layanan aktif kembali'],
                     ].map(([name, label]) => (
