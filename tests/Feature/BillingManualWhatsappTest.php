@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Invoice;
 use App\Models\MessageLog;
+use App\Models\MessageOutbox;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
@@ -170,6 +171,11 @@ class BillingManualWhatsappTest extends TestCase
             ])
             ->assertRedirect('/admin/billing');
 
+        $this->assertSame(2, MessageOutbox::query()->where('template', 'isolir')->count());
+        $this->assertSame(1, MessageLog::query()->where('command', 'isolir')->where('status', 'sent')->count());
+
+        $this->travel(60)->seconds();
+        $this->artisan('messaging:send-outbox')->assertSuccessful();
         $this->assertSame(2, MessageLog::query()->where('command', 'isolir')->where('status', 'sent')->count());
     }
 }

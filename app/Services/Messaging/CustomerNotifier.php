@@ -4,6 +4,7 @@ namespace App\Services\Messaging;
 
 use App\Models\Invoice;
 use App\Models\MessageLog;
+use App\Models\MessageOutbox;
 use App\Models\MessagingIdentity;
 use App\Models\PppoeCustomer;
 use App\Support\AppSettings;
@@ -14,7 +15,10 @@ use Throwable;
 
 class CustomerNotifier
 {
-    public function __construct(private readonly MessagingManager $channels) {}
+    public function __construct(
+        private readonly MessagingManager $channels,
+        private readonly WhatsappOutbox $outbox,
+    ) {}
 
     public function notifyInvoice(Invoice $invoice): void
     {
@@ -28,7 +32,13 @@ class CustomerNotifier
             return;
         }
 
-        $this->send($customer, MessageTemplate::INVOICE, $this->invoiceVars($invoice, $customer));
+        $this->send(
+            $customer,
+            MessageTemplate::INVOICE,
+            $this->invoiceVars($invoice, $customer),
+            paceWhatsapp: true,
+            invoiceId: $invoice->id,
+        );
     }
 
     public function notifyReminder(Invoice $invoice): void
@@ -43,7 +53,13 @@ class CustomerNotifier
             return;
         }
 
-        $this->send($customer, MessageTemplate::REMINDER, $this->invoiceVars($invoice, $customer));
+        $this->send(
+            $customer,
+            MessageTemplate::REMINDER,
+            $this->invoiceVars($invoice, $customer),
+            paceWhatsapp: true,
+            invoiceId: $invoice->id,
+        );
     }
 
     public function notifyPaid(Invoice $invoice): void
@@ -98,8 +114,13 @@ class CustomerNotifier
     /**
      * @param  array<string, scalar|null>  $vars
      */
-    public function send(PppoeCustomer $customer, string $template, array $vars): void
-    {
+    public function send(
+        PppoeCustomer $customer,
+        string $template,
+        array $vars,
+        bool $paceWhatsapp = false,
+        ?int $invoiceId = null,
+    ): void {
         $body = MessageTemplate::render($template, $vars);
         if ($body === '') {
             return;
@@ -117,6 +138,22 @@ class CustomerNotifier
                 continue;
             }
 
+            if ($paceWhatsapp && $channel === 'whatsapp' && $this->outbox->enabled()) {
+                $queued = $this->outbox->enqueue(
+                    $template,
+                    $identity->external_id,
+                    $body,
+                    $customer->id,
+                    $invoiceId,
+                    $identity->id,
+                );
+                if ($queued) {
+                    $sentTo['whatsapp:'.$queued->external_id] = true;
+                }
+
+                continue;
+            }
+
             $this->deliver($channel, $identity->external_id, $body, $identity, $template, $vars);
             $sentTo[$channel.':'.$identity->external_id] = true;
         }
@@ -130,15 +167,39 @@ class CustomerNotifier
             return;
         }
 
+        if ($paceWhatsapp && $this->outbox->enabled()) {
+            $this->outbox->enqueue($template, $phone, $body, $customer->id, $invoiceId);
+
+            return;
+        }
+
         $this->deliver('whatsapp', $phone, $body, null, $template, $vars, $customer->id);
+    }
+
+    /**
+     * @return array{sent: int, failed: int, postponed: int}
+     */
+    public function dispatchWhatsappOutbox(): array
+    {
+        return $this->outbox->dispatch(function (MessageOutbox $item): array {
+            return $this->deliver(
+                'whatsapp',
+                $item->external_id,
+                $item->body,
+                $item->identity,
+                $item->template,
+                [],
+                $item->pppoe_customer_id,
+            );
+        });
     }
 
     /**
      * Kirim satu template ke WhatsApp pelanggan (bukan welcome). Toggle otomatis diabaikan.
      *
-     * @return array{ok: bool, message: string}
+     * @return array{ok: bool, message: string, queued?: bool}
      */
-    public function notifyManualWhatsapp(Invoice $invoice, string $template): array
+    public function notifyManualWhatsapp(Invoice $invoice, string $template, bool $defer = false): array
     {
         if (! MessageTemplate::isManual($template)) {
             return ['ok' => false, 'message' => 'Template ini tidak bisa dikirim manual.'];
@@ -183,6 +244,27 @@ class CustomerNotifier
         $phone = PhoneNumber::toInternational($target);
         if ($phone === '') {
             return ['ok' => false, 'message' => 'Nomor WhatsApp pelanggan kosong dan belum terikat.'];
+        }
+
+        if ($defer && $this->outbox->enabled()) {
+            $queued = $this->outbox->enqueue(
+                $template,
+                $phone,
+                $body,
+                $customer->id,
+                $invoice->id,
+                $identity?->id,
+            );
+
+            if (! $queued) {
+                return ['ok' => false, 'message' => 'Gagal memasukkan WhatsApp ke antrian.'];
+            }
+
+            return [
+                'ok' => true,
+                'queued' => true,
+                'message' => 'WhatsApp masuk antrian pengiriman bertahap.',
+            ];
         }
 
         return $this->deliver('whatsapp', $phone, $body, $identity, $template, $vars, $customer->id);
@@ -286,6 +368,9 @@ class CustomerNotifier
         try {
             $result = $this->channels->send($channel, $externalId, $body);
             $ok = (bool) ($result['ok'] ?? false);
+            if ($ok && $channel === 'whatsapp') {
+                $this->outbox->markSentNow();
+            }
             MessageLog::query()->create([
                 'channel' => $channel,
                 'direction' => 'outbound',

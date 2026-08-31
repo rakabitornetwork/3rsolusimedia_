@@ -386,24 +386,29 @@ class BillingController extends Controller
         }
 
         $invoices = $query->get();
-        $sent = 0;
+        $queued = 0;
         $failed = 0;
         $lastError = null;
+        $defer = $invoices->count() > 1;
 
         foreach ($invoices as $invoice) {
-            $result = $this->notifier->notifyManualWhatsapp($invoice, $validated['template']);
+            $result = $this->notifier->notifyManualWhatsapp($invoice, $validated['template'], $defer);
             if ($result['ok'] ?? false) {
-                $sent++;
+                $queued++;
             } else {
                 $failed++;
                 $lastError = $result['message'] ?? 'Gagal mengirim';
             }
         }
 
+        if ($queued > 0) {
+            $this->notifier->dispatchWhatsappOutbox();
+        }
+
         $skipped = count($validated['ids']) - $invoices->count();
         $label = MessageTemplate::manualChoices()[$validated['template']];
 
-        if ($sent === 0) {
+        if ($queued === 0) {
             $message = $lastError ?: 'Tidak ada WhatsApp yang terkirim.';
             if ($skipped > 0) {
                 $message .= ' '.$skipped.' tagihan dilewati.';
@@ -412,7 +417,9 @@ class BillingController extends Controller
             return back()->with('error', $message);
         }
 
-        $message = $sent.' WhatsApp "'.$label.'" terkirim.';
+        $message = $defer
+            ? $queued.' WhatsApp "'.$label.'" masuk antrian (dikirim bertahap dengan jeda acak).'
+            : $queued.' WhatsApp "'.$label.'" terkirim.';
         if ($failed > 0) {
             $message .= ' '.$failed.' gagal.';
         }

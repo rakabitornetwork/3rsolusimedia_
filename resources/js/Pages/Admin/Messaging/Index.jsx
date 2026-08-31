@@ -117,6 +117,10 @@ export default function Index({
         messaging_notify_welcome: config?.notify_welcome !== false,
         messaging_notify_pppoe_session: Boolean(config?.notify_pppoe_session),
         messaging_pppoe_session_debounce: Number(config?.pppoe_session_debounce ?? 3),
+        whatsapp_send_delay_min: Number(config?.whatsapp_send_delay_min ?? 25),
+        whatsapp_send_delay_max: Number(config?.whatsapp_send_delay_max ?? 50),
+        whatsapp_send_batch: Number(config?.whatsapp_send_batch ?? 2),
+        whatsapp_send_daily_limit: Number(config?.whatsapp_send_daily_limit ?? 80),
         msg_tpl_invoice: config?.templates?.invoice || '',
         msg_tpl_reminder: config?.templates?.reminder || '',
         msg_tpl_paid: config?.templates?.paid || '',
@@ -276,6 +280,7 @@ export default function Index({
                     {stats.bound ?? 0} terikat
                     {' · '}
                     {stats.logs_today ?? 0} log hari ini
+                    {stats.outbox_pending > 0 ? ` · ${stats.outbox_pending} antrian WA` : ''}
                 </div>
             </div>
 
@@ -626,8 +631,8 @@ export default function Index({
                                         Tagihan baru, pengingat, & konfirmasi lunas
                                     </span>
                                     <span className="mt-0.5 block text-xs text-ink-soft">
-                                        Tagihan baru, pengingat jatuh tempo, dan WhatsApp saat tombol
-                                        Lunas (atau pembayaran online) berhasil.
+                                        Tagihan baru dan pengingat masuk antrian, dikirim satu-satu
+                                        dengan jeda acak. Konfirmasi lunas tetap langsung.
                                     </span>
                                 </span>
                                 <input
@@ -722,6 +727,90 @@ export default function Index({
                                     0 = kirim langsung. Nilai 3–5 menghindari banjir saat modem restart.
                                 </span>
                             </label>
+                            <div className="border border-ink/10 px-4 py-3">
+                                <p className="text-sm font-medium text-ink">Jeda WhatsApp tagihan (anti-spam)</p>
+                                <p className="mt-0.5 text-xs font-normal text-ink-soft">
+                                    Evolution API memakai sesi WhatsApp tidak resmi. Kirim banyak tagihan
+                                    beruntun mudah ditandai spam dan nomor bisa diblokir. Tagihan baru,
+                                    pengingat, dan kirim massal masuk antrian: jeda acak antar pesan,
+                                    plus jeda mengetik 0,9–2,8 detik di Evolution. Cron harus jalan
+                                    setiap menit (`php artisan schedule:run`). Nomor baru: mulai dari
+                                    batas harian rendah (30–50), naik pelan setelah 1–2 minggu.
+                                </p>
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                    <label className="block text-xs font-medium text-ink">
+                                        Jeda min (detik)
+                                        <input
+                                            type="number"
+                                            min={8}
+                                            max={180}
+                                            value={templates.data.whatsapp_send_delay_min}
+                                            disabled={!canWrite}
+                                            onChange={(e) =>
+                                                templates.setData(
+                                                    'whatsapp_send_delay_min',
+                                                    e.target.value === '' ? 8 : Number(e.target.value),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                        />
+                                    </label>
+                                    <label className="block text-xs font-medium text-ink">
+                                        Jeda max (detik)
+                                        <input
+                                            type="number"
+                                            min={8}
+                                            max={300}
+                                            value={templates.data.whatsapp_send_delay_max}
+                                            disabled={!canWrite}
+                                            onChange={(e) =>
+                                                templates.setData(
+                                                    'whatsapp_send_delay_max',
+                                                    e.target.value === '' ? 8 : Number(e.target.value),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                        />
+                                    </label>
+                                    <label className="block text-xs font-medium text-ink">
+                                        Maks per menit
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={10}
+                                            value={templates.data.whatsapp_send_batch}
+                                            disabled={!canWrite}
+                                            onChange={(e) =>
+                                                templates.setData(
+                                                    'whatsapp_send_batch',
+                                                    e.target.value === '' ? 1 : Number(e.target.value),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                        />
+                                    </label>
+                                    <label className="block text-xs font-medium text-ink">
+                                        Batas harian
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={500}
+                                            value={templates.data.whatsapp_send_daily_limit}
+                                            disabled={!canWrite}
+                                            onChange={(e) =>
+                                                templates.setData(
+                                                    'whatsapp_send_daily_limit',
+                                                    e.target.value === '' ? 0 : Number(e.target.value),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                        />
+                                        <span className="mt-1 block font-normal text-ink-soft">
+                                            0 = tanpa batas. Default 80.
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

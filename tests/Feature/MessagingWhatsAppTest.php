@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Invoice;
 use App\Models\MessageLog;
+use App\Models\MessageOutbox;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
@@ -224,7 +225,7 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
-    public function invoice_notification_is_sent_when_toggle_is_on(): void
+    public function invoice_notification_is_queued_then_sent_with_pacing(): void
     {
         $this->enableWhatsapp();
         $this->fakeEvolution();
@@ -244,13 +245,110 @@ class MessagingWhatsAppTest extends TestCase
             'package_name' => '10 Mbps',
         ]);
 
-        app(CustomerNotifier::class)->notifyInvoice($invoice);
+        $notifier = app(CustomerNotifier::class);
+        $notifier->notifyInvoice($invoice);
+
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
+        $this->assertDatabaseHas('message_outbox', [
+            'template' => 'invoice',
+            'status' => MessageOutbox::STATUS_PENDING,
+            'invoice_id' => $invoice->id,
+            'external_id' => '6281234567890',
+        ]);
+
+        $notifier->dispatchWhatsappOutbox();
 
         Http::assertSent(function ($request) {
             return str_contains($request->url(), '/message/sendText/teslatech')
                 && ($request['number'] ?? null) === '6281234567890'
-                && str_contains((string) ($request['text'] ?? ''), 'INV-NOTIF');
+                && str_contains((string) ($request['text'] ?? ''), 'INV-NOTIF')
+                && isset($request['delay']);
         });
+        $this->assertDatabaseHas('message_outbox', [
+            'invoice_id' => $invoice->id,
+            'status' => MessageOutbox::STATUS_SENT,
+        ]);
+    }
+
+    #[Test]
+    public function new_invoice_whatsapp_messages_are_staggered(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setMany([
+            'whatsapp_send_delay_min' => '25',
+            'whatsapp_send_delay_max' => '40',
+            'whatsapp_send_batch' => '1',
+        ]);
+
+        $firstCustomer = $this->customer(['username' => 'a01']);
+        $secondCustomer = $this->customer([
+            'username' => 'b01',
+            'phone' => '081234567891',
+            'mikrotik_router_id' => $firstCustomer->mikrotik_router_id,
+        ]);
+
+        $first = $this->unpaidInvoice($firstCustomer, 'INV-A');
+        $second = $this->unpaidInvoice($secondCustomer, 'INV-B');
+
+        $notifier = app(CustomerNotifier::class);
+        $notifier->notifyInvoice($first);
+        $notifier->notifyInvoice($second);
+
+        $rows = MessageOutbox::query()->orderBy('id')->get();
+        $this->assertCount(2, $rows);
+        $this->assertTrue(
+            $rows[1]->available_at->greaterThan($rows[0]->available_at),
+            'Pesan kedua harus dijadwalkan setelah pesan pertama.',
+        );
+        $this->assertGreaterThanOrEqual(
+            25,
+            $rows[1]->available_at->getTimestamp() - $rows[0]->available_at->getTimestamp(),
+        );
+
+        $notifier->dispatchWhatsappOutbox();
+        $this->assertSame(1, MessageLog::query()->where('command', 'invoice')->where('status', 'sent')->count());
+        $this->assertSame(MessageOutbox::STATUS_PENDING, $rows[1]->fresh()->status);
+
+        $this->travel(60)->seconds();
+        $notifier->dispatchWhatsappOutbox();
+        $this->assertSame(2, MessageLog::query()->where('command', 'invoice')->where('status', 'sent')->count());
+    }
+
+    #[Test]
+    public function daily_whatsapp_limit_postpones_remaining_invoice_queue(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setMany([
+            'whatsapp_send_delay_min' => '8',
+            'whatsapp_send_delay_max' => '8',
+            'whatsapp_send_batch' => '2',
+            'whatsapp_send_daily_limit' => '1',
+        ]);
+
+        $firstCustomer = $this->customer(['username' => 'a01']);
+        $secondCustomer = $this->customer([
+            'username' => 'b01',
+            'phone' => '081234567891',
+            'mikrotik_router_id' => $firstCustomer->mikrotik_router_id,
+        ]);
+
+        $notifier = app(CustomerNotifier::class);
+        $notifier->notifyInvoice($this->unpaidInvoice($firstCustomer, 'INV-LIMIT-1'));
+        $notifier->dispatchWhatsappOutbox();
+        $this->assertSame(1, MessageLog::query()->where('command', 'invoice')->where('status', 'sent')->count());
+
+        $second = $this->unpaidInvoice($secondCustomer, 'INV-LIMIT-2');
+        $notifier->notifyInvoice($second);
+        $this->travel(15)->seconds();
+        $notifier->dispatchWhatsappOutbox();
+
+        $queued = MessageOutbox::query()->where('invoice_id', $second->id)->first();
+        $this->assertNotNull($queued);
+        $this->assertSame(MessageOutbox::STATUS_PENDING, $queued->status);
+        $this->assertTrue($queued->available_at->greaterThan(now()->addHours(6)));
+        $this->assertSame(1, MessageLog::query()->where('command', 'invoice')->where('status', 'sent')->count());
     }
 
     #[Test]
@@ -425,11 +523,19 @@ class MessagingWhatsAppTest extends TestCase
                 'app_notif_whatsapp' => '1',
                 'messaging_notify_isolir' => '1',
                 'msg_tpl_invoice' => 'Halo {{nama}} tagihan {{nomor}}',
+                'whatsapp_send_delay_min' => 20,
+                'whatsapp_send_delay_max' => 45,
+                'whatsapp_send_batch' => 1,
+                'whatsapp_send_daily_limit' => 50,
             ])
             ->assertRedirect('/admin/messaging');
 
         $this->assertSame('1', SiteSetting::getValue('app_notif_whatsapp'));
         $this->assertSame('Halo {{nama}} tagihan {{nomor}}', SiteSetting::getValue('msg_tpl_invoice'));
+        $this->assertSame('20', SiteSetting::getValue('whatsapp_send_delay_min'));
+        $this->assertSame('45', SiteSetting::getValue('whatsapp_send_delay_max'));
+        $this->assertSame('1', SiteSetting::getValue('whatsapp_send_batch'));
+        $this->assertSame('50', SiteSetting::getValue('whatsapp_send_daily_limit'));
     }
 
     #[Test]

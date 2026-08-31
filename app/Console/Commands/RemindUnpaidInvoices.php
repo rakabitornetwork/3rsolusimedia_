@@ -49,7 +49,8 @@ class RemindUnpaidInvoices extends Command
             $this->line('REMIND '.$invoice->number.' → '.$invoice->customer->username);
         }
 
-        $this->info("Pengingat terkirim: {$sent}.");
+        $flushed = $notifier->dispatchWhatsappOutbox();
+        $this->info("Pengingat diantrikan: {$sent}. WhatsApp terkirim sekarang: {$flushed['sent']}.");
 
         return self::SUCCESS;
     }

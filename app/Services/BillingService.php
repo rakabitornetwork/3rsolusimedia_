@@ -221,6 +221,10 @@ class BillingService
             }
         }
 
+        if ($created > 0) {
+            $this->notifier->dispatchWhatsappOutbox();
+        }
+
         return compact('created', 'skipped');
     }
 

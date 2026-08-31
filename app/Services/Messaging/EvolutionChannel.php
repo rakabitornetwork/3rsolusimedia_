@@ -78,6 +78,7 @@ class EvolutionChannel implements MessagingChannelInterface
                 [
                     'number' => $number,
                     'text' => $text,
+                    'delay' => random_int(900, 2800),
                 ],
             );
             $latency = (int) round((microtime(true) - $started) * 1000);

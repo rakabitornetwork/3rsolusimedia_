@@ -58,6 +58,10 @@ class AppSettings
         'whatsapp_instance' => 'teslatech',
         'whatsapp_webhook_secret' => '',
         'whatsapp_test_number' => '',
+        'whatsapp_send_delay_min' => '25',
+        'whatsapp_send_delay_max' => '50',
+        'whatsapp_send_batch' => '2',
+        'whatsapp_send_daily_limit' => '80',
         'messaging_notify_isolir' => '0',
         'messaging_notify_welcome' => '1',
         'messaging_notify_pppoe_session' => '0',
@@ -235,8 +239,46 @@ class AppSettings
             'notify_welcome' => self::bool('messaging_notify_welcome', true),
             'notify_pppoe_session' => self::bool('messaging_notify_pppoe_session', false),
             'pppoe_session_debounce' => max(0, min(30, self::int('messaging_pppoe_session_debounce', 3))),
+            'whatsapp_send_delay_min' => self::whatsappDelayMin(),
+            'whatsapp_send_delay_max' => self::whatsappDelayMax(),
+            'whatsapp_send_batch' => self::whatsappSendBatch(),
+            'whatsapp_send_daily_limit' => self::whatsappDailyLimit(),
             'templates' => MessageTemplate::all(),
         ];
+    }
+
+    /**
+     * Jeda minimum antar pesan WhatsApp blast (detik).
+     */
+    public static function whatsappDelayMin(): int
+    {
+        return max(8, min(180, self::int('whatsapp_send_delay_min', 25)));
+    }
+
+    /**
+     * Jeda maksimum antar pesan WhatsApp blast (detik).
+     */
+    public static function whatsappDelayMax(): int
+    {
+        $min = self::whatsappDelayMin();
+
+        return max($min, min(300, self::int('whatsapp_send_delay_max', 50)));
+    }
+
+    /**
+     * Maksimum pesan WhatsApp yang diproses per jalankan scheduler.
+     */
+    public static function whatsappSendBatch(): int
+    {
+        return max(1, min(10, self::int('whatsapp_send_batch', 2)));
+    }
+
+    /**
+     * Batas kirim WhatsApp per hari (0 = tanpa batas).
+     */
+    public static function whatsappDailyLimit(): int
+    {
+        return max(0, min(500, self::int('whatsapp_send_daily_limit', 80)));
     }
 
     public static function get(string $key, mixed $default = null): mixed

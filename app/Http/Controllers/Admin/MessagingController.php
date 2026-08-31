@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MessageLog;
+use App\Models\MessageOutbox;
 use App\Models\MessagingIdentity;
 use App\Models\SiteSetting;
 use App\Services\Messaging\EvolutionChannel;
@@ -115,6 +116,10 @@ class MessagingController extends Controller
             'messaging_notify_welcome' => ['sometimes', 'boolean'],
             'messaging_notify_pppoe_session' => ['sometimes', 'boolean'],
             'messaging_pppoe_session_debounce' => ['nullable', 'integer', 'min:0', 'max:30'],
+            'whatsapp_send_delay_min' => ['nullable', 'integer', 'min:8', 'max:180'],
+            'whatsapp_send_delay_max' => ['nullable', 'integer', 'min:8', 'max:300'],
+            'whatsapp_send_batch' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'whatsapp_send_daily_limit' => ['nullable', 'integer', 'min:0', 'max:500'],
             'msg_tpl_invoice' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_reminder' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_paid' => ['nullable', 'string', 'max:4000'],
@@ -130,6 +135,17 @@ class MessagingController extends Controller
             'messaging_notify_pppoe_session' => $request->boolean('messaging_notify_pppoe_session') ? '1' : '0',
             'messaging_pppoe_session_debounce' => (string) max(0, min(30, (int) ($validated['messaging_pppoe_session_debounce'] ?? 3))),
         ];
+
+        $delayMin = max(8, min(180, (int) ($validated['whatsapp_send_delay_min'] ?? 25)));
+        $delayMax = max(8, min(300, (int) ($validated['whatsapp_send_delay_max'] ?? 50)));
+        if ($delayMin > $delayMax) {
+            [$delayMin, $delayMax] = [$delayMax, $delayMin];
+        }
+
+        $values['whatsapp_send_delay_min'] = (string) $delayMin;
+        $values['whatsapp_send_delay_max'] = (string) $delayMax;
+        $values['whatsapp_send_batch'] = (string) max(1, min(10, (int) ($validated['whatsapp_send_batch'] ?? 2)));
+        $values['whatsapp_send_daily_limit'] = (string) max(0, min(500, (int) ($validated['whatsapp_send_daily_limit'] ?? 80)));
 
         foreach (array_keys(MessageTemplate::defaults()) as $key) {
             $field = MessageTemplate::settingKey($key);
@@ -339,11 +355,11 @@ class MessagingController extends Controller
     }
 
     /**
-     * @return array{bound: int, logs_today: int}
+     * @return array{bound: int, logs_today: int, outbox_pending: int}
      */
     private function adminStats(): array
     {
-        $stats = ['bound' => 0, 'logs_today' => 0];
+        $stats = ['bound' => 0, 'logs_today' => 0, 'outbox_pending' => 0];
 
         try {
             if (Schema::hasTable('messaging_identities')) {
@@ -352,6 +368,11 @@ class MessagingController extends Controller
             if (Schema::hasTable('message_logs')) {
                 $stats['logs_today'] = MessageLog::query()
                     ->where('created_at', '>=', now()->startOfDay())
+                    ->count();
+            }
+            if (Schema::hasTable('message_outbox')) {
+                $stats['outbox_pending'] = MessageOutbox::query()
+                    ->whereIn('status', [MessageOutbox::STATUS_PENDING, MessageOutbox::STATUS_SENDING])
                     ->count();
             }
         } catch (Throwable $e) {
