@@ -107,6 +107,48 @@ class BillingManualWhatsappTest extends TestCase
     }
 
     #[Test]
+    public function billing_index_defaults_per_page_to_20(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/billing')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.per_page', 20)
+            );
+    }
+
+    #[Test]
+    public function billing_index_accepts_larger_per_page(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/billing?per_page=100')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.per_page', 100)
+            );
+    }
+
+    #[Test]
+    public function billing_index_falls_back_to_20_for_invalid_per_page(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/billing?per_page=13')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.per_page', 20)
+            );
+    }
+
+    #[Test]
     public function admin_can_manually_send_reminder_whatsapp(): void
     {
         $this->enableWhatsapp();

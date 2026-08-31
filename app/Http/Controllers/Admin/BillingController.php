@@ -36,13 +36,17 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'customer_status', 'router_id', 'sort', 'direction', 'page',
+            'q', 'status', 'overdue', 'grace', 'customer_status', 'router_id', 'sort', 'direction', 'page', 'per_page',
         ]);
 
         $user = $request->user();
         $routerId = $request->get('router_id', '');
         $sort = (string) $request->get('sort', 'due_date');
         $direction = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $perPage = (int) $request->integer('per_page', 20);
+        if (! in_array($perPage, [20, 50, 100, 200, 500], true)) {
+            $perPage = 20;
+        }
 
         $allowedSorts = [
             'number' => 'invoices.number',
@@ -164,6 +168,7 @@ class BillingController extends Controller
                 'router_id' => $routerId ?: '',
                 'sort' => $sort,
                 'direction' => $direction,
+                'per_page' => $perPage,
             ],
             'routers' => MikrotikRouter::query()
                 ->where('is_active', true)

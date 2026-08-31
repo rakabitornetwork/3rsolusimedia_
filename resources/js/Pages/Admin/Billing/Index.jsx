@@ -28,6 +28,8 @@ import { keepPage } from '../../../lib/keepPage';
 import { bulkBillingWhatsapp, sendBillingWhatsapp } from '../../../lib/billingWhatsapp';
 import { matchesSearch, paginateItems } from '../../../lib/search';
 
+const PER_PAGE_OPTIONS = [20, 50, 100, 200, 500];
+
 function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
     const active = sort === column;
 
@@ -336,6 +338,7 @@ export default function Index({
 }) {
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(Number(filters.per_page) || 20);
     const [selected, setSelected] = useState([]);
     const [bulkMethod, setBulkMethod] = useState('cash');
     const [bulkWaTemplate, setBulkWaTemplate] = useState(
@@ -359,7 +362,7 @@ export default function Index({
             ),
         [allInvoices, query],
     );
-    const paged = useMemo(() => paginateItems(filtered, page, 20), [filtered, page]);
+    const paged = useMemo(() => paginateItems(filtered, page, perPage), [filtered, page, perPage]);
     const rows = paged.data;
     const pageIds = useMemo(() => rows.map((item) => item.id), [rows]);
     const allPageSelected =
@@ -386,6 +389,11 @@ export default function Index({
             },
             { preserveState: true, replace: true },
         );
+    };
+
+    const changePerPage = (value) => {
+        setPerPage(value);
+        applyFilters('per_page', value);
     };
 
     const applySort = (column, direction) => {
@@ -631,6 +639,21 @@ export default function Index({
                             }
                         />
                         Isolir saja
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm text-ink">
+                        <span className="sr-only">Baris per halaman</span>
+                        <select
+                            value={perPage}
+                            onChange={(e) => changePerPage(Number(e.target.value))}
+                            className="w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
+                            title="Baris per halaman"
+                        >
+                            {PER_PAGE_OPTIONS.map((n) => (
+                                <option key={n} value={n}>
+                                    {n} / halaman
+                                </option>
+                            ))}
+                        </select>
                     </label>
                 </div>
 
@@ -883,6 +906,9 @@ export default function Index({
                 total={paged.total}
                 label="tagihan"
                 onPage={setPage}
+                perPage={perPage}
+                onPerPage={changePerPage}
+                perPageOptions={PER_PAGE_OPTIONS}
             />
         </AdminLayout>
     );
