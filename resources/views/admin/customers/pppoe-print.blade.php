@@ -1,5 +1,5 @@
 @php
-    /** @var \Illuminate\Support\Collection<\App\Models\PppoeCustomer> $customers */
+    /** @var \Illuminate\Support\Collection<int, array> $rows */
     /** @var \Carbon\Carbon $date */
     $bulan = [
         1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
@@ -15,26 +15,19 @@
         return $c->day.' '.$bulan[$c->month].' '.$c->year;
     };
     $fmtShort = fn ($d) => $d ? \Carbon\Carbon::parse($d)->format('d/m/Y') : '—';
-    $fmtDateTime = function ($d) use ($bulan) {
-        $c = \Carbon\Carbon::parse($d);
-
-        return $c->day.' '.$bulan[$c->month].' '.$c->year.' '.$c->format('H:i');
-    };
-    $statusLabel = [
+    $money = fn (?int $n) => $n !== null
+        ? number_format($n, 0, ',', '.')
+        : '—';
+    $customerStatus = [
         'active' => 'Aktif',
         'isolated' => 'Isolir',
         'disabled' => 'Nonaktif',
     ];
-    $contact = collect([
-        $company['phone'] ?? null,
-        ! empty($company['whatsapp']) ? 'WA '.$company['whatsapp'] : null,
-    ])->filter()->implode(' · ');
-
     $filterBits = collect([
         $date_field_label.': '.$fmtDate($date),
         $date_field === 'billing_day' ? 'tiap tgl '.$date->day : null,
-        $router?->name ? 'Router: '.$router->name : null,
-        $status ? 'Status: '.($statusLabel[$status] ?? ($status === 'grace' ? 'Grace' : $status)) : null,
+        $router?->name ? 'Router '.$router->name : null,
+        $status ? ($customerStatus[$status] ?? ($status === 'grace' ? 'Grace' : $status)) : null,
     ])->filter()->implode(' · ');
 @endphp
 <!DOCTYPE html>
@@ -42,39 +35,32 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cetak Pelanggan PPPoE · {{ $fmtShort($date) }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <title>Cetak Tagihan PPPoE · {{ $fmtShort($date) }}</title>
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm 10mm 14mm;
+            margin: 6mm 5mm 7mm;
         }
 
         * { box-sizing: border-box; }
 
         :root {
-            --ink: #0b1526;
-            --ink-soft: #3a4658;
-            --muted: #6b7789;
-            --paper: #ffffff;
-            --mist: #f3f6fa;
-            --line: #e6ebf2;
-            --signal: #1a6eff;
-            --signal-deep: #0a2d82;
-            --font-body: "Manrope", "Segoe UI", system-ui, sans-serif;
-            --font-display: "Syne", "Manrope", system-ui, sans-serif;
+            --ink: #111;
+            --muted: #444;
+            --line: #222;
+            --soft: #888;
+            --paper: #fff;
+            --zebra: #f4f4f4;
         }
 
         html, body {
             margin: 0;
             padding: 0;
-            background: #d5dee6;
+            background: #cfd6de;
             color: var(--ink);
-            font-family: var(--font-body);
-            font-size: 10pt;
-            line-height: 1.4;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 8pt;
+            line-height: 1.2;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
@@ -88,32 +74,30 @@
             gap: 8px;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 18px;
-            background: var(--ink);
+            padding: 10px 14px;
+            background: #0b1526;
             color: #fff;
         }
 
         .toolbar p {
             margin: 0;
-            font-size: 13px;
-            color: rgba(255,255,255,0.82);
+            font-size: 12px;
+            color: rgba(255,255,255,0.85);
         }
 
         .toolbar-actions {
             display: flex;
-            flex-wrap: wrap;
             gap: 8px;
-            align-items: center;
         }
 
         .toolbar a,
         .toolbar button {
             appearance: none;
-            border: 1px solid rgba(255,255,255,0.22);
+            border: 1px solid rgba(255,255,255,0.25);
             background: transparent;
             color: #fff;
-            padding: 8px 12px;
-            font-size: 12.5px;
+            padding: 7px 11px;
+            font-size: 12px;
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
@@ -121,186 +105,203 @@
         }
 
         .toolbar button.primary {
-            background: var(--signal);
-            border-color: var(--signal);
+            background: #1a6eff;
+            border-color: #1a6eff;
         }
 
-        .preview { padding: 22px 12px 48px; }
+        .preview { padding: 16px 10px 40px; }
 
         .sheet {
-            width: 210mm;
-            min-height: 297mm;
+            width: 200mm;
             margin: 0 auto;
             background: var(--paper);
-            box-shadow: 0 18px 50px rgba(11, 21, 38, 0.16);
-            padding: 12mm 10mm 14mm;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.14);
+            padding: 5mm 4mm 6mm;
         }
 
-        .header {
+        .head {
             display: flex;
             justify-content: space-between;
-            gap: 16px;
-            align-items: flex-start;
-            margin-bottom: 10px;
+            align-items: flex-end;
+            gap: 8px;
+            margin-bottom: 3mm;
+            padding-bottom: 2mm;
+            border-bottom: 1.5px solid var(--line);
         }
 
-        .brand {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
+        .head-left {
             min-width: 0;
-        }
-
-        .logo {
-            height: 40px;
-            width: 40px;
-            object-fit: contain;
-            flex-shrink: 0;
         }
 
         .company {
             margin: 0;
-            font-family: var(--font-display);
-            font-size: 15pt;
+            font-size: 11pt;
             font-weight: 700;
+            letter-spacing: -0.01em;
             line-height: 1.1;
-            letter-spacing: -0.02em;
         }
 
-        .tagline {
-            margin: 3px 0 0;
+        .title {
+            margin: 1px 0 0;
             font-size: 8.5pt;
-            font-weight: 500;
-            color: var(--signal-deep);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
-        .contact {
-            margin: 2px 0 0;
-            font-size: 8pt;
+        .meta {
+            margin: 1px 0 0;
+            font-size: 7pt;
             color: var(--muted);
         }
 
-        .doc {
+        .head-right {
             text-align: right;
             flex-shrink: 0;
+            font-size: 7pt;
+            color: var(--muted);
+            line-height: 1.35;
         }
 
-        .doc-kicker {
-            margin: 0;
-            font-family: var(--font-display);
+        .head-right strong {
+            color: var(--ink);
             font-size: 8pt;
-            font-weight: 700;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--signal);
-        }
-
-        .doc-title {
-            margin: 4px 0 0;
-            font-family: var(--font-display);
-            font-size: 13pt;
-            font-weight: 700;
-            color: var(--ink);
-        }
-
-        .doc-meta {
-            margin: 4px 0 0;
-            font-size: 8.5pt;
-            color: var(--ink-soft);
-            max-width: 95mm;
-        }
-
-        .accent {
-            height: 2.5px;
-            margin: 0 0 12px;
-            background: linear-gradient(90deg, var(--signal-deep) 0%, var(--signal) 55%, #00b7ff 100%);
-            border-radius: 999px;
-        }
-
-        .summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 18px;
-            margin-bottom: 12px;
-            padding: 8px 10px;
-            background: var(--mist);
-            border-left: 3px solid var(--signal);
-            font-size: 9pt;
-            color: var(--ink-soft);
-        }
-
-        .summary strong {
-            color: var(--ink);
-            font-weight: 700;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
 
         th, td {
-            padding: 7px 6px;
-            text-align: left;
-            vertical-align: top;
+            border: 0.6pt solid var(--line);
+            padding: 2.5px 3px;
+            vertical-align: middle;
+            overflow: hidden;
         }
 
         th {
-            font-family: var(--font-display);
-            font-size: 7pt;
+            background: #e8e8e8;
+            font-size: 6.5pt;
             font-weight: 700;
-            letter-spacing: 0.12em;
             text-transform: uppercase;
-            color: var(--signal-deep);
-            border-bottom: 1.5px solid var(--signal-deep);
-            padding-bottom: 8px;
+            letter-spacing: 0.02em;
+            text-align: center;
+            line-height: 1.15;
+            padding: 3px 2px;
         }
 
         td {
-            border-bottom: 1px solid var(--line);
-            font-size: 9pt;
-            color: var(--ink);
+            font-size: 7.5pt;
         }
 
-        tbody tr:last-child td {
-            border-bottom: none;
+        tbody tr:nth-child(even) td {
+            background: var(--zebra);
         }
 
-        .num {
-            width: 28px;
-            text-align: center;
-            color: var(--muted);
-            font-variant-numeric: tabular-nums;
-        }
+        .c-no { width: 4%; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+        .c-name { width: 30%; }
+        .c-amt { width: 13%; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+        .c-due { width: 10%; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .c-status { width: 8%; text-align: center; white-space: nowrap; }
+        .c-ket { width: 19%; }
+        .c-pay { width: 8%; text-align: center; padding: 2px 1px; }
 
         .name {
             font-weight: 700;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .sub {
             display: block;
-            margin-top: 1px;
-            font-size: 8pt;
-            font-weight: 500;
-            color: var(--muted);
+            font-size: 6.5pt;
+            color: var(--soft);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
+        .ket {
+            min-height: 11px;
+            font-size: 6.5pt;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ket.empty {
+            min-height: 12px;
+        }
+
+        .box {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border: 0.8pt solid var(--ink);
+            vertical-align: middle;
+            background: #fff;
+        }
+
+        .box.on {
+            background: var(--ink);
+            box-shadow: inset 0 0 0 1.5px #fff;
+        }
+
+        .st-lunas { font-weight: 700; }
+        .st-belum { color: #333; }
+        .st-lewat { font-weight: 700; }
+
         .empty {
-            padding: 36px 12px;
+            padding: 24px 8px;
             text-align: center;
             color: var(--muted);
-            font-size: 11pt;
+            font-size: 10pt;
+            border: 0.6pt solid var(--line);
         }
 
         .foot {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
             gap: 10px;
-            margin-top: 14px;
-            padding-top: 8px;
-            border-top: 1px solid var(--line);
-            font-size: 7.5pt;
+            margin-top: 3mm;
+            font-size: 7pt;
             color: var(--muted);
+        }
+
+        .totals {
+            border: 0.6pt solid var(--line);
+            padding: 3px 6px;
+            font-size: 7.5pt;
+            color: var(--ink);
+            background: #e8e8e8;
+        }
+
+        .totals strong {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sign {
+            display: flex;
+            gap: 18px;
+            margin-top: 2mm;
+        }
+
+        .sign div {
+            min-width: 55mm;
+            text-align: center;
+        }
+
+        .sign .line {
+            margin-top: 14mm;
+            border-top: 0.6pt solid var(--line);
+            padding-top: 2px;
+            font-size: 6.5pt;
         }
 
         @media print {
@@ -310,8 +311,10 @@
             .sheet {
                 box-shadow: none;
                 width: auto;
-                min-height: 0;
                 padding: 0;
+            }
+            tbody tr:nth-child(even) td {
+                background: #f2f2f2 !important;
             }
         }
     </style>
@@ -319,8 +322,8 @@
 <body>
     <div class="toolbar no-print">
         <p>
-            Daftar pelanggan PPPoE · diurutkan A → Z ·
-            <strong>{{ $customers->count() }}</strong> data
+            Lembar tagihan high-density · A → Z ·
+            <strong>{{ $rows->count() }}</strong> pelanggan
         </p>
         <div class="toolbar-actions">
             <button type="button" class="primary" onclick="window.print()">Cetak</button>
@@ -330,86 +333,99 @@
 
     <div class="preview">
         <div class="sheet">
-            <div class="header">
-                <div class="brand">
-                    @if (! empty($company['logo']))
-                        <img class="logo" src="{{ $company['logo'] }}" alt="">
-                    @endif
-                    <div>
-                        <p class="company">{{ $company['name'] ?: 'RT RW Net' }}</p>
-                        @if (! empty($company['tagline']))
-                            <p class="tagline">{{ $company['tagline'] }}</p>
-                        @endif
-                        @if ($contact || ! empty($company['address']))
-                            <p class="contact">
-                                {{ collect([$company['address'] ?? null, $contact])->filter()->implode(' · ') }}
-                            </p>
-                        @endif
-                    </div>
+            <div class="head">
+                <div class="head-left">
+                    <p class="company">{{ $company['name'] ?: 'RT RW Net' }}</p>
+                    <p class="title">Daftar Tagihan Pelanggan PPPoE</p>
+                    <p class="meta">{{ $filterBits }} · urut nama A–Z</p>
                 </div>
-                <div class="doc">
-                    <p class="doc-kicker">Laporan</p>
-                    <p class="doc-title">Pelanggan PPPoE</p>
-                    <p class="doc-meta">{{ $filterBits }}</p>
+                <div class="head-right">
+                    Dicetak {{ now()->format('d/m/Y H:i') }}<br>
+                    Total baris: <strong>{{ $rows->count() }}</strong>
                 </div>
             </div>
 
-            <div class="accent"></div>
-
-            <div class="summary">
-                <span>Total: <strong>{{ $customers->count() }}</strong> pelanggan</span>
-                <span>Urutan: <strong>Nama A → Z</strong></span>
-                <span>Dicetak: <strong>{{ $fmtDateTime(now()) }}</strong></span>
-            </div>
-
-            @if ($customers->isEmpty())
+            @if ($rows->isEmpty())
                 <div class="empty">Tidak ada pelanggan untuk filter tanggal ini.</div>
             @else
                 <table>
                     <thead>
                         <tr>
-                            <th class="num">No</th>
-                            <th>Pelanggan</th>
-                            <th>Username</th>
-                            <th>Telepon</th>
-                            <th>Paket</th>
-                            <th>Jatuh tempo</th>
-                            <th>Status</th>
+                            <th class="c-no">No</th>
+                            <th class="c-name">Pelanggan</th>
+                            <th class="c-amt">Juml. Tagihan</th>
+                            <th class="c-due">Jth Tempo</th>
+                            <th class="c-status">Status</th>
+                            <th class="c-ket">Ket</th>
+                            <th class="c-pay">Cash</th>
+                            <th class="c-pay">TF</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($customers as $index => $customer)
+                        @foreach ($rows as $index => $row)
+                            @php
+                                /** @var \App\Models\PppoeCustomer $customer */
+                                $customer = $row['customer'];
+                                $method = $row['method'];
+                                $st = $row['invoice_status'];
+                                $stClass = match ($st) {
+                                    'Lunas' => 'st-lunas',
+                                    'Lewat' => 'st-lewat',
+                                    'Belum' => 'st-belum',
+                                    default => '',
+                                };
+                            @endphp
                             <tr>
-                                <td class="num">{{ $index + 1 }}</td>
-                                <td>
+                                <td class="c-no">{{ $index + 1 }}</td>
+                                <td class="c-name">
                                     <span class="name">{{ $customer->name }}</span>
-                                    @if ($customer->address)
-                                        <span class="sub">{{ $customer->address }}</span>
-                                    @endif
-                                    @if ($customer->router?->name)
-                                        <span class="sub">{{ $customer->router->name }}</span>
-                                    @endif
+                                    <span class="sub">
+                                        {{ $customer->username }}
+                                        @if ($customer->phone)
+                                            · {{ $customer->phone }}
+                                        @endif
+                                    </span>
                                 </td>
-                                <td>{{ $customer->username }}</td>
-                                <td>{{ $customer->phone ?: '—' }}</td>
-                                <td>{{ $customer->package?->name ?: '—' }}</td>
-                                <td>
-                                    {{ $fmtShort($customer->due_date) }}
-                                    @if ($customer->billing_day)
-                                        <span class="sub">tiap tgl {{ $customer->billing_day }}</span>
-                                    @endif
+                                <td class="c-amt">{{ $money($row['amount'] !== null ? (int) $row['amount'] : null) }}</td>
+                                <td class="c-due">{{ $fmtShort($row['due_date']) }}</td>
+                                <td class="c-status {{ $stClass }}">{{ $st }}</td>
+                                <td class="c-ket">
+                                    <div class="ket {{ empty($row['invoice_notes']) ? 'empty' : '' }}">
+                                        {{ $row['invoice_notes'] ?: '' }}
+                                    </div>
                                 </td>
-                                <td>{{ $statusLabel[$customer->status] ?? $customer->status }}</td>
+                                <td class="c-pay">
+                                    <span class="box {{ $method === 'cash' ? 'on' : '' }}"></span>
+                                </td>
+                                <td class="c-pay">
+                                    <span class="box {{ $method === 'tf' ? 'on' : '' }}"></span>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-            @endif
 
-            <div class="foot">
-                <span>Diurutkan sesuai abjad nama pelanggan</span>
-                <span>{{ $company['name'] ?: 'RT RW Net' }} · halaman cetak</span>
-            </div>
+                <div class="foot">
+                    <div>
+                        <div class="totals">
+                            Jumlah pelanggan: <strong>{{ $rows->count() }}</strong>
+                            &nbsp;·&nbsp;
+                            Total tagihan: <strong>Rp {{ $money((int) $total_amount) }}</strong>
+                        </div>
+                        <p style="margin: 3px 0 0;">Kolom Cash / TF kosong untuk dicentang saat penagihan. Status: Belum / Lewat / Lunas.</p>
+                    </div>
+                    <div class="sign">
+                        <div>
+                            Petugas
+                            <div class="line">( ........................ )</div>
+                        </div>
+                        <div>
+                            Kasir / Admin
+                            <div class="line">( ........................ )</div>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

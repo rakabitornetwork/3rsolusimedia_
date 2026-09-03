@@ -133,7 +133,21 @@ class PppoeCustomerController extends Controller
         $user = $request->user();
 
         $query = PppoeCustomer::query()
-            ->with(['router', 'package'])
+            ->with([
+                'router',
+                'package',
+                'invoices' => function ($builder) use ($date, $dateField) {
+                    $builder->whereIn('status', ['unpaid', 'paid'])
+                        ->with(['payments' => fn ($p) => $p->orderByDesc('id')])
+                        ->orderByRaw("CASE WHEN status = 'unpaid' THEN 0 ELSE 1 END")
+                        ->orderByDesc('due_date')
+                        ->orderByDesc('id');
+
+                    if ($dateField === 'due_date') {
+                        $builder->whereDate('due_date', $date->toDateString());
+                    }
+                },
+            ])
             ->select('pppoe_customers.*');
 
         if ($user->isAgen()) {
@@ -171,7 +185,35 @@ class PppoeCustomerController extends Controller
         $customers = $query
             ->orderBy('pppoe_customers.name', 'asc')
             ->orderBy('pppoe_customers.id', 'asc')
-            ->get();
+            ->get()
+            ->map(function (PppoeCustomer $customer) {
+                $invoice = $customer->invoices->first();
+                $payment = $invoice?->payments->first();
+                $amount = $invoice?->total
+                    ?? $customer->first_bill_amount
+                    ?? $customer->package?->price;
+
+                $invoiceStatus = match ($invoice?->status) {
+                    'paid' => 'Lunas',
+                    'unpaid' => $invoice->isOverdue() ? 'Lewat' : 'Belum',
+                    default => '—',
+                };
+
+                $method = match ($payment?->method) {
+                    'cash' => 'cash',
+                    'transfer' => 'tf',
+                    default => null,
+                };
+
+                return [
+                    'customer' => $customer,
+                    'amount' => $amount,
+                    'due_date' => $invoice?->due_date ?? $customer->due_date,
+                    'invoice_status' => $invoiceStatus,
+                    'invoice_notes' => $invoice?->notes ?: $customer->notes,
+                    'method' => $method,
+                ];
+            });
 
         $router = ! empty($validated['router_id'])
             ? MikrotikRouter::query()->find($validated['router_id'])
@@ -183,8 +225,11 @@ class PppoeCustomerController extends Controller
             'billing_day' => 'Hari tagihan (tiap tanggal)',
         ];
 
+        $totalAmount = $customers->sum(fn (array $row) => (int) ($row['amount'] ?? 0));
+
         return response()->view('admin.customers.pppoe-print', [
-            'customers' => $customers,
+            'rows' => $customers,
+            'total_amount' => $totalAmount,
             'date' => $date,
             'date_field' => $dateField,
             'date_field_label' => $dateFieldLabels[$dateField] ?? $dateField,
