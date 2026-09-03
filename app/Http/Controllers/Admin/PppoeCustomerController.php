@@ -138,7 +138,6 @@ class PppoeCustomerController extends Controller
                 'package',
                 'invoices' => function ($builder) use ($date, $dateField) {
                     $builder->whereIn('status', ['unpaid', 'paid'])
-                        ->with(['payments' => fn ($p) => $p->orderByDesc('id')])
                         ->orderByRaw("CASE WHEN status = 'unpaid' THEN 0 ELSE 1 END")
                         ->orderByDesc('due_date')
                         ->orderByDesc('id');
@@ -188,30 +187,14 @@ class PppoeCustomerController extends Controller
             ->get()
             ->map(function (PppoeCustomer $customer) {
                 $invoice = $customer->invoices->first();
-                $payment = $invoice?->payments->first();
                 $amount = $invoice?->total
                     ?? $customer->first_bill_amount
                     ?? $customer->package?->price;
-
-                $invoiceStatus = match ($invoice?->status) {
-                    'paid' => 'Lunas',
-                    'unpaid' => $invoice->isOverdue() ? 'Lewat' : 'Belum',
-                    default => '—',
-                };
-
-                $method = match ($payment?->method) {
-                    'cash' => 'cash',
-                    'transfer' => 'tf',
-                    default => null,
-                };
 
                 return [
                     'customer' => $customer,
                     'amount' => $amount,
                     'due_date' => $invoice?->due_date ?? $customer->due_date,
-                    'invoice_status' => $invoiceStatus,
-                    'invoice_notes' => $invoice?->notes ?: $customer->notes,
-                    'method' => $method,
                 ];
             });
 

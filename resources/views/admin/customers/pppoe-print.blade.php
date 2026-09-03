@@ -201,11 +201,10 @@
         }
 
         .c-no { width: 4%; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
-        .c-name { width: 30%; }
-        .c-amt { width: 13%; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-        .c-due { width: 10%; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .c-status { width: 8%; text-align: center; white-space: nowrap; }
-        .c-ket { width: 19%; }
+        .c-name { width: 34%; }
+        .c-amt { width: 14%; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+        .c-due { width: 11%; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .c-ket { width: 21%; }
         .c-pay { width: 8%; text-align: center; padding: 2px 1px; }
 
         .name {
@@ -226,15 +225,6 @@
         }
 
         .ket {
-            min-height: 11px;
-            font-size: 6.5pt;
-            color: var(--muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .ket.empty {
             min-height: 12px;
         }
 
@@ -246,15 +236,6 @@
             vertical-align: middle;
             background: #fff;
         }
-
-        .box.on {
-            background: var(--ink);
-            box-shadow: inset 0 0 0 1.5px #fff;
-        }
-
-        .st-lunas { font-weight: 700; }
-        .st-belum { color: #333; }
-        .st-lewat { font-weight: 700; }
 
         .empty {
             padding: 24px 8px;
@@ -355,7 +336,6 @@
                             <th class="c-name">Pelanggan</th>
                             <th class="c-amt">Juml. Tagihan</th>
                             <th class="c-due">Jth Tempo</th>
-                            <th class="c-status">Status</th>
                             <th class="c-ket">Ket</th>
                             <th class="c-pay">Cash</th>
                             <th class="c-pay">TF</th>
@@ -366,14 +346,6 @@
                             @php
                                 /** @var \App\Models\PppoeCustomer $customer */
                                 $customer = $row['customer'];
-                                $method = $row['method'];
-                                $st = $row['invoice_status'];
-                                $stClass = match ($st) {
-                                    'Lunas' => 'st-lunas',
-                                    'Lewat' => 'st-lewat',
-                                    'Belum' => 'st-belum',
-                                    default => '',
-                                };
                             @endphp
                             <tr>
                                 <td class="c-no">{{ $index + 1 }}</td>
@@ -388,18 +360,9 @@
                                 </td>
                                 <td class="c-amt">{{ $money($row['amount'] !== null ? (int) $row['amount'] : null) }}</td>
                                 <td class="c-due">{{ $fmtShort($row['due_date']) }}</td>
-                                <td class="c-status {{ $stClass }}">{{ $st }}</td>
-                                <td class="c-ket">
-                                    <div class="ket {{ empty($row['invoice_notes']) ? 'empty' : '' }}">
-                                        {{ $row['invoice_notes'] ?: '' }}
-                                    </div>
-                                </td>
-                                <td class="c-pay">
-                                    <span class="box {{ $method === 'cash' ? 'on' : '' }}"></span>
-                                </td>
-                                <td class="c-pay">
-                                    <span class="box {{ $method === 'tf' ? 'on' : '' }}"></span>
-                                </td>
+                                <td class="c-ket"><div class="ket"></div></td>
+                                <td class="c-pay"><span class="box"></span></td>
+                                <td class="c-pay"><span class="box"></span></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -412,7 +375,7 @@
                             &nbsp;·&nbsp;
                             Total tagihan: <strong>Rp {{ $money((int) $total_amount) }}</strong>
                         </div>
-                        <p style="margin: 3px 0 0;">Kolom Cash / TF kosong untuk dicentang saat penagihan. Status: Belum / Lewat / Lunas.</p>
+                        <p style="margin: 3px 0 0;">Kolom Ket, Cash, dan TF dikosongkan untuk diisi saat penagihan.</p>
                     </div>
                     <div class="sign">
                         <div>
