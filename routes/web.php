@@ -197,6 +197,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
 
     Route::get('/customers/pppoe', [PppoeCustomerController::class, 'index'])->name('customers.pppoe');
     Route::get('/customers/pppoe/create', [PppoeCustomerController::class, 'create'])->name('customers.pppoe.create');
+    Route::get('/customers/pppoe/print', [PppoeCustomerController::class, 'print'])->name('customers.pppoe.print');
     Route::get('/customers/pppoe/profiles', [PppoeCustomerController::class, 'profiles'])->name('customers.pppoe.profiles');
     Route::get('/customers/pppoe/secret', [PppoeCustomerController::class, 'secret'])->name('customers.pppoe.secret');
     Route::post('/customers/pppoe/import-sessions', [PppoeCustomerController::class, 'importFromSessions'])->name('customers.pppoe.import-sessions');

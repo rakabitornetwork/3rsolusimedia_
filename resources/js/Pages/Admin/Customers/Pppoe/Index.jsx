@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { format } from 'date-fns';
 import {
     Activity,
     AlertTriangle,
@@ -6,12 +7,14 @@ import {
     ChevronUp,
     Clock,
     Plus,
+    Printer,
     RefreshCw,
     ShieldOff,
     Trash2,
     Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import DatePickerField from '../../../../Components/Admin/DatePickerField';
 import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
@@ -111,10 +114,15 @@ export default function Index({ customers = [], filters, routers, stats }) {
     const canWrite = auth?.user?.can_write !== false && auth?.user?.role !== 'agen';
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
+    const [showPrint, setShowPrint] = useState(false);
     const [removeSecret, setRemoveSecret] = useState(false);
     const [processing, setProcessing] = useState(false);
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
+    const [printDate, setPrintDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+    const [printDateField, setPrintDateField] = useState('due_date');
+    const [printRouterId, setPrintRouterId] = useState(filters.router_id || '');
+    const [printStatus, setPrintStatus] = useState(filters.status || '');
 
     const allCustomers = Array.isArray(customers) ? customers : customers?.data || [];
     const filtered = useMemo(
@@ -180,6 +188,29 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
     const sync = (id) => {
         router.post(`/admin/customers/pppoe/${id}/sync`, {}, keepPage);
+    };
+
+    const openPrint = () => {
+        if (!printDate) return;
+
+        const params = new URLSearchParams({
+            date: printDate,
+            date_field: printDateField,
+            autoprint: '1',
+        });
+
+        if (printRouterId) {
+            params.set('router_id', String(printRouterId));
+        }
+        if (printStatus) {
+            params.set('status', printStatus);
+        }
+
+        window.open(
+            `/admin/customers/pppoe/print?${params.toString()}`,
+            '_blank',
+            'noopener,noreferrer',
+        );
     };
 
     const submitBulkDelete = () => {
@@ -304,6 +335,20 @@ export default function Index({ customers = [], filters, routers, stats }) {
                             Hapus masal ({selected.length})
                         </button>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setPrintRouterId(filters.router_id || '');
+                            setPrintStatus(filters.status || '');
+                            setShowPrint((v) => !v);
+                            setShowBulkDelete(false);
+                        }}
+                        className="btn-action btn-action-sm btn-secondary"
+                        title="Cetak daftar pelanggan per tanggal, diurutkan A → Z"
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        Cetak
+                    </button>
                     {canWrite && (
                         <button
                             type="button"
@@ -333,6 +378,89 @@ export default function Index({ customers = [], filters, routers, stats }) {
                     </Link>
                 </div>
             </div>
+
+            {showPrint && (
+                <div className="mb-4 space-y-3 border border-ink/10 bg-white p-4 sm:p-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            Cetak pelanggan per tanggal
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Daftar dicetak sesuai abjad nama (A → Z). Pilih jenis tanggal dan filter
+                            opsional.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <DatePickerField
+                            label="Tanggal"
+                            value={printDate}
+                            onChange={setPrintDate}
+                            required
+                        />
+                        <label className="block text-sm font-medium text-ink">
+                            Jenis tanggal
+                            <select
+                                value={printDateField}
+                                onChange={(e) => setPrintDateField(e.target.value)}
+                                className="mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            >
+                                <option value="due_date">Jatuh tempo</option>
+                                <option value="start_date">Tanggal mulai</option>
+                                <option value="billing_day">Hari tagihan (tiap tgl)</option>
+                            </select>
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Router
+                            <select
+                                value={printRouterId}
+                                onChange={(e) => setPrintRouterId(e.target.value)}
+                                className="mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            >
+                                <option value="">Semua router</option>
+                                {routers.map((routerItem) => (
+                                    <option key={routerItem.id} value={routerItem.id}>
+                                        {routerItem.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Status
+                            <select
+                                value={printStatus}
+                                onChange={(e) => setPrintStatus(e.target.value)}
+                                className="mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal"
+                            >
+                                <option value="">Semua status</option>
+                                <option value="active">Aktif</option>
+                                <option value="isolated">Isolir</option>
+                                <option value="grace">Grace</option>
+                                <option value="disabled">Nonaktif</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={openPrint}
+                            disabled={!printDate}
+                            className="btn-action btn-action-sm btn-primary"
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            Buka &amp; cetak
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowPrint(false)}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {showBulkDelete && selected.length > 0 && canWrite && (
                 <div className="mb-4 space-y-3 border border-rose-200 bg-white p-4 sm:p-5">

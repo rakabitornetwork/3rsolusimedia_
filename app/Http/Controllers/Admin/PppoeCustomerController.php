@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
+use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Services\BillingCycleService;
@@ -14,9 +15,11 @@ use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -113,6 +116,88 @@ class PppoeCustomerController extends Controller
                 ->get(['id', 'name', 'host']),
             'stats' => $this->customerStats($request->get('router_id'), $user),
             'is_agen' => $user->isAgen(),
+        ]);
+    }
+
+    public function print(Request $request): HttpResponse
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'date_field' => ['nullable', Rule::in(['due_date', 'start_date', 'billing_day'])],
+            'router_id' => ['nullable', 'integer', 'exists:mikrotik_routers,id'],
+            'status' => ['nullable', Rule::in(['active', 'isolated', 'grace', 'disabled'])],
+        ]);
+
+        $date = Carbon::parse($validated['date'])->startOfDay();
+        $dateField = $validated['date_field'] ?? 'due_date';
+        $user = $request->user();
+
+        $query = PppoeCustomer::query()
+            ->with(['router', 'package'])
+            ->select('pppoe_customers.*');
+
+        if ($user->isAgen()) {
+            $query->where('pppoe_customers.agent_id', $user->id);
+        }
+
+        if ($dateField === 'billing_day') {
+            $query->where('pppoe_customers.billing_day', $date->day);
+        } elseif ($dateField === 'start_date') {
+            $query->whereDate('pppoe_customers.start_date', $date->toDateString());
+        } else {
+            $query->whereDate('pppoe_customers.due_date', $date->toDateString());
+        }
+
+        if (! empty($validated['router_id'])) {
+            $query->where('pppoe_customers.mikrotik_router_id', $validated['router_id']);
+        }
+
+        if (! empty($validated['status'])) {
+            $status = $validated['status'];
+            if ($status === 'grace') {
+                $query->whereNotNull('pppoe_customers.grace_until')
+                    ->whereDate('pppoe_customers.grace_until', '>=', now()->toDateString());
+            } elseif ($status === 'active') {
+                $query->where('pppoe_customers.status', 'active')
+                    ->where(function ($builder) {
+                        $builder->whereNull('pppoe_customers.grace_until')
+                            ->orWhereDate('pppoe_customers.grace_until', '<', now()->toDateString());
+                    });
+            } else {
+                $query->where('pppoe_customers.status', $status);
+            }
+        }
+
+        $customers = $query
+            ->orderBy('pppoe_customers.name', 'asc')
+            ->orderBy('pppoe_customers.id', 'asc')
+            ->get();
+
+        $router = ! empty($validated['router_id'])
+            ? MikrotikRouter::query()->find($validated['router_id'])
+            : null;
+
+        $dateFieldLabels = [
+            'due_date' => 'Jatuh tempo',
+            'start_date' => 'Tanggal mulai',
+            'billing_day' => 'Hari tagihan (tiap tanggal)',
+        ];
+
+        return response()->view('admin.customers.pppoe-print', [
+            'customers' => $customers,
+            'date' => $date,
+            'date_field' => $dateField,
+            'date_field_label' => $dateFieldLabels[$dateField] ?? $dateField,
+            'router' => $router,
+            'status' => $validated['status'] ?? '',
+            'company' => [
+                'name' => AppSettings::companyName(),
+                'logo' => AppSettings::branding()['logo_mark'] ?? AppSettings::branding()['logo_full'],
+                'address' => trim((string) SiteSetting::getValue('address', '')),
+                'phone' => trim((string) SiteSetting::getValue('phone', '')),
+                'whatsapp' => trim((string) SiteSetting::getValue('whatsapp', '')),
+                'tagline' => trim((string) SiteSetting::getValue('tagline', '')),
+            ],
         ]);
     }
 
