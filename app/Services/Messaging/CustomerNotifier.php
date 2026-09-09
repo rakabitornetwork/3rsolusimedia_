@@ -22,7 +22,7 @@ class CustomerNotifier
 
     public function notifyInvoice(Invoice $invoice): void
     {
-        if (! AppSettings::bool('app_notif_whatsapp', false)) {
+        if (! AppSettings::notifyInvoice()) {
             return;
         }
 
@@ -43,7 +43,7 @@ class CustomerNotifier
 
     public function notifyReminder(Invoice $invoice): void
     {
-        if (! AppSettings::bool('app_notif_whatsapp', false)) {
+        if (! AppSettings::notifyReminder()) {
             return;
         }
 
@@ -64,7 +64,7 @@ class CustomerNotifier
 
     public function notifyPaid(Invoice $invoice): void
     {
-        if (! AppSettings::bool('app_notif_whatsapp', false)) {
+        if (! AppSettings::notifyPaid()) {
             return;
         }
 

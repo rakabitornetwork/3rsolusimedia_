@@ -43,6 +43,9 @@ class AppSettingController extends Controller
             'app_billing_round_to' => ['required', 'integer', 'min:1', 'max:100000'],
             'app_default_billing_day' => ['required', 'integer', 'min:1', 'max:28'],
             'app_notif_whatsapp' => ['sometimes', 'boolean'],
+            'messaging_notify_invoice' => ['sometimes', 'boolean'],
+            'messaging_notify_reminder' => ['sometimes', 'boolean'],
+            'messaging_notify_paid' => ['sometimes', 'boolean'],
             'app_notif_email' => ['sometimes', 'boolean'],
             'app_auto_isolir' => ['sometimes', 'boolean'],
             'app_logo_mark' => ['nullable', 'image', 'max:2048'],
@@ -60,7 +63,17 @@ class AppSettingController extends Controller
             'app_billing_generate_days' => (string) $validated['app_billing_generate_days'],
             'app_billing_round_to' => (string) $validated['app_billing_round_to'],
             'app_default_billing_day' => (string) $validated['app_default_billing_day'],
-            'app_notif_whatsapp' => $request->boolean('app_notif_whatsapp') ? '1' : '0',
+            ...AppSettings::billingNotifyValues(
+                $request->exists('messaging_notify_invoice')
+                    ? $request->boolean('messaging_notify_invoice')
+                    : $request->boolean('app_notif_whatsapp'),
+                $request->exists('messaging_notify_reminder')
+                    ? $request->boolean('messaging_notify_reminder')
+                    : $request->boolean('app_notif_whatsapp'),
+                $request->exists('messaging_notify_paid')
+                    ? $request->boolean('messaging_notify_paid')
+                    : $request->boolean('app_notif_whatsapp'),
+            ),
             'app_notif_email' => $request->boolean('app_notif_email') ? '1' : '0',
             'app_auto_isolir' => $request->boolean('app_auto_isolir') ? '1' : '0',
         ];

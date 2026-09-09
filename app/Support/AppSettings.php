@@ -22,6 +22,9 @@ class AppSettings
         'app_billing_round_to' => '1000',
         'app_default_billing_day' => '1',
         'app_notif_whatsapp' => '0',
+        'messaging_notify_invoice' => '0',
+        'messaging_notify_reminder' => '0',
+        'messaging_notify_paid' => '0',
         'app_notif_email' => '0',
         'app_auto_isolir' => '1',
         'app_logo_mark' => self::DEFAULT_LOGO_MARK,
@@ -234,7 +237,9 @@ class AppSettings
                 'has_api_key' => self::whatsappApiKey() !== '',
                 'has_webhook_secret' => self::whatsappWebhookSecret() !== '',
             ],
-            'notify_invoice' => self::bool('app_notif_whatsapp', false),
+            'notify_invoice' => self::notifyInvoice(),
+            'notify_reminder' => self::notifyReminder(),
+            'notify_paid' => self::notifyPaid(),
             'notify_isolir' => self::bool('messaging_notify_isolir', false),
             'notify_welcome' => self::bool('messaging_notify_welcome', true),
             'notify_pppoe_session' => self::bool('messaging_notify_pppoe_session', false),
@@ -281,6 +286,34 @@ class AppSettings
         return max(0, min(500, self::int('whatsapp_send_daily_limit', 80)));
     }
 
+    public static function notifyInvoice(): bool
+    {
+        return self::billingNotifyFlag('messaging_notify_invoice');
+    }
+
+    public static function notifyReminder(): bool
+    {
+        return self::billingNotifyFlag('messaging_notify_reminder');
+    }
+
+    public static function notifyPaid(): bool
+    {
+        return self::billingNotifyFlag('messaging_notify_paid');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function billingNotifyValues(bool $invoice, bool $reminder, bool $paid): array
+    {
+        return [
+            'messaging_notify_invoice' => $invoice ? '1' : '0',
+            'messaging_notify_reminder' => $reminder ? '1' : '0',
+            'messaging_notify_paid' => $paid ? '1' : '0',
+            'app_notif_whatsapp' => ($invoice || $reminder || $paid) ? '1' : '0',
+        ];
+    }
+
     public static function get(string $key, mixed $default = null): mixed
     {
         return SiteSetting::getValue(
@@ -299,6 +332,13 @@ class AppSettings
 
         foreach (self::DEFAULTS as $key => $default) {
             $result[$key] = (string) ($cached[$key] ?? $default);
+        }
+
+        $legacy = in_array($result['app_notif_whatsapp'], ['1', 'true', 'yes', 'on'], true);
+        foreach (['messaging_notify_invoice', 'messaging_notify_reminder', 'messaging_notify_paid'] as $key) {
+            if (! array_key_exists($key, $cached)) {
+                $result[$key] = $legacy ? '1' : '0';
+            }
         }
 
         return $result;
@@ -350,6 +390,19 @@ class AppSettings
         $value = self::get($key, $default ? '1' : '0');
 
         return in_array((string) $value, ['1', 'true', 'yes', 'on'], true);
+    }
+
+    /**
+     * Toggle otomatis tagihan. Kunci baru belum tersimpan → ikut app_notif_whatsapp.
+     */
+    private static function billingNotifyFlag(string $key): bool
+    {
+        $cached = SiteSetting::allCached();
+        if (array_key_exists($key, $cached)) {
+            return in_array((string) $cached[$key], ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return self::bool('app_notif_whatsapp', false);
     }
 
     public static function billingGenerateDays(): int

@@ -112,7 +112,9 @@ export default function Index({
     });
 
     const templates = useForm({
-        app_notif_whatsapp: Boolean(config?.notify_invoice),
+        messaging_notify_invoice: Boolean(config?.notify_invoice),
+        messaging_notify_reminder: Boolean(config?.notify_reminder),
+        messaging_notify_paid: Boolean(config?.notify_paid),
         messaging_notify_isolir: Boolean(config?.notify_isolir),
         messaging_notify_welcome: config?.notify_welcome !== false,
         messaging_notify_pppoe_session: Boolean(config?.notify_pppoe_session),
@@ -628,19 +630,59 @@ export default function Index({
                             <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
                                 <span>
                                     <span className="block text-sm font-medium text-ink">
-                                        Tagihan baru, pengingat, & konfirmasi lunas
+                                        Tagihan baru
                                     </span>
                                     <span className="mt-0.5 block text-xs text-ink-soft">
-                                        Tagihan baru dan pengingat masuk antrian, dikirim satu-satu
-                                        dengan jeda acak. Konfirmasi lunas tetap langsung.
+                                        Saat tagihan dibuat. Masuk antrian, dikirim satu-satu dengan
+                                        jeda anti-spam. Matikan jika nomor WhatsApp sering diblokir.
                                     </span>
                                 </span>
                                 <input
                                     type="checkbox"
-                                    checked={Boolean(templates.data.app_notif_whatsapp)}
+                                    checked={Boolean(templates.data.messaging_notify_invoice)}
                                     disabled={!canWrite}
                                     onChange={(e) =>
-                                        templates.setData('app_notif_whatsapp', e.target.checked)
+                                        templates.setData('messaging_notify_invoice', e.target.checked)
+                                    }
+                                    className="mt-1 h-4 w-4 accent-signal-deep"
+                                />
+                            </label>
+                            <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
+                                <span>
+                                    <span className="block text-sm font-medium text-ink">
+                                        Pengingat jatuh tempo
+                                    </span>
+                                    <span className="mt-0.5 block text-xs text-ink-soft">
+                                        Cron harian (08:00). Masuk antrian dengan jeda yang sama.
+                                        Volume tinggi — matikan terpisah dari tagihan baru jika kena banned.
+                                    </span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(templates.data.messaging_notify_reminder)}
+                                    disabled={!canWrite}
+                                    onChange={(e) =>
+                                        templates.setData('messaging_notify_reminder', e.target.checked)
+                                    }
+                                    className="mt-1 h-4 w-4 accent-signal-deep"
+                                />
+                            </label>
+                            <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">
+                                <span>
+                                    <span className="block text-sm font-medium text-ink">
+                                        Konfirmasi lunas
+                                    </span>
+                                    <span className="mt-0.5 block text-xs text-ink-soft">
+                                        Dikirim langsung saat tagihan ditandai lunas. Volume kecil,
+                                        biasanya aman meski tagihan baru dan pengingat dimatikan.
+                                    </span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(templates.data.messaging_notify_paid)}
+                                    disabled={!canWrite}
+                                    onChange={(e) =>
+                                        templates.setData('messaging_notify_paid', e.target.checked)
                                     }
                                     className="mt-1 h-4 w-4 accent-signal-deep"
                                 />
@@ -731,9 +773,10 @@ export default function Index({
                                 <p className="text-sm font-medium text-ink">Jeda WhatsApp tagihan (anti-spam)</p>
                                 <p className="mt-0.5 text-xs font-normal text-ink-soft">
                                     Evolution API memakai sesi WhatsApp tidak resmi. Kirim banyak tagihan
-                                    beruntun mudah ditandai spam dan nomor bisa diblokir. Tagihan baru,
-                                    pengingat, dan kirim massal masuk antrian: jeda acak antar pesan,
-                                    plus jeda mengetik 0,9–2,8 detik di Evolution. Cron harus jalan
+                                    beruntun mudah ditandai spam dan nomor bisa diblokir. Jeda hanya
+                                    berlaku untuk tagihan baru, pengingat, dan kirim massal — konfirmasi
+                                    lunas tetap langsung. Jeda tidak cukup jika volume tetap tinggi:
+                                    matikan tagihan baru dan/atau pengingat di atas. Cron harus jalan
                                     setiap menit (`php artisan schedule:run`). Nomor baru: mulai dari
                                     batas harian rendah (30–50), naik pelan setelah 1–2 minggu.
                                 </p>

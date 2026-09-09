@@ -16,7 +16,7 @@ class RemindUnpaidInvoices extends Command
 
     public function handle(CustomerNotifier $notifier): int
     {
-        if (! AppSettings::bool('app_notif_whatsapp', false)) {
+        if (! AppSettings::notifyReminder()) {
             $this->info('Pengingat tagihan nonaktif (Notifikasi & Bot).');
 
             return self::SUCCESS;

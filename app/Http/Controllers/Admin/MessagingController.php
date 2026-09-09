@@ -112,6 +112,9 @@ class MessagingController extends Controller
     {
         $validated = $request->validate([
             'app_notif_whatsapp' => ['sometimes', 'boolean'],
+            'messaging_notify_invoice' => ['sometimes', 'boolean'],
+            'messaging_notify_reminder' => ['sometimes', 'boolean'],
+            'messaging_notify_paid' => ['sometimes', 'boolean'],
             'messaging_notify_isolir' => ['sometimes', 'boolean'],
             'messaging_notify_welcome' => ['sometimes', 'boolean'],
             'messaging_notify_pppoe_session' => ['sometimes', 'boolean'],
@@ -128,8 +131,17 @@ class MessagingController extends Controller
             'msg_tpl_welcome' => ['nullable', 'string', 'max:4000'],
         ]);
 
+        $hasSplit = $request->exists('messaging_notify_invoice')
+            || $request->exists('messaging_notify_reminder')
+            || $request->exists('messaging_notify_paid');
+        $legacy = $request->boolean('app_notif_whatsapp');
+
         $values = [
-            'app_notif_whatsapp' => $request->boolean('app_notif_whatsapp') ? '1' : '0',
+            ...AppSettings::billingNotifyValues(
+                $hasSplit ? $request->boolean('messaging_notify_invoice') : $legacy,
+                $hasSplit ? $request->boolean('messaging_notify_reminder') : $legacy,
+                $hasSplit ? $request->boolean('messaging_notify_paid') : $legacy,
+            ),
             'messaging_notify_isolir' => $request->boolean('messaging_notify_isolir') ? '1' : '0',
             'messaging_notify_welcome' => $request->boolean('messaging_notify_welcome') ? '1' : '0',
             'messaging_notify_pppoe_session' => $request->boolean('messaging_notify_pppoe_session') ? '1' : '0',

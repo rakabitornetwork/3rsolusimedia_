@@ -13,6 +13,7 @@ use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\MessageTemplate;
 use App\Services\MikrotikApiService;
+use App\Support\AppSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
@@ -521,6 +522,9 @@ class MessagingWhatsAppTest extends TestCase
         $this->actingAs($admin)
             ->post('/admin/messaging/templates', [
                 'app_notif_whatsapp' => '1',
+                'messaging_notify_invoice' => '1',
+                'messaging_notify_reminder' => '1',
+                'messaging_notify_paid' => '1',
                 'messaging_notify_isolir' => '1',
                 'msg_tpl_invoice' => 'Halo {{nama}} tagihan {{nomor}}',
                 'whatsapp_send_delay_min' => 20,
@@ -531,11 +535,66 @@ class MessagingWhatsAppTest extends TestCase
             ->assertRedirect('/admin/messaging');
 
         $this->assertSame('1', SiteSetting::getValue('app_notif_whatsapp'));
+        $this->assertSame('1', SiteSetting::getValue('messaging_notify_invoice'));
+        $this->assertSame('1', SiteSetting::getValue('messaging_notify_reminder'));
+        $this->assertSame('1', SiteSetting::getValue('messaging_notify_paid'));
         $this->assertSame('Halo {{nama}} tagihan {{nomor}}', SiteSetting::getValue('msg_tpl_invoice'));
         $this->assertSame('20', SiteSetting::getValue('whatsapp_send_delay_min'));
         $this->assertSame('45', SiteSetting::getValue('whatsapp_send_delay_max'));
         $this->assertSame('1', SiteSetting::getValue('whatsapp_send_batch'));
         $this->assertSame('50', SiteSetting::getValue('whatsapp_send_daily_limit'));
+    }
+
+    #[Test]
+    public function admin_can_save_billing_notification_toggles_independently(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->post('/admin/messaging/templates', [
+                'messaging_notify_invoice' => '0',
+                'messaging_notify_reminder' => '0',
+                'messaging_notify_paid' => '1',
+                'messaging_notify_isolir' => '0',
+            ])
+            ->assertRedirect('/admin/messaging');
+
+        $this->assertSame('0', SiteSetting::getValue('messaging_notify_invoice'));
+        $this->assertSame('0', SiteSetting::getValue('messaging_notify_reminder'));
+        $this->assertSame('1', SiteSetting::getValue('messaging_notify_paid'));
+        $this->assertSame('1', SiteSetting::getValue('app_notif_whatsapp'));
+        $this->assertFalse(AppSettings::notifyInvoice());
+        $this->assertFalse(AppSettings::notifyReminder());
+        $this->assertTrue(AppSettings::notifyPaid());
+    }
+
+    #[Test]
+    public function invoice_and_reminder_toggles_do_not_block_paid_whatsapp(): void
+    {
+        $this->enableWhatsapp();
+        SiteSetting::setMany([
+            'messaging_notify_invoice' => '0',
+            'messaging_notify_reminder' => '0',
+            'messaging_notify_paid' => '1',
+        ]);
+        $this->fakeEvolution();
+        $this->mockRouterSync();
+
+        $customer = $this->customer(['billing_day' => 1]);
+        $invoice = $this->unpaidInvoice($customer, 'INV-PAID-ONLY');
+        $notifier = app(CustomerNotifier::class);
+
+        $notifier->notifyInvoice($invoice);
+        $this->assertDatabaseMissing('message_outbox', ['template' => 'invoice']);
+
+        $this->artisan('messaging:remind-invoices')
+            ->expectsOutput('Pengingat tagihan nonaktif (Notifikasi & Bot).')
+            ->assertSuccessful();
+
+        app(BillingService::class)->markPaid($invoice);
+
+        $this->assertDatabaseHas('message_logs', ['command' => 'paid', 'status' => 'sent']);
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
     }
 
     #[Test]

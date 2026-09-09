@@ -121,7 +121,9 @@ export default function Settings({ settings, branding, timezones }) {
         app_billing_generate_days: Number(settings.app_billing_generate_days || 7),
         app_billing_round_to: Number(settings.app_billing_round_to || 1000),
         app_default_billing_day: Number(settings.app_default_billing_day || 1),
-        app_notif_whatsapp: settings.app_notif_whatsapp === '1',
+        messaging_notify_invoice: settings.messaging_notify_invoice === '1',
+        messaging_notify_reminder: settings.messaging_notify_reminder === '1',
+        messaging_notify_paid: settings.messaging_notify_paid === '1',
         app_notif_email: settings.app_notif_email === '1',
         app_auto_isolir: settings.app_auto_isolir !== '0',
         app_logo_mark: null,
@@ -418,18 +420,32 @@ export default function Settings({ settings, branding, timezones }) {
                     description="Pengingat tagihan. Bot Telegram dikelola di menu Notifikasi & Bot."
                 >
                     <p className="text-sm text-ink-soft">
-                        Hubungkan bot Telegram/WhatsApp, template, dan pengingat di{' '}
+                        Hubungkan bot Telegram/WhatsApp dan template di{' '}
                         <Link href="/admin/messaging" className="font-semibold text-signal-deep hover:underline">
                             Notifikasi & Bot
                         </Link>
-                        . Toggle di bawah mengirim tagihan baru, pengingat jatuh tempo, dan konfirmasi lunas.
+                        . Ketiga notifikasi tagihan bisa diaktifkan terpisah agar tidak dianggap spam.
                     </p>
                     <Toggle
-                        label="Notifikasi tagihan (WA / Telegram)"
-                        description="Kirim tagihan baru, pengingat jatuh tempo, dan konfirmasi lunas ke kanal yang aktif."
-                        checked={data.app_notif_whatsapp}
+                        label="Tagihan baru"
+                        description="Antrian WhatsApp dengan jeda anti-spam saat tagihan dibuat."
+                        checked={data.messaging_notify_invoice}
                         disabled={!canWrite}
-                        onChange={(value) => setData('app_notif_whatsapp', value)}
+                        onChange={(value) => setData('messaging_notify_invoice', value)}
+                    />
+                    <Toggle
+                        label="Pengingat jatuh tempo"
+                        description="Cron harian 08:00. Matikan jika nomor sering kena banned."
+                        checked={data.messaging_notify_reminder}
+                        disabled={!canWrite}
+                        onChange={(value) => setData('messaging_notify_reminder', value)}
+                    />
+                    <Toggle
+                        label="Konfirmasi lunas"
+                        description="Dikirim langsung saat tagihan ditandai lunas."
+                        checked={data.messaging_notify_paid}
+                        disabled={!canWrite}
+                        onChange={(value) => setData('messaging_notify_paid', value)}
                     />
                     <Toggle
                         label="Notifikasi Email"
