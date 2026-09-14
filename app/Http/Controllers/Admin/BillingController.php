@@ -36,7 +36,7 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::BILLING, [
-            'q', 'status', 'overdue', 'grace', 'customer_status', 'router_id', 'sort', 'direction', 'page', 'per_page',
+            'q', 'status', 'overdue', 'grace', 'customer_status', 'router_id', 'sort', 'direction', 'page', 'per_page', 'hide_old_paid',
         ]);
 
         $user = $request->user();
@@ -88,6 +88,23 @@ class BillingController extends Controller
 
         if ($status = $request->get('status')) {
             $query->where('invoices.status', $status);
+        }
+
+        $hideOldPaid = $request->has('hide_old_paid')
+            ? $request->boolean('hide_old_paid')
+            : true;
+
+        if ($hideOldPaid) {
+            $monthStart = now()->startOfMonth()->toDateString();
+            $query->where(function ($builder) use ($monthStart) {
+                $builder->where('invoices.status', '<>', 'paid')
+                    ->orWhereDate('invoices.paid_at', '>=', $monthStart)
+                    ->orWhere(function ($fallback) use ($monthStart) {
+                        $fallback->where('invoices.status', 'paid')
+                            ->whereNull('invoices.paid_at')
+                            ->whereDate('invoices.due_date', '>=', $monthStart);
+                    });
+            });
         }
 
         if ($request->boolean('overdue')) {
@@ -169,6 +186,7 @@ class BillingController extends Controller
                 'sort' => $sort,
                 'direction' => $direction,
                 'per_page' => $perPage,
+                'hide_old_paid' => $hideOldPaid,
             ],
             'routers' => MikrotikRouter::query()
                 ->where('is_active', true)

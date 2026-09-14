@@ -30,6 +30,14 @@ import { matchesSearch, paginateItems } from '../../../lib/search';
 
 const PER_PAGE_OPTIONS = [20, 50, 100, 200, 500];
 
+function hideOldPaidQueryValue(value) {
+    if (value === false || value === 0 || value === '0') {
+        return 0;
+    }
+
+    return 1;
+}
+
 function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
     const active = sort === column;
 
@@ -383,6 +391,10 @@ export default function Index({
                 ...filters,
                 [key]: value,
                 overdue: key === 'overdue' ? value : filters.overdue || false,
+                hide_old_paid:
+                    key === 'hide_old_paid'
+                        ? hideOldPaidQueryValue(value)
+                        : hideOldPaidQueryValue(filters.hide_old_paid),
                 grace: key === 'grace' ? value : filters.grace || '',
                 customer_status:
                     key === 'customer_status' ? value : filters.customer_status || '',
@@ -406,6 +418,7 @@ export default function Index({
                 sort: column,
                 direction,
                 overdue: filters.overdue || false,
+                hide_old_paid: hideOldPaidQueryValue(filters.hide_old_paid),
                 grace: filters.grace || '',
                 customer_status: filters.customer_status || '',
             },
@@ -639,6 +652,14 @@ export default function Index({
                             }
                         />
                         Isolir saja
+                    </label>
+                    <label className="inline-flex items-center gap-2 border border-ink/15 px-3 py-2 text-sm text-ink">
+                        <input
+                            type="checkbox"
+                            checked={filters.hide_old_paid !== false && filters.hide_old_paid !== 0 && filters.hide_old_paid !== '0'}
+                            onChange={(e) => applyFilters('hide_old_paid', e.target.checked)}
+                        />
+                        Sembunyikan lunas bulan lalu
                     </label>
                     <label className="inline-flex items-center gap-2 text-sm text-ink">
                         <span className="sr-only">Baris per halaman</span>
@@ -890,7 +911,11 @@ export default function Index({
                                 <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
                                         ? 'Tidak ada tagihan yang cocok dengan pencarian.'
-                                        : 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'}
+                                        : filters.hide_old_paid !== false &&
+                                            filters.hide_old_paid !== 0 &&
+                                            filters.hide_old_paid !== '0'
+                                          ? 'Tidak ada tagihan untuk ditampilkan. Lunas bulan lalu disembunyikan.'
+                                          : 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'}
                                 </td>
                             </tr>
                         )}

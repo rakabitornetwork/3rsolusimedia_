@@ -107,6 +107,68 @@ class BillingManualWhatsappTest extends TestCase
     }
 
     #[Test]
+    public function billing_index_hides_previous_month_paid_invoices_by_default(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $customer = $this->customer();
+        $this->invoice($customer, ['number' => 'INV-UNPAID']);
+        $this->invoice($customer, [
+            'number' => 'INV-PAID-NOW',
+            'status' => 'paid',
+            'paid_at' => now(),
+        ]);
+        $this->invoice($customer, [
+            'number' => 'INV-PAID-OLD',
+            'status' => 'paid',
+            'paid_at' => now()->subMonthNoOverflow()->startOfMonth()->addDays(4),
+            'due_date' => now()->subMonthNoOverflow()->toDateString(),
+            'period_start' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+            'period_end' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/billing')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.hide_old_paid', true)
+                ->has('invoices', 2)
+                ->where(
+                    'invoices',
+                    fn ($invoices) => collect($invoices)->pluck('number')->sort()->values()->all() === [
+                        'INV-PAID-NOW',
+                        'INV-UNPAID',
+                    ]
+                )
+            );
+    }
+
+    #[Test]
+    public function billing_index_can_show_previous_month_paid_invoices(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $customer = $this->customer();
+        $this->invoice($customer, [
+            'number' => 'INV-PAID-OLD',
+            'status' => 'paid',
+            'paid_at' => now()->subMonthNoOverflow()->startOfMonth()->addDays(4),
+            'due_date' => now()->subMonthNoOverflow()->toDateString(),
+            'period_start' => now()->subMonthNoOverflow()->startOfMonth()->toDateString(),
+            'period_end' => now()->subMonthNoOverflow()->endOfMonth()->toDateString(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/billing?hide_old_paid=0')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.hide_old_paid', false)
+                ->has('invoices', 1)
+                ->where('invoices.0.number', 'INV-PAID-OLD')
+            );
+    }
+
+    #[Test]
     public function billing_index_defaults_per_page_to_20(): void
     {
         $admin = User::factory()->superadmin()->create();
