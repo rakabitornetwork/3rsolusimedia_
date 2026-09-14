@@ -9,6 +9,7 @@ use App\Models\PppoeCustomer;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -23,8 +24,7 @@ class BotCommandRouter
         private readonly MessagingManager $channels,
         private readonly PaymentGatewayManager $gateways,
         private readonly AdminCustomerLookup $adminLookup,
-    ) {
-    }
+    ) {}
 
     public function handle(IncomingMessage $message): void
     {
@@ -195,7 +195,7 @@ class BotCommandRouter
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, PppoeCustomer>  $candidates
+     * @param  Collection<int, PppoeCustomer>  $candidates
      */
     private function tryBind(IncomingMessage $message, $candidates, string $phone, ?int $preferredId): void
     {
@@ -543,11 +543,17 @@ class BotCommandRouter
         $invoicesUrl = URL::route('portal.pay.invoices', ['token' => $token]);
 
         if (! $this->gateways->hasEnabledGateway()) {
-            $this->reply(
-                $message,
-                'Pembayaran online belum aktif. Cek tagihan di portal:'."\n".$invoicesUrl,
-                $identity,
-            );
+            $lines = [
+                'Pembayaran online belum aktif. Cek tagihan di portal:',
+                $invoicesUrl,
+            ];
+            $rekening = MessageTemplate::sharedVars()['rekening'];
+            if ($rekening !== '') {
+                $lines[] = '';
+                $lines[] = $rekening;
+            }
+
+            $this->reply($message, implode("\n", $lines), $identity);
 
             return;
         }
@@ -636,7 +642,7 @@ class BotCommandRouter
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, PppoeCustomer>
+     * @return Collection<int, PppoeCustomer>
      */
     private function customersByUsername(string $username)
     {

@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { Bell, CreditCard, ImagePlus, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
+import { CreditCard, ImagePlus, Landmark, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -121,10 +121,10 @@ export default function Settings({ settings, branding, timezones }) {
         app_billing_generate_days: Number(settings.app_billing_generate_days || 7),
         app_billing_round_to: Number(settings.app_billing_round_to || 1000),
         app_default_billing_day: Number(settings.app_default_billing_day || 1),
-        messaging_notify_invoice: settings.messaging_notify_invoice === '1',
-        messaging_notify_reminder: settings.messaging_notify_reminder === '1',
-        messaging_notify_paid: settings.messaging_notify_paid === '1',
-        app_notif_email: settings.app_notif_email === '1',
+        bank_name: settings.bank_name || '',
+        bank_account_name: settings.bank_account_name || '',
+        bank_account_number: settings.bank_account_number || '',
+        bank_note: settings.bank_note || '',
         app_auto_isolir: settings.app_auto_isolir !== '0',
         app_logo_mark: null,
         app_logo_full: null,
@@ -190,7 +190,7 @@ export default function Settings({ settings, branding, timezones }) {
 
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <p className="max-w-2xl text-sm text-ink-soft">
-                    Atur logo, preferensi panel, billing, dan notifikasi. Identitas website teks tetap di{' '}
+                    Atur logo, preferensi panel, billing, dan rekening. Identitas website teks tetap di{' '}
                     <Link href="/admin/settings" className="font-semibold text-signal-deep hover:underline">
                         Pengaturan Situs
                     </Link>
@@ -415,45 +415,85 @@ export default function Settings({ settings, branding, timezones }) {
                 </Section>
 
                 <Section
-                    icon={Bell}
-                    title="Notifikasi"
-                    description="Pengingat tagihan. Bot Telegram dikelola di menu Notifikasi & Bot."
+                    icon={Landmark}
+                    title="Rekening bank"
+                    description="Ditampilkan di template Notifikasi & Bot saat pelanggan diminta transfer"
                 >
                     <p className="text-sm text-ink-soft">
-                        Hubungkan bot Telegram/WhatsApp dan template di{' '}
-                        <Link href="/admin/messaging" className="font-semibold text-signal-deep hover:underline">
+                        Isi rekening operasional. Template WhatsApp/Telegram memakai variabel{' '}
+                        <span className="font-mono text-xs">{'{{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}</span>
+                        . Kelola teks pesan di{' '}
+                        <Link href="/admin/messaging?tab=template" className="font-semibold text-signal-deep hover:underline">
                             Notifikasi & Bot
                         </Link>
-                        . Ketiga notifikasi tagihan bisa diaktifkan terpisah agar tidak dianggap spam.
+                        .
                     </p>
-                    <Toggle
-                        label="Tagihan baru"
-                        description="Antrian WhatsApp dengan jeda anti-spam saat tagihan dibuat."
-                        checked={data.messaging_notify_invoice}
-                        disabled={!canWrite}
-                        onChange={(value) => setData('messaging_notify_invoice', value)}
-                    />
-                    <Toggle
-                        label="Pengingat jatuh tempo"
-                        description="Cron harian 08:00. Matikan jika nomor sering kena banned."
-                        checked={data.messaging_notify_reminder}
-                        disabled={!canWrite}
-                        onChange={(value) => setData('messaging_notify_reminder', value)}
-                    />
-                    <Toggle
-                        label="Konfirmasi lunas"
-                        description="Dikirim langsung saat tagihan ditandai lunas."
-                        checked={data.messaging_notify_paid}
-                        disabled={!canWrite}
-                        onChange={(value) => setData('messaging_notify_paid', value)}
-                    />
-                    <Toggle
-                        label="Notifikasi Email"
-                        description="Siapkan pengingat tagihan via email."
-                        checked={data.app_notif_email}
-                        disabled={!canWrite}
-                        onChange={(value) => setData('app_notif_email', value)}
-                    />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Nama bank
+                            <input
+                                type="text"
+                                value={data.bank_name}
+                                onChange={(e) => setData('bank_name', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                                placeholder="contoh: BCA"
+                                autoComplete="off"
+                            />
+                            {errors.bank_name && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.bank_name}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Atas nama
+                            <input
+                                type="text"
+                                value={data.bank_account_name}
+                                onChange={(e) => setData('bank_account_name', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                                placeholder="Nama pemilik rekening"
+                                autoComplete="off"
+                            />
+                            {errors.bank_account_name && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.bank_account_name}
+                                </span>
+                            )}
+                        </label>
+                    </div>
+                    <label className="block text-sm font-medium text-ink">
+                        Nomor rekening
+                        <input
+                            type="text"
+                            value={data.bank_account_number}
+                            onChange={(e) => setData('bank_account_number', e.target.value)}
+                            className={fieldClass}
+                            disabled={!canWrite}
+                            placeholder="contoh: 1234567890"
+                            autoComplete="off"
+                        />
+                        {errors.bank_account_number && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.bank_account_number}
+                            </span>
+                        )}
+                    </label>
+                    <label className="block text-sm font-medium text-ink">
+                        Catatan (opsional)
+                        <input
+                            type="text"
+                            value={data.bank_note}
+                            onChange={(e) => setData('bank_note', e.target.value)}
+                            className={fieldClass}
+                            disabled={!canWrite}
+                            placeholder="contoh: Konfirmasi transfer ke WhatsApp"
+                            autoComplete="off"
+                        />
+                        {errors.bank_note && (
+                            <span className="mt-1 block text-xs text-red-600">{errors.bank_note}</span>
+                        )}
+                    </label>
                 </Section>
 
                 <Section

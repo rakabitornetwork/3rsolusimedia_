@@ -42,11 +42,10 @@ class AppSettingController extends Controller
             'app_billing_generate_days' => ['required', 'integer', 'min:1', 'max:31'],
             'app_billing_round_to' => ['required', 'integer', 'min:1', 'max:100000'],
             'app_default_billing_day' => ['required', 'integer', 'min:1', 'max:28'],
-            'app_notif_whatsapp' => ['sometimes', 'boolean'],
-            'messaging_notify_invoice' => ['sometimes', 'boolean'],
-            'messaging_notify_reminder' => ['sometimes', 'boolean'],
-            'messaging_notify_paid' => ['sometimes', 'boolean'],
-            'app_notif_email' => ['sometimes', 'boolean'],
+            'bank_name' => ['nullable', 'string', 'max:80'],
+            'bank_account_name' => ['nullable', 'string', 'max:120'],
+            'bank_account_number' => ['nullable', 'string', 'max:50'],
+            'bank_note' => ['nullable', 'string', 'max:255'],
             'app_auto_isolir' => ['sometimes', 'boolean'],
             'app_logo_mark' => ['nullable', 'image', 'max:2048'],
             'app_logo_full' => ['nullable', 'image', 'max:4096'],
@@ -63,18 +62,10 @@ class AppSettingController extends Controller
             'app_billing_generate_days' => (string) $validated['app_billing_generate_days'],
             'app_billing_round_to' => (string) $validated['app_billing_round_to'],
             'app_default_billing_day' => (string) $validated['app_default_billing_day'],
-            ...AppSettings::billingNotifyValues(
-                $request->exists('messaging_notify_invoice')
-                    ? $request->boolean('messaging_notify_invoice')
-                    : $request->boolean('app_notif_whatsapp'),
-                $request->exists('messaging_notify_reminder')
-                    ? $request->boolean('messaging_notify_reminder')
-                    : $request->boolean('app_notif_whatsapp'),
-                $request->exists('messaging_notify_paid')
-                    ? $request->boolean('messaging_notify_paid')
-                    : $request->boolean('app_notif_whatsapp'),
-            ),
-            'app_notif_email' => $request->boolean('app_notif_email') ? '1' : '0',
+            'bank_name' => trim((string) ($validated['bank_name'] ?? '')),
+            'bank_account_name' => trim((string) ($validated['bank_account_name'] ?? '')),
+            'bank_account_number' => trim((string) ($validated['bank_account_number'] ?? '')),
+            'bank_note' => trim((string) ($validated['bank_note'] ?? '')),
             'app_auto_isolir' => $request->boolean('app_auto_isolir') ? '1' : '0',
         ];
 

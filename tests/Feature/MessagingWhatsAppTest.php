@@ -481,6 +481,35 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function template_render_injects_bank_account_from_settings(): void
+    {
+        SiteSetting::setMany([
+            'company_name' => 'TeslaTech',
+            'bank_name' => 'BCA',
+            'bank_account_name' => 'PT Tesla Tech',
+            'bank_account_number' => '1234567890',
+            'bank_note' => 'Konfirmasi ke WA',
+        ]);
+
+        $text = MessageTemplate::render('invoice', [
+            'nama' => 'Budi',
+            'nomor' => 'INV-1',
+            'total' => 'Rp 10.000',
+            'jatuh_tempo' => '01/09/2026',
+            'paket' => '10 Mbps',
+            'username' => 'budi01',
+        ]);
+
+        $this->assertStringContainsString('Transfer ke:', $text);
+        $this->assertStringContainsString('BCA', $text);
+        $this->assertStringContainsString('a.n. PT Tesla Tech', $text);
+        $this->assertStringContainsString('1234567890', $text);
+        $this->assertStringContainsString('Konfirmasi ke WA', $text);
+        $this->assertStringNotContainsString('{{rekening}}', $text);
+        $this->assertStringNotContainsString('{{nomor_rekening}}', $text);
+    }
+
+    #[Test]
     public function stored_legacy_templates_are_upgraded_with_icons(): void
     {
         SiteSetting::setValue(

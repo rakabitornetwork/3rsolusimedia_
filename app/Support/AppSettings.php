@@ -75,6 +75,10 @@ class AppSettings
         'msg_tpl_isolir' => '',
         'msg_tpl_restore' => '',
         'msg_tpl_welcome' => '',
+        'bank_name' => '',
+        'bank_account_name' => '',
+        'bank_account_number' => '',
+        'bank_note' => '',
     ];
 
     /**
@@ -349,6 +353,26 @@ class AppSettings
         $name = trim((string) SiteSetting::getValue('company_name', ''));
 
         return $name !== '' ? $name : 'Perusahaan';
+    }
+
+    /**
+     * @return array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}
+     */
+    public static function bankAccount(): array
+    {
+        return [
+            'bank_name' => trim((string) self::get('bank_name', '')),
+            'bank_account_name' => trim((string) self::get('bank_account_name', '')),
+            'bank_account_number' => trim((string) self::get('bank_account_number', '')),
+            'bank_note' => trim((string) self::get('bank_note', '')),
+        ];
+    }
+
+    public static function hasBankAccount(): bool
+    {
+        $bank = self::bankAccount();
+
+        return $bank['bank_name'] !== '' || $bank['bank_account_number'] !== '';
     }
 
     public static function branding(): array

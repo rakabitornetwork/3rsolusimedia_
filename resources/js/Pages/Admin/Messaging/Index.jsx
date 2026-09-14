@@ -92,7 +92,11 @@ export default function Index({
     const canWrite = auth?.user?.can_write !== false;
     const telegram = config?.telegram || {};
     const whatsapp = config?.whatsapp || {};
-    const [tab, setTab] = useState('kanal');
+    const [tab, setTab] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        const requested = params.get('tab');
+        return TABS.some((item) => item.id === requested) ? requested : 'kanal';
+    });
     const [copied, setCopied] = useState('');
     const [query, setQuery] = useState('');
     const [waBusy, setWaBusy] = useState(false);
@@ -622,9 +626,13 @@ export default function Index({
                     <div className="border border-ink/10 bg-white p-6">
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
-                            Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}}'}.
+                            Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}} {{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}.
                             {'{{alamat}}'} memakai teks alamat, atau koordinat GPS (tanpa tautan peta) jika kosong.
-                            Dikirim ke chat terikat; WhatsApp juga ke nomor HP di data pelanggan.
+                            {'{{rekening}}'} diisi otomatis dari kartu Rekening bank di{' '}
+                            <Link href="/admin/system" className="font-semibold text-signal-deep hover:underline">
+                                Pengaturan Aplikasi
+                            </Link>
+                            . Dikirim ke chat terikat; WhatsApp juga ke nomor HP di data pelanggan.
                         </p>
                         <div className="mt-4 space-y-2">
                             <label className="flex items-start justify-between gap-4 border border-ink/10 px-4 py-3">

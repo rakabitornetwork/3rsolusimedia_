@@ -306,6 +306,7 @@ class CustomerNotifier
     public function customerVars(PppoeCustomer $customer): array
     {
         return [
+            ...MessageTemplate::sharedVars(),
             'nama' => (string) $customer->name,
             'username' => (string) $customer->username,
             'perusahaan' => AppSettings::companyName(),

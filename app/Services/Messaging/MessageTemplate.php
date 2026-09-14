@@ -37,6 +37,8 @@ class MessageTemplate
                 '',
                 '💬 Ketik *tagihan* atau *bayar* di chat ini.',
                 '',
+                '{{rekening}}',
+                '',
                 '— {{perusahaan}}',
             ]),
             self::REMINDER => implode("\n", [
@@ -49,6 +51,8 @@ class MessageTemplate
                 '📅 Jatuh tempo: {{jatuh_tempo}}',
                 '',
                 '💬 Ketik *bayar* untuk tautan pembayaran.',
+                '',
+                '{{rekening}}',
                 '',
                 '— {{perusahaan}}',
             ]),
@@ -73,6 +77,8 @@ class MessageTemplate
                 'Segera lunasi agar koneksi aktif kembali.',
                 '',
                 '💬 Ketik *bayar* di chat ini.',
+                '',
+                '{{rekening}}',
                 '',
                 '— {{perusahaan}}',
             ]),
@@ -119,6 +125,8 @@ class MessageTemplate
                 '• bayar — tautan pembayaran',
                 '• bantuan — daftar perintah',
                 '',
+                '{{rekening}}',
+                '',
                 '📞 CS: {{telepon_kantor}}',
                 '— {{perusahaan}}',
             ]),
@@ -129,53 +137,142 @@ class MessageTemplate
      * Teks default lama — dipakai agar template tersimpan yang belum diubah
      * tetap naik ke versi berikon.
      *
-     * @return array<string, string>
+     * @return array<string, string|list<string>>
      */
     public static function legacyDefaults(): array
     {
+        $invoiceWithoutBank = implode("\n", [
+            '🧾 *Tagihan baru*',
+            '',
+            'Halo {{nama}}, tagihan layanan internet Anda sudah terbit.',
+            '',
+            '🧾 Invoice: {{nomor}}',
+            '💰 Total: {{total}}',
+            '📅 Jatuh tempo: {{jatuh_tempo}}',
+            '📦 Paket: {{paket}}',
+            '🔐 Akun: {{username}}',
+            '',
+            '💬 Ketik *tagihan* atau *bayar* di chat ini.',
+            '',
+            '— {{perusahaan}}',
+        ]);
+        $reminderWithoutBank = implode("\n", [
+            '⏰ *Pengingat tagihan*',
+            '',
+            'Halo {{nama}}, tagihan berikut belum lunas.',
+            '',
+            '🧾 Invoice: {{nomor}}',
+            '💰 Total: {{total}}',
+            '📅 Jatuh tempo: {{jatuh_tempo}}',
+            '',
+            '💬 Ketik *bayar* untuk tautan pembayaran.',
+            '',
+            '— {{perusahaan}}',
+        ]);
+        $isolirWithoutBank = implode("\n", [
+            '⛔ *Layanan diisolir*',
+            '',
+            'Halo {{nama}}, layanan *{{username}}* diisolir karena tagihan belum lunas.',
+            '',
+            'Segera lunasi agar koneksi aktif kembali.',
+            '',
+            '💬 Ketik *bayar* di chat ini.',
+            '',
+            '— {{perusahaan}}',
+        ]);
+        $welcomeWithoutBank = implode("\n", [
+            '🎉 *Selamat datang di {{perusahaan}}!*',
+            '',
+            'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
+            '',
+            '🌐 *Portal pelanggan*',
+            '{{portal}}',
+            'Masuk pakai username PPPoE atau nomor HP.',
+            '',
+            '👤 *Data pelanggan*',
+            'Nama: {{nama}}',
+            'HP: {{phone}}',
+            'Alamat: {{alamat}}',
+            '',
+            '📦 *Layanan*',
+            'Paket: {{paket}}',
+            'Harga/bulan: {{harga_paket}}',
+            'Mulai aktif: {{tanggal_mulai}}',
+            '',
+            '🔐 *Akun PPPoE* (isi di modem/router)',
+            'Username: {{username}}',
+            'Password: {{password}}',
+            '',
+            '🧾 *Tagihan*',
+            'Tagihan pertama: {{tagihan_pertama}}',
+            'Nomor invoice: {{nomor}}',
+            'Jatuh tempo: {{jatuh_tempo}}',
+            'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+            '',
+            '💬 *Bot WhatsApp* (ketik di chat ini)',
+            '• tagihan — cek tagihan belum lunas',
+            '• bayar — tautan pembayaran',
+            '• bantuan — daftar perintah',
+            '',
+            '📞 CS: {{telepon_kantor}}',
+            '— {{perusahaan}}',
+        ]);
+
         return [
-            self::INVOICE => "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
-            self::REMINDER => "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
+            self::INVOICE => [
+                "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
+                $invoiceWithoutBank,
+            ],
+            self::REMINDER => [
+                "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
+                $reminderWithoutBank,
+            ],
             self::PAID => "Halo {{nama}},\n\nTerima kasih. Tagihan {{nomor}} sebesar {{total}} sudah lunas.\nJatuh tempo berikutnya: {{jatuh_tempo}}.\n\n— {{perusahaan}}",
-            self::ISOLIR => "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
+            self::ISOLIR => [
+                "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
+                $isolirWithoutBank,
+            ],
             self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
-            self::WELCOME => implode("\n", [
-                '🎉 *Selamat datang di {{perusahaan}}!*',
-                '',
-                'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
-                '',
-                '👤 *Data pelanggan*',
-                'Nama: {{nama}}',
-                'HP: {{phone}}',
-                'Alamat: {{alamat}}',
-                '',
-                '📦 *Layanan*',
-                'Paket: {{paket}}',
-                'Harga/bulan: {{harga_paket}}',
-                'Mulai aktif: {{tanggal_mulai}}',
-                '',
-                '🔐 *Akun PPPoE* (isi di modem/router)',
-                'Username: {{username}}',
-                'Password: {{password}}',
-                '',
-                '🧾 *Tagihan*',
-                'Tagihan pertama: {{tagihan_pertama}}',
-                'Nomor invoice: {{nomor}}',
-                'Jatuh tempo: {{jatuh_tempo}}',
-                'Hari tagihan: setiap tanggal {{hari_tagihan}}',
-                '',
-                '🌐 *Portal pelanggan*',
-                '{{portal}}',
-                'Masuk pakai username PPPoE atau nomor HP.',
-                '',
-                '💬 *Bot WhatsApp* (ketik di chat ini)',
-                '• tagihan — cek tagihan belum lunas',
-                '• bayar — tautan pembayaran',
-                '• bantuan — daftar perintah',
-                '',
-                '📞 CS: {{telepon_kantor}}',
-                '— {{perusahaan}}',
-            ]),
+            self::WELCOME => [
+                implode("\n", [
+                    '🎉 *Selamat datang di {{perusahaan}}!*',
+                    '',
+                    'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
+                    '',
+                    '👤 *Data pelanggan*',
+                    'Nama: {{nama}}',
+                    'HP: {{phone}}',
+                    'Alamat: {{alamat}}',
+                    '',
+                    '📦 *Layanan*',
+                    'Paket: {{paket}}',
+                    'Harga/bulan: {{harga_paket}}',
+                    'Mulai aktif: {{tanggal_mulai}}',
+                    '',
+                    '🔐 *Akun PPPoE* (isi di modem/router)',
+                    'Username: {{username}}',
+                    'Password: {{password}}',
+                    '',
+                    '🧾 *Tagihan*',
+                    'Tagihan pertama: {{tagihan_pertama}}',
+                    'Nomor invoice: {{nomor}}',
+                    'Jatuh tempo: {{jatuh_tempo}}',
+                    'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+                    '',
+                    '🌐 *Portal pelanggan*',
+                    '{{portal}}',
+                    'Masuk pakai username PPPoE atau nomor HP.',
+                    '',
+                    '💬 *Bot WhatsApp* (ketik di chat ini)',
+                    '• tagihan — cek tagihan belum lunas',
+                    '• bayar — tautan pembayaran',
+                    '• bantuan — daftar perintah',
+                    '',
+                    '📞 CS: {{telepon_kantor}}',
+                    '— {{perusahaan}}',
+                ]),
+                $welcomeWithoutBank,
+            ],
         ];
     }
 
@@ -202,15 +299,47 @@ class MessageTemplate
     }
 
     /**
+     * Variabel perusahaan/rekening yang selalu tersedia di semua template.
+     *
+     * @return array<string, string>
+     */
+    public static function sharedVars(): array
+    {
+        $bank = AppSettings::bankAccount();
+        $lines = array_values(array_filter([
+            $bank['bank_name'] !== '' ? $bank['bank_name'] : null,
+            $bank['bank_account_name'] !== '' ? 'a.n. '.$bank['bank_account_name'] : null,
+            $bank['bank_account_number'] !== '' ? $bank['bank_account_number'] : null,
+            $bank['bank_note'] !== '' ? $bank['bank_note'] : null,
+        ]));
+
+        $rekening = $lines === []
+            ? ''
+            : "Transfer ke:\n".implode("\n", $lines);
+
+        return [
+            'perusahaan' => AppSettings::companyName(),
+            'nama_bank' => $bank['bank_name'] !== '' ? $bank['bank_name'] : '—',
+            'atas_nama' => $bank['bank_account_name'] !== '' ? $bank['bank_account_name'] : '—',
+            'nomor_rekening' => $bank['bank_account_number'] !== '' ? $bank['bank_account_number'] : '—',
+            'catatan_bank' => $bank['bank_note'],
+            'rekening' => $rekening,
+        ];
+    }
+
+    /**
      * @param  array<string, scalar|null>  $vars
      */
     public static function render(string $template, array $vars): string
     {
         $body = self::get($template);
+        $vars = [...self::sharedVars(), ...$vars];
 
         foreach ($vars as $key => $value) {
             $body = str_replace('{{'.$key.'}}', (string) ($value ?? ''), $body);
         }
+
+        $body = preg_replace("/\n{3,}/", "\n\n", $body) ?? $body;
 
         return trim($body);
     }

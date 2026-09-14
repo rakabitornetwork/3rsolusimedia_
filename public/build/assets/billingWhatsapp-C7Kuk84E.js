@@ -1,0 +1,1 @@
+import{in as e}from"./vendor-ui-CoTjsL9A.js";import{t}from"./keepPage-CqmOlAey.js";function n(n,r,i){!n||!r||window.confirm(`Kirim WhatsApp "${i}" ke pelanggan tagihan ini?`)&&e.post(`/admin/billing/invoices/${n}/whatsapp`,{template:r},t)}function r(n,r,i={}){!n?.length||!r||e.post(`/admin/billing/bulk-whatsapp`,{ids:n,template:r},{...t,...i})}export{n,r as t};
