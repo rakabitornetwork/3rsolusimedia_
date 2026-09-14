@@ -79,7 +79,10 @@ class AppSettings
         'bank_account_name' => '',
         'bank_account_number' => '',
         'bank_note' => '',
+        'bank_accounts' => '[]',
     ];
+
+    public const MAX_BANK_ACCOUNTS = 10;
 
     /**
      * @return array<string, mixed>
@@ -356,23 +359,112 @@ class AppSettings
     }
 
     /**
+     * @param  array<string, mixed>  $row
+     * @return array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}
+     */
+    public static function normalizeBankAccount(array $row): array
+    {
+        return [
+            'bank_name' => trim((string) ($row['bank_name'] ?? '')),
+            'bank_account_name' => trim((string) ($row['bank_account_name'] ?? '')),
+            'bank_account_number' => trim((string) ($row['bank_account_number'] ?? '')),
+            'bank_note' => trim((string) ($row['bank_note'] ?? '')),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function isFilledBankAccount(array $row): bool
+    {
+        $bank = self::normalizeBankAccount($row);
+
+        return $bank['bank_name'] !== ''
+            || $bank['bank_account_name'] !== ''
+            || $bank['bank_account_number'] !== '';
+    }
+
+    /**
+     * @param  list<mixed>|null  $rows
+     * @return list<array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}>
+     */
+    public static function normalizeBankAccounts(?array $rows): array
+    {
+        if ($rows === null) {
+            return [];
+        }
+
+        $accounts = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $account = self::normalizeBankAccount($row);
+            if (! self::isFilledBankAccount($account)) {
+                continue;
+            }
+
+            $accounts[] = $account;
+            if (count($accounts) >= self::MAX_BANK_ACCOUNTS) {
+                break;
+            }
+        }
+
+        return $accounts;
+    }
+
+    /**
+     * @return list<array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}>
+     */
+    public static function bankAccounts(): array
+    {
+        $decoded = json_decode((string) self::get('bank_accounts', '[]'), true);
+        $fromJson = is_array($decoded) ? self::normalizeBankAccounts($decoded) : [];
+        if ($fromJson !== []) {
+            return $fromJson;
+        }
+
+        $legacy = self::normalizeBankAccount([
+            'bank_name' => (string) self::get('bank_name', ''),
+            'bank_account_name' => (string) self::get('bank_account_name', ''),
+            'bank_account_number' => (string) self::get('bank_account_number', ''),
+            'bank_note' => (string) self::get('bank_note', ''),
+        ]);
+
+        return self::isFilledBankAccount($legacy) ? [$legacy] : [];
+    }
+
+    /**
+     * Rekening utama (pertama). Dipakai placeholder tunggal seperti {{nama_bank}}.
+     *
      * @return array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}
      */
     public static function bankAccount(): array
     {
-        return [
-            'bank_name' => trim((string) self::get('bank_name', '')),
-            'bank_account_name' => trim((string) self::get('bank_account_name', '')),
-            'bank_account_number' => trim((string) self::get('bank_account_number', '')),
-            'bank_note' => trim((string) self::get('bank_note', '')),
-        ];
+        return self::bankAccounts()[0] ?? self::normalizeBankAccount([]);
     }
 
     public static function hasBankAccount(): bool
     {
-        $bank = self::bankAccount();
+        return self::bankAccounts() !== [];
+    }
 
-        return $bank['bank_name'] !== '' || $bank['bank_account_number'] !== '';
+    /**
+     * @param  list<array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}>  $accounts
+     * @return array<string, string>
+     */
+    public static function bankAccountSettingValues(array $accounts): array
+    {
+        $primary = $accounts[0] ?? self::normalizeBankAccount([]);
+
+        return [
+            'bank_accounts' => json_encode($accounts, JSON_UNESCAPED_UNICODE),
+            'bank_name' => $primary['bank_name'],
+            'bank_account_name' => $primary['bank_account_name'],
+            'bank_account_number' => $primary['bank_account_number'],
+            'bank_note' => $primary['bank_note'],
+        ];
     }
 
     public static function branding(): array

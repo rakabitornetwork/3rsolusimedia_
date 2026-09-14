@@ -522,7 +522,7 @@
     ]
   },
   "resources/js/Pages/Admin/Messaging/Index.jsx": {
-    "file": "assets/Index-BLfijteN.js",
+    "file": "assets/Index-vbl0iaF6.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Messaging/Index.jsx",
     "isDynamicEntry": true,
@@ -758,7 +758,7 @@
     ]
   },
   "resources/js/Pages/Admin/System/Settings.jsx": {
-    "file": "assets/Settings-fV3wo7Pe.js",
+    "file": "assets/Settings-C2Sf58nw.js",
     "name": "Settings",
     "src": "resources/js/Pages/Admin/System/Settings.jsx",
     "isDynamicEntry": true,
@@ -1015,7 +1015,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DXVPDG95.js",
+    "file": "assets/app-CLMyKVbd.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

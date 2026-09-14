@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { CreditCard, ImagePlus, Landmark, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
+import { CreditCard, ImagePlus, Landmark, Plus, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -105,6 +105,51 @@ function canWriteButtons(disabled) {
     return !disabled;
 }
 
+const emptyBankAccount = () => ({
+    bank_name: '',
+    bank_account_name: '',
+    bank_account_number: '',
+    bank_note: '',
+});
+
+function initialBankAccounts(settings) {
+    let list = settings.bank_accounts;
+    if (typeof list === 'string') {
+        try {
+            list = JSON.parse(list);
+        } catch {
+            list = [];
+        }
+    }
+    if (!Array.isArray(list)) {
+        list = [];
+    }
+
+    const mapped = list.map((row) => ({
+        bank_name: row.bank_name || '',
+        bank_account_name: row.bank_account_name || '',
+        bank_account_number: row.bank_account_number || '',
+        bank_note: row.bank_note || '',
+    }));
+
+    if (mapped.length) {
+        return mapped;
+    }
+
+    if (settings.bank_name || settings.bank_account_name || settings.bank_account_number) {
+        return [
+            {
+                bank_name: settings.bank_name || '',
+                bank_account_name: settings.bank_account_name || '',
+                bank_account_number: settings.bank_account_number || '',
+                bank_note: settings.bank_note || '',
+            },
+        ];
+    }
+
+    return [emptyBankAccount()];
+}
+
 export default function Settings({ settings, branding, timezones }) {
     const { auth, app } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
@@ -121,10 +166,7 @@ export default function Settings({ settings, branding, timezones }) {
         app_billing_generate_days: Number(settings.app_billing_generate_days || 7),
         app_billing_round_to: Number(settings.app_billing_round_to || 1000),
         app_default_billing_day: Number(settings.app_default_billing_day || 1),
-        bank_name: settings.bank_name || '',
-        bank_account_name: settings.bank_account_name || '',
-        bank_account_number: settings.bank_account_number || '',
-        bank_note: settings.bank_note || '',
+        bank_accounts: initialBankAccounts(settings),
         app_auto_isolir: settings.app_auto_isolir !== '0',
         app_logo_mark: null,
         app_logo_full: null,
@@ -420,80 +462,154 @@ export default function Settings({ settings, branding, timezones }) {
                     description="Ditampilkan di template Notifikasi & Bot saat pelanggan diminta transfer"
                 >
                     <p className="text-sm text-ink-soft">
-                        Isi rekening operasional. Template WhatsApp/Telegram memakai variabel{' '}
-                        <span className="font-mono text-xs">{'{{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}</span>
-                        . Kelola teks pesan di{' '}
+                        Bisa lebih dari satu rekening. Variabel{' '}
+                        <span className="font-mono text-xs">{'{{rekening}}'}</span> menampilkan semua akun.{' '}
+                        <span className="font-mono text-xs">{'{{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}</span>{' '}
+                        memakai rekening pertama. Kelola teks pesan di{' '}
                         <Link href="/admin/messaging?tab=template" className="font-semibold text-signal-deep hover:underline">
                             Notifikasi & Bot
                         </Link>
                         .
                     </p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <label className="block text-sm font-medium text-ink">
-                            Nama bank
-                            <input
-                                type="text"
-                                value={data.bank_name}
-                                onChange={(e) => setData('bank_name', e.target.value)}
-                                className={fieldClass}
-                                disabled={!canWrite}
-                                placeholder="contoh: BCA"
-                                autoComplete="off"
-                            />
-                            {errors.bank_name && (
-                                <span className="mt-1 block text-xs text-red-600">{errors.bank_name}</span>
-                            )}
-                        </label>
-                        <label className="block text-sm font-medium text-ink">
-                            Atas nama
-                            <input
-                                type="text"
-                                value={data.bank_account_name}
-                                onChange={(e) => setData('bank_account_name', e.target.value)}
-                                className={fieldClass}
-                                disabled={!canWrite}
-                                placeholder="Nama pemilik rekening"
-                                autoComplete="off"
-                            />
-                            {errors.bank_account_name && (
-                                <span className="mt-1 block text-xs text-red-600">
-                                    {errors.bank_account_name}
-                                </span>
-                            )}
-                        </label>
+                    <div className="space-y-4">
+                        {data.bank_accounts.map((account, index) => (
+                            <div key={index} className="space-y-4 border border-ink/10 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-semibold text-ink">Rekening {index + 1}</p>
+                                    {canWrite && data.bank_accounts.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setData(
+                                                    'bank_accounts',
+                                                    data.bank_accounts.filter((_, i) => i !== index),
+                                                )
+                                            }
+                                            className="btn-action btn-action-xs btn-danger"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            Hapus
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <label className="block text-sm font-medium text-ink">
+                                        Nama bank
+                                        <input
+                                            type="text"
+                                            value={account.bank_name}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'bank_accounts',
+                                                    data.bank_accounts.map((row, i) =>
+                                                        i === index ? { ...row, bank_name: e.target.value } : row,
+                                                    ),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                            disabled={!canWrite}
+                                            placeholder="contoh: BCA"
+                                            autoComplete="off"
+                                        />
+                                        {errors[`bank_accounts.${index}.bank_name`] && (
+                                            <span className="mt-1 block text-xs text-red-600">
+                                                {errors[`bank_accounts.${index}.bank_name`]}
+                                            </span>
+                                        )}
+                                    </label>
+                                    <label className="block text-sm font-medium text-ink">
+                                        Atas nama
+                                        <input
+                                            type="text"
+                                            value={account.bank_account_name}
+                                            onChange={(e) =>
+                                                setData(
+                                                    'bank_accounts',
+                                                    data.bank_accounts.map((row, i) =>
+                                                        i === index
+                                                            ? { ...row, bank_account_name: e.target.value }
+                                                            : row,
+                                                    ),
+                                                )
+                                            }
+                                            className={fieldClass}
+                                            disabled={!canWrite}
+                                            placeholder="Nama pemilik rekening"
+                                            autoComplete="off"
+                                        />
+                                        {errors[`bank_accounts.${index}.bank_account_name`] && (
+                                            <span className="mt-1 block text-xs text-red-600">
+                                                {errors[`bank_accounts.${index}.bank_account_name`]}
+                                            </span>
+                                        )}
+                                    </label>
+                                </div>
+                                <label className="block text-sm font-medium text-ink">
+                                    Nomor rekening
+                                    <input
+                                        type="text"
+                                        value={account.bank_account_number}
+                                        onChange={(e) =>
+                                            setData(
+                                                'bank_accounts',
+                                                data.bank_accounts.map((row, i) =>
+                                                    i === index
+                                                        ? { ...row, bank_account_number: e.target.value }
+                                                        : row,
+                                                ),
+                                            )
+                                        }
+                                        className={fieldClass}
+                                        disabled={!canWrite}
+                                        placeholder="contoh: 1234567890"
+                                        autoComplete="off"
+                                    />
+                                    {errors[`bank_accounts.${index}.bank_account_number`] && (
+                                        <span className="mt-1 block text-xs text-red-600">
+                                            {errors[`bank_accounts.${index}.bank_account_number`]}
+                                        </span>
+                                    )}
+                                </label>
+                                <label className="block text-sm font-medium text-ink">
+                                    Catatan (opsional)
+                                    <input
+                                        type="text"
+                                        value={account.bank_note}
+                                        onChange={(e) =>
+                                            setData(
+                                                'bank_accounts',
+                                                data.bank_accounts.map((row, i) =>
+                                                    i === index ? { ...row, bank_note: e.target.value } : row,
+                                                ),
+                                            )
+                                        }
+                                        className={fieldClass}
+                                        disabled={!canWrite}
+                                        placeholder="contoh: Konfirmasi transfer ke WhatsApp"
+                                        autoComplete="off"
+                                    />
+                                    {errors[`bank_accounts.${index}.bank_note`] && (
+                                        <span className="mt-1 block text-xs text-red-600">
+                                            {errors[`bank_accounts.${index}.bank_note`]}
+                                        </span>
+                                    )}
+                                </label>
+                            </div>
+                        ))}
                     </div>
-                    <label className="block text-sm font-medium text-ink">
-                        Nomor rekening
-                        <input
-                            type="text"
-                            value={data.bank_account_number}
-                            onChange={(e) => setData('bank_account_number', e.target.value)}
-                            className={fieldClass}
-                            disabled={!canWrite}
-                            placeholder="contoh: 1234567890"
-                            autoComplete="off"
-                        />
-                        {errors.bank_account_number && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.bank_account_number}
-                            </span>
-                        )}
-                    </label>
-                    <label className="block text-sm font-medium text-ink">
-                        Catatan (opsional)
-                        <input
-                            type="text"
-                            value={data.bank_note}
-                            onChange={(e) => setData('bank_note', e.target.value)}
-                            className={fieldClass}
-                            disabled={!canWrite}
-                            placeholder="contoh: Konfirmasi transfer ke WhatsApp"
-                            autoComplete="off"
-                        />
-                        {errors.bank_note && (
-                            <span className="mt-1 block text-xs text-red-600">{errors.bank_note}</span>
-                        )}
-                    </label>
+                    {canWrite && data.bank_accounts.length < 10 && (
+                        <button
+                            type="button"
+                            onClick={() => setData('bank_accounts', [...data.bank_accounts, emptyBankAccount()])}
+                            className="btn-action btn-action-xs btn-secondary"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            Tambah rekening
+                        </button>
+                    )}
+                    {errors.bank_accounts && typeof errors.bank_accounts === 'string' && (
+                        <span className="block text-xs text-red-600">{errors.bank_accounts}</span>
+                    )}
                 </Section>
 
                 <Section

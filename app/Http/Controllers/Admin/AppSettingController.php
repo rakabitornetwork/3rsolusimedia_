@@ -17,7 +17,10 @@ class AppSettingController extends Controller
     public function edit(): Response
     {
         return Inertia::render('Admin/System/Settings', [
-            'settings' => AppSettings::all(),
+            'settings' => [
+                ...AppSettings::all(),
+                'bank_accounts' => AppSettings::bankAccounts(),
+            ],
             'branding' => AppSettings::branding(),
             'timezones' => [
                 'Asia/Jakarta',
@@ -42,6 +45,11 @@ class AppSettingController extends Controller
             'app_billing_generate_days' => ['required', 'integer', 'min:1', 'max:31'],
             'app_billing_round_to' => ['required', 'integer', 'min:1', 'max:100000'],
             'app_default_billing_day' => ['required', 'integer', 'min:1', 'max:28'],
+            'bank_accounts' => ['nullable', 'array', 'max:'.AppSettings::MAX_BANK_ACCOUNTS],
+            'bank_accounts.*.bank_name' => ['nullable', 'string', 'max:80'],
+            'bank_accounts.*.bank_account_name' => ['nullable', 'string', 'max:120'],
+            'bank_accounts.*.bank_account_number' => ['nullable', 'string', 'max:50'],
+            'bank_accounts.*.bank_note' => ['nullable', 'string', 'max:255'],
             'bank_name' => ['nullable', 'string', 'max:80'],
             'bank_account_name' => ['nullable', 'string', 'max:120'],
             'bank_account_number' => ['nullable', 'string', 'max:50'],
@@ -62,11 +70,8 @@ class AppSettingController extends Controller
             'app_billing_generate_days' => (string) $validated['app_billing_generate_days'],
             'app_billing_round_to' => (string) $validated['app_billing_round_to'],
             'app_default_billing_day' => (string) $validated['app_default_billing_day'],
-            'bank_name' => trim((string) ($validated['bank_name'] ?? '')),
-            'bank_account_name' => trim((string) ($validated['bank_account_name'] ?? '')),
-            'bank_account_number' => trim((string) ($validated['bank_account_number'] ?? '')),
-            'bank_note' => trim((string) ($validated['bank_note'] ?? '')),
             'app_auto_isolir' => $request->boolean('app_auto_isolir') ? '1' : '0',
+            ...AppSettings::bankAccountSettingValues($this->bankAccountsFromRequest($validated)),
         ];
 
         foreach ([
@@ -94,6 +99,24 @@ class AppSettingController extends Controller
         return redirect()
             ->route('admin.system.index')
             ->with('success', 'Pengaturan aplikasi berhasil disimpan.');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return list<array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}>
+     */
+    private function bankAccountsFromRequest(array $validated): array
+    {
+        if (array_key_exists('bank_accounts', $validated) && is_array($validated['bank_accounts'])) {
+            return AppSettings::normalizeBankAccounts($validated['bank_accounts']);
+        }
+
+        return AppSettings::normalizeBankAccounts([[
+            'bank_name' => $validated['bank_name'] ?? '',
+            'bank_account_name' => $validated['bank_account_name'] ?? '',
+            'bank_account_number' => $validated['bank_account_number'] ?? '',
+            'bank_note' => $validated['bank_note'] ?? '',
+        ]]);
     }
 
     private function deleteUploadedAsset(?string $path, string $default): void

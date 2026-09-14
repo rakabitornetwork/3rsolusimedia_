@@ -628,7 +628,7 @@ export default function Index({
                         <p className="mt-1 text-sm text-ink-soft">
                             Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}} {{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}.
                             {'{{alamat}}'} memakai teks alamat, atau koordinat GPS (tanpa tautan peta) jika kosong.
-                            {'{{rekening}}'} diisi otomatis dari kartu Rekening bank di{' '}
+                            {'{{rekening}}'} menampilkan semua rekening dari kartu Rekening bank di{' '}
                             <Link href="/admin/system" className="font-semibold text-signal-deep hover:underline">
                                 Pengaturan Aplikasi
                             </Link>

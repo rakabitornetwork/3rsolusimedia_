@@ -48,6 +48,71 @@ class AppSettingBankTest extends TestCase
         $this->assertSame('1234567890', SiteSetting::getValue('bank_account_number'));
         $this->assertTrue(AppSettings::hasBankAccount());
         $this->assertSame('BCA', AppSettings::bankAccount()['bank_name']);
+        $this->assertCount(1, AppSettings::bankAccounts());
+    }
+
+    #[Test]
+    public function admin_can_save_multiple_bank_accounts(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->from('/admin/system')
+            ->post('/admin/system', $this->systemPayload([
+                'bank_accounts' => [
+                    [
+                        'bank_name' => 'BCA',
+                        'bank_account_name' => 'PT Tesla Tech',
+                        'bank_account_number' => '1234567890',
+                        'bank_note' => 'Utama',
+                    ],
+                    [
+                        'bank_name' => '',
+                        'bank_account_name' => '',
+                        'bank_account_number' => '',
+                        'bank_note' => '',
+                    ],
+                    [
+                        'bank_name' => 'Mandiri',
+                        'bank_account_name' => 'PT Tesla Tech',
+                        'bank_account_number' => '9876543210',
+                        'bank_note' => '',
+                    ],
+                ],
+            ]))
+            ->assertRedirect('/admin/system');
+
+        $accounts = AppSettings::bankAccounts();
+        $this->assertCount(2, $accounts);
+        $this->assertSame('BCA', $accounts[0]['bank_name']);
+        $this->assertSame('Mandiri', $accounts[1]['bank_name']);
+        $this->assertSame('1234567890', $accounts[0]['bank_account_number']);
+        $this->assertSame('9876543210', $accounts[1]['bank_account_number']);
+        $this->assertSame('BCA', SiteSetting::getValue('bank_name'));
+    }
+
+    #[Test]
+    public function settings_page_exposes_bank_accounts_array(): void
+    {
+        SiteSetting::setMany(AppSettings::bankAccountSettingValues([
+            AppSettings::normalizeBankAccount([
+                'bank_name' => 'BRI',
+                'bank_account_name' => 'Tesla',
+                'bank_account_number' => '111',
+                'bank_note' => '',
+            ]),
+        ]));
+
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->get('/admin/system')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/System/Settings')
+                ->has('settings.bank_accounts', 1)
+                ->where('settings.bank_accounts.0.bank_name', 'BRI')
+            );
     }
 
     #[Test]
@@ -72,5 +137,23 @@ class AppSettingBankTest extends TestCase
         $this->assertFalse(AppSettings::notifyReminder());
         $this->assertTrue(AppSettings::notifyPaid());
         $this->assertSame('Mandiri', SiteSetting::getValue('bank_name'));
+    }
+
+    #[Test]
+    public function legacy_single_bank_fields_are_read_as_one_account(): void
+    {
+        SiteSetting::setMany([
+            'bank_name' => 'BRI',
+            'bank_account_name' => 'Tesla',
+            'bank_account_number' => '111222',
+            'bank_note' => 'Lama',
+        ]);
+
+        $accounts = AppSettings::bankAccounts();
+
+        $this->assertCount(1, $accounts);
+        $this->assertSame('BRI', $accounts[0]['bank_name']);
+        $this->assertSame('111222', $accounts[0]['bank_account_number']);
+        $this->assertTrue(AppSettings::hasBankAccount());
     }
 }

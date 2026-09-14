@@ -305,17 +305,19 @@ class MessageTemplate
      */
     public static function sharedVars(): array
     {
-        $bank = AppSettings::bankAccount();
-        $lines = array_values(array_filter([
-            $bank['bank_name'] !== '' ? $bank['bank_name'] : null,
-            $bank['bank_account_name'] !== '' ? 'a.n. '.$bank['bank_account_name'] : null,
-            $bank['bank_account_number'] !== '' ? $bank['bank_account_number'] : null,
-            $bank['bank_note'] !== '' ? $bank['bank_note'] : null,
-        ]));
+        $accounts = AppSettings::bankAccounts();
+        $bank = $accounts[0] ?? AppSettings::bankAccount();
+        $blocks = [];
+        foreach ($accounts as $account) {
+            $block = self::formatBankBlock($account);
+            if ($block !== '') {
+                $blocks[] = $block;
+            }
+        }
 
-        $rekening = $lines === []
+        $rekening = $blocks === []
             ? ''
-            : "Transfer ke:\n".implode("\n", $lines);
+            : "Transfer ke:\n".implode("\n\n", $blocks);
 
         return [
             'perusahaan' => AppSettings::companyName(),
@@ -325,6 +327,19 @@ class MessageTemplate
             'catatan_bank' => $bank['bank_note'],
             'rekening' => $rekening,
         ];
+    }
+
+    /**
+     * @param  array{bank_name: string, bank_account_name: string, bank_account_number: string, bank_note: string}  $bank
+     */
+    private static function formatBankBlock(array $bank): string
+    {
+        return implode("\n", array_values(array_filter([
+            $bank['bank_name'] !== '' ? $bank['bank_name'] : null,
+            $bank['bank_account_name'] !== '' ? 'a.n. '.$bank['bank_account_name'] : null,
+            $bank['bank_account_number'] !== '' ? $bank['bank_account_number'] : null,
+            $bank['bank_note'] !== '' ? $bank['bank_note'] : null,
+        ])));
     }
 
     /**
