@@ -138,6 +138,28 @@ class PortalPaymentTest extends TestCase
     }
 
     #[Test]
+    public function inertia_pay_sends_external_checkout_location(): void
+    {
+        [$customer, $token] = $this->portalSession($this->customer());
+        $invoice = $this->invoice($customer);
+
+        $gateways = Mockery::mock(PaymentGatewayManager::class);
+        $gateways->shouldReceive('hasEnabledGateway')->andReturn(true);
+        $gateways->shouldReceive('createPayment')
+            ->once()
+            ->andReturn([
+                'checkout_url' => 'https://pay.example/abc',
+                'transaction' => Mockery::mock(),
+            ]);
+        $this->app->instance(PaymentGatewayManager::class, $gateways);
+
+        $this->withHeaders(['X-Inertia' => 'true'])
+            ->post("/portal/{$token}/pay/{$invoice->id}")
+            ->assertStatus(409)
+            ->assertHeader('X-Inertia-Location', 'https://pay.example/abc');
+    }
+
+    #[Test]
     public function cannot_enable_xendit_without_secret_key(): void
     {
         $admin = User::factory()->superadmin()->create();

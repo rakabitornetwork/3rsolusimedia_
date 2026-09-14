@@ -16,6 +16,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Throwable;
 
 class PaymentPortalController extends Controller
@@ -111,7 +112,7 @@ class PaymentPortalController extends Controller
         ]);
     }
 
-    public function pay(Request $request, string $token, Invoice $invoice): RedirectResponse
+    public function pay(Request $request, string $token, Invoice $invoice): RedirectResponse|HttpResponse
     {
         $customer = $this->customerFromPortalToken($token);
         if (! $customer) {
@@ -148,7 +149,7 @@ class PaymentPortalController extends Controller
             return back()->with('error', 'Gagal membuat link pembayaran: '.$e->getMessage());
         }
 
-        return redirect()->away($result['checkout_url']);
+        return Inertia::location($result['checkout_url']);
     }
 
     protected function invoicePortalArray(Invoice $invoice): array
