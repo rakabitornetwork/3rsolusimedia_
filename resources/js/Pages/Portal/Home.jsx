@@ -1,5 +1,6 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { CreditCard, Radio, Router, Thermometer, Users } from 'lucide-react';
+import { useState } from 'react';
 import DeviceMetricCard, {
     splitMetricLabel,
 } from '../../Components/Portal/DeviceMetricCard';
@@ -20,11 +21,41 @@ export default function Home({
     device_available,
     device_message,
 }) {
+    const [paying, setPaying] = useState(false);
     const online = onlineTone(device?.online);
     const rx = rxPowerTone(device?.rx_power);
     const temp = temperatureTone(device?.temperature);
     const rxParts = splitMetricLabel(device?.rx_power_label);
     const tempParts = splitMetricLabel(device?.temperature_label);
+    const unpaidCount = Number(billing?.unpaid_count || 0);
+    const gatewayReady = Boolean(billing?.gateway_ready);
+    const oldestUnpaidId = billing?.oldest_unpaid_id;
+    const invoicesHref = `/portal/${token}/tagihan`;
+
+    const payOnline = () => {
+        if (paying) return;
+
+        if (!oldestUnpaidId || unpaidCount > 1) {
+            router.visit(invoicesHref);
+            return;
+        }
+
+        if (!gatewayReady) {
+            router.visit(invoicesHref);
+            return;
+        }
+
+        if (!window.confirm('Lanjut ke halaman pembayaran online?')) return;
+
+        setPaying(true);
+        router.post(
+            `/portal/${token}/pay/${oldestUnpaidId}`,
+            {},
+            {
+                onFinish: () => setPaying(false),
+            },
+        );
+    };
 
     return (
         <PortalLayout
@@ -40,24 +71,40 @@ export default function Home({
                         <div className="min-w-0">
                             <p className="text-xs tracking-wide text-ink-soft uppercase">Tagihan</p>
                             <h2 className="mt-1 text-base font-semibold text-ink">
-                                {billing?.unpaid_count
-                                    ? `${billing.unpaid_count} tagihan belum bayar`
+                                {unpaidCount
+                                    ? `${unpaidCount} tagihan belum bayar`
                                     : 'Tidak ada tagihan aktif'}
                             </h2>
                             <p className="mt-1 text-sm text-ink-soft">
-                                {billing?.unpaid_count
+                                {unpaidCount
                                     ? `Total ${billing.unpaid_total_label}`
                                     : 'Semua tagihan sudah lunas.'}
                             </p>
                         </div>
                         <CreditCard className="h-5 w-5 shrink-0 text-signal-deep" />
                     </div>
-                    <Link
-                        href={`/portal/${token}/tagihan`}
-                        className="mt-4 inline-flex bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep"
-                    >
-                        Lihat tagihan
-                    </Link>
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        {unpaidCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={payOnline}
+                                disabled={paying}
+                                className="inline-flex cursor-pointer items-center justify-center bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep disabled:cursor-wait disabled:opacity-60"
+                            >
+                                {paying ? 'Menyiapkan pembayaran...' : 'Bayar online'}
+                            </button>
+                        )}
+                        <Link
+                            href={invoicesHref}
+                            className={`inline-flex cursor-pointer items-center justify-center px-4 py-2.5 text-sm font-semibold ${
+                                unpaidCount > 0
+                                    ? 'border border-ink/15 text-ink hover:bg-mist'
+                                    : 'bg-signal text-white hover:bg-signal-deep'
+                            }`}
+                        >
+                            Lihat tagihan
+                        </Link>
+                    </div>
                 </section>
 
                 <section className="border border-ink/10 bg-white p-4 sm:p-5">

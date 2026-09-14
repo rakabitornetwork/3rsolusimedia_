@@ -14,9 +14,7 @@ use Inertia\Response;
 
 class PaymentGatewayController extends Controller
 {
-    public function __construct(private readonly PaymentGatewayManager $gateways)
-    {
-    }
+    public function __construct(private readonly PaymentGatewayManager $gateways) {}
 
     public function index(): Response
     {
@@ -51,6 +49,34 @@ class PaymentGatewayController extends Controller
             'duitku_merchant_code' => ['nullable', 'string', 'max:120'],
             'duitku_api_key' => ['nullable', 'string', 'max:255'],
         ]);
+
+        $errors = [];
+        if ($request->boolean('xendit_enabled')
+            && ! filled($validated['xendit_secret_key'] ?? null)
+            && AppSettings::xenditSecretKey() === '') {
+            $errors['xendit_secret_key'] = 'Isi secret key sebelum mengaktifkan Xendit.';
+        }
+        if ($request->boolean('midtrans_enabled')
+            && ! filled($validated['midtrans_server_key'] ?? null)
+            && AppSettings::midtransServerKey() === '') {
+            $errors['midtrans_server_key'] = 'Isi server key sebelum mengaktifkan Midtrans.';
+        }
+        if ($request->boolean('duitku_enabled')) {
+            $merchant = trim((string) ($validated['duitku_merchant_code'] ?? AppSettings::duitkuMerchantCode()));
+            $apiKey = filled($validated['duitku_api_key'] ?? null)
+                ? (string) $validated['duitku_api_key']
+                : AppSettings::duitkuApiKey();
+            if ($merchant === '') {
+                $errors['duitku_merchant_code'] = 'Isi merchant code sebelum mengaktifkan Duitku.';
+            }
+            if ($apiKey === '') {
+                $errors['duitku_api_key'] = 'Isi API key sebelum mengaktifkan Duitku.';
+            }
+        }
+
+        if ($errors !== []) {
+            return back()->withErrors($errors)->withInput();
+        }
 
         $values = [
             'pg_default' => $validated['pg_default'],

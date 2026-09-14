@@ -27,7 +27,7 @@ export default function Show({
     }, [status, unpaid?.length]);
 
     const pay = (invoiceId) => {
-        if (!gateway_ready || payingId) return;
+        if (payingId) return;
         if (!window.confirm('Lanjut ke halaman pembayaran online?')) return;
         setPayingId(invoiceId);
         router.post(
@@ -106,20 +106,20 @@ export default function Show({
                                 </div>
                                 <p className="text-lg font-semibold text-ink">{invoice.total_label}</p>
                             </div>
-                            {gateway_ready ? (
-                                <button
-                                    type="button"
-                                    onClick={() => pay(invoice.id)}
-                                    disabled={payingId === invoice.id}
-                                    className="mt-4 w-full bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep disabled:opacity-60"
-                                >
-                                    {payingId === invoice.id
-                                        ? 'Menyiapkan pembayaran...'
-                                        : 'Bayar online'}
-                                </button>
-                            ) : (
-                                <p className="mt-3 text-sm text-ink-soft">
-                                    Pembayaran online belum aktif. Hubungi admin.
+                            <button
+                                type="button"
+                                onClick={() => pay(invoice.id)}
+                                disabled={payingId === invoice.id}
+                                className="mt-4 w-full cursor-pointer bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep disabled:cursor-wait disabled:opacity-60"
+                            >
+                                {payingId === invoice.id
+                                    ? 'Menyiapkan pembayaran...'
+                                    : 'Bayar online'}
+                            </button>
+                            {!gateway_ready && (
+                                <p className="mt-2 text-xs text-ink-soft">
+                                    Jika checkout gagal, hubungi admin untuk mengaktifkan payment
+                                    gateway.
                                 </p>
                             )}
                         </li>

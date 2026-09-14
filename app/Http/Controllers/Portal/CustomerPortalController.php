@@ -24,8 +24,7 @@ class CustomerPortalController extends Controller
         private readonly GenieAcsService $genie,
         private readonly PaymentGatewayManager $gateways,
         private readonly MikrotikApiService $mikrotik,
-    ) {
-    }
+    ) {}
 
     public function home(Request $request, string $token): Response|RedirectResponse
     {
@@ -34,15 +33,13 @@ class CustomerPortalController extends Controller
             return $customer;
         }
 
-        $unpaidCount = Invoice::query()
+        $unpaidQuery = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
-            ->where('status', 'unpaid')
-            ->count();
+            ->where('status', 'unpaid');
 
-        $unpaidTotal = (int) Invoice::query()
-            ->where('pppoe_customer_id', $customer->id)
-            ->where('status', 'unpaid')
-            ->sum('total');
+        $unpaidCount = (clone $unpaidQuery)->count();
+        $unpaidTotal = (int) (clone $unpaidQuery)->sum('total');
+        $oldestUnpaidId = (clone $unpaidQuery)->orderBy('due_date')->orderBy('id')->value('id');
 
         $deviceSummary = $this->resolvePortalDevice($customer);
 
@@ -54,6 +51,7 @@ class CustomerPortalController extends Controller
                 'unpaid_count' => $unpaidCount,
                 'unpaid_total' => $unpaidTotal,
                 'unpaid_total_label' => 'Rp '.number_format($unpaidTotal, 0, ',', '.'),
+                'oldest_unpaid_id' => $oldestUnpaidId ? (int) $oldestUnpaidId : null,
                 'gateway_ready' => $this->gateways->hasEnabledGateway(),
             ],
             'device' => $deviceSummary['device'],
@@ -188,9 +186,6 @@ class CustomerPortalController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * @return PppoeCustomer|RedirectResponse
-     */
     protected function requireCustomer(Request $request, string $token): PppoeCustomer|RedirectResponse
     {
         $customer = $this->customerFromPortalToken($token);

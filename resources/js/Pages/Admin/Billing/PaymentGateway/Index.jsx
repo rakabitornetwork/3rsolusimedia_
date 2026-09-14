@@ -209,6 +209,11 @@ export default function Index({ config, webhook_urls, portal_url, enabled_gatewa
                                             placeholder={field.placeholder}
                                             autoComplete="off"
                                         />
+                                        {errors[field.name] && (
+                                            <p className="mt-1 text-xs text-red-600">
+                                                {errors[field.name]}
+                                            </p>
+                                        )}
                                     </label>
                                 ))}
 
@@ -233,6 +238,11 @@ export default function Index({ config, webhook_urls, portal_url, enabled_gatewa
                                             }
                                             autoComplete="new-password"
                                         />
+                                        {errors[field.name] && (
+                                            <p className="mt-1 text-xs text-red-600">
+                                                {errors[field.name]}
+                                            </p>
+                                        )}
                                     </label>
                                 ))}
                             </div>

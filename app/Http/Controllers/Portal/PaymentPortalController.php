@@ -22,9 +22,7 @@ class PaymentPortalController extends Controller
 {
     use ResolvesPortalCustomer;
 
-    public function __construct(private readonly PaymentGatewayManager $gateways)
-    {
-    }
+    public function __construct(private readonly PaymentGatewayManager $gateways) {}
 
     public function index(): Response
     {
@@ -134,6 +132,13 @@ class PaymentPortalController extends Controller
 
         $successUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'success']);
         $failureUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'failed']);
+
+        if (! $this->gateways->hasEnabledGateway()) {
+            return back()->with(
+                'error',
+                'Pembayaran online belum diaktifkan. Hubungi admin untuk konfirmasi pembayaran.',
+            );
+        }
 
         try {
             $result = $this->gateways->createPayment($invoice, $successUrl, $failureUrl);
