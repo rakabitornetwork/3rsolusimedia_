@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Services\GenieAcsService;
@@ -11,6 +12,7 @@ use App\Support\AdminListState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -89,7 +91,9 @@ class NetworkMapController extends Controller
             report($e);
         }
 
-        $items = $customers->map(function (PppoeCustomer $customer) use ($opticalIndex, $onlineByRouter) {
+        $unpaidTodayLookup = $this->unpaidTodayLookup($customers);
+
+        $items = $customers->map(function (PppoeCustomer $customer) use ($opticalIndex, $onlineByRouter, $unpaidTodayLookup) {
             $lat = $customer->latitude;
             $lng = $customer->longitude;
             $onMap = $lat !== null && $lng !== null
@@ -112,6 +116,7 @@ class NetworkMapController extends Controller
                 'is_active' => (bool) $customer->is_active,
                 'is_overdue' => $customer->isOverdue(),
                 'due_date' => $customer->due_date?->format('Y-m-d'),
+                'unpaid_today' => isset($unpaidTodayLookup[(int) $customer->id]),
                 'latitude' => $onMap ? (float) $lat : null,
                 'longitude' => $onMap ? (float) $lng : null,
                 'on_map' => $onMap,
@@ -126,6 +131,7 @@ class NetworkMapController extends Controller
         $onMapCount = collect($items)->where('on_map', true)->count();
         $opticalMatched = collect($items)->filter(fn (array $item) => ($item['optical']['matched'] ?? false))->count();
         $sessionOnlineCount = collect($items)->where('session_online', true)->count();
+        $unpaidTodayCount = collect($items)->where('unpaid_today', true)->count();
 
         return Inertia::render('Admin/Network/Map', [
             'filters' => [
@@ -140,6 +146,7 @@ class NetworkMapController extends Controller
                 'without_gps' => count($items) - $onMapCount,
                 'optical_matched' => $opticalMatched,
                 'session_online' => $sessionOnlineCount,
+                'unpaid_today' => $unpaidTodayCount,
             ],
         ]);
     }
@@ -206,6 +213,59 @@ class NetworkMapController extends Controller
             $result['ok'] ? 'success' : 'error',
             $result['message']
         );
+    }
+
+    /**
+     * Pelanggan yang masih punya tagihan unpaid, atau jatuh tempo hari ini
+     * dan belum ada pembayaran tercatat hari ini.
+     *
+     * @param  Collection<int, PppoeCustomer>  $customers
+     * @return array<int, true>
+     */
+    private function unpaidTodayLookup(Collection $customers): array
+    {
+        $customerIds = $customers->pluck('id')->filter()->values()->all();
+        if ($customerIds === []) {
+            return [];
+        }
+
+        $today = now()->toDateString();
+
+        $unpaidIds = Invoice::query()
+            ->whereIn('pppoe_customer_id', $customerIds)
+            ->where('status', 'unpaid')
+            ->pluck('pppoe_customer_id')
+            ->all();
+
+        $paidTodayLookup = [];
+        foreach (
+            Invoice::query()
+                ->whereIn('pppoe_customer_id', $customerIds)
+                ->whereDate('paid_at', $today)
+                ->pluck('pppoe_customer_id')
+                ->all() as $id
+        ) {
+            $paidTodayLookup[(int) $id] = true;
+        }
+
+        $lookup = [];
+
+        foreach ($unpaidIds as $id) {
+            $lookup[(int) $id] = true;
+        }
+
+        foreach ($customers as $customer) {
+            $id = (int) $customer->id;
+            if ($customer->due_date?->toDateString() !== $today) {
+                continue;
+            }
+            if (isset($paidTodayLookup[$id])) {
+                continue;
+            }
+            $lookup[$id] = true;
+        }
+
+        return $lookup;
     }
 
     /**

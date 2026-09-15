@@ -3,6 +3,7 @@ import {
     Activity,
     ArrowDownToLine,
     ArrowUpFromLine,
+    CircleDollarSign,
     Cpu,
     List,
     LoaderCircle,
@@ -34,7 +35,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style';
+const MARKER_STYLE_ID = 'network-map-marker-style-v2';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -72,7 +73,8 @@ function ensureMarkerStyles() {
         transform: translate(-50%, -50%) scale(0.55);
         pointer-events: none;
       }
-      .network-map-marker.is-hit .network-map-marker__pulse {
+      .network-map-marker.is-hit .network-map-marker__pulse,
+      .network-map-marker.is-unpaid .network-map-marker__pulse {
         opacity: 0.35;
         animation: network-map-pulse 1.6s ease-out infinite;
       }
@@ -81,6 +83,10 @@ function ensureMarkerStyles() {
         height: 42px;
         opacity: 0.45;
         animation: network-map-pulse 1.15s ease-out infinite;
+      }
+      .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
+        width: 48px;
+        height: 48px;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -118,26 +124,74 @@ function ensureMarkerStyles() {
         pointer-events: none;
       }
       .network-map-marker.is-hit .network-map-marker__ring,
-      .network-map-marker.is-selected .network-map-marker__ring {
+      .network-map-marker.is-selected .network-map-marker__ring,
+      .network-map-marker.is-unpaid .network-map-marker__ring {
         opacity: 0.55;
+      }
+      .network-map-marker__dollar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 9999px;
+        border: 2px solid #fff;
+        box-shadow: 0 1px 5px rgba(0,0,0,.4);
+        transform: translate(-50%, -50%);
+        color: #fff;
+      }
+      .network-map-marker__dollar svg {
+        display: block;
+        width: 13px;
+        height: 13px;
+      }
+      .network-map-marker.is-unpaid .network-map-marker__dollar {
+        animation: network-map-bounce 1.4s ease-in-out infinite;
+      }
+      .network-map-marker.is-hit .network-map-marker__dollar,
+      .network-map-marker.is-selected .network-map-marker__dollar {
+        width: 26px;
+        height: 26px;
+        box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 10px rgba(0,0,0,.45);
+      }
+      .network-map-marker.is-selected .network-map-marker__dollar {
+        width: 28px;
+        height: 28px;
+        box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 3px 12px rgba(0,0,0,.5);
+        animation: network-map-bounce 1.1s ease-in-out infinite;
+      }
+      .network-map-marker.is-hit .network-map-marker__dollar svg,
+      .network-map-marker.is-selected .network-map-marker__dollar svg {
+        width: 15px;
+        height: 15px;
       }
     `;
     document.head.appendChild(style);
 }
 
-function buildMarkerHtml(color, { selected = false, highlighted = false } = {}) {
+const DOLLAR_MARKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
+
+function buildMarkerHtml(color, { selected = false, highlighted = false, unpaidToday = false } = {}) {
     const classes = [
         'network-map-marker',
         highlighted ? 'is-hit' : '',
         selected ? 'is-selected' : '',
+        unpaidToday ? 'is-unpaid' : '',
     ]
         .filter(Boolean)
         .join(' ');
 
+    const core = unpaidToday
+        ? `<span class="network-map-marker__dollar" style="background:${color}">${DOLLAR_MARKER_SVG}</span>`
+        : `<span class="network-map-marker__dot" style="background:${color}"></span>`;
+
     return `<span class="${classes}" style="color:${color}">
       <span class="network-map-marker__pulse"></span>
       <span class="network-map-marker__ring"></span>
-      <span class="network-map-marker__dot" style="background:${color}"></span>
+      ${core}
     </span>`;
 }
 
@@ -171,6 +225,7 @@ function formatBitrate(bps) {
 function markerColor(customer) {
     if (customer.status === 'isolated') return '#e11d48';
     if (customer.status === 'disabled') return '#64748b';
+    if (customer.unpaid_today) return '#ca8a04';
     if (customer.session_online) return '#059669';
     const rx = customer.optical?.rx_power;
     if (rx != null) {
@@ -473,8 +528,9 @@ function NetworkMapView({
 
                 const color = markerColor(customer);
                 const selected = customer.id === selectedId;
+                const unpaidToday = Boolean(customer.unpaid_today);
                 const highlighted = filterActive || selected;
-                const html = buildMarkerHtml(color, { selected, highlighted });
+                const html = buildMarkerHtml(color, { selected, highlighted, unpaidToday });
                 const icon = L.divIcon({
                     className: 'network-map-marker-wrap',
                     html,
@@ -486,14 +542,14 @@ function NetworkMapView({
                 if (!marker) {
                     marker = L.marker([lat, lng], {
                         icon,
-                        zIndexOffset: selected ? 1000 : highlighted ? 500 : 0,
+                        zIndexOffset: selected ? 1000 : unpaidToday ? 750 : highlighted ? 500 : 0,
                     }).addTo(map);
 
                     marker.on('click', () => onSelectRef.current?.(customer.id));
                     markersRef.current.set(customer.id, marker);
                 } else {
                     marker.setLatLng([lat, lng]);
-                    marker.setZIndexOffset(selected ? 1000 : highlighted ? 500 : 0);
+                    marker.setZIndexOffset(selected ? 1000 : unpaidToday ? 750 : highlighted ? 500 : 0);
                     marker.setIcon(icon);
                 }
 
@@ -507,8 +563,12 @@ function NetworkMapView({
                     .replace(/>/g, '&gt;');
 
                 marker.bindTooltip(
-                    `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>`,
-                    { direction: 'top', offset: [0, -14] },
+                    `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>${
+                        unpaidToday
+                            ? '<br/><span style="color:#ca8a04;font-weight:600">Belum bayar hari ini</span>'
+                            : ''
+                    }`,
+                    { direction: 'top', offset: [0, unpaidToday ? -18 : -14] },
                 );
             });
 
@@ -692,6 +752,12 @@ function DetailPanelBody({
                     {!customer.on_map && (
                         <span className="bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
                             Tanpa GPS
+                        </span>
+                    )}
+                    {customer.unpaid_today && (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                            <CircleDollarSign className="h-3 w-3" />
+                            Belum bayar hari ini
                         </span>
                     )}
                 </div>
@@ -923,6 +989,11 @@ export default function MapPage({
                     <span>
                         <strong className="text-ink">{stats.session_online ?? 0}</strong> sesi online
                     </span>
+                    <span className="text-ink/20">·</span>
+                    <span className="inline-flex items-center gap-1">
+                        <CircleDollarSign className="h-3.5 w-3.5 text-amber-600" />
+                        <strong className="text-ink">{stats.unpaid_today ?? 0}</strong> belum bayar hari ini
+                    </span>
                     {!opticalMeta.enabled && (
                         <>
                             <span className="text-ink/20">·</span>
@@ -1028,6 +1099,9 @@ export default function MapPage({
                                                     <span className="truncate text-sm font-semibold text-ink">
                                                         {customer.name}
                                                     </span>
+                                                    {customer.unpaid_today && (
+                                                        <CircleDollarSign className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                                    )}
                                                     {!customer.on_map && (
                                                         <MapPin className="h-3 w-3 shrink-0 text-amber-600" />
                                                     )}
