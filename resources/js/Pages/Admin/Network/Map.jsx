@@ -35,7 +35,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style-v2';
+const MARKER_STYLE_ID = 'network-map-marker-style-v3';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -48,6 +48,11 @@ function ensureMarkerStyles() {
         0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.7; }
         70% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
         100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+      }
+      @keyframes network-map-dollar-pulse {
+        0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.5; }
+        70% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
       }
       @keyframes network-map-bounce {
         0%, 100% { transform: translate(-50%, -50%) translateY(0); }
@@ -73,8 +78,7 @@ function ensureMarkerStyles() {
         transform: translate(-50%, -50%) scale(0.55);
         pointer-events: none;
       }
-      .network-map-marker.is-hit .network-map-marker__pulse,
-      .network-map-marker.is-unpaid .network-map-marker__pulse {
+      .network-map-marker.is-hit .network-map-marker__pulse {
         opacity: 0.35;
         animation: network-map-pulse 1.6s ease-out infinite;
       }
@@ -84,9 +88,18 @@ function ensureMarkerStyles() {
         opacity: 0.45;
         animation: network-map-pulse 1.15s ease-out infinite;
       }
+      .network-map-marker.is-unpaid .network-map-marker__pulse {
+        width: 22px;
+        height: 22px;
+        opacity: 0.4;
+        animation: network-map-dollar-pulse 1.5s ease-out infinite;
+      }
+      .network-map-marker.is-unpaid.is-hit .network-map-marker__pulse,
       .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
-        width: 48px;
-        height: 48px;
+        width: 24px;
+        height: 24px;
+        opacity: 0.45;
+        animation: network-map-dollar-pulse 1.25s ease-out infinite;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -124,9 +137,11 @@ function ensureMarkerStyles() {
         pointer-events: none;
       }
       .network-map-marker.is-hit .network-map-marker__ring,
-      .network-map-marker.is-selected .network-map-marker__ring,
-      .network-map-marker.is-unpaid .network-map-marker__ring {
+      .network-map-marker.is-selected .network-map-marker__ring {
         opacity: 0.55;
+      }
+      .network-map-marker.is-unpaid .network-map-marker__ring {
+        opacity: 0;
       }
       .network-map-marker__dollar {
         position: absolute;

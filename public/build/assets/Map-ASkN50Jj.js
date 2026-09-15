@@ -1,9 +1,14 @@
 const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/leaflet-src-KhVH0Xxi.js","assets/rolldown-runtime-hePW80VL.js"])))=>i.map(i=>d[i]);
-import{r as e}from"./rolldown-runtime-hePW80VL.js";import{$ as t,$t as n,Dt as r,H as i,I as a,It as o,Q as s,Qt as c,Yt as l,_ as u,a as d,an as f,en as p,in as m,j as h,n as g,nt as _,on as v,rt as y,x as b}from"./vendor-ui-D8VWxW0G.js";import{d as x,m as S}from"./vendor-react-Dyo4ernH.js";import{t as C}from"./AdminLayout-BKBRRyLv.js";import{t as w}from"./search-C70jlkfG.js";import{n as T,r as E,t as D}from"./leaflet-CEWkvHtl.js";import{i as O,n as k,r as A}from"./genieacsMetrics-Ba_bFl71.js";var j=e(S(),1),M=x(),N=[-2.5489,118.0149],P=5,F=3,I=`network-map-marker-style-v2`;function L(){if(typeof document>`u`||document.getElementById(I))return;let e=document.createElement(`style`);e.id=I,e.textContent=`
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{$ as t,$t as n,Dt as r,H as i,I as a,It as o,Q as s,Qt as c,Yt as l,_ as u,a as d,an as f,en as p,in as m,j as h,n as g,nt as _,on as v,rt as y,x as b}from"./vendor-ui-D8VWxW0G.js";import{d as x,m as S}from"./vendor-react-Dyo4ernH.js";import{t as C}from"./AdminLayout-BKBRRyLv.js";import{t as w}from"./search-C70jlkfG.js";import{n as T,r as E,t as D}from"./leaflet-CEWkvHtl.js";import{i as O,n as k,r as A}from"./genieacsMetrics-Ba_bFl71.js";var j=e(S(),1),M=x(),N=[-2.5489,118.0149],P=5,F=3,I=`network-map-marker-style-v3`;function L(){if(typeof document>`u`||document.getElementById(I))return;let e=document.createElement(`style`);e.id=I,e.textContent=`
       @keyframes network-map-pulse {
         0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.7; }
         70% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
         100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+      }
+      @keyframes network-map-dollar-pulse {
+        0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.5; }
+        70% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
       }
       @keyframes network-map-bounce {
         0%, 100% { transform: translate(-50%, -50%) translateY(0); }
@@ -29,8 +34,7 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{$ as t,$t as n,Dt as r
         transform: translate(-50%, -50%) scale(0.55);
         pointer-events: none;
       }
-      .network-map-marker.is-hit .network-map-marker__pulse,
-      .network-map-marker.is-unpaid .network-map-marker__pulse {
+      .network-map-marker.is-hit .network-map-marker__pulse {
         opacity: 0.35;
         animation: network-map-pulse 1.6s ease-out infinite;
       }
@@ -40,9 +44,18 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{$ as t,$t as n,Dt as r
         opacity: 0.45;
         animation: network-map-pulse 1.15s ease-out infinite;
       }
+      .network-map-marker.is-unpaid .network-map-marker__pulse {
+        width: 22px;
+        height: 22px;
+        opacity: 0.4;
+        animation: network-map-dollar-pulse 1.5s ease-out infinite;
+      }
+      .network-map-marker.is-unpaid.is-hit .network-map-marker__pulse,
       .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
-        width: 48px;
-        height: 48px;
+        width: 24px;
+        height: 24px;
+        opacity: 0.45;
+        animation: network-map-dollar-pulse 1.25s ease-out infinite;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -80,9 +93,11 @@ import{r as e}from"./rolldown-runtime-hePW80VL.js";import{$ as t,$t as n,Dt as r
         pointer-events: none;
       }
       .network-map-marker.is-hit .network-map-marker__ring,
-      .network-map-marker.is-selected .network-map-marker__ring,
-      .network-map-marker.is-unpaid .network-map-marker__ring {
+      .network-map-marker.is-selected .network-map-marker__ring {
         opacity: 0.55;
+      }
+      .network-map-marker.is-unpaid .network-map-marker__ring {
+        opacity: 0;
       }
       .network-map-marker__dollar {
         position: absolute;
