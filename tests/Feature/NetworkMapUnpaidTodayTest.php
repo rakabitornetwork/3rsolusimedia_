@@ -91,7 +91,7 @@ class NetworkMapUnpaidTodayTest extends TestCase
             'name' => 'Andi Unpaid',
             'username' => 'andi01',
         ]);
-        $this->invoice($unpaid);
+        $unpaidInvoice = $this->invoice($unpaid);
 
         $paidToday = $this->customer($router, [
             'name' => 'Budi Paid',
@@ -129,6 +129,13 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.2.unpaid_today', true)
                 ->where('customers.3.id', $current->id)
                 ->where('customers.3.unpaid_today', false)
+                ->where('customers.0.unpaid_invoices.0.id', $unpaidInvoice->id)
+                ->where('customers.0.unpaid_invoices.0.status', 'unpaid')
+                ->where('customers.1.unpaid_invoices', [])
+                ->where('customers.2.unpaid_invoices', [])
+                ->where('customers.3.unpaid_invoices', [])
+                ->has('payment_methods', 4)
+                ->where('payment_methods.0.value', 'cash')
             );
     }
 }

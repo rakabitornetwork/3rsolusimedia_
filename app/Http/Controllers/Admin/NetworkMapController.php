@@ -91,9 +91,12 @@ class NetworkMapController extends Controller
             report($e);
         }
 
-        $unpaidTodayLookup = $this->unpaidTodayLookup($customers);
+        $unpaidInvoicesByCustomer = $this->unpaidInvoicesByCustomerId(
+            $customers->pluck('id')->filter()->values()->all()
+        );
+        $unpaidTodayLookup = $this->unpaidTodayLookup($customers, $unpaidInvoicesByCustomer);
 
-        $items = $customers->map(function (PppoeCustomer $customer) use ($opticalIndex, $onlineByRouter, $unpaidTodayLookup) {
+        $items = $customers->map(function (PppoeCustomer $customer) use ($opticalIndex, $onlineByRouter, $unpaidTodayLookup, $unpaidInvoicesByCustomer) {
             $lat = $customer->latitude;
             $lng = $customer->longitude;
             $onMap = $lat !== null && $lng !== null
@@ -117,6 +120,7 @@ class NetworkMapController extends Controller
                 'is_overdue' => $customer->isOverdue(),
                 'due_date' => $customer->due_date?->format('Y-m-d'),
                 'unpaid_today' => isset($unpaidTodayLookup[(int) $customer->id]),
+                'unpaid_invoices' => $unpaidInvoicesByCustomer[(int) $customer->id] ?? [],
                 'latitude' => $onMap ? (float) $lat : null,
                 'longitude' => $onMap ? (float) $lng : null,
                 'on_map' => $onMap,
@@ -140,6 +144,12 @@ class NetworkMapController extends Controller
             ],
             'customers' => $items,
             'optical_meta' => $opticalMeta,
+            'payment_methods' => [
+                ['value' => 'cash', 'label' => 'Tunai'],
+                ['value' => 'transfer', 'label' => 'Transfer'],
+                ['value' => 'qris', 'label' => 'QRIS'],
+                ['value' => 'other', 'label' => 'Lainnya'],
+            ],
             'stats' => [
                 'total' => count($items),
                 'on_map' => $onMapCount,
@@ -216,13 +226,47 @@ class NetworkMapController extends Controller
     }
 
     /**
+     * @param  array<int, int|string>  $customerIds
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function unpaidInvoicesByCustomerId(array $customerIds): array
+    {
+        if ($customerIds === []) {
+            return [];
+        }
+
+        $grouped = [];
+        $invoices = Invoice::query()
+            ->whereIn('pppoe_customer_id', $customerIds)
+            ->where('status', 'unpaid')
+            ->orderBy('due_date')
+            ->orderBy('id')
+            ->get(['id', 'pppoe_customer_id', 'number', 'total', 'due_date', 'status', 'package_name']);
+
+        foreach ($invoices as $invoice) {
+            $grouped[(int) $invoice->pppoe_customer_id][] = [
+                'id' => $invoice->id,
+                'number' => $invoice->number,
+                'total' => (int) $invoice->total,
+                'total_label' => 'Rp '.number_format((int) $invoice->total, 0, ',', '.'),
+                'due_date' => $invoice->due_date?->format('Y-m-d'),
+                'status' => $invoice->status,
+                'package_name' => $invoice->package_name,
+            ];
+        }
+
+        return $grouped;
+    }
+
+    /**
      * Pelanggan yang masih punya tagihan unpaid, atau jatuh tempo hari ini
      * dan belum ada pembayaran tercatat hari ini.
      *
      * @param  Collection<int, PppoeCustomer>  $customers
+     * @param  array<int, list<array<string, mixed>>>  $unpaidInvoicesByCustomer
      * @return array<int, true>
      */
-    private function unpaidTodayLookup(Collection $customers): array
+    private function unpaidTodayLookup(Collection $customers, array $unpaidInvoicesByCustomer): array
     {
         $customerIds = $customers->pluck('id')->filter()->values()->all();
         if ($customerIds === []) {
@@ -230,12 +274,6 @@ class NetworkMapController extends Controller
         }
 
         $today = now()->toDateString();
-
-        $unpaidIds = Invoice::query()
-            ->whereIn('pppoe_customer_id', $customerIds)
-            ->where('status', 'unpaid')
-            ->pluck('pppoe_customer_id')
-            ->all();
 
         $paidTodayLookup = [];
         foreach (
@@ -250,8 +288,10 @@ class NetworkMapController extends Controller
 
         $lookup = [];
 
-        foreach ($unpaidIds as $id) {
-            $lookup[(int) $id] = true;
+        foreach ($unpaidInvoicesByCustomer as $customerId => $invoices) {
+            if ($invoices !== []) {
+                $lookup[(int) $customerId] = true;
+            }
         }
 
         foreach ($customers as $customer) {

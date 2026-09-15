@@ -102,6 +102,7 @@ export default function OverflowMenu({
                               top: coords.top,
                               left: coords.left,
                               right: 'auto',
+                              zIndex: 1100,
                               visibility: coords.ready ? 'visible' : 'hidden',
                           }}
                       >

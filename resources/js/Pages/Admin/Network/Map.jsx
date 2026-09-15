@@ -23,6 +23,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import QuickPayMenu from '../../../Components/Admin/QuickPayMenu';
 import { matchesSearch } from '../../../lib/search';
 import {
     onlineTone,
@@ -35,7 +36,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style-v3';
+const MARKER_STYLE_ID = 'network-map-marker-style-v4';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -50,9 +51,8 @@ function ensureMarkerStyles() {
         100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
       }
       @keyframes network-map-dollar-pulse {
-        0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.5; }
-        70% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
-        100% { transform: translate(-50%, -50%) scale(1.18); opacity: 0; }
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.65; }
+        100% { transform: translate(-50%, -50%) scale(1.42); opacity: 0; }
       }
       @keyframes network-map-bounce {
         0%, 100% { transform: translate(-50%, -50%) translateY(0); }
@@ -63,7 +63,13 @@ function ensureMarkerStyles() {
         display: block;
         width: 0;
         height: 0;
+        overflow: visible;
         pointer-events: auto;
+      }
+      .network-map-marker-wrap {
+        background: none !important;
+        border: none !important;
+        overflow: visible !important;
       }
       .network-map-marker__pulse {
         position: absolute;
@@ -89,17 +95,20 @@ function ensureMarkerStyles() {
         animation: network-map-pulse 1.15s ease-out infinite;
       }
       .network-map-marker.is-unpaid .network-map-marker__pulse {
-        width: 22px;
-        height: 22px;
-        opacity: 0.4;
-        animation: network-map-dollar-pulse 1.5s ease-out infinite;
+        z-index: 0;
+        width: 28px;
+        height: 28px;
+        border-width: 2px;
+        background: currentColor;
+        opacity: 0.55;
+        animation: network-map-dollar-pulse 1.35s ease-out infinite;
       }
       .network-map-marker.is-unpaid.is-hit .network-map-marker__pulse,
       .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
-        width: 24px;
-        height: 24px;
-        opacity: 0.45;
-        animation: network-map-dollar-pulse 1.25s ease-out infinite;
+        width: 30px;
+        height: 30px;
+        opacity: 0.6;
+        animation: network-map-dollar-pulse 1.15s ease-out infinite;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -147,6 +156,7 @@ function ensureMarkerStyles() {
         position: absolute;
         left: 0;
         top: 0;
+        z-index: 2;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -648,7 +658,7 @@ function NetworkMapView({
     );
 }
 
-function DetailPanel({ customer, onClose }) {
+function DetailPanel({ customer, paymentMethods, onClose }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
     const poll = useCustomerTrafficPoll(customer?.id);
@@ -694,6 +704,7 @@ function DetailPanel({ customer, onClose }) {
                     ontTone={ontTone}
                     poll={poll}
                     canWrite={canWrite}
+                    paymentMethods={paymentMethods}
                     rebooting={rebooting}
                     onClose={onClose}
                     onReboot={rebootOnt}
@@ -711,6 +722,7 @@ function DetailPanel({ customer, onClose }) {
                     ontTone={ontTone}
                     poll={poll}
                     canWrite={canWrite}
+                    paymentMethods={paymentMethods}
                     rebooting={rebooting}
                     onClose={onClose}
                     onReboot={rebootOnt}
@@ -729,10 +741,12 @@ function DetailPanelBody({
     ontTone,
     poll,
     canWrite,
+    paymentMethods = [],
     rebooting,
     onClose,
     onReboot,
 }) {
+    const unpaidInvoices = Array.isArray(customer.unpaid_invoices) ? customer.unpaid_invoices : [];
     return (
         <>
             <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-3">
@@ -797,6 +811,35 @@ function DetailPanelBody({
                         </dd>
                     </div>
                 </dl>
+
+                {unpaidInvoices.length > 0 && (
+                    <div>
+                        <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                            Tagihan
+                        </h3>
+                        <div className="mt-2 space-y-2">
+                            {unpaidInvoices.map((invoice) => (
+                                <div
+                                    key={invoice.id}
+                                    className="flex items-start justify-between gap-3 border border-ink/10 px-3 py-2.5"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-ink">
+                                            {invoice.number}
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-ink-soft">
+                                            {invoice.total_label}
+                                            {invoice.due_date ? ` · ${invoice.due_date}` : ''}
+                                        </p>
+                                    </div>
+                                    {canWrite && (
+                                        <QuickPayMenu invoice={invoice} methods={paymentMethods} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
@@ -911,6 +954,7 @@ export default function MapPage({
     filters = {},
     stats = {},
     optical_meta: opticalMeta = {},
+    payment_methods: paymentMethods = [],
 }) {
     const [q, setQ] = useState(filters.q || '');
     const [status, setStatus] = useState(filters.status || 'all');
@@ -1176,6 +1220,7 @@ export default function MapPage({
                     {selected && (
                         <DetailPanel
                             customer={selected}
+                            paymentMethods={paymentMethods}
                             onClose={() => setSelectedId(null)}
                         />
                     )}
