@@ -40,7 +40,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style-v6';
+const MARKER_STYLE_ID = 'network-map-marker-style-v7';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -50,14 +50,8 @@ function ensureMarkerStyles() {
     style.id = MARKER_STYLE_ID;
     style.textContent = `
       @keyframes network-map-pulse {
-        0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.55; }
-        70% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
-        100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
-      }
-      @keyframes network-map-dollar-pulse {
-        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-        35% { transform: translate(-50%, -50%) scale(1); opacity: 0.45; }
-        100% { transform: translate(-50%, -50%) scale(1.38); opacity: 0; }
+        0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.55; }
+        100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0; }
       }
       @keyframes network-map-bounce {
         0%, 100% { transform: translate(-50%, -50%) translateY(0); }
@@ -80,40 +74,25 @@ function ensureMarkerStyles() {
         position: absolute;
         left: 0;
         top: 0;
-        width: 20px;
-        height: 20px;
-        border-radius: 9999px;
-        border: 1.5px solid currentColor;
-        background: currentColor;
-        opacity: 0;
-        transform: translate(-50%, -50%) scale(0.7);
-        pointer-events: none;
-      }
-      .network-map-marker.is-hit .network-map-marker__pulse {
-        opacity: 0.32;
-        animation: network-map-pulse 1.8s ease-out infinite;
-      }
-      .network-map-marker.is-selected .network-map-marker__pulse {
-        width: 24px;
-        height: 24px;
-        opacity: 0.4;
-        animation: network-map-pulse 1.5s ease-out infinite;
-      }
-      .network-map-marker.is-unpaid .network-map-marker__pulse {
-        z-index: 0;
-        width: 28px;
-        height: 28px;
-        border-width: 1.5px;
-        background: currentColor;
-        opacity: 0.5;
-        animation: network-map-dollar-pulse 2.8s ease-out infinite;
-      }
-      .network-map-marker.is-unpaid.is-hit .network-map-marker__pulse,
-      .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
         width: 30px;
         height: 30px;
+        border-radius: 9999px;
+        border: 2px solid currentColor;
+        background: currentColor;
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.85);
+        pointer-events: none;
+      }
+      .network-map-marker.is-online .network-map-marker__pulse,
+      .network-map-marker.is-unpaid .network-map-marker__pulse,
+      .network-map-marker.is-hit .network-map-marker__pulse,
+      .network-map-marker.is-selected .network-map-marker__pulse {
+        z-index: 0;
+        opacity: 0.5;
+        animation: network-map-pulse 2.6s ease-out infinite;
+      }
+      .network-map-marker.is-selected .network-map-marker__pulse {
         opacity: 0.55;
-        animation: network-map-dollar-pulse 2.4s ease-out infinite;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -204,12 +183,18 @@ function ensureMarkerStyles() {
 
 const DOLLAR_MARKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`;
 
-function buildMarkerHtml(color, { selected = false, highlighted = false, unpaidToday = false } = {}) {
+function buildMarkerHtml(color, {
+    selected = false,
+    highlighted = false,
+    unpaidToday = false,
+    online = false,
+} = {}) {
     const classes = [
         'network-map-marker',
         highlighted ? 'is-hit' : '',
         selected ? 'is-selected' : '',
         unpaidToday ? 'is-unpaid' : '',
+        online ? 'is-online' : '',
     ]
         .filter(Boolean)
         .join(' ');
@@ -603,7 +588,12 @@ function NetworkMapView({
                 const selected = customer.id === selectedId;
                 const unpaidToday = Boolean(customer.unpaid_today);
                 const highlighted = filterActive || selected;
-                const html = buildMarkerHtml(color, { selected, highlighted, unpaidToday });
+                const html = buildMarkerHtml(color, {
+                    selected,
+                    highlighted,
+                    unpaidToday,
+                    online: Boolean(customer.session_online),
+                });
                 const icon = L.divIcon({
                     className: 'network-map-marker-wrap',
                     html,
