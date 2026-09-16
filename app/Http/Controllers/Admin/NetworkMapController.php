@@ -111,8 +111,13 @@ class NetworkMapController extends Controller
             $optical = $opticalIndex[$usernameKey] ?? null;
 
             $routerId = (int) ($customer->mikrotik_router_id ?? 0);
-            $sessionOnline = $routerId > 0
-                && isset($onlineByRouter[$routerId][$usernameKey]);
+            $session = $routerId > 0
+                ? ($onlineByRouter[$routerId][$usernameKey] ?? null)
+                : null;
+            $sessionOnline = is_array($session);
+            $sessionIp = is_array($session)
+                ? (trim((string) ($session['address'] ?? '')) ?: null)
+                : null;
 
             return [
                 'id' => $customer->id,
@@ -120,6 +125,7 @@ class NetworkMapController extends Controller
                 'username' => $customer->username,
                 'phone' => $customer->phone,
                 'address' => $customer->address,
+                'session_ip' => $sessionIp,
                 'status' => $customer->status,
                 'is_active' => (bool) $customer->is_active,
                 'is_overdue' => $customer->isOverdue(),
@@ -320,7 +326,7 @@ class NetworkMapController extends Controller
 
     /**
      * @param  array<int, int|string>  $routerIds
-     * @return array<int, array<string, true>>
+     * @return array<int, array<string, array{address: ?string}>>
      */
     private function activeSessionUsernamesByRouter(array $routerIds): array
     {
@@ -349,9 +355,14 @@ class NetworkMapController extends Controller
             $usernames = [];
             foreach ($result['sessions'] ?? [] as $session) {
                 $name = strtolower(trim((string) ($session['name'] ?? '')));
-                if ($name !== '') {
-                    $usernames[$name] = true;
+                if ($name === '') {
+                    continue;
                 }
+
+                $address = trim((string) ($session['address'] ?? ''));
+                $usernames[$name] = [
+                    'address' => $address !== '' ? $address : null,
+                ];
             }
 
             $map[(int) $routerId] = $usernames;

@@ -5,6 +5,7 @@ import {
     ArrowUpFromLine,
     CircleDollarSign,
     Cpu,
+    Globe,
     List,
     LoaderCircle,
     Map as MapIcon,
@@ -578,17 +579,19 @@ function NetworkMapView({
                     marker.setIcon(icon);
                 }
 
-                const safeName = String(customer.name || '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
-                const safeUser = String(customer.username || '')
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
+                const escapeHtml = (value) =>
+                    String(value || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+                const safeName = escapeHtml(customer.name);
+                const safeUser = escapeHtml(customer.username);
+                const safeIp = escapeHtml(customer.session_ip);
 
                 marker.bindTooltip(
                     `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>${
+                        safeIp ? `<br/><span style="opacity:.8">${safeIp}</span>` : ''
+                    }${
                         unpaidToday
                             ? '<br/><span style="color:#ca8a04;font-weight:600">Belum bayar hari ini</span>'
                             : ''
@@ -801,6 +804,15 @@ function DetailPanelBody({
                         <dd className="text-right font-medium text-ink">{customer.router?.name || '—'}</dd>
                     </div>
                     <div className="flex justify-between gap-3 border-b border-ink/5 py-1.5">
+                        <dt className="inline-flex items-center gap-1.5 text-ink-soft">
+                            <Globe className="h-3.5 w-3.5" />
+                            IP
+                        </dt>
+                        <dd className="text-right font-mono text-sm font-medium text-ink">
+                            {customer.session_ip || '—'}
+                        </dd>
+                    </div>
+                    <div className="flex justify-between gap-3 border-b border-ink/5 py-1.5">
                         <dt className="text-ink-soft">Telepon</dt>
                         <dd className="text-right font-medium text-ink">{customer.phone || '—'}</dd>
                     </div>
@@ -980,7 +992,7 @@ export default function MapPage({
     const filteredCustomers = useMemo(
         () =>
             customers.filter((item) =>
-                matchesSearch(q, item.name, item.username, item.phone, item.address),
+                matchesSearch(q, item.name, item.username, item.phone, item.address, item.session_ip),
             ),
         [customers, q],
     );
@@ -1120,7 +1132,7 @@ export default function MapPage({
                                     type="search"
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Cari nama / username / telepon"
+                                    placeholder="Cari nama / username / telepon / IP"
                                     className="w-full border border-ink/15 bg-white py-2 pr-3 pl-8 text-sm outline-none focus:border-signal"
                                 />
                             </label>
@@ -1193,6 +1205,9 @@ export default function MapPage({
                                                 </span>
                                                 <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
                                                     {customer.username}
+                                                </span>
+                                                <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
+                                                    {customer.session_ip || 'IP —'}
                                                 </span>
                                                 <span className="mt-1 flex flex-wrap gap-1.5">
                                                     <span

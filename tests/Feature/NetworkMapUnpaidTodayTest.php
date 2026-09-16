@@ -131,6 +131,8 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.3.unpaid_today', false)
                 ->where('customers.0.unpaid_invoices.0.id', $unpaidInvoice->id)
                 ->where('customers.0.unpaid_invoices.0.status', 'unpaid')
+                ->where('customers.0.session_ip', null)
+                ->where('customers.0.session_online', false)
                 ->where('customers.1.unpaid_invoices', [])
                 ->where('customers.2.unpaid_invoices', [])
                 ->where('customers.3.unpaid_invoices', [])
@@ -176,6 +178,46 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.0.id', $onRouterA->id)
                 ->where('stats.total', 1)
                 ->has('routers', 2)
+            );
+    }
+
+    #[Test]
+    public function map_includes_pppoe_session_ip_for_online_customers(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $router = $this->router();
+        $online = $this->customer($router, [
+            'name' => 'Andi Online',
+            'username' => 'user-online',
+        ]);
+        $offline = $this->customer($router, [
+            'name' => 'Budi Offline',
+            'username' => 'user-offline',
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('listPppActiveSessions')->andReturn([
+            'ok' => true,
+            'sessions' => [
+                [
+                    'name' => 'user-online',
+                    'address' => '10.11.12.8',
+                ],
+            ],
+        ]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $this->actingAs($admin)
+            ->get('/admin/network/map')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Network/Map')
+                ->where('customers.0.id', $online->id)
+                ->where('customers.0.session_online', true)
+                ->where('customers.0.session_ip', '10.11.12.8')
+                ->where('customers.1.id', $offline->id)
+                ->where('customers.1.session_online', false)
+                ->where('customers.1.session_ip', null)
             );
     }
 }
