@@ -3,7 +3,9 @@ import {
     Activity,
     ArrowDownToLine,
     ArrowUpFromLine,
+    Ban,
     CircleDollarSign,
+    Clock,
     Cpu,
     Globe,
     List,
@@ -25,6 +27,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import QuickPayMenu from '../../../Components/Admin/QuickPayMenu';
+import { keepPage } from '../../../lib/keepPage';
 import { matchesSearch } from '../../../lib/search';
 import {
     onlineTone,
@@ -267,6 +270,49 @@ function statusBadgeClass(status) {
     if (status === 'isolated') return 'bg-rose-50 text-rose-700';
     if (status === 'disabled') return 'bg-slate-100 text-slate-600';
     return 'bg-emerald-50 text-emerald-700';
+}
+
+function sessionIpHref(ip) {
+    const raw = String(ip || '').trim().split('/')[0].trim();
+    if (!raw) return null;
+
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(raw)) {
+        const parts = raw.split('.').map((part) => Number(part));
+        if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
+            return null;
+        }
+        return `http://${raw}`;
+    }
+
+    if (/^[0-9a-f:]+$/i.test(raw) && raw.includes(':')) {
+        return `http://[${raw}]`;
+    }
+
+    return null;
+}
+
+function SessionIpLink({ ip, className = '', fallback = '—' }) {
+    if (!ip) {
+        return <span className={className}>{fallback}</span>;
+    }
+
+    const href = sessionIpHref(ip);
+    if (!href) {
+        return <span className={`font-mono ${className}`}>{ip}</span>;
+    }
+
+    return (
+        <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className={`font-mono text-signal-deep hover:underline ${className}`}
+            title={`Buka ${href} di tab baru`}
+        >
+            {ip}
+        </a>
+    );
 }
 
 function MetricBox({ icon: Icon, label, value, tone }) {
@@ -587,16 +633,20 @@ function NetworkMapView({
                 const safeName = escapeHtml(customer.name);
                 const safeUser = escapeHtml(customer.username);
                 const safeIp = escapeHtml(customer.session_ip);
+                const ipHref = sessionIpHref(customer.session_ip);
+                const ipLine = safeIp
+                    ? ipHref
+                        ? `<br/><a href="${ipHref}" target="_blank" rel="noopener noreferrer">${safeIp}</a>`
+                        : `<br/><span style="opacity:.8">${safeIp}</span>`
+                    : '';
 
                 marker.bindTooltip(
-                    `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>${
-                        safeIp ? `<br/><span style="opacity:.8">${safeIp}</span>` : ''
-                    }${
+                    `<strong>${safeName}</strong><br/><span style="opacity:.8">${safeUser}</span>${ipLine}${
                         unpaidToday
                             ? '<br/><span style="color:#ca8a04;font-weight:600">Belum bayar hari ini</span>'
                             : ''
                     }`,
-                    { direction: 'top', offset: [0, unpaidToday ? -18 : -14] },
+                    { direction: 'top', offset: [0, unpaidToday ? -18 : -14], interactive: Boolean(ipHref) },
                 );
             });
 
@@ -750,6 +800,28 @@ function DetailPanelBody({
     onReboot,
 }) {
     const unpaidInvoices = Array.isArray(customer.unpaid_invoices) ? customer.unpaid_invoices : [];
+
+    const grantGrace = ({ days, months } = {}) => {
+        if (!canWrite) return;
+        const label = months ? `+${months} bulan` : `+${days} hari`;
+        const note = window.prompt(
+            `Tempo isolir ${label} (tagihan tetap belum lunas, jatuh tempo tidak digeser).\nProfil paket akan dipulihkan.\nCatatan opsional:`,
+            customer.grace_note || '',
+        );
+        if (note === null) return;
+        router.post(
+            `/admin/billing/customers/${customer.id}/grace`,
+            { days, months, note: note || undefined },
+            keepPage,
+        );
+    };
+
+    const clearGrace = () => {
+        if (!canWrite) return;
+        if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
+        router.delete(`/admin/billing/customers/${customer.id}/grace`, keepPage);
+    };
+
     return (
         <>
             <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-3">
@@ -792,6 +864,12 @@ function DetailPanelBody({
                             Belum bayar hari ini
                         </span>
                     )}
+                    {customer.has_active_grace && (
+                        <span className="inline-flex items-center gap-1 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+                            <Clock className="h-3 w-3" />
+                            Grace s/d {customer.grace_until}
+                        </span>
+                    )}
                 </div>
 
                 <dl className="grid grid-cols-1 gap-2 text-sm">
@@ -808,8 +886,12 @@ function DetailPanelBody({
                             <Globe className="h-3.5 w-3.5" />
                             IP
                         </dt>
-                        <dd className="text-right font-mono text-sm font-medium text-ink">
-                            {customer.session_ip || '—'}
+                        <dd className="text-right font-medium text-ink">
+                            {customer.session_ip ? (
+                                <SessionIpLink ip={customer.session_ip} className="text-sm font-medium" />
+                            ) : (
+                                '—'
+                            )}
                         </dd>
                     </div>
                     <div className="flex justify-between gap-3 border-b border-ink/5 py-1.5">
@@ -852,6 +934,54 @@ function DetailPanelBody({
                         </div>
                     </div>
                 )}
+
+                <div>
+                    <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        Toleransi isolir
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+                        Jatuh tempo tetap {customer.due_date || '—'}. Isolir ditunda sampai tanggal
+                        toleransi.
+                    </p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                        Saat ini:{' '}
+                        {customer.has_active_grace
+                            ? `aktif s/d ${customer.grace_until}`
+                            : 'tidak ada'}
+                        {customer.grace_note ? ` — ${customer.grace_note}` : ''}
+                    </p>
+                    {canWrite && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {[3, 7, 14].map((days) => (
+                                <button
+                                    key={days}
+                                    type="button"
+                                    onClick={() => grantGrace({ days })}
+                                    className="btn-action btn-action-xs btn-warn"
+                                >
+                                    +{days} hari
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => grantGrace({ months: 2 })}
+                                className="btn-action btn-action-xs btn-warn"
+                            >
+                                +2 bulan
+                            </button>
+                            {customer.has_active_grace && (
+                                <button
+                                    type="button"
+                                    onClick={clearGrace}
+                                    className="btn-action btn-action-xs btn-danger inline-flex items-center gap-1"
+                                >
+                                    <Ban className="h-3 w-3" />
+                                    Cabut
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <div>
                     <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
@@ -1180,10 +1310,17 @@ export default function MapPage({
                                 const active = customer.id === selectedId;
                                 return (
                                     <li key={customer.id}>
-                                        <button
-                                            type="button"
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
                                             onClick={() => selectCustomer(customer.id)}
-                                            className={`flex w-full items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
+                                            onKeyDown={(event) => {
+                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                    event.preventDefault();
+                                                    selectCustomer(customer.id);
+                                                }
+                                            }}
+                                            className={`flex w-full cursor-pointer items-start gap-3 border-b border-ink/5 px-3 py-3 text-left transition ${
                                                 active ? 'bg-signal/10' : 'hover:bg-mist/70'
                                             }`}
                                         >
@@ -1207,7 +1344,11 @@ export default function MapPage({
                                                     {customer.username}
                                                 </span>
                                                 <span className="mt-0.5 block truncate font-mono text-[11px] text-ink-soft">
-                                                    {customer.session_ip || 'IP —'}
+                                                    {customer.session_ip ? (
+                                                        <SessionIpLink ip={customer.session_ip} />
+                                                    ) : (
+                                                        'IP —'
+                                                    )}
                                                 </span>
                                                 <span className="mt-1 flex flex-wrap gap-1.5">
                                                     <span
@@ -1215,6 +1356,11 @@ export default function MapPage({
                                                     >
                                                         {STATUS_LABEL[customer.status] || customer.status}
                                                     </span>
+                                                    {customer.has_active_grace && (
+                                                        <span className="bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                                                            Grace s/d {customer.grace_until}
+                                                        </span>
+                                                    )}
                                                     {customer.optical?.rx_power_label && (
                                                         <span className="bg-ink/5 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">
                                                             RX {customer.optical.rx_power_label}
@@ -1228,7 +1374,7 @@ export default function MapPage({
                                                     )}
                                                 </span>
                                             </span>
-                                        </button>
+                                        </div>
                                     </li>
                                 );
                             })}

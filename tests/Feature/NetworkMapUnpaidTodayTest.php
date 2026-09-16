@@ -133,6 +133,7 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.0.unpaid_invoices.0.status', 'unpaid')
                 ->where('customers.0.session_ip', null)
                 ->where('customers.0.session_online', false)
+                ->where('customers.0.has_active_grace', false)
                 ->where('customers.1.unpaid_invoices', [])
                 ->where('customers.2.unpaid_invoices', [])
                 ->where('customers.3.unpaid_invoices', [])
@@ -218,6 +219,34 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.1.id', $offline->id)
                 ->where('customers.1.session_online', false)
                 ->where('customers.1.session_ip', null)
+            );
+    }
+
+    #[Test]
+    public function map_includes_active_isolir_grace_for_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-16 10:00:00', 'Asia/Jakarta'));
+        $this->mockSessions();
+
+        $admin = User::factory()->superadmin()->create();
+        $router = $this->router();
+        $customer = $this->customer($router, [
+            'name' => 'Citra Grace',
+            'username' => 'citra-grace',
+            'due_date' => now()->subDays(2)->toDateString(),
+            'grace_until' => now()->addDays(7)->toDateString(),
+            'grace_note' => 'Janji bayar Jumat',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/network/map')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Network/Map')
+                ->where('customers.0.id', $customer->id)
+                ->where('customers.0.has_active_grace', true)
+                ->where('customers.0.grace_until', now()->addDays(7)->toDateString())
+                ->where('customers.0.grace_note', 'Janji bayar Jumat')
             );
     }
 }
