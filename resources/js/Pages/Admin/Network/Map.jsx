@@ -40,7 +40,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style-v4';
+const MARKER_STYLE_ID = 'network-map-marker-style-v5';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -121,20 +121,20 @@ function ensureMarkerStyles() {
         width: 14px;
         height: 14px;
         border-radius: 9999px;
-        border: 2px solid #fff;
-        box-shadow: 0 1px 5px rgba(0,0,0,.4);
+        border: 1px solid #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,.35);
         transform: translate(-50%, -50%);
       }
       .network-map-marker.is-hit .network-map-marker__dot {
         width: 18px;
         height: 18px;
-        box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 10px rgba(0,0,0,.45);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 2px 8px rgba(0,0,0,.4);
         animation: network-map-bounce 1.4s ease-in-out infinite;
       }
       .network-map-marker.is-selected .network-map-marker__dot {
         width: 20px;
         height: 20px;
-        box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 3px 12px rgba(0,0,0,.5);
+        box-shadow: 0 0 0 1.5px rgba(255,255,255,.95), 0 2px 10px rgba(0,0,0,.45);
         animation: network-map-bounce 1.1s ease-in-out infinite;
       }
       .network-map-marker__ring {
@@ -167,8 +167,8 @@ function ensureMarkerStyles() {
         width: 22px;
         height: 22px;
         border-radius: 9999px;
-        border: 2px solid #fff;
-        box-shadow: 0 1px 5px rgba(0,0,0,.4);
+        border: 1px solid #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,.35);
         transform: translate(-50%, -50%);
         color: #fff;
       }
@@ -184,12 +184,12 @@ function ensureMarkerStyles() {
       .network-map-marker.is-selected .network-map-marker__dollar {
         width: 26px;
         height: 26px;
-        box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 2px 10px rgba(0,0,0,.45);
+        box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 2px 8px rgba(0,0,0,.4);
       }
       .network-map-marker.is-selected .network-map-marker__dollar {
         width: 28px;
         height: 28px;
-        box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 3px 12px rgba(0,0,0,.5);
+        box-shadow: 0 0 0 1.5px rgba(255,255,255,.95), 0 2px 10px rgba(0,0,0,.45);
         animation: network-map-bounce 1.1s ease-in-out infinite;
       }
       .network-map-marker.is-hit .network-map-marker__dollar svg,
