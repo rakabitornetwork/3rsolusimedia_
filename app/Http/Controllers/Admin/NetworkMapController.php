@@ -26,11 +26,12 @@ class NetworkMapController extends Controller
 
     public function index(Request $request): Response
     {
-        AdminListState::apply($request, AdminListState::MAP, ['q', 'status']);
+        AdminListState::apply($request, AdminListState::MAP, ['q', 'status', 'router_id']);
 
         $user = $request->user();
         $search = trim((string) $request->get('q', ''));
         $status = (string) $request->get('status', '');
+        $routerId = (string) $request->get('router_id', '');
 
         $query = PppoeCustomer::query()
             ->with(['router:id,name,host', 'package:id,name'])
@@ -38,6 +39,10 @@ class NetworkMapController extends Controller
 
         if ($user?->isAgen()) {
             $query->where('agent_id', $user->id);
+        }
+
+        if ($routerId !== '' && $routerId !== 'all' && ctype_digit($routerId)) {
+            $query->where('mikrotik_router_id', (int) $routerId);
         }
 
         if ($status !== '' && $status !== 'all') {
@@ -141,7 +146,12 @@ class NetworkMapController extends Controller
             'filters' => [
                 'q' => $search,
                 'status' => $status !== '' ? $status : 'all',
+                'router_id' => $routerId !== '' && $routerId !== 'all' ? $routerId : '',
             ],
+            'routers' => MikrotikRouter::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'host']),
             'customers' => $items,
             'optical_meta' => $opticalMeta,
             'payment_methods' => [

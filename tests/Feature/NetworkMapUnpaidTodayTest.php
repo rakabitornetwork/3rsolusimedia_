@@ -136,6 +136,46 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.3.unpaid_invoices', [])
                 ->has('payment_methods', 4)
                 ->where('payment_methods.0.value', 'cash')
+                ->has('routers', 1)
+                ->where('filters.router_id', '')
+            );
+    }
+
+    #[Test]
+    public function map_can_filter_customers_by_selected_routeros(): void
+    {
+        $this->mockSessions();
+
+        $admin = User::factory()->superadmin()->create();
+        $routerA = $this->router();
+        $routerB = MikrotikRouter::query()->create([
+            'name' => 'Router 2',
+            'host' => '192.168.88.2',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'is_active' => true,
+        ]);
+
+        $onRouterA = $this->customer($routerA, [
+            'name' => 'Pelanggan A',
+            'username' => 'user-a',
+        ]);
+        $this->customer($routerB, [
+            'name' => 'Pelanggan B',
+            'username' => 'user-b',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/network/map?router_id='.$routerA->id)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Network/Map')
+                ->where('filters.router_id', (string) $routerA->id)
+                ->has('customers', 1)
+                ->where('customers.0.id', $onRouterA->id)
+                ->where('stats.total', 1)
+                ->has('routers', 2)
             );
     }
 }
