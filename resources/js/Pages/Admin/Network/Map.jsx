@@ -40,7 +40,7 @@ const DEFAULT_ZOOM = 5;
 const POLL_SECONDS = 3;
 const SPARK_POINTS = 24;
 
-const MARKER_STYLE_ID = 'network-map-marker-style-v5';
+const MARKER_STYLE_ID = 'network-map-marker-style-v6';
 
 function ensureMarkerStyles() {
     if (typeof document === 'undefined') return;
@@ -50,13 +50,14 @@ function ensureMarkerStyles() {
     style.id = MARKER_STYLE_ID;
     style.textContent = `
       @keyframes network-map-pulse {
-        0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.7; }
-        70% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
-        100% { transform: translate(-50%, -50%) scale(1.85); opacity: 0; }
+        0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.55; }
+        70% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
+        100% { transform: translate(-50%, -50%) scale(1.35); opacity: 0; }
       }
       @keyframes network-map-dollar-pulse {
-        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.65; }
-        100% { transform: translate(-50%, -50%) scale(1.42); opacity: 0; }
+        0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+        35% { transform: translate(-50%, -50%) scale(1); opacity: 0.45; }
+        100% { transform: translate(-50%, -50%) scale(1.38); opacity: 0; }
       }
       @keyframes network-map-bounce {
         0%, 100% { transform: translate(-50%, -50%) translateY(0); }
@@ -79,40 +80,40 @@ function ensureMarkerStyles() {
         position: absolute;
         left: 0;
         top: 0;
-        width: 34px;
-        height: 34px;
+        width: 20px;
+        height: 20px;
         border-radius: 9999px;
-        border: 2px solid currentColor;
+        border: 1.5px solid currentColor;
         background: currentColor;
         opacity: 0;
-        transform: translate(-50%, -50%) scale(0.55);
+        transform: translate(-50%, -50%) scale(0.7);
         pointer-events: none;
       }
       .network-map-marker.is-hit .network-map-marker__pulse {
-        opacity: 0.35;
-        animation: network-map-pulse 1.6s ease-out infinite;
+        opacity: 0.32;
+        animation: network-map-pulse 1.8s ease-out infinite;
       }
       .network-map-marker.is-selected .network-map-marker__pulse {
-        width: 42px;
-        height: 42px;
-        opacity: 0.45;
-        animation: network-map-pulse 1.15s ease-out infinite;
+        width: 24px;
+        height: 24px;
+        opacity: 0.4;
+        animation: network-map-pulse 1.5s ease-out infinite;
       }
       .network-map-marker.is-unpaid .network-map-marker__pulse {
         z-index: 0;
         width: 28px;
         height: 28px;
-        border-width: 2px;
+        border-width: 1.5px;
         background: currentColor;
-        opacity: 0.55;
-        animation: network-map-dollar-pulse 1.35s ease-out infinite;
+        opacity: 0.5;
+        animation: network-map-dollar-pulse 2.8s ease-out infinite;
       }
       .network-map-marker.is-unpaid.is-hit .network-map-marker__pulse,
       .network-map-marker.is-unpaid.is-selected .network-map-marker__pulse {
         width: 30px;
         height: 30px;
-        opacity: 0.6;
-        animation: network-map-dollar-pulse 1.15s ease-out infinite;
+        opacity: 0.55;
+        animation: network-map-dollar-pulse 2.4s ease-out infinite;
       }
       .network-map-marker__dot {
         position: absolute;
@@ -141,10 +142,10 @@ function ensureMarkerStyles() {
         position: absolute;
         left: 0;
         top: 0;
-        width: 26px;
-        height: 26px;
+        width: 20px;
+        height: 20px;
         border-radius: 9999px;
-        border: 2px dashed currentColor;
+        border: 1.5px dashed currentColor;
         opacity: 0;
         transform: translate(-50%, -50%);
         pointer-events: none;
@@ -178,7 +179,7 @@ function ensureMarkerStyles() {
         height: 13px;
       }
       .network-map-marker.is-unpaid .network-map-marker__dollar {
-        animation: network-map-bounce 1.4s ease-in-out infinite;
+        animation: network-map-bounce 2.2s ease-in-out infinite;
       }
       .network-map-marker.is-hit .network-map-marker__dollar,
       .network-map-marker.is-selected .network-map-marker__dollar {
@@ -190,7 +191,7 @@ function ensureMarkerStyles() {
         width: 28px;
         height: 28px;
         box-shadow: 0 0 0 1.5px rgba(255,255,255,.95), 0 2px 10px rgba(0,0,0,.45);
-        animation: network-map-bounce 1.1s ease-in-out infinite;
+        animation: network-map-bounce 2s ease-in-out infinite;
       }
       .network-map-marker.is-hit .network-map-marker__dollar svg,
       .network-map-marker.is-selected .network-map-marker__dollar svg {
