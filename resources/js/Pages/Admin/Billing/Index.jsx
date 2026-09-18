@@ -466,7 +466,7 @@ export default function Index({
             ) {
                 return;
             }
-            router.post(`/admin/billing/invoices/${invoice.id}/void`, {}, keepPage);
+            router.post(`/admin/billing/invoices/${invoice.id}/void`);
             return;
         }
 

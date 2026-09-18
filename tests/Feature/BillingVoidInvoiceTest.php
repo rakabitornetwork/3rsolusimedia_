@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
+use App\Models\User;
 use App\Services\BillingService;
 use App\Services\MikrotikApiService;
 use Carbon\Carbon;
@@ -61,7 +62,7 @@ class BillingVoidInvoiceTest extends TestCase
         $customer->refresh();
 
         $this->assertSame('void', $result['invoice']->status);
-        $this->assertNotNull($result['replacement']);
+        $this->assertTrue($result['replacement_created']);
         $this->assertSame('unpaid', $result['replacement']->status);
         $this->assertSame('2026-06-20', $result['replacement']->due_date?->toDateString());
         $this->assertSame(150000, $result['replacement']->total);
@@ -101,6 +102,7 @@ class BillingVoidInvoiceTest extends TestCase
 
         $this->assertSame('void', $result['invoice']->status);
         $this->assertNull($result['replacement']);
+        $this->assertFalse($result['replacement_created']);
         $this->assertSame('2026-06-20', $customer->due_date?->toDateString());
         $this->assertSame('isolated', $customer->status);
         $this->assertSame(0, Invoice::query()->where('status', 'unpaid')->count());
@@ -159,6 +161,7 @@ class BillingVoidInvoiceTest extends TestCase
 
         $this->assertSame('void', $result['invoice']->status);
         $this->assertNotNull($result['replacement']);
+        $this->assertTrue($result['replacement_created']);
         $this->assertSame('2026-06-20', $result['replacement']->due_date?->toDateString());
         $this->assertSame('2026-08-20', $customer->due_date?->toDateString());
         $this->assertFalse($customer->shouldIsolir());
@@ -201,6 +204,101 @@ class BillingVoidInvoiceTest extends TestCase
         $this->assertSame($combined->id, Invoice::query()->where('status', 'unpaid')->value('id'));
         $this->assertSame('2026-06-20', $customer->due_date?->toDateString());
         $this->assertSame('active', $customer->status);
+    }
+
+    #[Test]
+    public function voiding_paid_invoice_reuses_existing_unpaid_for_same_due(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-10 11:00:00', 'Asia/Jakarta'));
+
+        [$customer, $package] = $this->isolatedCustomer([
+            'due_date' => '2026-08-20',
+            'status' => 'active',
+        ]);
+
+        $paid = Invoice::query()->create([
+            'number' => 'INV/2026/06/0001',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-05-20',
+            'period_end' => '2026-06-20',
+            'due_date' => '2026-06-20',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'paid',
+            'paid_at' => '2026-06-20 09:00:00',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $existingUnpaid = Invoice::query()->create([
+            'number' => 'INV/2026/06/0002',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-05-20',
+            'period_end' => '2026-06-20',
+            'due_date' => '2026-06-20',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->mockProfileSequence(['10Mbps']);
+
+        $result = app(BillingService::class)->voidInvoice($paid);
+
+        $this->assertFalse($result['replacement_created']);
+        $this->assertSame($existingUnpaid->id, $result['replacement']?->id);
+        $this->assertSame(1, Invoice::query()->where('status', 'unpaid')->count());
+    }
+
+    #[Test]
+    public function voiding_paid_from_admin_redirects_to_replacement_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-22 11:00:00', 'Asia/Jakarta'));
+
+        [$customer, $package] = $this->isolatedCustomer();
+
+        $invoice = Invoice::query()->create([
+            'number' => 'INV/2026/08/0099',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-05-20',
+            'period_end' => '2026-06-20',
+            'due_date' => '2026-06-20',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->mockProfileSequence(['10Mbps', 'ISOLIR']);
+        app(BillingService::class)->markPaid($invoice);
+
+        $admin = User::factory()->superadmin()->create();
+
+        $response = $this->actingAs($admin)
+            ->from('/admin/billing?status=paid')
+            ->post('/admin/billing/invoices/'.$invoice->id.'/void');
+
+        $replacement = Invoice::query()->where('status', 'unpaid')->first();
+        $this->assertNotNull($replacement);
+        $response->assertRedirect(route('admin.billing.show', $replacement));
+        $response->assertSessionHas('success');
+        $this->assertStringContainsString($replacement->number, session('success'));
+        $this->assertSame('unpaid', session('admin.list.billing')['status']);
     }
 
     /**

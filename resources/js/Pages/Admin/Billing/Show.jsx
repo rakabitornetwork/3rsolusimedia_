@@ -8,7 +8,13 @@ import { keepPage } from '../../../lib/keepPage';
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
-export default function Show({ invoice, payment_methods, online_pay, whatsapp = { enabled: false, templates: [] } }) {
+export default function Show({
+    invoice,
+    replacement_invoice = null,
+    payment_methods,
+    online_pay,
+    whatsapp = { enabled: false, templates: [] },
+}) {
     const { flash } = usePage().props;
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
@@ -76,7 +82,7 @@ export default function Show({ invoice, payment_methods, online_pay, whatsapp = 
         ) {
             return;
         }
-        router.post(`/admin/billing/invoices/${invoice.id}/void`, {}, keepPage);
+        router.post(`/admin/billing/invoices/${invoice.id}/void`);
     };
 
     const grantGrace = ({ days, months } = {}) => {
@@ -178,6 +184,19 @@ export default function Show({ invoice, payment_methods, online_pay, whatsapp = 
                                       : invoice.status_label}
                             </span>
                         </div>
+
+                        {replacement_invoice && (
+                            <div className="mt-4 border border-signal/20 bg-signal/5 px-3 py-2.5 text-sm text-ink">
+                                Tagihan pengganti{' '}
+                                <Link
+                                    href={`/admin/billing/invoices/${replacement_invoice.id}`}
+                                    className="font-semibold text-signal-deep hover:underline"
+                                >
+                                    {replacement_invoice.number}
+                                </Link>{' '}
+                                sudah dibuat untuk periode ini.
+                            </div>
+                        )}
 
                         <dl className="mt-6 grid gap-4 sm:grid-cols-2">
                             <div>

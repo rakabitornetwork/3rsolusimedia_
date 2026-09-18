@@ -412,7 +412,7 @@ class BillingService
      * Tagihan lunas: due_date dikembalikan, invoice unpaid pengganti dibuat,
      * dan sync isolir dijalankan segera.
      *
-     * @return array{invoice: Invoice, replacement: ?Invoice}
+     * @return array{invoice: Invoice, replacement: ?Invoice, replacement_created: bool}
      */
     public function voidInvoice(Invoice $invoice, ?string $notes = null): array
     {
@@ -429,15 +429,19 @@ class BillingService
             ]);
 
             $replacement = null;
+            $replacementCreated = false;
             if ($wasPaid) {
                 $invoice->loadMissing('customer');
                 $this->restoreCustomerDueAfterVoidedPayment($invoice);
-                $replacement = $this->createReplacementInvoice($invoice);
+                $resolved = $this->resolveReplacementInvoice($invoice);
+                $replacement = $resolved['invoice'];
+                $replacementCreated = $resolved['created'];
             }
 
             return [
                 'invoice' => $invoice->fresh(['customer', 'payments.receiver', 'package']),
                 'replacement' => $replacement?->fresh(['customer', 'package']),
+                'replacement_created' => $replacementCreated,
             ];
         });
 
@@ -449,7 +453,7 @@ class BillingService
             }
         }
 
-        if ($result['replacement']) {
+        if ($result['replacement_created'] && $result['replacement']) {
             try {
                 $this->notifier->notifyInvoice($result['replacement']->loadMissing('customer'));
             } catch (\Throwable) {
@@ -460,6 +464,7 @@ class BillingService
         return [
             'invoice' => $result['invoice']->fresh(['customer', 'payments.receiver', 'package']),
             'replacement' => $result['replacement']?->fresh(['customer', 'package']),
+            'replacement_created' => (bool) $result['replacement_created'],
         ];
     }
 
@@ -504,31 +509,43 @@ class BillingService
         ]);
     }
 
-    private function createReplacementInvoice(Invoice $voided): ?Invoice
+    /**
+     * @return array{invoice: Invoice, created: bool}
+     */
+    private function resolveReplacementInvoice(Invoice $voided): array
     {
         $customer = $voided->customer;
-        if (! $customer || ! $voided->due_date) {
-            return null;
+        if (! $customer) {
+            throw new InvalidArgumentException('Tagihan tidak terkait pelanggan, tidak bisa dibuat ulang.');
         }
 
-        $existsUnpaid = Invoice::query()
+        if (! $voided->due_date) {
+            throw new InvalidArgumentException('Tagihan tidak punya jatuh tempo, tidak bisa dibuat ulang.');
+        }
+
+        $existing = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'unpaid')
             ->whereDate('due_date', $voided->due_date->toDateString())
-            ->exists();
+            ->latest('id')
+            ->first();
 
-        if ($existsUnpaid) {
-            return null;
+        if ($existing) {
+            return ['invoice' => $existing, 'created' => false];
         }
 
-        return Invoice::query()->create([
+        if (! $voided->period_start || ! $voided->period_end) {
+            throw new InvalidArgumentException('Tagihan tidak punya periode lengkap, tidak bisa dibuat ulang.');
+        }
+
+        $invoice = Invoice::query()->create([
             'number' => $this->nextNumber(),
             'pppoe_customer_id' => $customer->id,
             'subscription_package_id' => $voided->subscription_package_id,
             'type' => $voided->type,
             'billing_months' => max(1, (int) ($voided->billing_months ?: 1)),
-            'period_start' => $voided->period_start?->toDateString(),
-            'period_end' => $voided->period_end?->toDateString(),
+            'period_start' => $voided->period_start->toDateString(),
+            'period_end' => $voided->period_end->toDateString(),
             'due_date' => $voided->due_date->toDateString(),
             'amount' => (int) $voided->amount,
             'discount' => (int) $voided->discount,
@@ -538,6 +555,8 @@ class BillingService
             'package_price' => $voided->package_price,
             'notes' => 'Pengganti tagihan '.$voided->number.' yang dibatalkan.',
         ]);
+
+        return ['invoice' => $invoice, 'created' => true];
     }
 
     public function grantGrace(PppoeCustomer $customer, Carbon $until, ?string $note = null): PppoeCustomer

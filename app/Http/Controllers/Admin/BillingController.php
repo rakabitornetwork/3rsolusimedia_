@@ -220,8 +220,19 @@ class BillingController extends Controller
 
         $invoice->load(['customer.package', 'customer.router', 'payments.receiver', 'package', 'paymentTransactions']);
 
+        $replacementInvoice = null;
+        if ($invoice->status === 'void' && $invoice->due_date) {
+            $replacementInvoice = Invoice::query()
+                ->where('pppoe_customer_id', $invoice->pppoe_customer_id)
+                ->where('status', 'unpaid')
+                ->whereDate('due_date', $invoice->due_date->toDateString())
+                ->latest('id')
+                ->first();
+        }
+
         return Inertia::render('Admin/Billing/Show', [
             'invoice' => $invoice->toAdminArray(),
+            'replacement_invoice' => $replacementInvoice?->toAdminArray(),
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
@@ -495,14 +506,35 @@ class BillingController extends Controller
         $customer = $voided->customer?->fresh();
 
         $message = "Tagihan {$voided->number} dibatalkan (void).";
-        if ($replacement) {
+        if ($replacement && $result['replacement_created']) {
             $message .= " Tagihan baru {$replacement->number} dibuat.";
+        } elseif ($replacement) {
+            $message .= " Tagihan belum bayar {$replacement->number} untuk periode yang sama sudah ada.";
         }
         if ($customer?->status === 'isolated') {
             $message .= ' Pelanggan langsung diisolir.';
         }
 
+        if ($replacement) {
+            $this->rememberBillingUnpaidFilter($request);
+
+            return redirect()
+                ->route('admin.billing.show', $replacement)
+                ->with('success', $message);
+        }
+
         return back()->with('success', $message);
+    }
+
+    private function rememberBillingUnpaidFilter(Request $request): void
+    {
+        $key = AdminListState::sessionKey(AdminListState::BILLING);
+        $saved = $request->session()->get($key, []);
+        if (! is_array($saved)) {
+            $saved = [];
+        }
+        $saved['status'] = 'unpaid';
+        $request->session()->put($key, $saved);
     }
 
     public function grantGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse
