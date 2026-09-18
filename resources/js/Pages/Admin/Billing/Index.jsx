@@ -461,7 +461,7 @@ export default function Index({
         if (invoice.status === 'paid') {
             if (
                 !window.confirm(
-                    `Tagihan ${invoice.number} sudah lunas. Batalkan (void) dulu? Setelah void, Anda bisa menghapusnya.`,
+                    `Tagihan ${invoice.number} sudah lunas. Batalkan (void)? Jatuh tempo dikembalikan, tagihan baru dibuat, dan isolir dijalankan jika sudah lewat tempo.`,
                 )
             ) {
                 return;

@@ -485,12 +485,24 @@ class BillingController extends Controller
         ]);
 
         try {
-            $voided = $this->billing->voidInvoice($invoice, $validated['notes'] ?? null);
+            $result = $this->billing->voidInvoice($invoice, $validated['notes'] ?? null);
         } catch (InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with('success', "Tagihan {$voided->number} dibatalkan (void).");
+        $voided = $result['invoice'];
+        $replacement = $result['replacement'];
+        $customer = $voided->customer?->fresh();
+
+        $message = "Tagihan {$voided->number} dibatalkan (void).";
+        if ($replacement) {
+            $message .= " Tagihan baru {$replacement->number} dibuat.";
+        }
+        if ($customer?->status === 'isolated') {
+            $message .= ' Pelanggan langsung diisolir.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function grantGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse

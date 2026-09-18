@@ -407,20 +407,137 @@ class BillingService
 
     /**
      * Batalkan tagihan tanpa menghapus riwayat (termasuk yang sudah lunas).
-     * Tidak mengembalikan due_date pelanggan — koreksi due_date tetap manual di PPPoE bila perlu.
+     *
+     * Tagihan unpaid: hanya status void (dipakai saat ganti ke tagihan gabungan).
+     * Tagihan lunas: due_date dikembalikan, invoice unpaid pengganti dibuat,
+     * dan sync isolir dijalankan segera.
+     *
+     * @return array{invoice: Invoice, replacement: ?Invoice}
      */
-    public function voidInvoice(Invoice $invoice, ?string $notes = null): Invoice
+    public function voidInvoice(Invoice $invoice, ?string $notes = null): array
     {
         if ($invoice->status === 'void') {
             throw new InvalidArgumentException('Tagihan ini sudah dibatalkan.');
         }
 
-        $invoice->update([
-            'status' => 'void',
-            'notes' => trim(($invoice->notes ? $invoice->notes."\n" : '').($notes ?: 'Dibatalkan dari admin.')),
-        ]);
+        $wasPaid = $invoice->status === 'paid';
 
-        return $invoice->fresh(['customer', 'payments.receiver', 'package']);
+        $result = DB::transaction(function () use ($invoice, $notes, $wasPaid) {
+            $invoice->update([
+                'status' => 'void',
+                'notes' => trim(($invoice->notes ? $invoice->notes."\n" : '').($notes ?: 'Dibatalkan dari admin.')),
+            ]);
+
+            $replacement = null;
+            if ($wasPaid) {
+                $invoice->loadMissing('customer');
+                $this->restoreCustomerDueAfterVoidedPayment($invoice);
+                $replacement = $this->createReplacementInvoice($invoice);
+            }
+
+            return [
+                'invoice' => $invoice->fresh(['customer', 'payments.receiver', 'package']),
+                'replacement' => $replacement?->fresh(['customer', 'package']),
+            ];
+        });
+
+        if ($wasPaid && $result['invoice']->customer) {
+            try {
+                $this->sync->sync($result['invoice']->customer->fresh(['router', 'package']));
+            } catch (\Throwable) {
+                // Void tetap sah meski sync RouterOS gagal.
+            }
+        }
+
+        if ($result['replacement']) {
+            try {
+                $this->notifier->notifyInvoice($result['replacement']->loadMissing('customer'));
+            } catch (\Throwable) {
+                // Invoice pengganti tetap sah meski WhatsApp gagal.
+            }
+        }
+
+        return [
+            'invoice' => $result['invoice']->fresh(['customer', 'payments.receiver', 'package']),
+            'replacement' => $result['replacement']?->fresh(['customer', 'package']),
+        ];
+    }
+
+    /**
+     * Kembalikan due_date ke periode tagihan yang dibatalkan, kecuali masih ada
+     * tagihan lunas untuk tempo yang lebih baru.
+     */
+    private function restoreCustomerDueAfterVoidedPayment(Invoice $voided): void
+    {
+        $customer = $voided->customer;
+        if (! $customer || ! $voided->due_date) {
+            return;
+        }
+
+        $latestRemaining = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->where('id', '!=', $voided->id)
+            ->orderByDesc('due_date')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($latestRemaining?->due_date?->greaterThan($voided->due_date)) {
+            return;
+        }
+
+        if ($latestRemaining?->due_date) {
+            $restoredDue = $latestRemaining->due_date->copy()->startOfDay();
+            $months = max(1, (int) ($latestRemaining->billing_months ?: 1));
+            $billingDay = (int) $customer->billing_day;
+            for ($i = 0; $i < $months; $i++) {
+                $restoredDue = $this->cycle->advanceDueDate($restoredDue, $billingDay);
+            }
+        } else {
+            $restoredDue = $voided->due_date->copy()->startOfDay();
+        }
+
+        $customer->update([
+            'due_date' => $restoredDue->toDateString(),
+            'grace_until' => null,
+            'grace_note' => null,
+        ]);
+    }
+
+    private function createReplacementInvoice(Invoice $voided): ?Invoice
+    {
+        $customer = $voided->customer;
+        if (! $customer || ! $voided->due_date) {
+            return null;
+        }
+
+        $existsUnpaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->whereDate('due_date', $voided->due_date->toDateString())
+            ->exists();
+
+        if ($existsUnpaid) {
+            return null;
+        }
+
+        return Invoice::query()->create([
+            'number' => $this->nextNumber(),
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $voided->subscription_package_id,
+            'type' => $voided->type,
+            'billing_months' => max(1, (int) ($voided->billing_months ?: 1)),
+            'period_start' => $voided->period_start?->toDateString(),
+            'period_end' => $voided->period_end?->toDateString(),
+            'due_date' => $voided->due_date->toDateString(),
+            'amount' => (int) $voided->amount,
+            'discount' => (int) $voided->discount,
+            'total' => (int) $voided->total,
+            'status' => 'unpaid',
+            'package_name' => $voided->package_name,
+            'package_price' => $voided->package_price,
+            'notes' => 'Pengganti tagihan '.$voided->number.' yang dibatalkan.',
+        ]);
     }
 
     public function grantGrace(PppoeCustomer $customer, Carbon $until, ?string $note = null): PppoeCustomer

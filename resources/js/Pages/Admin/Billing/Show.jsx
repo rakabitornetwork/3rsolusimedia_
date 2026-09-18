@@ -71,7 +71,7 @@ export default function Show({ invoice, payment_methods, online_pay, whatsapp = 
     const voidInvoice = () => {
         if (
             !window.confirm(
-                `Batalkan (void) tagihan ${invoice.number}? Riwayat pembayaran tetap tersimpan.`,
+                `Batalkan (void) tagihan ${invoice.number}? Jatuh tempo dikembalikan, tagihan baru dibuat, dan isolir dijalankan jika sudah lewat tempo. Riwayat pembayaran tetap tersimpan.`,
             )
         ) {
             return;
