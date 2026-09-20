@@ -223,12 +223,12 @@ function MoreActions({ invoice, onRemove, whatsapp }) {
                                 type="button"
                                 onClick={() => {
                                     close();
-                                    grantGrace({ months: 2 });
+                                    grantGrace({ months: 1 });
                                 }}
                                 className="admin-row-menu-item"
                             >
                                 <Clock className="h-3.5 w-3.5 text-ink-soft" />
-                                +2 bulan
+                                +1 bulan
                             </button>
                             {customer.has_active_grace ? (
                                 <button

@@ -375,10 +375,10 @@ export default function Show({
                                 ))}
                                 <button
                                     type="button"
-                                    onClick={() => grantGrace({ months: 2 })}
+                                    onClick={() => grantGrace({ months: 1 })}
                                     className="btn-action btn-action-xs btn-warn"
                                 >
-                                    +2 bulan
+                                    +1 bulan
                                 </button>
                                 {invoice.customer.has_active_grace && (
                                     <button

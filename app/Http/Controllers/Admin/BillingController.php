@@ -541,7 +541,7 @@ class BillingController extends Controller
     {
         $validated = $request->validate([
             'days' => ['nullable', 'integer', Rule::in([3, 7, 14])],
-            'months' => ['nullable', 'integer', Rule::in([2])],
+            'months' => ['nullable', 'integer', Rule::in([1, 2])],
             'grace_until' => ['nullable', 'date', 'after_or_equal:today'],
             'note' => ['nullable', 'string', 'max:255'],
         ]);
