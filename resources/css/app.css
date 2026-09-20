@@ -325,6 +325,42 @@
     }
 }
 
+/* Toolbar padat: 2 kolom di HP, tombol ganjil terakhir full-width */
+.admin-toolbar-actions--dense {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-content: stretch;
+}
+
+.admin-toolbar-actions--dense > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
+@media (min-width: 640px) {
+    .admin-toolbar-actions--dense {
+        display: flex;
+        justify-content: flex-end;
+        width: auto;
+    }
+
+    .admin-toolbar-actions--dense > :last-child:nth-child(odd) {
+        grid-column: auto;
+    }
+}
+
+.admin-actions--equal {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    justify-content: stretch;
+}
+
+.admin-actions--equal > a,
+.admin-actions--equal > button {
+    width: 100%;
+    min-width: 0;
+}
+
 /* —— Semantic action button colors (admin) —— */
 .btn-action {
     display: inline-flex;

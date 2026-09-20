@@ -125,21 +125,22 @@ export default function Show({ device, ui_url }) {
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                     href="/admin/network/genieacs"
-                    className="inline-flex items-center gap-2 text-sm font-semibold text-sky-700 hover:text-ink"
+                    className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-sky-700 hover:text-ink"
                 >
-                    <ArrowLeft className="h-4 w-4 text-sky-600" />
+                    <ArrowLeft className="h-4 w-4 shrink-0 text-sky-600" />
                     Kembali ke daftar
                 </Link>
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
                     {ui_url && (
                         <a
                             href={`${ui_url.replace(/\/$/, '')}/#!/devices/${encodeURIComponent(device.id)}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn-action btn-action-xs btn-edit"
+                            className="btn-action btn-action-sm btn-edit gap-1.5"
+                            title="Buka di GenieACS UI"
                         >
-                            <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-600" />
-                            Buka di GenieACS UI
+                            <ExternalLink className="h-4 w-4 shrink-0 text-sky-600" />
+                            Buka UI
                         </a>
                     )}
                     {canWrite && (
@@ -147,12 +148,12 @@ export default function Show({ device, ui_url }) {
                             type="button"
                             onClick={summon}
                             disabled={summoning}
-                            className="btn-action btn-action-xs btn-sync"
+                            className="btn-action btn-action-sm btn-sync gap-1.5"
                         >
                             <RefreshCw
-                                className={`mr-1.5 h-3.5 w-3.5 ${summoning ? 'animate-spin' : ''}`}
+                                className={`h-4 w-4 shrink-0 ${summoning ? 'animate-spin' : ''}`}
                             />
-                            {summoning ? 'Summon...' : 'Summon / Refresh'}
+                            {summoning ? 'Memuat' : 'Summon'}
                         </button>
                     )}
                 </div>

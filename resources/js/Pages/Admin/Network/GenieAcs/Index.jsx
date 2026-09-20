@@ -167,33 +167,35 @@ export default function Index({ config, connection, devices, devices_error, stat
                     Hubungkan aplikasi ke GenieACS NBI (default port <strong>7557</strong>). Setelah
                     aktif, daftar perangkat CPE dapat dipantau dan di-summon dari panel ini.
                 </p>
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
+                    <button
+                        type="button"
+                        onClick={() => setShowSettings((v) => !v)}
+                        className="btn-action btn-action-sm btn-secondary gap-1.5"
+                        title={showSettings ? 'Sembunyikan pengaturan koneksi' : 'Pengaturan koneksi'}
+                    >
+                        <Settings2 className="h-4 w-4 shrink-0 text-slate-600" />
+                        {showSettings ? 'Tutup' : 'Pengaturan'}
+                    </button>
                     {config?.ui_url && (
                         <a
                             href={config.ui_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn-action btn-action-xs btn-edit"
+                            className="btn-action btn-action-sm btn-edit gap-1.5"
+                            title="Buka UI GenieACS"
                         >
-                            <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-600" />
-                            Buka UI GenieACS
+                            <ExternalLink className="h-4 w-4 shrink-0 text-sky-600" />
+                            Buka UI
                         </a>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => setShowSettings((v) => !v)}
-                        className="btn-action btn-action-xs btn-secondary"
-                    >
-                        <Settings2 className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
-                        {showSettings ? 'Sembunyikan pengaturan' : 'Pengaturan koneksi'}
-                    </button>
                     {canWrite && (
                         <button
                             type="button"
                             onClick={() => router.post('/admin/network/genieacs/test', {}, keepPage)}
-                            className="btn-action btn-action-xs btn-primary"
+                            className="btn-action btn-action-sm btn-primary gap-1.5"
                         >
-                            <Wifi className="mr-1.5 h-3.5 w-3.5" />
+                            <Wifi className="h-4 w-4 shrink-0" />
                             Tes koneksi
                         </button>
                     )}
@@ -361,25 +363,25 @@ export default function Index({ config, connection, devices, devices_error, stat
                 </span>
             </div>
 
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-end">
-                    <label className="block w-full text-sm text-ink sm:w-auto">
-                        <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari perangkat</span>
-                        <span className="relative block">
-                            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-                            <input
-                                type="search"
-                                value={query}
-                                onChange={(e) => {
-                                    setQuery(e.currentTarget.value);
-                                    setPage(1);
-                                }}
-                                placeholder="ID, serial, SSID, manufacturer"
-                                className="w-full border border-ink/15 py-2.5 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
-                            />
-                        </span>
-                    </label>
-                    <label className="block w-full text-sm text-ink sm:w-auto">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+                <label className="block w-full text-sm text-ink sm:w-auto">
+                    <span className="mb-1 block text-xs font-semibold text-ink-soft">Cari perangkat</span>
+                    <span className="relative block">
+                        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+                        <input
+                            type="search"
+                            value={query}
+                            onChange={(e) => {
+                                setQuery(e.currentTarget.value);
+                                setPage(1);
+                            }}
+                            placeholder="ID, serial, SSID, manufacturer"
+                            className="h-[42px] w-full border border-ink/15 py-0 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
+                        />
+                    </span>
+                </label>
+                <div className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto sm:items-end">
+                    <label className="block min-w-0 text-sm text-ink">
                         <span className="mb-1 block text-xs font-semibold text-ink-soft">Baris / halaman</span>
                         <select
                             value={perPage}
@@ -387,7 +389,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                 setPerPage(Number(e.target.value));
                                 setPage(1);
                             }}
-                            className="w-full border border-ink/15 bg-white py-2.5 pr-8 pl-3 text-sm outline-none focus:border-signal sm:w-28"
+                            className="h-[42px] w-full border border-ink/15 bg-white py-0 pr-8 pl-3 text-sm outline-none focus:border-signal sm:w-28"
                         >
                             {PER_PAGE_OPTIONS.map((n) => (
                                 <option key={n} value={n}>
@@ -396,18 +398,16 @@ export default function Index({ config, connection, devices, devices_error, stat
                             ))}
                         </select>
                     </label>
-                </div>
-                <div className="admin-toolbar-actions">
                     <button
                         type="button"
                         onClick={refreshList}
                         disabled={refreshing}
-                        className="btn-action btn-action-xs btn-sync"
+                        className="btn-action btn-action-sm btn-sync h-[42px] w-full gap-1.5 sm:w-auto"
                     >
                         <RefreshCw
-                            className={`mr-1.5 h-3.5 w-3.5 text-cyan-600 ${refreshing ? 'animate-spin' : ''}`}
+                            className={`h-4 w-4 shrink-0 text-cyan-600 ${refreshing ? 'animate-spin' : ''}`}
                         />
-                        {refreshing ? 'Memuat...' : 'Refresh daftar'}
+                        {refreshing ? 'Memuat' : 'Refresh'}
                     </button>
                 </div>
             </div>
@@ -495,12 +495,12 @@ export default function Index({ config, connection, devices, devices_error, stat
                                         />
                                     </td>
                                     <td className="px-4 py-3">
-                                        <div className="admin-actions">
+                                        <div className="admin-actions admin-actions--equal">
                                             <Link
                                                 href={`/admin/network/genieacs/devices/${encodeURIComponent(item.id)}`}
-                                                className="btn-action btn-action-xs btn-edit"
+                                                className="btn-action btn-action-xs btn-edit gap-1.5"
                                             >
-                                                <Eye className="h-3.5 w-3.5 text-sky-600" />
+                                                <Eye className="h-3.5 w-3.5 shrink-0 text-sky-600" />
                                                 Detail
                                             </Link>
                                             {canWrite && (
@@ -513,9 +513,9 @@ export default function Index({ config, connection, devices, devices_error, stat
                                                             keepPage,
                                                         )
                                                     }
-                                                    className="btn-action btn-action-xs btn-sync"
+                                                    className="btn-action btn-action-xs btn-sync gap-1.5"
                                                 >
-                                                    <RefreshCw className="h-3.5 w-3.5 text-teal-600" />
+                                                    <RefreshCw className="h-3.5 w-3.5 shrink-0 text-teal-600" />
                                                     Summon
                                                 </button>
                                             )}
