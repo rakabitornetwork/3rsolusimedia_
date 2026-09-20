@@ -115,6 +115,85 @@ class PppoeCustomerBillingCycleTest extends TestCase
         $this->assertSame('2026-09-20', $invoice?->period_end?->toDateString());
     }
 
+    #[Test]
+    public function updating_due_date_to_today_creates_invoice_when_none_exists(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20 13:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-08-20',
+            'billing_day' => 20,
+            'due_date' => '2026-10-20',
+            'first_bill_amount' => 155000,
+            'first_bill_days' => 61,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(0, Invoice::query()->count());
+
+        $this->actingAs($admin)
+            ->from('/admin/customers/pppoe/'.$customer->id.'/edit')
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $package, [
+                'start_date' => '2026-08-20',
+                'due_date' => '2026-09-20',
+                'password' => '',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $invoice = Invoice::query()->where('pppoe_customer_id', $customer->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertSame('2026-09-20', $invoice->due_date?->toDateString());
+        $this->assertSame('prorata', $invoice->type);
+    }
+
+    #[Test]
+    public function billing_page_generates_invoice_when_due_date_is_today(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20 13:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-08-20',
+            'billing_day' => 20,
+            'due_date' => '2026-09-20',
+            'first_bill_amount' => 150000,
+            'first_bill_days' => 31,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/billing')
+            ->assertOk();
+
+        $invoice = Invoice::query()->where('pppoe_customer_id', $customer->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertSame('2026-09-20', $invoice->due_date?->toDateString());
+    }
+
     /**
      * @return array{0: User, 1: MikrotikRouter, 2: SubscriptionPackage}
      */

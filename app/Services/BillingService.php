@@ -109,6 +109,70 @@ class BillingService
         return $invoice->fresh();
     }
 
+    private function alignUnpaidInvoice(PppoeCustomer $customer, Invoice $invoice): Invoice
+    {
+        if ($invoice->type === 'multi_month') {
+            return $invoice;
+        }
+
+        $due = $customer->due_date?->toDateString();
+        if (! $due) {
+            return $invoice;
+        }
+
+        if ($invoice->type === 'prorata' && ! $this->hasPaidInvoice($customer)) {
+            return $this->syncUnpaidProrataInvoice($customer) ?? $invoice;
+        }
+
+        if ($invoice->due_date?->toDateString() === $due) {
+            return $invoice;
+        }
+
+        $invoice->update([
+            'due_date' => $due,
+            'period_end' => $due,
+            'period_start' => $this->periodStartBeforeDue($customer),
+        ]);
+
+        return $invoice->fresh();
+    }
+
+    private function createInvoiceForCurrentDue(PppoeCustomer $customer, bool $notify = false): ?Invoice
+    {
+        if (
+            ! $this->hasCompletedFirstBillingCycle($customer)
+            && (int) ($customer->first_bill_amount ?? 0) > 0
+        ) {
+            $invoice = $this->createProrataInvoice($customer);
+            if ($invoice) {
+                return $invoice;
+            }
+        }
+
+        $amount = $this->hasCompletedFirstBillingCycle($customer)
+            ? (int) ($customer->package?->price ?? 0)
+            : (int) (($customer->first_bill_amount ?: $customer->package?->price) ?? 0);
+
+        if ($amount <= 0) {
+            return null;
+        }
+
+        $type = $this->hasCompletedFirstBillingCycle($customer) ? 'monthly' : 'prorata';
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: $type,
+            periodStart: $type === 'prorata' && $customer->start_date
+                ? $customer->start_date->toDateString()
+                : $this->periodStartBeforeDue($customer),
+            periodEnd: $customer->due_date->toDateString(),
+            dueDate: $customer->due_date->toDateString(),
+            amount: $amount,
+            notes: $type === 'prorata' ? 'Tagihan pertama (prorata)' : 'Tagihan bulanan',
+            notify: $notify,
+        );
+    }
+
     public function hasPaidInvoice(PppoeCustomer $customer): bool
     {
         return Invoice::query()
@@ -142,9 +206,53 @@ class BillingService
     }
 
     /**
+     * Samakan / buat tagihan terbuka agar cocok dengan due_date pelanggan.
+     * Dipakai saat admin mengubah siklus tagihan, dan saat generate otomatis.
+     *
+     * @return array{invoice: ?Invoice, created: bool}
+     */
+    public function ensureOpenInvoice(PppoeCustomer $customer, bool $notify = false): array
+    {
+        $customer->loadMissing('package');
+
+        if (! $customer->is_active || ! $customer->due_date) {
+            return ['invoice' => null, 'created' => false];
+        }
+
+        $unpaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->latest('id')
+            ->first();
+
+        if ($unpaid) {
+            return [
+                'invoice' => $this->alignUnpaidInvoice($customer, $unpaid),
+                'created' => false,
+            ];
+        }
+
+        if (! $this->isWithinUpcomingWindow($customer->due_date)) {
+            return ['invoice' => null, 'created' => false];
+        }
+
+        $existsForDue = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->whereDate('due_date', $customer->due_date->toDateString())
+            ->whereIn('status', ['unpaid', 'paid'])
+            ->exists();
+
+        if ($existsForDue) {
+            return ['invoice' => null, 'created' => false];
+        }
+
+        $invoice = $this->createInvoiceForCurrentDue($customer, $notify);
+
+        return ['invoice' => $invoice, 'created' => $invoice !== null];
+    }
+
+    /**
      * Buat tagihan bulanan terbuka hanya jika jatuh tempo ≤ 7 hari (atau sudah lewat).
-     * Tagihan prorata pertama hanya dibuat saat pelanggan baru (bukan di sini),
-     * agar hapus invoice tidak langsung dibuat ulang.
      *
      * @return array{created: int, skipped: int}
      */
@@ -160,63 +268,8 @@ class BillingService
             ->get();
 
         foreach ($customers as $customer) {
-            $hasUnpaid = Invoice::query()
-                ->where('pppoe_customer_id', $customer->id)
-                ->where('status', 'unpaid')
-                ->exists();
-
-            if ($hasUnpaid) {
-                $skipped++;
-
-                continue;
-            }
-
-            if (! $this->isWithinUpcomingWindow($customer->due_date)) {
-                $skipped++;
-
-                continue;
-            }
-
-            // Hindari duplikat untuk due_date yang sama (termasuk yang sudah lunas).
-            $existsForDue = Invoice::query()
-                ->where('pppoe_customer_id', $customer->id)
-                ->whereDate('due_date', $customer->due_date->toDateString())
-                ->whereIn('status', ['unpaid', 'paid'])
-                ->exists();
-
-            if ($existsForDue) {
-                $skipped++;
-
-                continue;
-            }
-
-            // Siklus pertama: pakai jumlah prorata (sudah dibulatkan), bukan harga penuh.
-            // createProrataInvoice sendiri menolak jika sudah ada riwayat prorata/pembayaran.
-            if (
-                ! $this->hasCompletedFirstBillingCycle($customer)
-                && (int) ($customer->first_bill_amount ?? 0) > 0
-            ) {
-                $invoice = $this->createProrataInvoice($customer);
-            } else {
-                $price = (int) ($customer->package?->price ?? 0);
-                if ($price <= 0) {
-                    $skipped++;
-
-                    continue;
-                }
-
-                $invoice = $this->createInvoice(
-                    customer: $customer,
-                    type: 'monthly',
-                    periodStart: $this->periodStartBeforeDue($customer),
-                    periodEnd: $customer->due_date->toDateString(),
-                    dueDate: $customer->due_date->toDateString(),
-                    amount: $price,
-                    notes: 'Tagihan bulanan',
-                );
-            }
-
-            if ($invoice) {
+            $result = $this->ensureOpenInvoice($customer, notify: true);
+            if ($result['created']) {
                 $created++;
             } else {
                 $skipped++;

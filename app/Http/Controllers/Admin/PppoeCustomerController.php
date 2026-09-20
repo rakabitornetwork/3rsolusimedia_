@@ -388,7 +388,7 @@ class PppoeCustomerController extends Controller
 
         $pppoe->update($payload);
         $fresh = $pppoe->fresh(['router', 'package']);
-        $this->billingService->syncUnpaidProrataInvoice($fresh);
+        $this->billingService->ensureOpenInvoice($fresh);
         $this->sync->sync($fresh, pushPassword: $passwordChanged);
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
