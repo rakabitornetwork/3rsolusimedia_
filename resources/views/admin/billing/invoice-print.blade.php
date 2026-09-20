@@ -76,59 +76,240 @@
             top: 0;
             z-index: 10;
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 18px;
+            flex-direction: column;
+            gap: 14px;
+            padding: 14px max(14px, env(safe-area-inset-right)) 16px max(14px, env(safe-area-inset-left));
             background: var(--ink);
+            color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .toolbar-info {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .toolbar-paper {
+            width: 22px;
+            height: 32px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            margin-top: 14px;
+            border: 1.5px solid rgba(255,255,255,0.55);
+            border-radius: 4px;
+            overflow: hidden;
+            background: #07101c;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+        }
+
+        .toolbar-paper-half {
+            flex: 1;
+            background: transparent;
+        }
+
+        .toolbar-paper-half + .toolbar-paper-half {
+            border-top: 1px dashed rgba(255,255,255,0.42);
+        }
+
+        .toolbar-paper-half.is-on {
+            background: linear-gradient(180deg, #4d8dff 0%, var(--signal) 100%);
+        }
+
+        .toolbar-copy {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .toolbar-kicker {
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.62);
+            line-height: 1.2;
+        }
+
+        .toolbar-title {
+            margin: 4px 0 0;
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.15;
             color: #fff;
         }
 
-        .toolbar p {
-            margin: 0;
-            font-size: 13px;
-            color: rgba(255,255,255,0.82);
+        .toolbar-hint {
+            margin: 4px 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+            color: rgba(255,255,255,0.62);
         }
 
         .toolbar-actions {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 8px;
-            align-items: center;
+            width: 100%;
+        }
+
+        .toolbar-segment {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px;
+            padding: 3px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+
+        .toolbar-cta {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 8px;
         }
 
         .toolbar a,
         .toolbar button {
             appearance: none;
-            border: 1px solid rgba(255,255,255,0.22);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.18);
             background: transparent;
             color: #fff;
-            padding: 8px 12px;
-            font-size: 12.5px;
-            font-weight: 600;
+            min-height: 42px;
+            padding: 0 12px;
+            font-size: 13px;
+            font-weight: 700;
             font-family: inherit;
+            letter-spacing: 0.01em;
+            line-height: 1;
             cursor: pointer;
             text-decoration: none;
+            border-radius: 9px;
+            white-space: nowrap;
         }
 
-        .toolbar a.active,
+        .toolbar-segment a {
+            min-height: 38px;
+            border: 0;
+            background: transparent;
+            color: rgba(255,255,255,0.72);
+            font-size: 12.5px;
+            border-radius: 7px;
+        }
+
+        .toolbar-segment a.active {
+            background: var(--signal);
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(26, 110, 255, 0.28);
+        }
+
         .toolbar button.primary {
             background: var(--signal);
             border-color: var(--signal);
             color: #fff;
+            box-shadow: 0 8px 18px rgba(26, 110, 255, 0.28);
         }
 
-        .preview { padding: 22px 12px 48px; }
+        .toolbar-back {
+            background: rgba(255,255,255,0.04);
+            color: rgba(255,255,255,0.86);
+        }
+
+        .toolbar a:hover,
+        .toolbar button:hover {
+            border-color: rgba(255,255,255,0.36);
+        }
+
+        .toolbar-segment a:hover:not(.active) {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+        }
+
+        .toolbar button.primary:hover {
+            filter: brightness(1.06);
+        }
+
+        .preview { padding: 16px 12px 40px; }
+
+        .sheet-stage {
+            width: min(100%, 210mm);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        @media (min-width: 760px) {
+            .toolbar {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+                gap: 18px;
+                padding: 12px 18px;
+            }
+
+            .toolbar-info {
+                align-items: center;
+            }
+
+            .toolbar-paper {
+                margin-top: 0;
+            }
+
+            .toolbar-title {
+                font-size: 15px;
+            }
+
+            .toolbar-hint {
+                font-size: 12.5px;
+            }
+
+            .toolbar-actions {
+                flex-direction: row;
+                align-items: center;
+                width: auto;
+                flex-shrink: 0;
+                gap: 10px;
+            }
+
+            .toolbar-segment {
+                width: 196px;
+                flex-shrink: 0;
+            }
+
+            .toolbar-cta {
+                display: flex;
+                width: auto;
+            }
+
+            .toolbar a,
+            .toolbar button {
+                min-height: 38px;
+                padding: 0 14px;
+                font-size: 12.5px;
+            }
+
+            .toolbar-segment a {
+                min-height: 32px;
+            }
+
+            .preview { padding: 22px 12px 48px; }
+        }
 
         .sheet {
             width: 210mm;
             height: 297mm;
-            margin: 0 auto;
             background: var(--paper);
             box-shadow: 0 18px 50px rgba(11, 21, 38, 0.16);
             position: relative;
             overflow: hidden;
+            transform-origin: top left;
         }
 
         .half {
@@ -526,10 +707,17 @@
 
             .preview { padding: 0; }
 
+            .sheet-stage {
+                width: 210mm;
+                height: 297mm !important;
+                overflow: visible;
+            }
+
             .sheet {
                 box-shadow: none;
                 width: 210mm;
                 height: 297mm;
+                transform: none !important;
             }
 
             .half.empty { background: #fff; }
@@ -540,23 +728,36 @@
 </head>
 <body>
     <div class="toolbar no-print">
-        <p>
-            Cetak setengah A4 (portrait) · posisi
-            <strong>{{ $half === 'bottom' ? 'bawah' : 'atas' }}</strong>
-            — sisa kertas untuk invoice berikutnya.
-        </p>
+        <div class="toolbar-info">
+            <div class="toolbar-paper" aria-hidden="true">
+                <span class="toolbar-paper-half {{ $half === 'top' ? 'is-on' : '' }}"></span>
+                <span class="toolbar-paper-half {{ $half === 'bottom' ? 'is-on' : '' }}"></span>
+            </div>
+            <div class="toolbar-copy">
+                <p class="toolbar-kicker">Setengah A4 · Portrait</p>
+                <p class="toolbar-title">Posisi {{ $half === 'bottom' ? 'bawah' : 'atas' }}</p>
+                <p class="toolbar-hint">Sisa kertas siap untuk invoice berikutnya.</p>
+            </div>
+        </div>
         <div class="toolbar-actions">
-            <a href="{{ route('admin.billing.print', ['invoice' => $invoice, 'half' => 'top']) }}"
-               class="{{ $half === 'top' ? 'active' : '' }}">Setengah atas</a>
-            <a href="{{ route('admin.billing.print', ['invoice' => $invoice, 'half' => 'bottom']) }}"
-               class="{{ $half === 'bottom' ? 'active' : '' }}">Setengah bawah</a>
-            <button type="button" class="primary" onclick="window.print()">Cetak</button>
-            <a href="{{ route('admin.billing.show', $invoice) }}">Kembali</a>
+            <div class="toolbar-segment" role="group" aria-label="Posisi cetak">
+                <a href="{{ route('admin.billing.print', ['invoice' => $invoice, 'half' => 'top']) }}"
+                   class="{{ $half === 'top' ? 'active' : '' }}"
+                   @if ($half === 'top') aria-current="page" @endif>Atas</a>
+                <a href="{{ route('admin.billing.print', ['invoice' => $invoice, 'half' => 'bottom']) }}"
+                   class="{{ $half === 'bottom' ? 'active' : '' }}"
+                   @if ($half === 'bottom') aria-current="page" @endif>Bawah</a>
+            </div>
+            <div class="toolbar-cta">
+                <button type="button" class="primary" onclick="window.print()">Cetak</button>
+                <a class="toolbar-back" href="{{ route('admin.billing.show', $invoice) }}">Kembali</a>
+            </div>
         </div>
     </div>
 
     <div class="preview">
-        <div class="sheet">
+        <div class="sheet-stage">
+            <div class="sheet">
             <div class="cut-line"></div>
             <div class="cut-label no-print">garis potong / lipat</div>
 
@@ -573,7 +774,7 @@
                         'contact' => $contact,
                     ])
                 @else
-                    <div class="empty-hint">Area kosong · siap untuk invoice berikutnya<br>(pilih “Setengah atas”)</div>
+                    <div class="empty-hint">Area kosong · siap untuk invoice berikutnya<br>(pilih “Atas”)</div>
                 @endif
             </div>
 
@@ -590,13 +791,36 @@
                         'contact' => $contact,
                     ])
                 @else
-                    <div class="empty-hint">Area kosong · siap untuk invoice berikutnya<br>(pilih “Setengah bawah”)</div>
+                    <div class="empty-hint">Area kosong · siap untuk invoice berikutnya<br>(pilih “Bawah”)</div>
                 @endif
+            </div>
             </div>
         </div>
     </div>
 
     <script>
+        const stage = document.querySelector('.sheet-stage');
+        const sheet = document.querySelector('.sheet');
+
+        const fitSheet = () => {
+            if (!stage || !sheet) return;
+            sheet.style.transform = 'none';
+            stage.style.height = '';
+            const scale = Math.min(1, stage.clientWidth / sheet.offsetWidth);
+            sheet.style.transform = `scale(${scale})`;
+            stage.style.height = `${sheet.offsetHeight * scale}px`;
+        };
+
+        fitSheet();
+        window.addEventListener('load', fitSheet);
+        window.addEventListener('resize', fitSheet);
+        window.addEventListener('beforeprint', () => {
+            if (!stage || !sheet) return;
+            sheet.style.transform = 'none';
+            stage.style.height = '';
+        });
+        window.addEventListener('afterprint', fitSheet);
+
         if (new URLSearchParams(window.location.search).get('autoprint') === '1') {
             window.addEventListener('load', () => setTimeout(() => window.print(), 250));
         }
