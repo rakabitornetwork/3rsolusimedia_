@@ -23,19 +23,23 @@
         'isolated' => 'Isolir',
         'disabled' => 'Nonaktif',
     ];
-    $filterBits = collect([
-        $date_field_label.': '.$fmtDate($date),
-        $date_field === 'billing_day' ? 'tiap tgl '.$date->day : null,
+    $filterBits = $filter_bits ?? collect([
+        ($date_field_label ?? 'Tanggal').': '.$fmtDate($date ?? now()),
+        ($date_field ?? '') === 'billing_day' ? 'tiap tgl '.($date ?? now())->day : null,
         $router?->name ? 'Router '.$router->name : null,
         $status ? ($customerStatus[$status] ?? ($status === 'grace' ? 'Grace' : $status)) : null,
     ])->filter()->implode(' · ');
+    $listTitle = $list_title ?? 'Daftar Tagihan Pelanggan PPPoE';
+    $pageTitle = $page_title ?? ('Cetak Tagihan PPPoE · '.$fmtShort($date ?? now()));
+    $backUrl = $back_url ?? route('admin.customers.pppoe');
+    $emptyMessage = $empty_message ?? 'Tidak ada pelanggan untuk filter tanggal ini.';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Cetak Tagihan PPPoE · {{ $fmtShort($date) }}</title>
+    <title>{{ $pageTitle }}</title>
     <style>
         @page {
             size: A4 portrait;
@@ -308,7 +312,7 @@
         </p>
         <div class="toolbar-actions">
             <button type="button" class="primary" onclick="window.print()">Cetak</button>
-            <a href="{{ route('admin.customers.pppoe') }}">Kembali</a>
+            <a href="{{ $backUrl }}">Kembali</a>
         </div>
     </div>
 
@@ -317,7 +321,7 @@
             <div class="head">
                 <div class="head-left">
                     <p class="company">{{ $company['name'] ?: 'RT RW Net' }}</p>
-                    <p class="title">Daftar Tagihan Pelanggan PPPoE</p>
+                    <p class="title">{{ $listTitle }}</p>
                     <p class="meta">{{ $filterBits }} · urut nama A–Z</p>
                 </div>
                 <div class="head-right">
@@ -327,7 +331,7 @@
             </div>
 
             @if ($rows->isEmpty())
-                <div class="empty">Tidak ada pelanggan untuk filter tanggal ini.</div>
+                <div class="empty">{{ $emptyMessage }}</div>
             @else
                 <table>
                     <thead>

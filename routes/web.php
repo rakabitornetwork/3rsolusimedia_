@@ -252,6 +252,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/billing/customers/{pppoe}/grace', [BillingController::class, 'grantGrace'])->name('billing.grace');
     Route::delete('/billing/customers/{pppoe}/grace', [BillingController::class, 'clearGrace'])->name('billing.grace.clear');
     Route::post('/billing/customers/{pppoe}/combine-billing', [BillingController::class, 'combineBilling'])->name('billing.combine');
+    Route::get('/billing/print', [BillingController::class, 'printCustomers'])->name('billing.customers.print');
     Route::get('/billing/invoices/{invoice}', [BillingController::class, 'show'])->name('billing.show');
     Route::get('/billing/invoices/{invoice}/print', [BillingController::class, 'print'])->name('billing.print');
     Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])->name('billing.pay');

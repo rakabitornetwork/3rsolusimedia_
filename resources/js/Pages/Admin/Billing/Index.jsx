@@ -296,6 +296,7 @@ export default function Index({
     );
     const [bulkProcessing, setBulkProcessing] = useState(false);
     const [bulkWaProcessing, setBulkWaProcessing] = useState(false);
+    const [showPrint, setShowPrint] = useState(false);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -456,6 +457,59 @@ export default function Index({
         }
         router.post('/admin/billing/generate', {}, keepPage);
     };
+
+    const openPrint = () => {
+        const params = new URLSearchParams({ autoprint: '1' });
+
+        if (query.trim()) {
+            params.set('q', query.trim());
+        }
+        if (filters.router_id) {
+            params.set('router_id', String(filters.router_id));
+        }
+        if (filters.status) {
+            params.set('status', String(filters.status));
+        }
+        if (filters.overdue) {
+            params.set('overdue', '1');
+        }
+        if (filters.grace) {
+            params.set('grace', String(filters.grace));
+        }
+        if (filters.customer_status) {
+            params.set('customer_status', String(filters.customer_status));
+        }
+        params.set('hide_old_paid', String(hideOldPaidQueryValue(filters.hide_old_paid)));
+
+        window.open(
+            `/admin/billing/print?${params.toString()}`,
+            '_blank',
+            'noopener,noreferrer',
+        );
+    };
+
+    const printFilterSummary = [
+        filters.router_id
+            ? routers.find((item) => String(item.id) === String(filters.router_id))?.name ||
+              'Router terpilih'
+            : null,
+        filters.status === 'unpaid'
+            ? 'Belum bayar'
+            : filters.status === 'paid'
+              ? 'Lunas'
+              : filters.status === 'void'
+                ? 'Dibatalkan'
+                : null,
+        filters.overdue ? 'Jatuh tempo saja' : null,
+        filters.grace === 'active' ? 'Grace aktif' : filters.grace === 'none' ? 'Tanpa grace' : null,
+        filters.customer_status === 'isolated' ? 'Isolir saja' : null,
+        filters.hide_old_paid !== false && filters.hide_old_paid !== 0 && filters.hide_old_paid !== '0'
+            ? 'Sembunyikan lunas bulan lalu'
+            : null,
+        query.trim() ? `Cari “${query.trim()}”` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ') || 'Semua tagihan';
 
     const remove = (invoice) => {
         if (invoice.status === 'paid') {
@@ -623,6 +677,15 @@ export default function Index({
                 <div className="admin-toolbar-actions">
                     <button
                         type="button"
+                        onClick={() => setShowPrint((v) => !v)}
+                        className="btn-action btn-action-sm btn-secondary"
+                        title="Cetak daftar pelanggan dari filter tagihan saat ini, diurutkan A → Z"
+                    >
+                        <Printer className="mr-1.5 h-4 w-4" />
+                        Cetak
+                    </button>
+                    <button
+                        type="button"
                         onClick={generate}
                         className="btn-action btn-action-sm btn-primary"
                     >
@@ -631,6 +694,40 @@ export default function Index({
                     </button>
                 </div>
             </div>
+
+            {showPrint && (
+                <div className="mb-4 space-y-3 border border-ink/10 bg-white p-4 sm:p-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            Cetak pelanggan sesuai filter
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Daftar dicetak sesuai abjad nama (A → Z), satu baris per pelanggan dari
+                            tagihan yang sedang difilter di halaman ini.
+                        </p>
+                        <p className="mt-2 text-xs text-ink">
+                            Filter aktif: <strong>{printFilterSummary}</strong>
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={openPrint}
+                            className="btn-action btn-action-sm btn-primary"
+                        >
+                            <Printer className="mr-1.5 h-4 w-4" />
+                            Buka &amp; cetak
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowPrint(false)}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {selected.length > 0 && (
                 <div className="mb-4 flex flex-col gap-3 border border-signal/20 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">

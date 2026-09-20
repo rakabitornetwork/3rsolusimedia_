@@ -15,8 +15,10 @@ use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -65,9 +67,7 @@ class BillingController extends Controller
         // Tidak membuat ulang prorata yang sengaja dihapus.
         $this->billing->generateOpenInvoices();
 
-        $query = Invoice::query()
-            ->with(['customer.router'])
-            ->select('invoices.*');
+        $query = $this->invoiceListQuery($request)->with(['customer.router']);
 
         if ($sort === 'customer') {
             $query->leftJoin(
@@ -76,63 +76,6 @@ class BillingController extends Controller
                 '=',
                 'invoices.pppoe_customer_id'
             );
-        }
-
-        if ($user->isAgen()) {
-            $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
-        }
-
-        if ($routerId) {
-            $query->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
-        }
-
-        if ($status = $request->get('status')) {
-            $query->where('invoices.status', $status);
-        }
-
-        $hideOldPaid = $request->has('hide_old_paid')
-            ? $request->boolean('hide_old_paid')
-            : true;
-
-        if ($hideOldPaid) {
-            $monthStart = now()->startOfMonth()->toDateString();
-            $query->where(function ($builder) use ($monthStart) {
-                $builder->where('invoices.status', '<>', 'paid')
-                    ->orWhereDate('invoices.paid_at', '>=', $monthStart)
-                    ->orWhere(function ($fallback) use ($monthStart) {
-                        $fallback->where('invoices.status', 'paid')
-                            ->whereNull('invoices.paid_at')
-                            ->whereDate('invoices.due_date', '>=', $monthStart);
-                    });
-            });
-        }
-
-        if ($request->boolean('overdue')) {
-            $query->where('invoices.status', 'unpaid')
-                ->whereDate('invoices.due_date', '<', now()->toDateString());
-        }
-
-        $grace = (string) $request->get('grace', '');
-        if ($grace === 'active') {
-            $query->whereHas('customer', function ($customer) {
-                $customer->whereNotNull('grace_until')
-                    ->whereDate('grace_until', '>=', now()->toDateString());
-            });
-        } elseif ($grace === 'none') {
-            $query->where(function ($builder) {
-                $builder->whereDoesntHave('customer')
-                    ->orWhereHas('customer', function ($customer) {
-                        $customer->where(function ($inner) {
-                            $inner->whereNull('grace_until')
-                                ->orWhereDate('grace_until', '<', now()->toDateString());
-                        });
-                    });
-            });
-        }
-
-        $customerStatus = (string) $request->get('customer_status', '');
-        if ($customerStatus === 'isolated') {
-            $query->whereHas('customer', fn ($customer) => $customer->where('status', 'isolated'));
         }
 
         $query->orderBy($allowedSorts[$sort], $direction);
@@ -171,6 +114,12 @@ class BillingController extends Controller
             $paymentMonthQuery->whereHas('invoice.customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
             $isolatedCustomerQuery->where('mikrotik_router_id', $routerId);
         }
+
+        $grace = (string) $request->get('grace', '');
+        $customerStatus = (string) $request->get('customer_status', '');
+        $hideOldPaid = $request->has('hide_old_paid')
+            ? $request->boolean('hide_old_paid')
+            : true;
 
         $collectedAmount = (int) $paymentMonthQuery->sum('amount');
 
@@ -282,6 +231,67 @@ class BillingController extends Controller
             ->with('online_checkout_url', $result['checkout_url']);
     }
 
+    public function printCustomers(Request $request): HttpResponse
+    {
+        $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::in(['unpaid', 'paid', 'void'])],
+            'overdue' => ['nullable', 'boolean'],
+            'grace' => ['nullable', Rule::in(['active', 'none'])],
+            'customer_status' => ['nullable', Rule::in(['isolated'])],
+            'router_id' => ['nullable', 'integer', 'exists:mikrotik_routers,id'],
+            'hide_old_paid' => ['nullable', 'boolean'],
+        ]);
+
+        $invoices = $this->invoiceListQuery($request)
+            ->with(['customer.package', 'customer.router'])
+            ->orderBy('invoices.due_date')
+            ->orderBy('invoices.id')
+            ->get();
+
+        $rows = $invoices
+            ->filter(fn (Invoice $invoice) => $invoice->customer)
+            ->groupBy('pppoe_customer_id')
+            ->map(function ($group) {
+                $invoice = $group->sortBy(fn (Invoice $item) => sprintf(
+                    '%d-%s-%010d',
+                    $item->status === 'unpaid' ? 0 : 1,
+                    $item->due_date?->format('Y-m-d') ?? '9999-99-99',
+                    $item->id
+                ))->first();
+
+                return [
+                    'customer' => $invoice->customer,
+                    'amount' => $invoice->total,
+                    'due_date' => $invoice->due_date,
+                ];
+            })
+            ->sortBy(fn (array $row) => mb_strtolower((string) $row['customer']->name), SORT_NATURAL)
+            ->values();
+
+        $router = $request->filled('router_id')
+            ? MikrotikRouter::query()->find($request->integer('router_id'))
+            : null;
+
+        $totalAmount = $rows->sum(fn (array $row) => (int) ($row['amount'] ?? 0));
+
+        return response()->view('admin.customers.pppoe-print', [
+            'rows' => $rows,
+            'total_amount' => $totalAmount,
+            'date' => now(),
+            'date_field' => 'due_date',
+            'date_field_label' => 'Filter tagihan',
+            'router' => $router,
+            'status' => '',
+            'list_title' => 'Daftar Tagihan Pelanggan',
+            'page_title' => 'Cetak Pelanggan · Tagihan & Pembayaran',
+            'filter_bits' => $this->billingPrintFilterBits($request, $router),
+            'back_url' => route('admin.billing.index'),
+            'empty_message' => 'Tidak ada pelanggan untuk filter tagihan ini.',
+            'company' => $this->companyPrintPayload(),
+        ]);
+    }
+
     public function print(Request $request, Invoice $invoice)
     {
         $user = $request->user();
@@ -300,14 +310,7 @@ class BillingController extends Controller
         return response()->view('admin.billing.invoice-print', [
             'invoice' => $invoice,
             'half' => $half,
-            'company' => [
-                'name' => AppSettings::companyName(),
-                'logo' => AppSettings::branding()['logo_mark'] ?? AppSettings::branding()['logo_full'],
-                'address' => trim((string) SiteSetting::getValue('address', '')),
-                'phone' => trim((string) SiteSetting::getValue('phone', '')),
-                'whatsapp' => trim((string) SiteSetting::getValue('whatsapp', '')),
-                'tagline' => trim((string) SiteSetting::getValue('tagline', '')),
-            ],
+            'company' => $this->companyPrintPayload(),
         ]);
     }
 
@@ -630,5 +633,120 @@ class BillingController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    private function invoiceListQuery(Request $request): Builder
+    {
+        $user = $request->user();
+        $query = Invoice::query()->select('invoices.*');
+
+        if ($user?->isAgen()) {
+            $query->whereHas('customer', fn ($c) => $c->where('agent_id', $user->id));
+        }
+
+        if ($routerId = $request->get('router_id')) {
+            $query->whereHas('customer', fn ($c) => $c->where('mikrotik_router_id', $routerId));
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('invoices.status', $status);
+        }
+
+        $hideOldPaid = $request->has('hide_old_paid')
+            ? $request->boolean('hide_old_paid')
+            : true;
+
+        if ($hideOldPaid) {
+            $monthStart = now()->startOfMonth()->toDateString();
+            $query->where(function ($builder) use ($monthStart) {
+                $builder->where('invoices.status', '<>', 'paid')
+                    ->orWhereDate('invoices.paid_at', '>=', $monthStart)
+                    ->orWhere(function ($fallback) use ($monthStart) {
+                        $fallback->where('invoices.status', 'paid')
+                            ->whereNull('invoices.paid_at')
+                            ->whereDate('invoices.due_date', '>=', $monthStart);
+                    });
+            });
+        }
+
+        if ($request->boolean('overdue')) {
+            $query->where('invoices.status', 'unpaid')
+                ->whereDate('invoices.due_date', '<', now()->toDateString());
+        }
+
+        $grace = (string) $request->get('grace', '');
+        if ($grace === 'active') {
+            $query->whereHas('customer', function ($customer) {
+                $customer->whereNotNull('grace_until')
+                    ->whereDate('grace_until', '>=', now()->toDateString());
+            });
+        } elseif ($grace === 'none') {
+            $query->where(function ($builder) {
+                $builder->whereDoesntHave('customer')
+                    ->orWhereHas('customer', function ($customer) {
+                        $customer->where(function ($inner) {
+                            $inner->whereNull('grace_until')
+                                ->orWhereDate('grace_until', '<', now()->toDateString());
+                        });
+                    });
+            });
+        }
+
+        if ($request->get('customer_status') === 'isolated') {
+            $query->whereHas('customer', fn ($customer) => $customer->where('status', 'isolated'));
+        }
+
+        $q = trim((string) $request->get('q', ''));
+        if ($q !== '') {
+            $like = '%'.$q.'%';
+            $query->where(function ($builder) use ($like) {
+                $builder->where('invoices.number', 'like', $like)
+                    ->orWhere('invoices.package_name', 'like', $like)
+                    ->orWhereHas('customer', function ($customer) use ($like) {
+                        $customer->where('name', 'like', $like)
+                            ->orWhere('username', 'like', $like)
+                            ->orWhere('phone', 'like', $like);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    private function billingPrintFilterBits(Request $request, ?MikrotikRouter $router): string
+    {
+        $statusLabels = [
+            'unpaid' => 'Belum bayar',
+            'paid' => 'Lunas',
+            'void' => 'Dibatalkan',
+        ];
+
+        return collect([
+            $router?->name ? 'Router '.$router->name : null,
+            ($status = $request->get('status')) ? ($statusLabels[$status] ?? $status) : null,
+            $request->boolean('overdue') ? 'Jatuh tempo saja' : null,
+            $request->get('grace') === 'active' ? 'Grace aktif' : null,
+            $request->get('grace') === 'none' ? 'Tanpa grace' : null,
+            $request->get('customer_status') === 'isolated' ? 'Isolir' : null,
+            ($request->has('hide_old_paid') ? $request->boolean('hide_old_paid') : true)
+                ? 'Sembunyikan lunas bulan lalu'
+                : null,
+            ($q = trim((string) $request->get('q', ''))) !== '' ? 'Cari “'.$q.'”' : null,
+        ])->filter()->implode(' · ') ?: 'Semua tagihan';
+    }
+
+    /**
+     * @return array{name: string, logo: mixed, address: string, phone: string, whatsapp: string, tagline: string}
+     */
+    private function companyPrintPayload(): array
+    {
+        return [
+            'name' => AppSettings::companyName(),
+            'logo' => AppSettings::branding()['logo_mark'] ?? AppSettings::branding()['logo_full'],
+            'address' => trim((string) SiteSetting::getValue('address', '')),
+            'phone' => trim((string) SiteSetting::getValue('phone', '')),
+            'whatsapp' => trim((string) SiteSetting::getValue('whatsapp', '')),
+            'tagline' => trim((string) SiteSetting::getValue('tagline', '')),
+        ];
     }
 }
