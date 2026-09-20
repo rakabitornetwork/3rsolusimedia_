@@ -387,7 +387,9 @@ class PppoeCustomerController extends Controller
         }
 
         $pppoe->update($payload);
-        $this->sync->sync($pppoe->fresh(['router', 'package']), pushPassword: $passwordChanged);
+        $fresh = $pppoe->fresh(['router', 'package']);
+        $this->billingService->syncUnpaidProrataInvoice($fresh);
+        $this->sync->sync($fresh, pushPassword: $passwordChanged);
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with('success', 'Pelanggan PPPoE berhasil diperbarui.');
@@ -765,7 +767,8 @@ class PppoeCustomerController extends Controller
                 'password' => [$customer ? 'nullable' : 'required', 'string', 'max:255'],
                 'service_profile' => ['nullable', 'string', 'max:120'],
                 'start_date' => ['required', 'date'],
-                'billing_day' => ['required', 'integer', 'min:1', 'max:28'],
+                'due_date' => ['required', 'date', 'after:start_date'],
+                'billing_day' => ['nullable', 'integer', 'min:1', 'max:28'],
                 'overdue_action' => ['required', Rule::in(['bypass', 'isolir'])],
                 'isolir_profile' => [
                     Rule::requiredIf(fn () => $request->input('overdue_action') === 'isolir'),
@@ -778,6 +781,7 @@ class PppoeCustomerController extends Controller
             ],
             [
                 'subscription_package_id.exists' => 'Paket langganan tidak tersedia untuk router yang dipilih.',
+                'due_date.after' => 'Tanggal jatuh tempo harus setelah tanggal mulai layanan.',
             ]
         );
     }
@@ -845,63 +849,24 @@ class PppoeCustomerController extends Controller
         ?PppoeCustomer $existing = null,
     ): array {
         $packagePrice = (int) ($package?->price ?? 0);
+        $billingDay = $this->billingDayFromInput($validated);
+        $explicitDue = $this->explicitDueFromInput($validated, $billingDay);
 
-        if (! $existing) {
-            $prorata = $this->billing->calculateProrata(
-                $validated['start_date'],
-                (int) $validated['billing_day'],
-                $packagePrice,
-            );
-
-            $validated['billing_day'] = $prorata['billing_day'];
-            $validated['due_date'] = $prorata['due_date'];
-            $validated['first_bill_amount'] = $prorata['amount'];
-            $validated['first_bill_days'] = $prorata['days'];
-
-            return $validated;
-        }
-
-        $startChanged = $existing->start_date?->toDateString() !== $validated['start_date'];
-        $dayChanged = (int) $existing->billing_day !== (int) $validated['billing_day'];
-        $firstCycleDone = $this->billingService->hasCompletedFirstBillingCycle($existing);
-
-        // Setelah siklus pertama selesai (sudah bayar / prorata diganti),
-        // jangan hitung ulang first_bill dari start → due berjalan
-        // (itu yang membuat "62 hari" / nominal dobel).
-        if ($firstCycleDone && ! $startChanged && ! $dayChanged) {
-            $validated['billing_day'] = $this->billing->normalizeBillingDay(
-                (int) $validated['billing_day']
-            );
-            $validated['due_date'] = $existing->due_date?->toDateString();
+        if ($existing && $this->billingService->hasCompletedFirstBillingCycle($existing)) {
+            // Koreksi due tanggal lengkap diizinkan; first_bill historis tidak dihitung ulang.
+            $validated['billing_day'] = $billingDay;
+            $validated['due_date'] = $explicitDue ?? $existing->due_date?->toDateString();
             $validated['first_bill_amount'] = $existing->first_bill_amount;
             $validated['first_bill_days'] = $existing->first_bill_days;
 
             return $validated;
         }
-
-        if ($firstCycleDone && ($startChanged || $dayChanged)) {
-            // Ubah pola billing setelah bayar: pertahankan first_bill historis
-            // dan due_date berjalan (koreksi due tetap manual bila perlu).
-            $validated['billing_day'] = $this->billing->normalizeBillingDay(
-                (int) $validated['billing_day']
-            );
-            $validated['due_date'] = $existing->due_date?->toDateString();
-            $validated['first_bill_amount'] = $existing->first_bill_amount;
-            $validated['first_bill_days'] = $existing->first_bill_days;
-
-            return $validated;
-        }
-
-        // Jangan menimpa due_date berjalan kecuali siklus diubah (sebelum bayar pertama).
-        $dueDate = ($startChanged || $dayChanged)
-            ? null
-            : $existing->due_date?->toDateString();
 
         $prorata = $this->billing->calculateProrata(
             $validated['start_date'],
-            (int) $validated['billing_day'],
+            $billingDay,
             $packagePrice,
-            $dueDate,
+            $explicitDue,
         );
 
         $validated['billing_day'] = $prorata['billing_day'];
@@ -910,5 +875,25 @@ class PppoeCustomerController extends Controller
         $validated['first_bill_days'] = $prorata['days'];
 
         return $validated;
+    }
+
+    private function billingDayFromInput(array $validated): int
+    {
+        if (! empty($validated['due_date'])) {
+            return $this->billing->normalizeBillingDay(
+                (int) Carbon::parse($validated['due_date'])->day
+            );
+        }
+
+        return $this->billing->normalizeBillingDay((int) ($validated['billing_day'] ?? 1));
+    }
+
+    private function explicitDueFromInput(array $validated, int $billingDay): ?string
+    {
+        if (empty($validated['due_date'])) {
+            return null;
+        }
+
+        return $this->billing->alignToBillingDay($validated['due_date'], $billingDay)->toDateString();
     }
 }

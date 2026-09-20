@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react';
 import DatePickerField from '../../../../Components/Admin/DatePickerField';
 import GpsMapPicker from '../../../../Components/Admin/GpsMapPicker';
 import AdminLayout from '../../../../Layouts/AdminLayout';
-import { billingDayOptions, calculateProrata } from '../../../../Utils/billingCycle';
+import {
+    alignDueDate,
+    billingDayFromDate,
+    calculateProrata,
+    suggestedDueDate,
+} from '../../../../Utils/billingCycle';
 
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
@@ -25,11 +30,15 @@ export default function Form({
     profiles: initialProfiles,
     isolir_profiles: initialIsolirProfiles,
     overdue_actions,
-    billing_days: billingDaysProp,
 }) {
     const editing = Boolean(customer);
     const fromSession = Boolean(prefill?.from_session) && !editing;
-    const billingDays = billingDaysProp?.length ? billingDaysProp : billingDayOptions;
+    const initialStart = customer?.start_date || prefill?.start_date || todayIso();
+    const initialBillingDay = customer?.billing_day || prefill?.billing_day || 10;
+    const initialDue =
+        customer?.due_date ||
+        prefill?.due_date ||
+        suggestedDueDate(initialStart, initialBillingDay);
     const [profiles, setProfiles] = useState(initialProfiles || []);
     const [isolirProfiles, setIsolirProfiles] = useState(initialIsolirProfiles || []);
     const [loadingProfiles, setLoadingProfiles] = useState(false);
@@ -52,8 +61,9 @@ export default function Form({
         username: customer?.username || prefill?.username || '',
         password: prefill?.password || '',
         service_profile: customer?.service_profile || prefill?.service_profile || '',
-        start_date: customer?.start_date || prefill?.start_date || todayIso(),
-        billing_day: customer?.billing_day || prefill?.billing_day || 10,
+        start_date: initialStart,
+        due_date: initialDue,
+        billing_day: initialDue ? billingDayFromDate(initialDue) : initialBillingDay,
         overdue_action: customer?.overdue_action || prefill?.overdue_action || 'isolir',
         isolir_profile: customer?.isolir_profile || prefill?.isolir_profile || '',
         notes: customer?.notes || (fromSession ? 'Diimpor dari sesi aktif PPPoE' : ''),
@@ -77,9 +87,35 @@ export default function Form({
     );
 
     const prorata = useMemo(() => {
-        if (!data.start_date || !data.billing_day || !selectedPackage) return null;
-        return calculateProrata(data.start_date, data.billing_day, selectedPackage.price);
-    }, [data.start_date, data.billing_day, selectedPackage]);
+        if (!data.start_date || !data.due_date || !selectedPackage) return null;
+        return calculateProrata(
+            data.start_date,
+            data.billing_day,
+            selectedPackage.price,
+            data.due_date,
+        );
+    }, [data.start_date, data.billing_day, data.due_date, selectedPackage]);
+
+    const applyStartDate = (value) => {
+        setData((current) => {
+            const next = { ...current, start_date: value };
+            if (!editing || !current.due_date || current.due_date <= value) {
+                const suggested = suggestedDueDate(value, current.billing_day);
+                next.due_date = suggested;
+                next.billing_day = suggested ? billingDayFromDate(suggested) : current.billing_day;
+            }
+            return next;
+        });
+    };
+
+    const applyDueDate = (value) => {
+        const aligned = alignDueDate(value);
+        setData((current) => ({
+            ...current,
+            due_date: aligned,
+            billing_day: billingDayFromDate(aligned),
+        }));
+    };
 
     const loadProfiles = async (routerId) => {
         if (!routerId) {
@@ -396,8 +432,9 @@ export default function Form({
                     <div>
                         <p className="text-sm font-semibold text-ink">Siklus tagihan</p>
                         <p className="mt-1 text-xs text-ink-soft">
-                            Pilih tanggal tetap tiap bulan. Jatuh tempo pertama dan tagihan prorata
-                            dihitung otomatis dari tanggal mulai.
+                            Pilih tanggal jatuh tempo pertama secara lengkap (hari, bulan, tahun).
+                            Tanggal yang sama dipakai setiap bulan berikutnya. Tagihan pertama
+                            dihitung prorata dari tanggal mulai sampai jatuh tempo.
                         </p>
                     </div>
 
@@ -405,32 +442,24 @@ export default function Form({
                         <DatePickerField
                             label="Tanggal mulai layanan"
                             value={data.start_date}
-                            onChange={(value) => setData('start_date', value)}
+                            onChange={applyStartDate}
                             error={errors.start_date}
                             required
                         />
 
-                        <label className="block text-sm font-medium text-ink">
-                            Tanggal jatuh tempo tiap bulan
-                            <select
-                                value={data.billing_day || ''}
-                                onChange={(e) => setData('billing_day', Number(e.target.value))}
-                                className={fieldClass}
-                                required
-                            >
-                                {billingDays.map((day) => (
-                                    <option key={day} value={day}>
-                                        Setiap tanggal {day}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.billing_day && (
-                                <span className="mt-1 block text-xs text-red-600">
-                                    {errors.billing_day}
-                                </span>
-                            )}
-                        </label>
+                        <DatePickerField
+                            label="Tanggal jatuh tempo tiap bulan"
+                            value={data.due_date}
+                            onChange={applyDueDate}
+                            error={errors.due_date || errors.billing_day}
+                            required
+                        />
                     </div>
+                    <p className="text-xs text-ink-soft">
+                        Contoh: mulai 20 Agustus 2026 dan jatuh tempo 20 September 2026. Tagihan
+                        berikutnya setiap tanggal {data.billing_day || '—'}. Tanggal 29–31 disimpan
+                        sebagai tanggal 28.
+                    </p>
 
                     {prorata ? (
                         <div className="border border-signal/20 bg-white px-4 py-3 text-sm text-ink">

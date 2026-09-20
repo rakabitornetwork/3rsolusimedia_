@@ -17,13 +17,47 @@ class BillingCycleService
         $billingDay = $this->normalizeBillingDay($billingDay);
         $start = Carbon::parse($startDate)->startOfDay();
 
-        $candidate = $this->dateOnBillingDay($start->copy(), $billingDay);
+        $candidate = $this->alignToBillingDay($start->copy(), $billingDay);
 
         if ($candidate->greaterThan($start)) {
             return $candidate;
         }
 
-        return $this->dateOnBillingDay($start->copy()->addMonthNoOverflow(), $billingDay);
+        return $this->alignToBillingDay($start->copy()->addMonthNoOverflow(), $billingDay);
+    }
+
+    /**
+     * Jatuh tempo pertama: pakai tanggal yang dipilih admin bila valid,
+     * jangan maju ke bulan berikutnya hanya karena hari ini sudah lewat tanggal itu.
+     */
+    public function firstDueDate(
+        CarbonInterface|string $startDate,
+        int $billingDay,
+        CarbonInterface|string|null $explicitDue = null,
+    ): Carbon {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $billingDay = $this->normalizeBillingDay($billingDay);
+
+        if ($explicitDue) {
+            $due = $this->alignToBillingDay($explicitDue, $billingDay);
+            if ($due->greaterThan($start)) {
+                return $due;
+            }
+        }
+
+        return $this->nextDueDate($start, $billingDay);
+    }
+
+    /**
+     * Samakan tanggal ke billing_day pada bulan yang sama (maks. 28 / akhir bulan).
+     */
+    public function alignToBillingDay(CarbonInterface|string $monthAnchor, int $billingDay): Carbon
+    {
+        $billingDay = $this->normalizeBillingDay($billingDay);
+        $date = Carbon::parse($monthAnchor)->startOfDay();
+        $day = min($billingDay, $date->daysInMonth);
+
+        return $date->day($day);
     }
 
     /**
@@ -52,15 +86,9 @@ class BillingCycleService
     ): array {
         $billingDay = $this->normalizeBillingDay($billingDay);
         $start = Carbon::parse($startDate)->startOfDay();
-        $due = $dueDate
-            ? Carbon::parse($dueDate)->startOfDay()
-            : $this->nextDueDate($start, $billingDay);
+        $due = $this->firstDueDate($start, $billingDay, $dueDate);
 
-        if ($due->lessThanOrEqualTo($start)) {
-            $due = $this->nextDueDate($start, $billingDay);
-        }
-
-        $previousBilling = $this->dateOnBillingDay($due->copy()->subMonthNoOverflow(), $billingDay);
+        $previousBilling = $this->alignToBillingDay($due->copy()->subMonthNoOverflow(), $billingDay);
         $cycleDays = max(1, (int) $previousBilling->diffInDays($due));
         $usedDays = max(0, (int) $start->diffInDays($due));
 
@@ -117,7 +145,7 @@ class BillingCycleService
         $billingDay = $this->normalizeBillingDay($billingDay);
         $due = Carbon::parse($currentDue)->startOfDay();
 
-        return $this->dateOnBillingDay($due->copy()->addMonthNoOverflow(), $billingDay);
+        return $this->alignToBillingDay($due->copy()->addMonthNoOverflow(), $billingDay);
     }
 
     /**
@@ -165,13 +193,5 @@ class BillingCycleService
     public function normalizeBillingDay(int $billingDay): int
     {
         return max(1, min(28, $billingDay));
-    }
-
-    private function dateOnBillingDay(CarbonInterface $monthAnchor, int $billingDay): Carbon
-    {
-        $date = Carbon::parse($monthAnchor)->startOfDay();
-        $day = min($billingDay, $date->daysInMonth);
-
-        return $date->day($day);
     }
 }

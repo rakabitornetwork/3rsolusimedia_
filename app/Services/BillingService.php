@@ -37,10 +37,11 @@ class BillingService
             return null;
         }
 
-        // Periode pertama selalu start → due pertama (bukan due yang sudah dimajukan bayar).
-        $firstDue = $this->cycle->nextDueDate(
+        // Periode pertama: pakai due yang dipilih di form, bukan "hari tagihan berikutnya".
+        $firstDue = $this->cycle->firstDueDate(
             $customer->start_date,
             (int) $customer->billing_day,
+            $customer->due_date,
         );
 
         return $this->createInvoice(
@@ -84,11 +85,12 @@ class BillingService
             return $invoice;
         }
 
-        // Samakan ke due pertama dari start/billing_day, bukan due berjalan
-        // yang bisa sudah dimajukan (penyebab tagihan "62 hari" / dobel).
-        $firstDue = $this->cycle->nextDueDate(
+        // Samakan ke due yang tersimpan (tanggal lengkap dari form),
+        // bukan nextDueDate yang bisa loncat ke bulan depan.
+        $firstDue = $this->cycle->firstDueDate(
             $customer->start_date,
             (int) $customer->billing_day,
+            $customer->due_date,
         );
 
         $invoice->update([

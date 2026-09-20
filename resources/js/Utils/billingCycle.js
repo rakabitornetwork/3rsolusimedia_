@@ -20,9 +20,15 @@ function daysInMonth(year, monthIndex) {
     return new Date(year, monthIndex + 1, 0).getDate();
 }
 
-function normalizeBillingDay(day) {
+export function normalizeBillingDay(day) {
     const n = Number(day) || 1;
     return Math.max(1, Math.min(28, n));
+}
+
+export function billingDayFromDate(value) {
+    const date = parseDate(value);
+    if (!date) return 1;
+    return normalizeBillingDay(date.getDate());
 }
 
 function dateOnBillingDay(anchor, billingDay) {
@@ -44,6 +50,20 @@ function diffInDays(from, to) {
     return Math.round(ms / 86400000);
 }
 
+export function alignDueDate(value) {
+    const date = parseDate(value);
+    if (!date) return value;
+    const day = normalizeBillingDay(date.getDate());
+    return formatDate(dateOnBillingDay(date, day));
+}
+
+export function suggestedDueDate(startDateValue, billingDay) {
+    const start = parseDate(startDateValue);
+    if (!start) return null;
+    const day = normalizeBillingDay(billingDay ?? start.getDate());
+    return formatDate(dateOnBillingDay(addMonthNoOverflow(start), day));
+}
+
 export function nextDueDate(startDateValue, billingDay) {
     const start = parseDate(startDateValue);
     if (!start) return null;
@@ -56,6 +76,21 @@ export function nextDueDate(startDateValue, billingDay) {
     }
 
     return formatDate(dateOnBillingDay(addMonthNoOverflow(start), day));
+}
+
+export function firstDueDate(startDateValue, billingDay, explicitDue) {
+    const start = parseDate(startDateValue);
+    if (!start) return null;
+
+    const day = normalizeBillingDay(billingDay);
+    if (explicitDue) {
+        const due = parseDate(alignDueDate(explicitDue));
+        if (due && due > start) {
+            return formatDate(due);
+        }
+    }
+
+    return nextDueDate(startDateValue, day);
 }
 
 export function advanceDueDate(currentDueValue, billingDay) {
@@ -73,12 +108,14 @@ export function roundUpToThousand(amount) {
     return Math.ceil(value / 1000) * 1000;
 }
 
-export function calculateProrata(startDateValue, billingDay, packagePrice) {
+export function calculateProrata(startDateValue, billingDay, packagePrice, dueDateValue = null) {
     const start = parseDate(startDateValue);
     if (!start) return null;
 
-    const day = normalizeBillingDay(billingDay);
-    const dueValue = nextDueDate(startDateValue, day);
+    const day = dueDateValue
+        ? billingDayFromDate(dueDateValue)
+        : normalizeBillingDay(billingDay);
+    const dueValue = firstDueDate(startDateValue, day, dueDateValue);
     const due = parseDate(dueValue);
     if (!due) return null;
 

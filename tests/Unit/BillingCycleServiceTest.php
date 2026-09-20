@@ -59,4 +59,33 @@ class BillingCycleServiceTest extends TestCase
 
         $this->assertSame('2026-09-22', $next->toDateString());
     }
+
+    #[Test]
+    public function first_due_honors_explicit_september_date_when_start_is_august(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20')->startOfDay());
+
+        $due = $this->cycle->firstDueDate('2026-08-20', 20, '2026-09-20');
+
+        $this->assertSame('2026-09-20', $due->toDateString());
+    }
+
+    #[Test]
+    public function first_due_does_not_skip_to_october_when_today_is_the_billing_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20')->startOfDay());
+
+        $due = $this->cycle->firstDueDate('2026-08-20', 20, '2026-09-20');
+
+        $this->assertSame('2026-09-20', $due->toDateString());
+        $this->assertNotSame('2026-10-20', $due->toDateString());
+    }
+
+    #[Test]
+    public function next_due_date_from_august_20_is_september_not_october(): void
+    {
+        $next = $this->cycle->nextDueDate('2026-08-20', 20);
+
+        $this->assertSame('2026-09-20', $next->toDateString());
+    }
 }
