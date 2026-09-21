@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\MikrotikRouter;
+use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Models\User;
+use App\Services\BillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -63,6 +66,7 @@ class UserAgentAssignmentTest extends TestCase
         $this->assertDatabaseHas('pppoe_customers', [
             'id' => $onA->id,
             'agent_id' => $agent->id,
+            'agent_pays_commission' => 0,
         ]);
         $this->assertDatabaseHas('pppoe_customers', [
             'id' => $onB->id,
@@ -90,6 +94,7 @@ class UserAgentAssignmentTest extends TestCase
                 ->component('Admin/Users/Form')
                 ->has('routers', 2)
                 ->where('user.assigned_customer_ids', [$onA->id])
+                ->where('user.commission_customer_ids', [])
             );
 
         $this->actingAs($admin)
@@ -109,7 +114,90 @@ class UserAgentAssignmentTest extends TestCase
         $this->assertDatabaseHas('pppoe_customers', [
             'id' => $onB->id,
             'agent_id' => $agent->id,
+            'agent_pays_commission' => 0,
         ]);
+    }
+
+    #[Test]
+    public function only_specially_marked_customers_earn_agent_commission(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        [$routerA] = $this->routers();
+        $assignedOnly = $this->customer($routerA, ['name' => 'Budi', 'username' => 'budi01']);
+        $commissioned = $this->customer($routerA, ['name' => 'Siti', 'username' => 'siti01']);
+        $outsider = $this->customer($routerA, ['name' => 'Andi', 'username' => 'andi01']);
+
+        $this->actingAs($admin)
+            ->post('/admin/users', [
+                'name' => 'Agen Komisi',
+                'email' => 'agen.komisi@example.com',
+                'role' => User::ROLE_AGEN,
+                'billing_commission' => 7000,
+                'assigned_customer_ids' => [$assignedOnly->id, $commissioned->id],
+                'commission_customer_ids' => [$commissioned->id, $outsider->id],
+                'password' => 'Password1!',
+                'password_confirmation' => 'Password1!',
+            ])
+            ->assertRedirect('/admin/users');
+
+        $agent = User::query()->where('email', 'agen.komisi@example.com')->first();
+        $this->assertNotNull($agent);
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $assignedOnly->id,
+            'agent_id' => $agent->id,
+            'agent_pays_commission' => 0,
+        ]);
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $commissioned->id,
+            'agent_id' => $agent->id,
+            'agent_pays_commission' => 1,
+        ]);
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $outsider->id,
+            'agent_id' => null,
+            'agent_pays_commission' => 0,
+        ]);
+
+        $billing = app(BillingService::class);
+        $uncommissionedInvoice = $this->unpaidInvoice($assignedOnly, 'INV-NO-COMM');
+        $commissionedInvoice = $this->unpaidInvoice($commissioned, 'INV-COMM');
+
+        $billing->markPaid($uncommissionedInvoice);
+        $billing->markPaid($commissionedInvoice);
+
+        $this->assertDatabaseHas('payments', [
+            'invoice_id' => $uncommissionedInvoice->id,
+            'agent_id' => $agent->id,
+            'agent_commission' => 0,
+        ]);
+        $this->assertDatabaseHas('payments', [
+            'invoice_id' => $commissionedInvoice->id,
+            'agent_id' => $agent->id,
+            'agent_commission' => 7000,
+        ]);
+        $this->assertSame(7000, (int) Payment::query()->sum('agent_commission'));
+    }
+
+    #[Test]
+    public function user_form_exposes_commission_flag_per_customer(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $agent = User::factory()->agen()->create();
+        [$routerA] = $this->routers();
+        $customer = $this->customer($routerA, [
+            'name' => 'Budi',
+            'username' => 'budi01',
+            'agent_id' => $agent->id,
+            'agent_pays_commission' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/users/'.$agent->id.'/edit')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('user.commission_customer_ids', [$customer->id])
+                ->where('pppoe_customers.0.agent_pays_commission', true)
+            );
     }
 
     /**
@@ -153,5 +241,22 @@ class UserAgentAssignmentTest extends TestCase
             'sync_status' => 'synced',
             'is_active' => true,
         ], $overrides));
+    }
+
+    private function unpaidInvoice(PppoeCustomer $customer, string $number): Invoice
+    {
+        return Invoice::query()->create([
+            'number' => $number,
+            'pppoe_customer_id' => $customer->id,
+            'type' => 'monthly',
+            'period_start' => now()->startOfMonth()->toDateString(),
+            'period_end' => now()->endOfMonth()->toDateString(),
+            'due_date' => now()->addDays(3)->toDateString(),
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+        ]);
     }
 }

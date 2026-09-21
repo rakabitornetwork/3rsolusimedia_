@@ -740,7 +740,7 @@ class PppoeCustomerController extends Controller
 
     private function validateCustomer(Request $request, ?PppoeCustomer $customer = null): array
     {
-        return $request->validate(
+        $validated = $request->validate(
             [
                 'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
                 'agent_id' => [
@@ -783,12 +783,21 @@ class PppoeCustomerController extends Controller
                 ],
                 'notes' => ['nullable', 'string', 'max:1000'],
                 'is_active' => ['nullable', 'boolean'],
+                'agent_pays_commission' => ['sometimes', 'boolean'],
             ],
             [
                 'subscription_package_id.exists' => 'Paket langganan tidak tersedia untuk router yang dipilih.',
                 'due_date.after' => 'Tanggal jatuh tempo harus setelah tanggal mulai layanan.',
             ]
         );
+
+        if (empty($validated['agent_id'])) {
+            $validated['agent_pays_commission'] = false;
+        } else {
+            $validated['agent_pays_commission'] = $request->boolean('agent_pays_commission');
+        }
+
+        return $validated;
     }
 
     /**

@@ -13,6 +13,7 @@ class PppoeCustomer extends Model
     protected $fillable = [
         'mikrotik_router_id',
         'agent_id',
+        'agent_pays_commission',
         'subscription_package_id',
         'name',
         'phone',
@@ -52,6 +53,7 @@ class PppoeCustomer extends Model
             'longitude' => 'float',
             'last_synced_at' => 'datetime',
             'is_active' => 'boolean',
+            'agent_pays_commission' => 'boolean',
         ];
     }
 
@@ -139,6 +141,7 @@ class PppoeCustomer extends Model
             'mikrotik_router_id' => $this->mikrotik_router_id,
             'agent_id' => $this->agent_id,
             'agent_name' => $this->agent?->name,
+            'agent_pays_commission' => (bool) $this->agent_pays_commission,
             'subscription_package_id' => $this->subscription_package_id,
             'name' => $this->name,
             'phone' => $this->phone,

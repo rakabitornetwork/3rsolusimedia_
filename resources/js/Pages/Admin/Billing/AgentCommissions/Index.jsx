@@ -66,7 +66,7 @@ export default function Index({
     return (
         <AdminLayout
             title="Komisi Agen"
-            subtitle="Komisi tetap per tagihan lunas pelanggan yang ditugaskan (setelah fitur aktif)"
+            subtitle="Komisi tetap per tagihan lunas pelanggan yang ditandai khusus untuk komisi"
         >
             <Head title="Komisi Agen" />
 

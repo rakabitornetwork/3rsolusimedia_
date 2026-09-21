@@ -51,6 +51,7 @@ export default function Form({
             routers[0]?.id ||
             '',
         agent_id: customer?.agent_id || '',
+        agent_pays_commission: Boolean(customer?.agent_pays_commission),
         subscription_package_id:
             customer?.subscription_package_id || prefill?.subscription_package_id || '',
         name: customer?.name || prefill?.name || '',
@@ -303,26 +304,53 @@ export default function Form({
                 </div>
 
                 {agents.length > 0 && (
-                    <label className="block text-sm font-medium text-ink">
-                        Agen Penanggung Jawab <span className="font-normal text-ink-soft">(opsional)</span>
-                        <select
-                            value={data.agent_id || ''}
-                            onChange={(e) => setData('agent_id', e.target.value)}
-                            className={fieldClass}
-                        >
-                            <option value="">Tanpa agen (dikelola admin/superadmin)</option>
-                            {agents.map((ag) => (
-                                <option key={ag.id} value={ag.id}>
-                                    {ag.name}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.agent_id && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.agent_id}
-                            </span>
-                        )}
-                    </label>
+                    <div className="space-y-3">
+                        <label className="block text-sm font-medium text-ink">
+                            Agen Penanggung Jawab <span className="font-normal text-ink-soft">(opsional)</span>
+                            <select
+                                value={data.agent_id || ''}
+                                onChange={(e) => {
+                                    const next = e.target.value;
+                                    setData({
+                                        ...data,
+                                        agent_id: next,
+                                        agent_pays_commission: next
+                                            ? data.agent_pays_commission
+                                            : false,
+                                    });
+                                }}
+                                className={fieldClass}
+                            >
+                                <option value="">Tanpa agen (dikelola admin/superadmin)</option>
+                                {agents.map((ag) => (
+                                    <option key={ag.id} value={ag.id}>
+                                        {ag.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.agent_id && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.agent_id}
+                                </span>
+                            )}
+                        </label>
+                        {data.agent_id ? (
+                            <label className="flex cursor-pointer items-start gap-2 text-sm text-ink">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(data.agent_pays_commission)}
+                                    onChange={(e) => setData('agent_pays_commission', e.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
+                                />
+                                <span>
+                                    <span className="font-medium">Agen mendapat komisi dari pelanggan ini</span>
+                                    <span className="mt-0.5 block text-xs font-normal text-ink-soft">
+                                        Kosongkan jika agen hanya menugaskan/mengelola, tanpa komisi tagihan.
+                                    </span>
+                                </span>
+                            </label>
+                        ) : null}
+                    </div>
                 )}
 
                 <div className="grid gap-4 sm:grid-cols-2">

@@ -84,17 +84,22 @@ class UserController extends Controller
         $avatar = $this->storeAvatar($request);
 
         $user = User::query()->create([
-            ...collect($validated)->except(['password_confirmation', 'avatar', 'remove_avatar', 'assigned_customer_ids'])->all(),
+            ...collect($validated)->except([
+                'password_confirmation',
+                'avatar',
+                'remove_avatar',
+                'assigned_customer_ids',
+                'commission_customer_ids',
+            ])->all(),
             'avatar' => $avatar,
         ]);
 
         if ($user->isAgen()) {
-            $assignedIds = $request->input('assigned_customer_ids', []);
-            if (is_array($assignedIds)) {
-                PppoeCustomer::query()
-                    ->whereIn('id', $assignedIds)
-                    ->update(['agent_id' => $user->id]);
-            }
+            $this->syncAgentCustomers(
+                $user,
+                (array) $request->input('assigned_customer_ids', []),
+                (array) $request->input('commission_customer_ids', []),
+            );
         }
 
         return AdminListState::to('admin.users.index', AdminListState::USERS)
@@ -131,7 +136,13 @@ class UserController extends Controller
             unset($validated['password']);
         }
 
-        unset($validated['password_confirmation'], $validated['avatar'], $validated['remove_avatar'], $validated['assigned_customer_ids']);
+        unset(
+            $validated['password_confirmation'],
+            $validated['avatar'],
+            $validated['remove_avatar'],
+            $validated['assigned_customer_ids'],
+            $validated['commission_customer_ids'],
+        );
 
         $avatar = $user->avatar;
 
@@ -153,24 +164,18 @@ class UserController extends Controller
         ]);
 
         if ($user->isAgen()) {
-            $assignedIds = (array) $request->input('assigned_customer_ids', []);
-            // Unassign customers no longer in array
-            PppoeCustomer::query()
-                ->where('agent_id', $user->id)
-                ->whereNotIn('id', $assignedIds)
-                ->update(['agent_id' => null]);
-
-            // Assign new customers
-            if (! empty($assignedIds)) {
-                PppoeCustomer::query()
-                    ->whereIn('id', $assignedIds)
-                    ->update(['agent_id' => $user->id]);
-            }
+            $this->syncAgentCustomers(
+                $user,
+                (array) $request->input('assigned_customer_ids', []),
+                (array) $request->input('commission_customer_ids', []),
+            );
         } else {
-            // If role changed from agen to something else, clear assigned customers
             PppoeCustomer::query()
                 ->where('agent_id', $user->id)
-                ->update(['agent_id' => null]);
+                ->update([
+                    'agent_id' => null,
+                    'agent_pays_commission' => false,
+                ]);
         }
 
         return AdminListState::to('admin.users.index', AdminListState::USERS)
@@ -192,7 +197,10 @@ class UserController extends Controller
 
         PppoeCustomer::query()
             ->where('agent_id', $user->id)
-            ->update(['agent_id' => null]);
+            ->update([
+                'agent_id' => null,
+                'agent_pays_commission' => false,
+            ]);
 
         $user->deleteAvatarFile();
         $user->delete();
@@ -224,6 +232,8 @@ class UserController extends Controller
             'billing_commission' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'assigned_customer_ids' => ['nullable', 'array'],
             'assigned_customer_ids.*' => ['integer', 'exists:pppoe_customers,id'],
+            'commission_customer_ids' => ['nullable', 'array'],
+            'commission_customer_ids.*' => ['integer', 'exists:pppoe_customers,id'],
             'password' => [
                 $existing ? 'nullable' : 'required',
                 'confirmed',
@@ -262,13 +272,14 @@ class UserController extends Controller
         $customers = PppoeCustomer::query()
             ->with('router:id,name,host')
             ->orderBy('name')
-            ->get(['id', 'name', 'username', 'phone', 'agent_id', 'mikrotik_router_id'])
+            ->get(['id', 'name', 'username', 'phone', 'agent_id', 'agent_pays_commission', 'mikrotik_router_id'])
             ->map(fn (PppoeCustomer $customer) => [
                 'id' => $customer->id,
                 'name' => $customer->name,
                 'username' => $customer->username,
                 'phone' => $customer->phone,
                 'agent_id' => $customer->agent_id,
+                'agent_pays_commission' => (bool) $customer->agent_pays_commission,
                 'mikrotik_router_id' => $customer->mikrotik_router_id,
                 'router_name' => $customer->router?->name,
                 'router_host' => $customer->router?->host,
@@ -280,6 +291,47 @@ class UserController extends Controller
             'routers' => $routers,
             'pppoe_customers' => $customers,
         ];
+    }
+
+    /**
+     * @param  list<mixed>  $assignedIds
+     * @param  list<mixed>  $commissionIds
+     */
+    private function syncAgentCustomers(User $user, array $assignedIds, array $commissionIds): void
+    {
+        $assignedIds = array_values(array_unique(array_filter(array_map('intval', $assignedIds))));
+        $commissionIds = array_values(array_intersect(
+            array_unique(array_filter(array_map('intval', $commissionIds))),
+            $assignedIds,
+        ));
+
+        PppoeCustomer::query()
+            ->where('agent_id', $user->id)
+            ->when(
+                $assignedIds !== [],
+                fn ($query) => $query->whereNotIn('id', $assignedIds),
+            )
+            ->update([
+                'agent_id' => null,
+                'agent_pays_commission' => false,
+            ]);
+
+        if ($assignedIds !== []) {
+            PppoeCustomer::query()
+                ->whereIn('id', $assignedIds)
+                ->update(['agent_id' => $user->id]);
+        }
+
+        PppoeCustomer::query()
+            ->where('agent_id', $user->id)
+            ->update(['agent_pays_commission' => false]);
+
+        if ($commissionIds !== []) {
+            PppoeCustomer::query()
+                ->where('agent_id', $user->id)
+                ->whereIn('id', $commissionIds)
+                ->update(['agent_pays_commission' => true]);
+        }
     }
 
     private function storeAvatar(Request $request): ?string

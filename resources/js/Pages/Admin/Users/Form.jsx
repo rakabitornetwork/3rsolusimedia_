@@ -42,6 +42,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
         role: user?.role || role_options[0]?.value || 'admin',
         billing_commission: user?.billing_commission ?? 0,
         assigned_customer_ids: asIdList(user?.assigned_customer_ids),
+        commission_customer_ids: asIdList(user?.commission_customer_ids),
         password: '',
         password_confirmation: '',
         avatar: null,
@@ -50,6 +51,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
     });
 
     const assignedIds = asIdList(data.assigned_customer_ids);
+    const commissionIds = asIdList(data.commission_customer_ids);
 
     useEffect(() => {
         if (!data.avatar) return undefined;
@@ -92,32 +94,59 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
     const selectedOnRouter = routerCustomers.filter((customer) =>
         assignedIds.includes(Number(customer.id)),
     ).length;
+    const commissionOnRouter = routerCustomers.filter((customer) =>
+        commissionIds.includes(Number(customer.id)),
+    ).length;
     const selectedOnOtherRouters = assignedIds.length - selectedOnRouter;
+
+    const setAssignment = (nextAssigned, nextCommission) => {
+        const assigned = asIdList(nextAssigned);
+        setData({
+            ...data,
+            assigned_customer_ids: assigned,
+            commission_customer_ids: asIdList(nextCommission).filter((id) => assigned.includes(id)),
+        });
+    };
 
     const toggleCustomer = (id) => {
         const numericId = Number(id);
-        const current = asIdList(data.assigned_customer_ids);
-        if (current.includes(numericId)) {
-            setData(
-                'assigned_customer_ids',
-                current.filter((cId) => cId !== numericId),
-            );
-        } else {
-            setData('assigned_customer_ids', [...current, numericId]);
-        }
-    };
-
-    const toggleAllCustomers = () => {
-        const current = asIdList(data.assigned_customer_ids);
-        if (allVisibleSelected) {
-            setData(
-                'assigned_customer_ids',
-                current.filter((id) => !visibleIds.includes(id)),
+        if (assignedIds.includes(numericId)) {
+            setAssignment(
+                assignedIds.filter((cId) => cId !== numericId),
+                commissionIds.filter((cId) => cId !== numericId),
             );
             return;
         }
 
-        setData('assigned_customer_ids', [...new Set([...current, ...visibleIds])]);
+        setAssignment([...assignedIds, numericId], commissionIds);
+    };
+
+    const toggleCommission = (id) => {
+        const numericId = Number(id);
+        if (commissionIds.includes(numericId)) {
+            setAssignment(
+                assignedIds,
+                commissionIds.filter((cId) => cId !== numericId),
+            );
+            return;
+        }
+
+        setAssignment(
+            assignedIds.includes(numericId) ? assignedIds : [...assignedIds, numericId],
+            [...commissionIds, numericId],
+        );
+    };
+
+    const toggleAllCustomers = () => {
+        if (allVisibleSelected) {
+            setAssignment(
+                assignedIds.filter((id) => !visibleIds.includes(id)),
+                commissionIds.filter((id) => !visibleIds.includes(id)),
+            );
+            return;
+        }
+
+        setAssignment([...new Set([...assignedIds, ...visibleIds])], commissionIds);
     };
 
     const submit = (e) => {
@@ -128,11 +157,16 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
 
             if (payload.role !== 'agen') {
                 delete payload.assigned_customer_ids;
+                delete payload.commission_customer_ids;
                 delete payload.billing_commission;
             } else {
                 payload.billing_commission = Math.max(
                     0,
                     Number.parseInt(String(payload.billing_commission || 0), 10) || 0,
+                );
+                payload.assigned_customer_ids = asIdList(payload.assigned_customer_ids);
+                payload.commission_customer_ids = asIdList(payload.commission_customer_ids).filter(
+                    (id) => payload.assigned_customer_ids.includes(id),
                 );
             }
 
@@ -319,8 +353,9 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                         Penugasan Pelanggan PPPoE
                                     </h4>
                                     <p className="text-xs text-ink-soft">
-                                        Pilih RouterOS dulu, lalu centang pelanggan di router itu
-                                        ({assignedIds.length} dipilih).
+                                        Pilih RouterOS, lalu tugaskan pelanggan. Komisi hanya untuk
+                                        yang ditandai khusus ({assignedIds.length} ditugaskan,{' '}
+                                        {commissionIds.length} berkomisi).
                                     </p>
                                 </div>
                                 <button
@@ -367,14 +402,18 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
 
                             <p className="mt-2 text-[11px] text-ink-soft">
                                 {selectedRouter
-                                    ? `${selectedOnRouter} dipilih dari ${routerCustomers.length} pelanggan ${selectedRouter.name}.`
-                                    : `${assignedIds.length} dipilih dari ${pppoe_customers.length} pelanggan.`}
+                                    ? `${selectedOnRouter} ditugaskan, ${commissionOnRouter} berkomisi dari ${routerCustomers.length} pelanggan ${selectedRouter.name}.`
+                                    : `${assignedIds.length} ditugaskan, ${commissionIds.length} berkomisi dari ${pppoe_customers.length} pelanggan.`}
                                 {routerId && selectedOnOtherRouters > 0
                                     ? ` ${selectedOnOtherRouters} pelanggan di router lain tetap terpilih.`
                                     : ''}
                             </p>
 
-                            <div className="mt-3 max-h-60 space-y-1 overflow-y-auto border border-ink/10 bg-white p-2 text-xs">
+                            <div className="mt-3 max-h-60 overflow-y-auto border border-ink/10 bg-white text-xs">
+                                <div className="sticky top-0 flex items-center justify-between border-b border-ink/10 bg-mist/70 px-2 py-1.5 font-medium text-ink-soft">
+                                    <span>Pelanggan</span>
+                                    <span>Komisi</span>
+                                </div>
                                 {routers.length === 0 ? (
                                     <p className="py-2 text-center text-ink-soft">
                                         Belum ada RouterOS. Tambah router di menu Jaringan dulu.
@@ -387,16 +426,17 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                 ) : (
                                     filteredCustomers.map((c) => {
                                         const isChecked = assignedIds.includes(Number(c.id));
+                                        const getsCommission = commissionIds.includes(Number(c.id));
                                         return (
-                                            <label
+                                            <div
                                                 key={c.id}
-                                                className={`flex items-center justify-between rounded px-2 py-1.5 transition ${
+                                                className={`flex items-center justify-between gap-2 px-2 py-1.5 ${
                                                     isChecked
-                                                        ? 'bg-signal/10 font-semibold text-ink'
-                                                        : 'hover:bg-mist/60 text-ink-soft'
+                                                        ? 'bg-signal/10 text-ink'
+                                                        : 'text-ink-soft hover:bg-mist/60'
                                                 }`}
                                             >
-                                                <div className="flex min-w-0 items-center gap-2">
+                                                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                                                     <input
                                                         type="checkbox"
                                                         checked={isChecked}
@@ -404,7 +444,9 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                                         className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
                                                     />
                                                     <span className="min-w-0">
-                                                        <span className="text-ink">{c.name}</span>
+                                                        <span className={isChecked ? 'font-semibold text-ink' : 'text-ink'}>
+                                                            {c.name}
+                                                        </span>
                                                         <span className="ml-2 font-mono text-[11px] text-ink-soft">
                                                             ({c.username})
                                                         </span>
@@ -413,14 +455,28 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                                                 · {c.router_name}
                                                             </span>
                                                         ) : null}
+                                                        {c.phone ? (
+                                                            <span className="ml-2 text-[11px] text-ink-soft">
+                                                                {c.phone}
+                                                            </span>
+                                                        ) : null}
                                                     </span>
-                                                </div>
-                                                {c.phone && (
-                                                    <span className="shrink-0 text-[11px] text-ink-soft">
-                                                        {c.phone}
+                                                </label>
+                                                <label
+                                                    className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]"
+                                                    title="Hanya pelanggan ini yang menghasilkan komisi agen"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={getsCommission}
+                                                        onChange={() => toggleCommission(c.id)}
+                                                        className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
+                                                    />
+                                                    <span className={getsCommission ? 'font-semibold text-ink' : ''}>
+                                                        Komisi
                                                     </span>
-                                                )}
-                                            </label>
+                                                </label>
+                                            </div>
                                         );
                                     })
                                 )}
@@ -428,6 +484,11 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                             {errors.assigned_customer_ids && (
                                 <span className="mt-1 block text-xs text-red-600">
                                     {errors.assigned_customer_ids}
+                                </span>
+                            )}
+                            {errors.commission_customer_ids && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.commission_customer_ids}
                                 </span>
                             )}
                         </div>

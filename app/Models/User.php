@@ -176,6 +176,9 @@ class User extends Authenticatable
             'assigned_customer_ids' => $this->isAgen()
                 ? $this->agentCustomers()->pluck('id')->all()
                 : [],
+            'commission_customer_ids' => $this->isAgen()
+                ? $this->agentCustomers()->where('agent_pays_commission', true)->pluck('id')->all()
+                : [],
             'billing_commission' => $this->isAgen()
                 ? (int) ($this->billing_commission ?? 0)
                 : 0,
