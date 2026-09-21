@@ -218,7 +218,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
 
             <form
                 onSubmit={submit}
-                className="max-w-2xl space-y-4 border border-ink/10 bg-white p-6 sm:p-8"
+                className="max-w-3xl space-y-4 border border-ink/10 bg-white p-6 sm:p-8"
             >
                 <div className="flex flex-wrap items-center gap-4 border border-ink/10 bg-mist/40 p-4">
                     <UserAvatar
@@ -410,9 +410,9 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                             </p>
 
                             <div className="mt-3 max-h-60 overflow-y-auto border border-ink/10 bg-white text-xs">
-                                <div className="sticky top-0 flex items-center justify-between border-b border-ink/10 bg-mist/70 px-2 py-1.5 font-medium text-ink-soft">
-                                    <span>Pelanggan</span>
-                                    <span>Komisi</span>
+                                <div className="sticky top-0 grid grid-cols-[1fr_88px] items-center border-b border-ink/10 bg-mist px-2 py-1.5 text-[11px] font-semibold tracking-wide text-ink-soft uppercase">
+                                    <span>Tugaskan</span>
+                                    <span className="text-right">Komisi</span>
                                 </div>
                                 {routers.length === 0 ? (
                                     <p className="py-2 text-center text-ink-soft">
@@ -430,13 +430,13 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                         return (
                                             <div
                                                 key={c.id}
-                                                className={`flex items-center justify-between gap-2 px-2 py-1.5 ${
+                                                className={`grid grid-cols-[1fr_88px] items-center gap-2 px-2 py-1.5 ${
                                                     isChecked
                                                         ? 'bg-signal/10 text-ink'
                                                         : 'text-ink-soft hover:bg-mist/60'
                                                 }`}
                                             >
-                                                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                                                <label className="flex min-w-0 cursor-pointer items-center gap-2">
                                                     <input
                                                         type="checkbox"
                                                         checked={isChecked}
@@ -463,7 +463,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                                     </span>
                                                 </label>
                                                 <label
-                                                    className="flex shrink-0 cursor-pointer items-center gap-1 text-[11px]"
+                                                    className="flex cursor-pointer items-center justify-end gap-1.5 border-l border-ink/10 pl-2 text-[11px]"
                                                     title="Hanya pelanggan ini yang menghasilkan komisi agen"
                                                 >
                                                     <input
@@ -473,7 +473,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                                         className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
                                                     />
                                                     <span className={getsCommission ? 'font-semibold text-ink' : ''}>
-                                                        Komisi
+                                                        Ya
                                                     </span>
                                                 </label>
                                             </div>
