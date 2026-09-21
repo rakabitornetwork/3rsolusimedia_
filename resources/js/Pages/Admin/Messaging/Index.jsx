@@ -540,6 +540,14 @@ export default function Index({
                                 <p className="mt-1 truncate font-mono text-xs text-ink">
                                     {webhook_urls.whatsapp}
                                 </p>
+                                {waLive?.remote_webhook_url &&
+                                    waLive.remote_webhook_url !== webhook_urls.whatsapp && (
+                                        <p className="mt-2 text-xs text-amber-800">
+                                            Evolution masih mengirim chat ke {waLive.remote_webhook_url}.
+                                            Panel akan mengarahkannya ke webhook di atas. Klik Tes koneksi
+                                            atau Pasang webhook jika pesan bot masih salah.
+                                        </p>
+                                    )}
                                 {waConnect?.pairing_code && (
                                     <p className="mt-2 text-sm text-ink">
                                         Kode pairing: <strong>{waConnect.pairing_code}</strong>

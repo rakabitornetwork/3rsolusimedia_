@@ -902,4 +902,30 @@ class MessagingWhatsAppTest extends TestCase
             ->assertJsonPath('message', 'Scan QR di WhatsApp (Perangkat tertaut).')
             ->assertJsonFragment(['qr_base64' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==']);
     }
+
+    #[Test]
+    public function whatsapp_status_repairs_webhook_pointing_at_old_domain(): void
+    {
+        $this->enableWhatsapp();
+        Http::fake([
+            'http://evolution.test/instance/connectionState/teslatech' => Http::response([
+                'instance' => ['instanceName' => 'teslatech', 'state' => 'open'],
+            ], 200),
+            'http://evolution.test/webhook/find/teslatech' => Http::response([
+                'url' => 'https://3rsolusimedia.my.id/webhooks/evolution?token=old',
+                'enabled' => true,
+            ], 200),
+            'http://evolution.test/webhook/set/teslatech' => Http::response(['ok' => true], 201),
+        ]);
+
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->getJson('/admin/messaging/whatsapp/status')
+            ->assertOk()
+            ->assertJsonPath('webhook_repaired', true)
+            ->assertJsonPath('remote_webhook_url', '3rsolusimedia.my.id/webhooks/evolution');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/webhook/set/teslatech'));
+    }
 }

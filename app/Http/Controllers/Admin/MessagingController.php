@@ -191,6 +191,13 @@ class MessagingController extends Controller
             SiteSetting::setValue('telegram_bot_username', (string) $connection['username']);
         }
 
+        if ($validated['channel'] === 'whatsapp' && $driver instanceof EvolutionChannel) {
+            $webhook = $driver->ensureAppWebhook();
+            if ($webhook['repaired'] ?? false) {
+                $connection['message'] = trim(($connection['message'] ?? '').' '.$webhook['message']);
+            }
+        }
+
         $chatId = trim((string) ($validated['chat_id'] ?? ''));
         if ($chatId === '') {
             $chatId = $validated['channel'] === 'whatsapp'
@@ -281,6 +288,16 @@ class MessagingController extends Controller
         }
 
         $status = $driver->connectionStatus();
+        if ($driver->isConfigured()) {
+            $webhook = $driver->ensureAppWebhook();
+            $status['remote_webhook_url'] = $webhook['remote_url'] ?? '';
+            $status['webhook_repaired'] = (bool) ($webhook['repaired'] ?? false);
+            if ($status['webhook_repaired']) {
+                $status['message'] = trim(($status['message'] ?? '').' '.$webhook['message']);
+            } elseif (! ($webhook['ok'] ?? true)) {
+                $status['message'] = trim(($status['message'] ?? '').' '.$webhook['message']);
+            }
+        }
 
         return response()->json($status);
     }

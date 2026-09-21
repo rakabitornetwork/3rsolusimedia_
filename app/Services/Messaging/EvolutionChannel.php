@@ -2,6 +2,7 @@
 
 namespace App\Services\Messaging;
 
+use App\Models\SiteSetting;
 use App\Services\Messaging\Contracts\MessagingChannelInterface;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
@@ -221,6 +222,98 @@ class EvolutionChannel implements MessagingChannelInterface
                 'message' => 'Gagal memasang webhook Evolution: '.$e->getMessage(),
             ];
         }
+    }
+
+    public function appWebhookUrl(): string
+    {
+        return url('/webhooks/evolution');
+    }
+
+    public function remoteWebhookUrl(): string
+    {
+        if (! $this->isConfigured()) {
+            return '';
+        }
+
+        try {
+            $response = $this->client()->get($this->url('/webhook/find/'.$this->instance()));
+            $json = $response->json();
+            if (! is_array($json)) {
+                return '';
+            }
+
+            $url = $json['url'] ?? data_get($json, 'webhook.url') ?? data_get($json, 'webhook.webhook.url');
+
+            return trim((string) $url);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    public function webhookPointsToApp(?string $remoteUrl = null): bool
+    {
+        $remote = $remoteUrl ?? $this->remoteWebhookUrl();
+        if ($remote === '') {
+            return false;
+        }
+
+        $expectedHost = parse_url($this->appWebhookUrl(), PHP_URL_HOST);
+        $remoteHost = parse_url($remote, PHP_URL_HOST);
+
+        return is_string($expectedHost)
+            && is_string($remoteHost)
+            && strcasecmp($expectedHost, $remoteHost) === 0
+            && str_contains(strtolower(parse_url($remote, PHP_URL_PATH) ?: ''), '/webhooks/evolution');
+    }
+
+    /**
+     * @return array{ok: bool, message: string, repaired?: bool, remote_url?: string}
+     */
+    public function ensureAppWebhook(): array
+    {
+        $remote = $this->remoteWebhookUrl();
+        if ($this->webhookPointsToApp($remote)) {
+            return [
+                'ok' => true,
+                'message' => 'Webhook Evolution sudah mengarah ke panel ini.',
+                'repaired' => false,
+                'remote_url' => $this->displayWebhookUrl($remote),
+            ];
+        }
+
+        $secret = AppSettings::whatsappWebhookSecret();
+        if ($secret === '') {
+            $secret = Str::lower(Str::random(40));
+            SiteSetting::setValue('whatsapp_webhook_secret', $secret);
+        }
+
+        $result = $this->setWebhook($this->appWebhookUrl(), $secret);
+
+        return [
+            'ok' => (bool) ($result['ok'] ?? false),
+            'message' => ($result['ok'] ?? false)
+                ? 'Webhook Evolution diarahkan ulang ke '.$this->appWebhookUrl().'.'
+                : (string) ($result['message'] ?? 'Gagal mengarahkan webhook Evolution.'),
+            'repaired' => (bool) ($result['ok'] ?? false),
+            'remote_url' => $this->displayWebhookUrl($remote),
+        ];
+    }
+
+    public function displayWebhookUrl(string $url): string
+    {
+        if ($url === '') {
+            return '';
+        }
+
+        $parts = parse_url($url);
+        if (! is_array($parts)) {
+            return $url;
+        }
+
+        $host = $parts['host'] ?? '';
+        $path = $parts['path'] ?? '';
+
+        return ($host !== '' ? $host : $url).$path;
     }
 
     public function webhookInfo(): array
