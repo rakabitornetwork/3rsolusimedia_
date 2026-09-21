@@ -257,6 +257,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/billing/invoices/{invoice}', [BillingController::class, 'show'])->name('billing.show');
     Route::get('/billing/invoices/{invoice}/print', [BillingController::class, 'print'])->name('billing.print');
     Route::post('/billing/invoices/{invoice}/pay', [BillingController::class, 'pay'])->name('billing.pay');
+    Route::patch('/billing/invoices/{invoice}/agent-marks', [BillingController::class, 'updateAgentMarks'])->name('billing.agent-marks');
     Route::post('/billing/invoices/{invoice}/whatsapp', [BillingController::class, 'sendWhatsapp'])->name('billing.whatsapp');
     Route::post('/billing/invoices/{invoice}/online-pay', [BillingController::class, 'createOnlinePayment'])->name('billing.online-pay');
     Route::post('/billing/invoices/{invoice}/void', [BillingController::class, 'void'])->name('billing.void');

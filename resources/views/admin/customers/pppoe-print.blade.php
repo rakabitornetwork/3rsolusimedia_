@@ -33,6 +33,14 @@
     $pageTitle = $page_title ?? ('Cetak Tagihan PPPoE · '.$fmtShort($date ?? now()));
     $backUrl = $back_url ?? route('admin.customers.pppoe');
     $emptyMessage = $empty_message ?? 'Tidak ada pelanggan untuk filter tanggal ini.';
+    $agentMarks = (bool) ($agent_marks ?? false);
+    $tfColumnLabel = $agentMarks ? 'Siap TF' : 'TF';
+    $cashCount = $agentMarks
+        ? $rows->filter(fn ($row) => ! empty($row['agent_cash']))->count()
+        : 0;
+    $readyTfCount = $agentMarks
+        ? $rows->filter(fn ($row) => ! empty($row['agent_ready_tf']))->count()
+        : 0;
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -241,6 +249,11 @@
             background: #fff;
         }
 
+        .box.is-checked {
+            background: var(--ink);
+            border-color: var(--ink);
+        }
+
         .empty {
             padding: 24px 8px;
             text-align: center;
@@ -342,7 +355,7 @@
                             <th class="c-due">Jth Tempo</th>
                             <th class="c-ket">Ket</th>
                             <th class="c-pay">Cash</th>
-                            <th class="c-pay">TF</th>
+                            <th class="c-pay">{{ $tfColumnLabel }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -365,8 +378,8 @@
                                 <td class="c-amt">{{ $money($row['amount'] !== null ? (int) $row['amount'] : null) }}</td>
                                 <td class="c-due">{{ $fmtShort($row['due_date']) }}</td>
                                 <td class="c-ket"><div class="ket"></div></td>
-                                <td class="c-pay"><span class="box"></span></td>
-                                <td class="c-pay"><span class="box"></span></td>
+                                <td class="c-pay"><span class="box{{ $agentMarks && ! empty($row['agent_cash']) ? ' is-checked' : '' }}"></span></td>
+                                <td class="c-pay"><span class="box{{ $agentMarks && ! empty($row['agent_ready_tf']) ? ' is-checked' : '' }}"></span></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -379,7 +392,14 @@
                             &nbsp;·&nbsp;
                             Total tagihan: <strong>Rp {{ $money((int) $total_amount) }}</strong>
                         </div>
-                        <p style="margin: 3px 0 0;">Kolom Ket, Cash, dan TF dikosongkan untuk diisi saat penagihan.</p>
+                        <p style="margin: 3px 0 0;">
+                            @if ($agentMarks)
+                                Kotak Cash / Siap TF terisi sesuai tanda di halaman Tagihan & Pembayaran
+                                (Cash {{ $cashCount }}, Siap TF {{ $readyTfCount }}).
+                            @else
+                                Kolom Ket, Cash, dan TF dikosongkan untuk diisi saat penagihan.
+                            @endif
+                        </p>
                     </div>
                     <div class="sign">
                         <div>

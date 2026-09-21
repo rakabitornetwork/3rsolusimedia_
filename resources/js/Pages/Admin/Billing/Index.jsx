@@ -288,6 +288,7 @@ export default function Index({
 }) {
     const { auth } = usePage().props;
     const canPay = auth?.user?.can_record_payment !== false;
+    const isAgen = auth?.user?.role === 'agen';
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(Number(filters.per_page) || 20);
@@ -447,6 +448,14 @@ export default function Index({
         bulkBillingWhatsapp(selected, choice.value, {
             onFinish: () => setBulkWaProcessing(false),
         });
+    };
+
+    const toggleAgentMark = (invoice, field, checked) => {
+        router.patch(
+            `/admin/billing/invoices/${invoice.id}/agent-marks`,
+            { [field]: checked },
+            keepPage,
+        );
     };
 
     const generate = () => {
@@ -706,6 +715,9 @@ export default function Index({
                         <p className="mt-0.5 text-xs text-ink-soft">
                             Daftar dicetak sesuai abjad nama (A → Z), satu baris per pelanggan dari
                             tagihan yang sedang difilter di halaman ini.
+                            {isAgen
+                                ? ' Tanda Cash dan Siap TF di tabel ikut tercetak pada kotak yang sama.'
+                                : ''}
                         </p>
                         <p className="mt-2 text-xs text-ink">
                             Filter aktif: <strong>{printFilterSummary}</strong>
@@ -872,6 +884,12 @@ export default function Index({
                                 direction={filters.direction}
                                 onSort={applySort}
                             />
+                            {isAgen ? (
+                                <>
+                                    <th className="px-3 py-3 text-center font-semibold">Cash</th>
+                                    <th className="px-3 py-3 text-center font-semibold">Siap TF</th>
+                                </>
+                            ) : null}
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
@@ -932,6 +950,44 @@ export default function Index({
                                         }
                                     />
                                 </td>
+                                {isAgen ? (
+                                    <>
+                                        <td className="px-3 py-3 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(item.agent_cash)}
+                                                disabled={item.status !== 'unpaid'}
+                                                onChange={(e) =>
+                                                    toggleAgentMark(
+                                                        item,
+                                                        'agent_cash',
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                                className="h-4 w-4 accent-signal-deep"
+                                                title="Tandai Cash untuk cetak"
+                                                aria-label={`Cash ${item.number}`}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-3 text-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(item.agent_ready_tf)}
+                                                disabled={item.status !== 'unpaid'}
+                                                onChange={(e) =>
+                                                    toggleAgentMark(
+                                                        item,
+                                                        'agent_ready_tf',
+                                                        e.target.checked,
+                                                    )
+                                                }
+                                                className="h-4 w-4 accent-signal-deep"
+                                                title="Tandai Siap TF untuk cetak"
+                                                aria-label={`Siap TF ${item.number}`}
+                                            />
+                                        </td>
+                                    </>
+                                ) : null}
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
                                         <QuickPayMenu invoice={item} methods={payment_methods} />
@@ -955,7 +1011,7 @@ export default function Index({
                         ))}
                         {rows.length === 0 && (
                             <tr>
-                                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
+                                <td colSpan={isAgen ? 10 : 8} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
                                         ? 'Tidak ada tagihan yang cocok dengan pencarian.'
                                         : filters.hide_old_paid !== false &&

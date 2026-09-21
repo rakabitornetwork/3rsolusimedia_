@@ -25,6 +25,8 @@ class Invoice extends Model
         'package_name',
         'package_price',
         'notes',
+        'agent_cash',
+        'agent_ready_tf',
     ];
 
     protected function casts(): array
@@ -39,6 +41,8 @@ class Invoice extends Model
             'package_price' => 'integer',
             'billing_months' => 'integer',
             'paid_at' => 'datetime',
+            'agent_cash' => 'boolean',
+            'agent_ready_tf' => 'boolean',
         ];
     }
 
@@ -111,6 +115,8 @@ class Invoice extends Model
                 ? 'Rp '.number_format($this->package_price, 0, ',', '.')
                 : null,
             'notes' => $this->notes,
+            'agent_cash' => (bool) $this->agent_cash,
+            'agent_ready_tf' => (bool) $this->agent_ready_tf,
             'is_overdue' => $this->isOverdue(),
             'customer' => $this->customer ? [
                 'id' => $this->customer->id,

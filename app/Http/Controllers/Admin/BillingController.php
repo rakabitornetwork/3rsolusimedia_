@@ -267,6 +267,8 @@ class BillingController extends Controller
                     'customer' => $invoice->customer,
                     'amount' => $invoice->total,
                     'due_date' => $invoice->due_date,
+                    'agent_cash' => (bool) $invoice->agent_cash,
+                    'agent_ready_tf' => (bool) $invoice->agent_ready_tf,
                 ];
             })
             ->sortBy(fn (array $row) => mb_strtolower((string) $row['customer']->name), SORT_NATURAL)
@@ -292,6 +294,7 @@ class BillingController extends Controller
             'back_url' => route('admin.billing.index'),
             'empty_message' => 'Tidak ada pelanggan untuk filter tagihan ini.',
             'company' => $this->companyPrintPayload(),
+            'agent_marks' => (bool) $request->user()?->isAgen(),
         ]);
     }
 
@@ -352,6 +355,35 @@ class BillingController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    public function updateAgentMarks(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user?->isAgen()) {
+            return back()->with('error', 'Hanya akun Agen yang dapat menandai Cash / Siap TF.');
+        }
+
+        $invoice->loadMissing('customer');
+        if ($invoice->customer?->agent_id !== $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses ke tagihan pelanggan ini.');
+        }
+
+        $payload = [];
+        if ($request->exists('agent_cash')) {
+            $payload['agent_cash'] = $request->boolean('agent_cash');
+        }
+        if ($request->exists('agent_ready_tf')) {
+            $payload['agent_ready_tf'] = $request->boolean('agent_ready_tf');
+        }
+
+        if ($payload === []) {
+            return back();
+        }
+
+        $invoice->update($payload);
+
+        return back();
     }
 
     public function bulkPay(Request $request): RedirectResponse
