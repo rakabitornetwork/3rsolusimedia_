@@ -28,6 +28,12 @@ Schedule::command('hotspot:purge-used')->everyFiveMinutes();
 // Pengingat tagihan belum lunas (WhatsApp / Telegram terikat)
 Schedule::command('messaging:remind-invoices')->dailyAt('08:00');
 
+// Ikatkan nomor HP pelanggan ke bot WhatsApp tanpa perintah daftar
+Schedule::command('messaging:bind-whatsapp')
+    ->dailyAt('00:10')
+    ->timezone($appTimezone)
+    ->withoutOverlapping(30);
+
 // Antrian WhatsApp tagihan/pengingat — jeda acak anti-spam
 Schedule::command('messaging:send-outbox')
     ->everyMinute()

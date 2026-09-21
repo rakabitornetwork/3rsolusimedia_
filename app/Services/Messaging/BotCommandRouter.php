@@ -24,6 +24,7 @@ class BotCommandRouter
         private readonly MessagingManager $channels,
         private readonly PaymentGatewayManager $gateways,
         private readonly AdminCustomerLookup $adminLookup,
+        private readonly WhatsAppIdentityBinder $whatsappBinder,
     ) {}
 
     public function handle(IncomingMessage $message): void
@@ -232,7 +233,8 @@ class BotCommandRouter
             ->first();
 
         if ($existingCustomer && $existingCustomer->external_id !== $message->externalId) {
-            $this->reply($message, 'Akun ini sudah terikat ke Telegram lain. Minta admin melepas ikatan lama di menu Notifikasi & Bot.');
+            $channelLabel = $message->channel === 'whatsapp' ? 'WhatsApp' : 'Telegram';
+            $this->reply($message, 'Akun ini sudah terikat ke '.$channelLabel.' lain. Minta admin melepas ikatan lama di menu Notifikasi & Bot.');
 
             return;
         }
@@ -470,7 +472,10 @@ class BotCommandRouter
     private function requireBound(IncomingMessage $message, ?MessagingIdentity $identity, callable $callback): void
     {
         if (! $identity) {
-            $this->reply($message, 'Chat ini belum terhubung. Ketik /daftar lalu ikuti petunjuknya.');
+            $hint = $message->channel === 'whatsapp'
+                ? 'Nomor chat ini belum cocok dengan data pelanggan. Ketik daftar <username>.'
+                : 'Chat ini belum terhubung. Ketik /daftar lalu ikuti petunjuknya.';
+            $this->reply($message, $hint);
 
             return;
         }
@@ -610,7 +615,7 @@ class BotCommandRouter
 
         if (! $bound && $channel === 'whatsapp') {
             $lines[] = '';
-            $lines[] = 'Jika nomor chat sama dengan data pelanggan, ketik tagihan langsung. Jika belum, ketik daftar <username>.';
+            $lines[] = 'Nomor HP di data pelanggan terhubung otomatis. Ketik tagihan atau bayar. Jika nomor chat berbeda, ketik daftar <username>.';
         } elseif (! $bound) {
             $lines[] = '';
             $lines[] = 'Mulai dengan /daftar diikuti username, contoh /daftar budi01';
@@ -686,47 +691,7 @@ class BotCommandRouter
             return null;
         }
 
-        $needle = $message->externalId;
-        $tail = substr(PhoneNumber::normalize($needle), -8);
-        if (strlen($tail) < 8) {
-            return null;
-        }
-
-        $matches = PppoeCustomer::query()
-            ->whereNotNull('phone')
-            ->where('phone', 'like', '%'.$tail)
-            ->get()
-            ->filter(fn (PppoeCustomer $row) => PhoneNumber::matches((string) $row->phone, $needle))
-            ->values();
-
-        if ($matches->count() !== 1) {
-            return null;
-        }
-
-        /** @var PppoeCustomer $customer */
-        $customer = $matches->first();
-
-        $existing = MessagingIdentity::query()
-            ->where('channel', 'whatsapp')
-            ->where('pppoe_customer_id', $customer->id)
-            ->first();
-
-        if ($existing && $existing->external_id !== PhoneNumber::toInternational($needle)) {
-            return null;
-        }
-
-        return MessagingIdentity::query()->updateOrCreate(
-            [
-                'channel' => 'whatsapp',
-                'external_id' => PhoneNumber::toInternational($needle),
-            ],
-            [
-                'pppoe_customer_id' => $customer->id,
-                'display_name' => $message->fromName,
-                'verified_at' => now(),
-                'last_seen_at' => now(),
-            ],
-        );
+        return $this->whatsappBinder->bindFromIncomingNumber($message->externalId, $message->fromName);
     }
 
     private function touchIdentity(?MessagingIdentity $identity, IncomingMessage $message): void

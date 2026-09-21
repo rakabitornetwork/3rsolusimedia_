@@ -245,6 +245,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/messaging/telegram/status', [MessagingController::class, 'telegramStatus'])->name('messaging.telegram.status');
     Route::get('/messaging/whatsapp/status', [MessagingController::class, 'whatsappStatus'])->name('messaging.whatsapp.status');
     Route::post('/messaging/whatsapp/connect', [MessagingController::class, 'whatsappConnect'])->name('messaging.whatsapp.connect');
+    Route::post('/messaging/whatsapp/bind', [MessagingController::class, 'bindWhatsapp'])->name('messaging.whatsapp.bind');
     Route::delete('/messaging/identities/{identity}', [MessagingController::class, 'unbind'])->name('messaging.unbind');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
     Route::post('/billing/bulk-pay', [BillingController::class, 'bulkPay'])->name('billing.bulk-pay');

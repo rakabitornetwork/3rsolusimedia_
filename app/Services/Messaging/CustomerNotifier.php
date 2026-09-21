@@ -18,6 +18,7 @@ class CustomerNotifier
     public function __construct(
         private readonly MessagingManager $channels,
         private readonly WhatsappOutbox $outbox,
+        private readonly WhatsAppIdentityBinder $whatsappBinder,
     ) {}
 
     public function notifyInvoice(Invoice $invoice): void
@@ -129,6 +130,7 @@ class CustomerNotifier
         $body = AppSettings::replaceLegacyBrand($body);
 
         $sentTo = [];
+        $this->whatsappBinder->bindCustomer($customer);
 
         $identities = MessagingIdentity::query()
             ->where('pppoe_customer_id', $customer->id)
@@ -233,6 +235,8 @@ class CustomerNotifier
         if ($body === '') {
             return ['ok' => false, 'message' => 'Isi template kosong.'];
         }
+
+        $this->whatsappBinder->bindCustomer($customer);
 
         $identity = MessagingIdentity::query()
             ->where('pppoe_customer_id', $customer->id)

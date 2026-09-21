@@ -10,6 +10,7 @@ use App\Models\SiteSetting;
 use App\Services\Messaging\EvolutionChannel;
 use App\Services\Messaging\MessageTemplate;
 use App\Services\Messaging\MessagingManager;
+use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Services\PppoeWebhookScript;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,10 @@ use Throwable;
 
 class MessagingController extends Controller
 {
-    public function __construct(private readonly MessagingManager $channels) {}
+    public function __construct(
+        private readonly MessagingManager $channels,
+        private readonly WhatsAppIdentityBinder $whatsappBinder,
+    ) {}
 
     public function index(): Response
     {
@@ -289,6 +293,7 @@ class MessagingController extends Controller
 
         $status = $driver->connectionStatus();
         if ($driver->isConfigured()) {
+            $this->whatsappBinder->syncAll();
             $webhook = $driver->ensureAppWebhook();
             $status['remote_webhook_url'] = $webhook['remote_url'] ?? '';
             $status['webhook_repaired'] = (bool) ($webhook['repaired'] ?? false);
@@ -333,6 +338,30 @@ class MessagingController extends Controller
         return back()->with('success', 'Ikatan '.$identity->channel.' untuk '.$label.' dilepas.');
     }
 
+    public function bindWhatsapp(): RedirectResponse
+    {
+        $result = $this->whatsappBinder->syncAll();
+        $parts = [];
+        if ($result['bound'] > 0) {
+            $parts[] = $result['bound'].' nomor baru terhubung';
+        }
+        if ($result['existing'] > 0) {
+            $parts[] = $result['existing'].' sudah terikat';
+        }
+        if ($result['conflicts'] > 0) {
+            $parts[] = $result['conflicts'].' nomor ganda dilewati';
+        }
+        if ($result['skipped'] > 0 && $parts === []) {
+            $parts[] = $result['skipped'].' dilewati';
+        }
+
+        $message = $parts === []
+            ? 'Tidak ada nomor HP unik yang bisa dihubungkan.'
+            : 'WhatsApp otomatis: '.implode(', ', $parts).'. Pelanggan tidak perlu mengetik daftar.';
+
+        return back()->with('success', $message);
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -346,7 +375,7 @@ class MessagingController extends Controller
             return MessagingIdentity::query()
                 ->with('customer')
                 ->latest('verified_at')
-                ->limit(100)
+                ->limit(2000)
                 ->get()
                 ->map(fn (MessagingIdentity $row) => $row->toAdminArray())
                 ->values()

@@ -248,6 +248,11 @@ export default function Index({
         router.delete(`/admin/messaging/identities/${row.id}`, keepPage);
     };
 
+    const bindWhatsappPhones = () => {
+        if (!canWrite) return;
+        router.post('/admin/messaging/whatsapp/bind', {}, keepPage);
+    };
+
     const regeneratePppoeSecret = () => {
         if (!canWrite) return;
         if (
@@ -1092,17 +1097,29 @@ export default function Index({
                         <div>
                             <h2 className="text-sm font-semibold text-ink">Chat terikat</h2>
                             <p className="mt-0.5 text-xs text-ink-soft">
-                                Telegram: /daftar + nomor HP. WhatsApp: otomatis jika nomor chat cocok,
-                                atau ketik daftar &lt;username&gt;.
+                                WhatsApp: nomor HP unik di data pelanggan terhubung otomatis, tanpa
+                                mengetik daftar. Telegram: /daftar + nomor HP.
                             </p>
                         </div>
-                        <input
-                            type="search"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Cari nama, username, chat ID…"
-                            className="w-full max-w-xs border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
-                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                            {canWrite && (
+                                <button
+                                    type="button"
+                                    onClick={bindWhatsappPhones}
+                                    className="btn-action btn-action-xs btn-secondary"
+                                >
+                                    <Link2 className="h-3.5 w-3.5" />
+                                    Hubungkan nomor WhatsApp
+                                </button>
+                            )}
+                            <input
+                                type="search"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Cari nama, username, chat ID…"
+                                className="w-full max-w-xs border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                            />
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-left text-sm">

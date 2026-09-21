@@ -152,6 +152,89 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function unique_phone_is_bound_without_daftar_so_bayar_works(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $customer = $this->customer();
+        $this->unpaidInvoice($customer, 'INV-AUTO-PAY');
+
+        $this->artisan('messaging:bind-whatsapp')
+            ->expectsOutputToContain('1 baru terhubung')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('messaging_identities', [
+            'channel' => 'whatsapp',
+            'external_id' => '6281234567890',
+            'pppoe_customer_id' => $customer->id,
+        ]);
+
+        $this->postUpsert('tagihan')->assertOk();
+
+        $tagihan = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('INV-AUTO-PAY', (string) $tagihan);
+
+        $this->postUpsert('bayar')->assertOk();
+
+        $bayar = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('/portal', (string) $bayar);
+        $this->assertStringNotContainsString('daftar', strtolower((string) $bayar));
+    }
+
+    #[Test]
+    public function duplicate_phones_are_not_auto_bound(): void
+    {
+        $this->enableWhatsapp();
+        $first = $this->customer();
+        $this->customer([
+            'mikrotik_router_id' => $first->mikrotik_router_id,
+            'name' => 'Siti Aminah',
+            'username' => 'siti01',
+            'phone' => '6281234567890',
+        ]);
+
+        $this->artisan('messaging:bind-whatsapp')->assertSuccessful();
+
+        $this->assertDatabaseCount('messaging_identities', 0);
+    }
+
+    #[Test]
+    public function unknown_whatsapp_number_still_needs_daftar(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $this->artisan('messaging:bind-whatsapp')->assertSuccessful();
+
+        $this->postUpsert('bayar', '6289999999999@s.whatsapp.net')->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('daftar', strtolower((string) $body));
+        $this->assertDatabaseMissing('messaging_identities', [
+            'external_id' => '6289999999999',
+        ]);
+    }
+
+    #[Test]
+    public function admin_can_bind_existing_whatsapp_numbers(): void
+    {
+        $this->enableWhatsapp();
+        $customer = $this->customer();
+        $admin = User::factory()->superadmin()->create();
+
+        $this->actingAs($admin)
+            ->from('/admin/messaging')
+            ->post('/admin/messaging/whatsapp/bind')
+            ->assertRedirect('/admin/messaging');
+
+        $this->assertDatabaseHas('messaging_identities', [
+            'channel' => 'whatsapp',
+            'external_id' => '6281234567890',
+            'pppoe_customer_id' => $customer->id,
+        ]);
+    }
+
+    #[Test]
     public function whatsapp_bantuan_uses_company_name_from_site_settings(): void
     {
         $this->enableWhatsapp();
@@ -295,6 +378,11 @@ class MessagingWhatsAppTest extends TestCase
             'status' => MessageOutbox::STATUS_PENDING,
             'invoice_id' => $invoice->id,
             'external_id' => '6281234567890',
+        ]);
+        $this->assertDatabaseHas('messaging_identities', [
+            'channel' => 'whatsapp',
+            'external_id' => '6281234567890',
+            'pppoe_customer_id' => $customer->id,
         ]);
 
         $notifier->dispatchWhatsappOutbox();

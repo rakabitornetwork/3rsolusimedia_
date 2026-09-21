@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
+use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
 use App\Support\AdminListState;
@@ -32,6 +33,7 @@ class PppoeCustomerController extends Controller
         private readonly BillingService $billingService,
         private readonly PppoeSyncService $sync,
         private readonly CustomerNotifier $notifier,
+        private readonly WhatsAppIdentityBinder $whatsappBinder,
     ) {
     }
 
@@ -320,6 +322,8 @@ class PppoeCustomerController extends Controller
             'is_active' => $isActive,
         ]);
 
+        $this->whatsappBinder->bindCustomer($customer);
+
         $invoice = $this->billingService->createProrataInvoice($customer->fresh('package'));
         $this->sync->sync($customer->fresh(['router', 'package']), pushPassword: true);
         $this->notifier->notifyWelcome($customer->fresh('package'), $invoice);
@@ -388,6 +392,7 @@ class PppoeCustomerController extends Controller
 
         $pppoe->update($payload);
         $fresh = $pppoe->fresh(['router', 'package']);
+        $this->whatsappBinder->bindCustomer($fresh);
         $this->billingService->ensureOpenInvoice($fresh);
         $this->sync->sync($fresh, pushPassword: $passwordChanged);
 
