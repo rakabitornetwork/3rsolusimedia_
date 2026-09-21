@@ -753,6 +753,7 @@ class BotCommandRouter
         ?string $logText = null,
         bool $preferEdit = false,
     ): void {
+        $text = AppSettings::replaceLegacyBrand($text);
         $markup = $keyboard ? ['inline_keyboard' => $keyboard] : null;
         $channel = $this->channels->driver($message->channel);
         $result = ['ok' => false, 'message' => 'Gagal mengirim'];

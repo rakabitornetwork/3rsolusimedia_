@@ -157,13 +157,17 @@ class MessagingWhatsAppTest extends TestCase
         $this->enableWhatsapp();
         $this->fakeEvolution();
         SiteSetting::setValue('company_name', 'Tesla Tech');
-
         $this->postUpsert('bantuan')->assertOk();
 
         $body = MessageLog::query()->where('direction', 'outbound')->value('body');
         $this->assertStringContainsString('Tesla Tech', (string) $body);
         $this->assertStringContainsString('Bot pelanggan', (string) $body);
         $this->assertStringNotContainsString('3R Solusi Media', (string) $body);
+
+        $this->assertSame(
+            "Tesla Tech\nBot pelanggan — ketik salah satu perintah:",
+            AppSettings::replaceLegacyBrand("3R Solusi Media\nBot pelanggan — ketik salah satu perintah:"),
+        );
 
         Http::assertSent(function ($request) {
             $text = (string) ($request['text'] ?? '');

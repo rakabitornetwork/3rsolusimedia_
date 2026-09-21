@@ -126,6 +126,8 @@ class CustomerNotifier
             return;
         }
 
+        $body = AppSettings::replaceLegacyBrand($body);
+
         $sentTo = [];
 
         $identities = MessagingIdentity::query()
@@ -368,6 +370,7 @@ class CustomerNotifier
         ?int $customerId = null,
     ): array {
         try {
+            $body = AppSettings::replaceLegacyBrand($body);
             $result = $this->channels->send($channel, $externalId, $body);
             $ok = (bool) ($result['ok'] ?? false);
             if ($ok && $channel === 'whatsapp') {

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\SiteSetting;
 use App\Services\Messaging\MessageTemplate;
+use Illuminate\Support\Facades\Cache;
 
 class AppSettings
 {
@@ -353,9 +354,33 @@ class AppSettings
 
     public static function companyName(): string
     {
-        $name = trim((string) SiteSetting::getValue('company_name', ''));
+        $fresh = '';
+        try {
+            $fresh = trim((string) SiteSetting::query()->where('key', 'company_name')->value('value'));
+        } catch (\Throwable) {
+            $fresh = '';
+        }
+
+        $cached = trim((string) SiteSetting::getValue('company_name', ''));
+        if ($fresh !== '' && $fresh !== $cached) {
+            Cache::forget('site_settings');
+        }
+
+        $name = $fresh !== '' ? $fresh : $cached;
 
         return $name !== '' ? $name : 'Perusahaan';
+    }
+
+    /**
+     * Nama brand lama di teks outbound diganti Nama Perusahaan dari Pengaturan Situs.
+     */
+    public static function replaceLegacyBrand(string $text): string
+    {
+        $company = self::companyName();
+        $text = preg_replace('/3R\s+Solusi\s+Media/i', $company, $text) ?? $text;
+        $text = preg_replace('/(?<![@\/])3rsolusimedia/i', $company, $text) ?? $text;
+
+        return $text;
     }
 
     /**
