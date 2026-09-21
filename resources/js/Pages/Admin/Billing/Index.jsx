@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     Ban,
     CalendarRange,
@@ -286,6 +286,8 @@ export default function Index({
     routers = [],
     whatsapp = { enabled: false, templates: [] },
 }) {
+    const { auth } = usePage().props;
+    const canPay = auth?.user?.can_record_payment !== false;
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(Number(filters.per_page) || 20);
@@ -736,36 +738,42 @@ export default function Index({
                             {selectedUnpaidCount} tagihan belum bayar terpilih
                         </h2>
                         <p className="mt-0.5 text-xs text-ink-soft">
-                            Tandai lunas massal untuk pelanggan yang sudah membayar.
+                            {canPay
+                                ? 'Tandai lunas massal untuk pelanggan yang sudah membayar.'
+                                : 'Kirim WhatsApp ke tagihan terpilih.'}
                             {selected.length > selectedUnpaidCount
                                 ? ` ${selected.length - selectedUnpaidCount} tagihan lain dilewati.`
                                 : null}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <select
-                            value={bulkMethod}
-                            onChange={(e) => setBulkMethod(e.target.value)}
-                            disabled={bulkProcessing}
-                            className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
-                        >
-                            {payment_methods.map((item) => (
-                                <option key={item.value} value={item.value}>
-                                    {item.label}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={bulkPay}
-                            disabled={bulkProcessing || selectedUnpaidCount === 0}
-                            className="btn-action btn-action-sm btn-success"
-                        >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                            {bulkProcessing
-                                ? 'Memproses...'
-                                : `Tandai Lunas (${selectedUnpaidCount})`}
-                        </button>
+                        {canPay ? (
+                            <>
+                                <select
+                                    value={bulkMethod}
+                                    onChange={(e) => setBulkMethod(e.target.value)}
+                                    disabled={bulkProcessing}
+                                    className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                                >
+                                    {payment_methods.map((item) => (
+                                        <option key={item.value} value={item.value}>
+                                            {item.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button
+                                    type="button"
+                                    onClick={bulkPay}
+                                    disabled={bulkProcessing || selectedUnpaidCount === 0}
+                                    className="btn-action btn-action-sm btn-success"
+                                >
+                                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                                    {bulkProcessing
+                                        ? 'Memproses...'
+                                        : `Tandai Lunas (${selectedUnpaidCount})`}
+                                </button>
+                            </>
+                        ) : null}
                         {whatsapp?.templates?.length ? (
                             <>
                                 <select

@@ -201,6 +201,9 @@ class BillingController extends Controller
     public function createOnlinePayment(Request $request, Invoice $invoice): RedirectResponse
     {
         $user = $request->user();
+        if (! $user?->canRecordPayment()) {
+            return back()->with('error', 'Akun Agen tidak dapat membuat link pembayaran.');
+        }
         if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
             return back()->with('error', 'Anda tidak memiliki akses untuk memproses pembayaran tagihan pelanggan ini.');
         }
@@ -317,6 +320,9 @@ class BillingController extends Controller
     public function pay(Request $request, Invoice $invoice): RedirectResponse
     {
         $user = $request->user();
+        if (! $user?->canRecordPayment()) {
+            return back()->with('error', 'Akun Agen tidak dapat menandai tagihan lunas.');
+        }
         if ($user->isAgen() && $invoice->customer?->agent_id !== $user->id) {
             return back()->with('error', 'Anda tidak memiliki akses untuk memproses pembayaran tagihan pelanggan ini.');
         }
@@ -351,6 +357,9 @@ class BillingController extends Controller
     public function bulkPay(Request $request): RedirectResponse
     {
         $user = $request->user();
+        if (! $user?->canRecordPayment()) {
+            return back()->with('error', 'Akun Agen tidak dapat menandai tagihan lunas.');
+        }
         $validated = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'exists:invoices,id'],

@@ -68,6 +68,11 @@ class User extends Authenticatable
         return ! $this->isTeknisi();
     }
 
+    public function canRecordPayment(): bool
+    {
+        return $this->canWrite() && ! $this->isAgen();
+    }
+
     public function canManageUsers(): bool
     {
         return $this->isSuperadmin() || $this->isAdmin();

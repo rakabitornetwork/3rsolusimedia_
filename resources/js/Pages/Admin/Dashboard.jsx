@@ -43,6 +43,7 @@ export default function Dashboard({
 }) {
     const { auth } = usePage().props;
     const userName = auth?.user?.name || 'Admin';
+    const canPay = auth?.user?.can_record_payment !== false;
 
     const alerts = [
         stats.customers_isolated > 0 && {
@@ -330,7 +331,7 @@ export default function Dashboard({
                                         href={`/admin/billing/invoices/${item.id}`}
                                         className="text-xs font-semibold text-signal-deep hover:underline"
                                     >
-                                        Bayar
+                                        {canPay ? 'Bayar' : 'Lihat'}
                                     </Link>
                                 </div>
                             </li>

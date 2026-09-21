@@ -15,7 +15,8 @@ export default function Show({
     online_pay,
     whatsapp = { enabled: false, templates: [] },
 }) {
-    const { flash } = usePage().props;
+    const { flash, auth } = usePage().props;
+    const canPay = auth?.user?.can_record_payment !== false;
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
         reference: '',
@@ -413,7 +414,7 @@ export default function Show({
                         </div>
                     )}
 
-                    {invoice.status === 'unpaid' && (
+                    {canPay && invoice.status === 'unpaid' && (
                         <div className="border border-ink/10 bg-white p-6">
                             <h3 className="text-sm font-semibold text-ink">Pembayaran online</h3>
                             {online_pay?.available ? (
@@ -475,7 +476,7 @@ export default function Show({
                     )}
 
                     <div className="border border-ink/10 bg-white p-6">
-                        {invoice.status === 'unpaid' ? (
+                        {invoice.status === 'unpaid' && canPay ? (
                             <>
                                 <h3 className="text-sm font-semibold text-ink">Catat pembayaran</h3>
                                 <p className="mt-1 text-sm text-ink-soft">
@@ -535,6 +536,28 @@ export default function Show({
                                     </button>
                                 </form>
 
+                                <button
+                                    type="button"
+                                    onClick={remove}
+                                    className="mt-4 w-full btn-action btn-action-sm btn-danger"
+                                >
+                                    Hapus tagihan
+                                </button>
+                            </>
+                        ) : invoice.status === 'unpaid' ? (
+                            <>
+                                <h3 className="text-sm font-semibold text-ink">Status tagihan</h3>
+                                <p className="mt-2 text-sm text-ink-soft">
+                                    Tagihan belum lunas. Akun Agen tidak dapat menandai pembayaran.
+                                </p>
+                                {invoice.customer && (
+                                    <Link
+                                        href={`/admin/customers/pppoe/${invoice.customer.id}/edit`}
+                                        className="mt-4 inline-block text-sm font-semibold text-signal-deep hover:underline"
+                                    >
+                                        Lihat pelanggan
+                                    </Link>
+                                )}
                                 <button
                                     type="button"
                                     onClick={remove}

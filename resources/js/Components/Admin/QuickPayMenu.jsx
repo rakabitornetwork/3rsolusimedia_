@@ -1,16 +1,17 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { CheckCircle2, ChevronDown } from 'lucide-react';
 import OverflowMenu from './OverflowMenu';
 import { keepPage } from '../../lib/keepPage';
 
 export default function QuickPayMenu({ invoice, methods = [] }) {
+    const canPay = usePage().props.auth?.user?.can_record_payment !== false;
     const { data, setData, post, processing } = useForm({
         method: 'cash',
         reference: '',
         notes: '',
     });
 
-    if (!invoice || invoice.status !== 'unpaid') return null;
+    if (!canPay || !invoice || invoice.status !== 'unpaid') return null;
 
     const methodLabel =
         methods.find((item) => item.value === data.method)?.label || data.method;
