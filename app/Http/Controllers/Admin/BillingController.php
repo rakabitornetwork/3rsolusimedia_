@@ -381,7 +381,27 @@ class BillingController extends Controller
             return back();
         }
 
+        $previous = [
+            'agent_cash' => (bool) $invoice->agent_cash,
+            'agent_ready_tf' => (bool) $invoice->agent_ready_tf,
+        ];
+
         $invoice->update($payload);
+
+        $checked = [];
+        foreach ($payload as $field => $value) {
+            if ($value && ! $previous[$field]) {
+                $checked[] = $field;
+            }
+        }
+
+        if ($checked !== []) {
+            $this->notifier->notifyAdminAgentCollection(
+                $invoice->fresh(['customer.router', 'customer.package']),
+                $user,
+                $checked,
+            );
+        }
 
         return back();
     }

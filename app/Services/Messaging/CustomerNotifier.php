@@ -7,6 +7,7 @@ use App\Models\MessageLog;
 use App\Models\MessageOutbox;
 use App\Models\MessagingIdentity;
 use App\Models\PppoeCustomer;
+use App\Models\User;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\Log;
@@ -110,6 +111,86 @@ class CustomerNotifier
 
         $customer->loadMissing('package');
         $this->send($customer, MessageTemplate::WELCOME, $this->welcomeVars($customer, $invoice));
+    }
+
+    /**
+     * Kirim info pelanggan ke Chat ID admin Telegram saat agen menandai Cash / Siap TF.
+     *
+     * @param  list<string>  $checkedFields
+     */
+    public function notifyAdminAgentCollection(Invoice $invoice, User $agent, array $checkedFields): void
+    {
+        if ($checkedFields === [] || ! $this->channelEnabled('telegram')) {
+            return;
+        }
+
+        $chatIds = AppSettings::telegramAdminChatIds();
+        if ($chatIds === []) {
+            return;
+        }
+
+        $invoice->loadMissing(['customer.router', 'customer.package']);
+        $customer = $invoice->customer;
+        if (! $customer) {
+            return;
+        }
+
+        $labels = [];
+        if (in_array('agent_cash', $checkedFields, true)) {
+            $labels[] = 'Cash';
+        }
+        if (in_array('agent_ready_tf', $checkedFields, true)) {
+            $labels[] = 'Siap TF';
+        }
+        if ($labels === []) {
+            return;
+        }
+
+        $title = match ($labels) {
+            ['Cash'] => '💵 Agen menandai Cash',
+            ['Siap TF'] => '🏦 Agen menandai Siap TF',
+            default => '📋 Agen menandai Cash & Siap TF',
+        };
+
+        $statusLabels = [
+            'active' => 'Aktif',
+            'isolated' => 'Isolir',
+            'disabled' => 'Nonaktif',
+        ];
+
+        $lines = [
+            $title,
+            '',
+            'Agen: '.$agent->name,
+            'Tanda: '.implode(', ', $labels),
+            '',
+            'Pelanggan: '.$customer->name,
+            'Akun: '.$customer->username,
+            'HP: '.$this->dash((string) ($customer->phone ?? '')),
+            'Invoice: '.$this->dash((string) $invoice->number),
+            'Total: '.$this->rupiah((int) $invoice->total),
+            'Jatuh tempo: '.($invoice->due_date?->format('d/m/Y') ?? '—'),
+            'Paket: '.$this->dash((string) ($invoice->package_name ?: $customer->package?->name ?: '')),
+        ];
+
+        if ($customer->router?->name) {
+            $lines[] = 'Router: '.$customer->router->name;
+        }
+
+        $lines[] = 'Status: '.($statusLabels[$customer->status] ?? (string) $customer->status);
+        $lines[] = '';
+        $lines[] = '— '.AppSettings::companyName();
+
+        $body = implode("\n", $lines);
+        $command = match ($labels) {
+            ['Cash'] => 'agent_cash',
+            ['Siap TF'] => 'agent_ready_tf',
+            default => 'agent_mark',
+        };
+
+        foreach ($chatIds as $chatId) {
+            $this->deliver('telegram', $chatId, $body, null, $command, [], $customer->id);
+        }
     }
 
     /**
