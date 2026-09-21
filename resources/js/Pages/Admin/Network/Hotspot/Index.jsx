@@ -4,6 +4,7 @@ import {
     BarChart3,
     Ban,
     ListFilter,
+    MoreHorizontal,
     Plus,
     Power,
     Printer,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import LocalPagination from '../../../../Components/Admin/LocalPagination';
+import OverflowMenu from '../../../../Components/Admin/OverflowMenu';
 import StatCard from '../../../../Components/Admin/StatCard';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import { keepPage } from '../../../../lib/keepPage';
@@ -446,7 +448,7 @@ export default function Index({
                     </select>
                 </div>
 
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
                     <button
                         type="button"
                         onClick={printSelected}
@@ -514,7 +516,7 @@ export default function Index({
                             <th className="hidden px-4 py-3 font-semibold lg:table-cell">Limit</th>
                             <th className="hidden px-4 py-3 font-semibold xl:table-cell">Usage</th>
                             <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                            <th className="w-14 px-3 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -578,34 +580,55 @@ export default function Index({
                                         </span>
                                     )}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-3 py-3">
                                     <div className="admin-actions">
-                                        {user.is_expired && (
-                                            <button
-                                                type="button"
-                                                onClick={() => resetExpired(user)}
-                                                className="btn-action btn-action-xs btn-secondary"
-                                            >
-                                                <RotateCcw className="h-3.5 w-3.5" />
-                                                Reset
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => toggle(user)}
-                                            className="btn-action btn-action-xs btn-warn"
+                                        <OverflowMenu
+                                            trigger={<MoreHorizontal className="h-4 w-4" />}
+                                            triggerClassName="admin-icon-btn"
+                                            triggerTitle="Aksi voucher"
+                                            menuClassName="py-1"
                                         >
-                                            <Power className="h-3.5 w-3.5" />
-                                            {user.disabled ? 'Aktifkan' : 'Nonaktif'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => remove(user)}
-                                            className="btn-action btn-action-xs btn-danger"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            Hapus
-                                        </button>
+                                            {(close) => (
+                                                <>
+                                                    {user.is_expired ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                close();
+                                                                resetExpired(user);
+                                                            }}
+                                                            className="admin-row-menu-item"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5 text-ink-soft" />
+                                                            Reset expired
+                                                        </button>
+                                                    ) : null}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            close();
+                                                            toggle(user);
+                                                        }}
+                                                        className="admin-row-menu-item"
+                                                    >
+                                                        <Power className="h-3.5 w-3.5 text-ink-soft" />
+                                                        {user.disabled ? 'Aktifkan' : 'Nonaktifkan'}
+                                                    </button>
+                                                    <div className="my-1 border-t border-ink/5" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            close();
+                                                            remove(user);
+                                                        }}
+                                                        className="admin-row-menu-item is-danger"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        Hapus
+                                                    </button>
+                                                </>
+                                            )}
+                                        </OverflowMenu>
                                     </div>
                                 </td>
                             </tr>
