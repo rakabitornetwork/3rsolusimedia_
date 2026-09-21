@@ -33,9 +33,10 @@ class MessageTemplate
                 '💰 Total: {{total}}',
                 '📅 Jatuh tempo: {{jatuh_tempo}}',
                 '📦 Paket: {{paket}}',
-                '🔐 Akun: {{username}}',
                 '',
-                '💬 Ketik *tagihan* atau *bayar* di chat ini.',
+                ...self::portalLoginLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *tagihan* / *bayar* di chat ini.',
                 '',
                 '{{rekening}}',
                 '',
@@ -50,7 +51,9 @@ class MessageTemplate
                 '💰 Total: {{total}}',
                 '📅 Jatuh tempo: {{jatuh_tempo}}',
                 '',
-                '💬 Ketik *bayar* untuk tautan pembayaran.',
+                ...self::portalLoginLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *bayar* di chat ini.',
                 '',
                 '{{rekening}}',
                 '',
@@ -76,7 +79,9 @@ class MessageTemplate
                 '',
                 'Segera lunasi agar koneksi aktif kembali.',
                 '',
-                '💬 Ketik *bayar* di chat ini.',
+                ...self::portalLoginLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *bayar* di chat ini.',
                 '',
                 '{{rekening}}',
                 '',
@@ -96,9 +101,7 @@ class MessageTemplate
                 '',
                 'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
                 '',
-                '🌐 *Portal pelanggan*',
-                '{{portal}}',
-                'Masuk pakai username PPPoE atau nomor HP.',
+                ...self::portalLoginLines(),
                 '',
                 '👤 *Data pelanggan*',
                 'Nama: {{nama}}',
@@ -141,6 +144,23 @@ class MessageTemplate
      */
     public static function legacyDefaults(): array
     {
+        $invoiceWithoutPortal = implode("\n", [
+            '🧾 *Tagihan baru*',
+            '',
+            'Halo {{nama}}, tagihan layanan internet Anda sudah terbit.',
+            '',
+            '🧾 Invoice: {{nomor}}',
+            '💰 Total: {{total}}',
+            '📅 Jatuh tempo: {{jatuh_tempo}}',
+            '📦 Paket: {{paket}}',
+            '🔐 Akun: {{username}}',
+            '',
+            '💬 Ketik *tagihan* atau *bayar* di chat ini.',
+            '',
+            '{{rekening}}',
+            '',
+            '— {{perusahaan}}',
+        ]);
         $invoiceWithoutBank = implode("\n", [
             '🧾 *Tagihan baru*',
             '',
@@ -156,6 +176,21 @@ class MessageTemplate
             '',
             '— {{perusahaan}}',
         ]);
+        $reminderWithoutPortal = implode("\n", [
+            '⏰ *Pengingat tagihan*',
+            '',
+            'Halo {{nama}}, tagihan berikut belum lunas.',
+            '',
+            '🧾 Invoice: {{nomor}}',
+            '💰 Total: {{total}}',
+            '📅 Jatuh tempo: {{jatuh_tempo}}',
+            '',
+            '💬 Ketik *bayar* untuk tautan pembayaran.',
+            '',
+            '{{rekening}}',
+            '',
+            '— {{perusahaan}}',
+        ]);
         $reminderWithoutBank = implode("\n", [
             '⏰ *Pengingat tagihan*',
             '',
@@ -166,6 +201,19 @@ class MessageTemplate
             '📅 Jatuh tempo: {{jatuh_tempo}}',
             '',
             '💬 Ketik *bayar* untuk tautan pembayaran.',
+            '',
+            '— {{perusahaan}}',
+        ]);
+        $isolirWithoutPortal = implode("\n", [
+            '⛔ *Layanan diisolir*',
+            '',
+            'Halo {{nama}}, layanan *{{username}}* diisolir karena tagihan belum lunas.',
+            '',
+            'Segera lunasi agar koneksi aktif kembali.',
+            '',
+            '💬 Ketik *bayar* di chat ini.',
+            '',
+            '{{rekening}}',
             '',
             '— {{perusahaan}}',
         ]);
@@ -217,20 +265,62 @@ class MessageTemplate
             '📞 CS: {{telepon_kantor}}',
             '— {{perusahaan}}',
         ]);
+        $welcomeWithOrLogin = implode("\n", [
+            '🎉 *Selamat datang di {{perusahaan}}!*',
+            '',
+            'Pendaftaran layanan internet Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
+            '',
+            '🌐 *Portal pelanggan*',
+            '{{portal}}',
+            'Masuk pakai username PPPoE atau nomor HP.',
+            '',
+            '👤 *Data pelanggan*',
+            'Nama: {{nama}}',
+            'HP: {{phone}}',
+            'Alamat: {{alamat}}',
+            '',
+            '📦 *Layanan*',
+            'Paket: {{paket}}',
+            'Harga/bulan: {{harga_paket}}',
+            'Mulai aktif: {{tanggal_mulai}}',
+            '',
+            '🔐 *Akun PPPoE* (isi di modem/router)',
+            'Username: {{username}}',
+            'Password: {{password}}',
+            '',
+            '🧾 *Tagihan*',
+            'Tagihan pertama: {{tagihan_pertama}}',
+            'Nomor invoice: {{nomor}}',
+            'Jatuh tempo: {{jatuh_tempo}}',
+            'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+            '',
+            '💬 *Bot WhatsApp* (ketik di chat ini)',
+            '• tagihan — cek tagihan belum lunas',
+            '• bayar — tautan pembayaran',
+            '• bantuan — daftar perintah',
+            '',
+            '{{rekening}}',
+            '',
+            '📞 CS: {{telepon_kantor}}',
+            '— {{perusahaan}}',
+        ]);
 
         return [
             self::INVOICE => [
                 "Halo {{nama}},\n\nTagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}}.\nPaket: {{paket}}\nAkun: {{username}}\n\nKetik tagihan atau bayar di chat ini.\n\n— {{perusahaan}}",
                 $invoiceWithoutBank,
+                $invoiceWithoutPortal,
             ],
             self::REMINDER => [
                 "Halo {{nama}},\n\nPengingat: tagihan {{nomor}} sebesar {{total}} jatuh tempo {{jatuh_tempo}} belum lunas.\nKetik bayar untuk tautan pembayaran.\n\n— {{perusahaan}}",
                 $reminderWithoutBank,
+                $reminderWithoutPortal,
             ],
             self::PAID => "Halo {{nama}},\n\nTerima kasih. Tagihan {{nomor}} sebesar {{total}} sudah lunas.\nJatuh tempo berikutnya: {{jatuh_tempo}}.\n\n— {{perusahaan}}",
             self::ISOLIR => [
                 "Halo {{nama}},\n\nLayanan {{username}} diisolir karena tagihan belum lunas.\nSegera lunasi agar koneksi aktif kembali. Ketik bayar.\n\n— {{perusahaan}}",
                 $isolirWithoutBank,
+                $isolirWithoutPortal,
             ],
             self::RESTORE => "Halo {{nama}},\n\nLayanan {{username}} sudah aktif kembali. Terima kasih.\n\n— {{perusahaan}}",
             self::WELCOME => [
@@ -272,6 +362,7 @@ class MessageTemplate
                     '— {{perusahaan}}',
                 ]),
                 $welcomeWithoutBank,
+                $welcomeWithOrLogin,
             ],
         ];
     }
@@ -326,6 +417,21 @@ class MessageTemplate
             'nomor_rekening' => $bank['bank_account_number'] !== '' ? $bank['bank_account_number'] : '—',
             'catatan_bank' => $bank['bank_note'],
             'rekening' => $rekening,
+            'portal' => url('/portal'),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function portalLoginLines(string $title = 'Portal pelanggan'): array
+    {
+        return [
+            '🌐 *'.$title.'*',
+            '{{portal}}',
+            'Masuk dengan username PPPoE dan nomor HP:',
+            'Username: {{username}}',
+            'Nomor HP: {{phone}}',
         ];
     }
 

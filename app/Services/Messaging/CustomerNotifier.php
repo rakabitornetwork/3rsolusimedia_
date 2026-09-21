@@ -311,6 +311,7 @@ class CustomerNotifier
             'username' => (string) $customer->username,
             'perusahaan' => AppSettings::companyName(),
             'phone' => $this->dash((string) ($customer->phone ?? '')),
+            'portal' => url('/portal'),
         ];
     }
 

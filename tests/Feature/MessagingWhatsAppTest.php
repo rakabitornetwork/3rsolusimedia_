@@ -260,15 +260,65 @@ class MessagingWhatsAppTest extends TestCase
         $notifier->dispatchWhatsappOutbox();
 
         Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
             return str_contains($request->url(), '/message/sendText/teslatech')
                 && ($request['number'] ?? null) === '6281234567890'
-                && str_contains((string) ($request['text'] ?? ''), 'INV-NOTIF')
+                && str_contains($text, 'INV-NOTIF')
+                && str_contains($text, '/portal')
+                && str_contains($text, 'budi01')
+                && str_contains($text, '081234567890')
+                && str_contains($text, 'Bayar di portal pelanggan')
                 && isset($request['delay']);
         });
         $this->assertDatabaseHas('message_outbox', [
             'invoice_id' => $invoice->id,
             'status' => MessageOutbox::STATUS_SENT,
         ]);
+    }
+
+    #[Test]
+    public function invoice_whatsapp_is_skipped_when_customer_has_no_phone(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $customer = $this->customer(['phone' => null]);
+        $invoice = $this->unpaidInvoice($customer, 'INV-NO-PHONE');
+
+        $notifier = app(CustomerNotifier::class);
+        $notifier->notifyInvoice($invoice);
+
+        $this->assertDatabaseMissing('message_outbox', ['invoice_id' => $invoice->id]);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '/message/sendText/'));
+    }
+
+    #[Test]
+    public function stored_legacy_invoice_template_upgrades_to_portal_login(): void
+    {
+        SiteSetting::setValue('msg_tpl_invoice', implode("\n", [
+            '🧾 *Tagihan baru*',
+            '',
+            'Halo {{nama}}, tagihan layanan internet Anda sudah terbit.',
+            '',
+            '🧾 Invoice: {{nomor}}',
+            '💰 Total: {{total}}',
+            '📅 Jatuh tempo: {{jatuh_tempo}}',
+            '📦 Paket: {{paket}}',
+            '🔐 Akun: {{username}}',
+            '',
+            '💬 Ketik *tagihan* atau *bayar* di chat ini.',
+            '',
+            '{{rekening}}',
+            '',
+            '— {{perusahaan}}',
+        ]));
+
+        $body = MessageTemplate::get(MessageTemplate::INVOICE);
+
+        $this->assertStringContainsString('{{portal}}', $body);
+        $this->assertStringContainsString('Username: {{username}}', $body);
+        $this->assertStringContainsString('Nomor HP: {{phone}}', $body);
+        $this->assertStringContainsString('Bayar di portal pelanggan', $body);
     }
 
     #[Test]
@@ -365,6 +415,8 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Budi Santoso', (string) $body);
         $this->assertStringContainsString('budi01', (string) $body);
         $this->assertStringContainsString('diisolir', (string) $body);
+        $this->assertStringContainsString('/portal', (string) $body);
+        $this->assertStringContainsString('081234567890', (string) $body);
     }
 
     #[Test]
@@ -706,7 +758,10 @@ class MessagingWhatsAppTest extends TestCase
                 && str_contains($text, 'secret')
                 && str_contains($text, 'Jl. Melati 1')
                 && str_contains($text, 'INV-WELCOME')
-                && str_contains($text, 'tagihan');
+                && str_contains($text, 'tagihan')
+                && str_contains($text, '/portal')
+                && str_contains($text, 'Masuk dengan username PPPoE dan nomor HP')
+                && str_contains($text, 'Nomor HP: 081234567890');
         });
 
         $log = MessageLog::query()->where('command', 'welcome')->value('body');
