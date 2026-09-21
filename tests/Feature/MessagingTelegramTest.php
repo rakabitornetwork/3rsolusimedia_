@@ -188,6 +188,7 @@ class MessagingTelegramTest extends TestCase
     {
         $this->enableTelegram();
         $this->fakeTelegram();
+        SiteSetting::setValue('company_name', 'Tesla Tech');
 
         $this->postUpdate('/bantuan')->assertOk();
 
@@ -200,10 +201,12 @@ class MessagingTelegramTest extends TestCase
         ]);
 
         $body = MessageLog::query()->where('direction', 'outbound')->value('body');
+        $this->assertStringContainsString('Tesla Tech', (string) $body);
         $this->assertStringContainsString('/daftar', (string) $body);
         $this->assertStringContainsString('/tagihan', (string) $body);
         $this->assertStringContainsString('/bayar', (string) $body);
         $this->assertStringNotContainsString('/cari', (string) $body);
+        $this->assertStringNotContainsString('3R Solusi Media', (string) $body);
     }
 
     #[Test]

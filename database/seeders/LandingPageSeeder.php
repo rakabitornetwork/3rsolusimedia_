@@ -23,17 +23,20 @@ class LandingPageSeeder extends Seeder
         );
 
         SiteSetting::setMany([
-            'company_name' => '3R Solusi Media',
-            'tagline' => 'Koneksi Rumah yang Stabil & Profesional',
-            'phone' => '0812-3456-7890',
-            'whatsapp' => '6281234567890',
-            'email' => 'halo@3rsolusimedia.id',
-            'address' => 'Jl. Teknologi No. 3R, Indonesia',
-            'operating_hours' => 'Senin – Sabtu, 08.00 – 18.00',
-            'instagram' => 'https://instagram.com/3rsolusimedia',
-            'facebook' => 'https://facebook.com/3rsolusimedia',
-            'seo_title' => '3R Solusi Media — Pemasangan WiFi Rumahan Profesional',
-            'seo_description' => 'Jasa pemasangan WiFi rumahan cepat, rapi, dan stabil. Survey lokasi, instalasi perangkat, hingga after-sales support dari teknisi berpengalaman.',
+            'company_name' => $this->existingSetting('company_name', 'Tesla Tech'),
+            'tagline' => $this->existingSetting('tagline', 'Koneksi Rumah yang Stabil & Profesional'),
+            'phone' => $this->existingSetting('phone', '0812-3456-7890'),
+            'whatsapp' => $this->existingSetting('whatsapp', '6281234567890'),
+            'email' => $this->existingSetting('email', 'halo@teslatech.my.id'),
+            'address' => $this->existingSetting('address', 'Jl. Teknologi No. 3R, Indonesia'),
+            'operating_hours' => $this->existingSetting('operating_hours', 'Senin – Sabtu, 08.00 – 18.00'),
+            'instagram' => $this->existingSetting('instagram', 'https://instagram.com/teslatech'),
+            'facebook' => $this->existingSetting('facebook', 'https://facebook.com/teslatech'),
+            'seo_title' => $this->existingSetting('seo_title', 'Tesla Tech — Pemasangan WiFi Rumahan Profesional'),
+            'seo_description' => $this->existingSetting(
+                'seo_description',
+                'Jasa pemasangan WiFi rumahan cepat, rapi, dan stabil. Survey lokasi, instalasi perangkat, hingga after-sales support dari teknisi berpengalaman.',
+            ),
             ...AppSettings::DEFAULTS,
         ]);
 
@@ -401,5 +404,12 @@ class LandingPageSeeder extends Seeder
                 $section
             );
         }
+    }
+
+    private function existingSetting(string $key, string $fallback): string
+    {
+        $current = trim((string) SiteSetting::getValue($key, ''));
+
+        return $current !== '' ? $current : $fallback;
     }
 }

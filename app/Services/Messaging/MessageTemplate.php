@@ -386,7 +386,19 @@ class MessageTemplate
             return $defaults[$template];
         }
 
-        return $stored;
+        return self::withCompanyPlaceholder($stored);
+    }
+
+    /**
+     * Nama brand lama di template tersimpan diganti placeholder,
+     * supaya mengikuti Nama Perusahaan di Pengaturan Situs.
+     */
+    public static function withCompanyPlaceholder(string $body): string
+    {
+        $body = preg_replace('/3R\s+Solusi\s+Media/i', '{{perusahaan}}', $body) ?? $body;
+        $body = preg_replace('/(?<![@\/])3rsolusimedia/i', '{{perusahaan}}', $body) ?? $body;
+
+        return $body;
     }
 
     /**

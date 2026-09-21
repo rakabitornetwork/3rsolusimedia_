@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 /** Warna ANSI/Tango yang umum di terminal Ubuntu. */
@@ -61,10 +62,20 @@ function compactMessage(message, max = 88) {
     return `${text.slice(0, max - 1)}…`;
 }
 
-function PromptLine({ command }) {
+function companyPromptHost(companyName) {
+    const slug =
+        String(companyName || 'app')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '')
+            .slice(0, 24) || 'app';
+
+    return `${slug}@vps`;
+}
+
+function PromptLine({ host, command }) {
     return (
         <p className="update-term-line truncate" style={{ color: C.fg }}>
-            <span style={{ color: C.green }}>3rsolusi@vps</span>
+            <span style={{ color: C.green }}>{host}</span>
             <span style={{ color: C.fg }}>:</span>
             <span style={{ color: C.blue }}>~</span>
             <span style={{ color: C.fg }}>$ </span>
@@ -81,6 +92,7 @@ export default function UpdateTerminal({
     result = null,
     onClose,
 }) {
+    const promptHost = companyPromptHost(usePage().props.app?.company_name);
     const [visibleCount, setVisibleCount] = useState(0);
     const [cursorOn, setCursorOn] = useState(true);
     const bodyRef = useRef(null);
@@ -150,10 +162,7 @@ export default function UpdateTerminal({
     const scriptDone = visibleCount >= lines.length;
     const waiting = scriptDone && !result;
     const finished = Boolean(result);
-    const title =
-        mode === 'check'
-            ? '3rsolusi@vps: ~'
-            : '3rsolusi@vps: ~';
+    const title = `${promptHost}: ~`;
 
     return (
         <div
@@ -211,7 +220,7 @@ export default function UpdateTerminal({
                     <div className="space-y-0.5">
                         {shown.map((line, index) =>
                             line.tone === 'prompt' ? (
-                                <PromptLine key={`${line.text}-${index}`} command={line.text} />
+                                <PromptLine key={`${line.text}-${index}`} host={promptHost} command={line.text} />
                             ) : (
                                 <p
                                     key={`${line.text}-${index}`}
@@ -255,7 +264,7 @@ export default function UpdateTerminal({
                         )}
 
                         {finished && (
-                            <PromptLine command="" />
+                            <PromptLine host={promptHost} command="" />
                         )}
                     </div>
                 </div>

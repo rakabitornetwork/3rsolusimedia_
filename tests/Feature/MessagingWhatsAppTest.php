@@ -152,6 +152,42 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function whatsapp_bantuan_uses_company_name_from_site_settings(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setValue('company_name', 'Tesla Tech');
+
+        $this->postUpsert('bantuan')->assertOk();
+
+        $body = MessageLog::query()->where('direction', 'outbound')->value('body');
+        $this->assertStringContainsString('Tesla Tech', (string) $body);
+        $this->assertStringContainsString('Bot pelanggan', (string) $body);
+        $this->assertStringNotContainsString('3R Solusi Media', (string) $body);
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && str_starts_with($text, 'Tesla Tech')
+                && str_contains($text, 'Bot pelanggan — ketik salah satu perintah:')
+                && ! str_contains($text, '3R Solusi Media');
+        });
+
+        SiteSetting::setValue('company_name', 'Net Desa Maju');
+        $this->postUpsert('bantuan')->assertOk();
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($request->url(), '/message/sendText/teslatech')
+                && str_starts_with($text, 'Net Desa Maju')
+                && ! str_contains($text, 'Tesla Tech')
+                && ! str_contains($text, '3R Solusi Media');
+        });
+    }
+
+    #[Test]
     public function lid_remote_jid_uses_whatsapp_alt_number_for_tagihan(): void
     {
         $this->enableWhatsapp();
@@ -319,6 +355,33 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Username: {{username}}', $body);
         $this->assertStringContainsString('Nomor HP: {{phone}}', $body);
         $this->assertStringContainsString('Bayar di portal pelanggan', $body);
+    }
+
+    #[Test]
+    public function stored_template_hardcoded_3rsolusimedia_follows_site_company_name(): void
+    {
+        SiteSetting::setMany([
+            'company_name' => 'Tesla Tech',
+            'msg_tpl_invoice' => implode("\n", [
+                'Halo {{nama}}, tagihan dari 3rsolusimedia.',
+                'Invoice {{nomor}} {{total}}',
+                '— 3R Solusi Media',
+            ]),
+        ]);
+
+        $text = MessageTemplate::render(MessageTemplate::INVOICE, [
+            'nama' => 'Budi Santoso',
+            'nomor' => 'INV-BRAND',
+            'total' => 'Rp 150.000',
+        ]);
+
+        $this->assertStringNotContainsString('3rsolusimedia', $text);
+        $this->assertStringNotContainsString('3R Solusi Media', $text);
+        $this->assertStringContainsString('Tesla Tech', $text);
+        $this->assertStringContainsString('INV-BRAND', $text);
+
+        $emailKept = MessageTemplate::withCompanyPlaceholder('CS: halo@3rsolusimedia.id');
+        $this->assertSame('CS: halo@3rsolusimedia.id', $emailKept);
     }
 
     #[Test]

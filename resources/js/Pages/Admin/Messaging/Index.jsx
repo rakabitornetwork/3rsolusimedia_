@@ -88,8 +88,9 @@ export default function Index({
     logs = [],
     stats = {},
 }) {
-    const { auth } = usePage().props;
+    const { auth, app } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
+    const companyName = app?.company_name || 'Perusahaan';
     const telegram = config?.telegram || {};
     const whatsapp = config?.whatsapp || {};
     const [tab, setTab] = useState(() => {
@@ -627,6 +628,12 @@ export default function Index({
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
                             Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}} {{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}.
+                            {'{{perusahaan}}'} memakai Nama Perusahaan dari{' '}
+                            <Link href="/admin/settings" className="font-semibold text-signal-deep hover:underline">
+                                Pengaturan Situs
+                            </Link>
+                            {companyName ? ` (sekarang: ${companyName})` : ''}. Jangan tulis nama brand secara
+                            hardcode.
                             {'{{portal}}'} adalah alamat portal pelanggan. Login portal memakai {'{{username}}'} (PPPoE) dan {'{{phone}}'} — password modem tidak diperlukan.
                             {'{{alamat}}'} memakai teks alamat, atau koordinat GPS (tanpa tautan peta) jika kosong.
                             {'{{rekening}}'} menampilkan semua rekening dari kartu Rekening bank di{' '}
@@ -928,7 +935,7 @@ export default function Index({
                             <li>
                                 Cron tetap jalan:{' '}
                                 <span className="font-mono text-xs">
-                                    * * * * * cd /home/teslatech/public_html && php artisan schedule:run
+                                    * * * * * cd /path/ke/aplikasi && php artisan schedule:run
                                 </span>
                                 . Scheduler mengirim disconnect yang ditunda dan jadi cadangan jika fetch
                                 router gagal.
