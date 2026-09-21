@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\MikrotikRouter;
+use App\Models\PppoeCustomer;
 use App\Models\User;
 use App\Support\AdminListState;
 use Illuminate\Http\RedirectResponse;
@@ -63,14 +65,10 @@ class UserController extends Controller
                 ->with('error', 'Anda tidak memiliki akses untuk menambah pengguna.');
         }
 
-        $pppoeCustomers = \App\Models\PppoeCustomer::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'username', 'phone', 'agent_id']);
-
         return Inertia::render('Admin/Users/Form', [
             'user' => null,
             'role_options' => User::roleOptions($actor),
-            'pppoe_customers' => $pppoeCustomers,
+            ...$this->assignmentFormData(),
         ]);
     }
 
@@ -93,7 +91,7 @@ class UserController extends Controller
         if ($user->isAgen()) {
             $assignedIds = $request->input('assigned_customer_ids', []);
             if (is_array($assignedIds)) {
-                \App\Models\PppoeCustomer::query()
+                PppoeCustomer::query()
                     ->whereIn('id', $assignedIds)
                     ->update(['agent_id' => $user->id]);
             }
@@ -112,14 +110,10 @@ class UserController extends Controller
                 ->with('error', 'Anda tidak dapat mengedit akun ini.');
         }
 
-        $pppoeCustomers = \App\Models\PppoeCustomer::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'username', 'phone', 'agent_id']);
-
         return Inertia::render('Admin/Users/Form', [
             'user' => $user->toAdminArray(),
             'role_options' => User::roleOptions($actor),
-            'pppoe_customers' => $pppoeCustomers,
+            ...$this->assignmentFormData(),
         ]);
     }
 
@@ -161,20 +155,20 @@ class UserController extends Controller
         if ($user->isAgen()) {
             $assignedIds = (array) $request->input('assigned_customer_ids', []);
             // Unassign customers no longer in array
-            \App\Models\PppoeCustomer::query()
+            PppoeCustomer::query()
                 ->where('agent_id', $user->id)
                 ->whereNotIn('id', $assignedIds)
                 ->update(['agent_id' => null]);
 
             // Assign new customers
             if (! empty($assignedIds)) {
-                \App\Models\PppoeCustomer::query()
+                PppoeCustomer::query()
                     ->whereIn('id', $assignedIds)
                     ->update(['agent_id' => $user->id]);
             }
         } else {
             // If role changed from agen to something else, clear assigned customers
-            \App\Models\PppoeCustomer::query()
+            PppoeCustomer::query()
                 ->where('agent_id', $user->id)
                 ->update(['agent_id' => null]);
         }
@@ -196,7 +190,7 @@ class UserController extends Controller
             );
         }
 
-        \App\Models\PppoeCustomer::query()
+        PppoeCustomer::query()
             ->where('agent_id', $user->id)
             ->update(['agent_id' => null]);
 
@@ -246,6 +240,46 @@ class UserController extends Controller
         }
 
         return $validated;
+    }
+
+    /**
+     * @return array{routers: list<array<string, mixed>>, pppoe_customers: list<array<string, mixed>>}
+     */
+    private function assignmentFormData(): array
+    {
+        $routers = MikrotikRouter::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'host', 'is_active'])
+            ->map(fn (MikrotikRouter $router) => [
+                'id' => $router->id,
+                'name' => $router->name,
+                'host' => $router->host,
+                'is_active' => (bool) $router->is_active,
+            ])
+            ->values()
+            ->all();
+
+        $customers = PppoeCustomer::query()
+            ->with('router:id,name,host')
+            ->orderBy('name')
+            ->get(['id', 'name', 'username', 'phone', 'agent_id', 'mikrotik_router_id'])
+            ->map(fn (PppoeCustomer $customer) => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'username' => $customer->username,
+                'phone' => $customer->phone,
+                'agent_id' => $customer->agent_id,
+                'mikrotik_router_id' => $customer->mikrotik_router_id,
+                'router_name' => $customer->router?->name,
+                'router_host' => $customer->router?->host,
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'routers' => $routers,
+            'pppoe_customers' => $customers,
+        ];
     }
 
     private function storeAvatar(Request $request): ?string

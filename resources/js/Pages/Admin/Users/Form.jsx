@@ -7,23 +7,49 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 const fieldClass =
     'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
 
-export default function Form({ user, role_options, pppoe_customers = [] }) {
+function asIdList(value) {
+    return (Array.isArray(value) ? value : []).map((id) => Number(id)).filter((id) => id > 0);
+}
+
+export default function Form({ user, role_options, pppoe_customers = [], routers = [] }) {
     const editing = Boolean(user);
     const [preview, setPreview] = useState(user?.avatar_url || null);
     const [custSearch, setCustSearch] = useState('');
+    const [routerId, setRouterId] = useState(() => {
+        const assigned = asIdList(user?.assigned_customer_ids);
+        const assignedRouters = [
+            ...new Set(
+                pppoe_customers
+                    .filter((customer) => assigned.includes(Number(customer.id)))
+                    .map((customer) => customer.mikrotik_router_id)
+                    .filter(Boolean)
+                    .map(String),
+            ),
+        ];
+        if (assignedRouters.length === 1) {
+            return assignedRouters[0];
+        }
+        if (assignedRouters.length > 1) {
+            return assignedRouters[0];
+        }
+
+        return routers[0]?.id ? String(routers[0].id) : '';
+    });
 
     const { data, setData, post, processing, errors, transform } = useForm({
         name: user?.name || '',
         email: user?.email || '',
         role: user?.role || role_options[0]?.value || 'admin',
         billing_commission: user?.billing_commission ?? 0,
-        assigned_customer_ids: user?.assigned_customer_ids || [],
+        assigned_customer_ids: asIdList(user?.assigned_customer_ids),
         password: '',
         password_confirmation: '',
         avatar: null,
         remove_avatar: false,
         ...(editing ? { _method: 'put' } : {}),
     });
+
+    const assignedIds = asIdList(data.assigned_customer_ids);
 
     useEffect(() => {
         if (!data.avatar) return undefined;
@@ -36,39 +62,62 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
 
     const initials = useMemo(() => getInitials(data.name), [data.name]);
 
-    const filteredCustomers = useMemo(() => {
-        if (!custSearch.trim()) return pppoe_customers;
-        const q = custSearch.toLowerCase();
+    const selectedRouter = useMemo(
+        () => routers.find((router) => String(router.id) === String(routerId)) || null,
+        [routers, routerId],
+    );
+
+    const routerCustomers = useMemo(() => {
+        if (!routerId) return pppoe_customers;
         return pppoe_customers.filter(
+            (customer) => String(customer.mikrotik_router_id) === String(routerId),
+        );
+    }, [pppoe_customers, routerId]);
+
+    const filteredCustomers = useMemo(() => {
+        if (!custSearch.trim()) return routerCustomers;
+        const q = custSearch.toLowerCase();
+        return routerCustomers.filter(
             (c) =>
                 c.name.toLowerCase().includes(q) ||
                 c.username.toLowerCase().includes(q) ||
-                (c.phone && c.phone.includes(q)),
+                (c.phone && c.phone.includes(q)) ||
+                (c.router_name && c.router_name.toLowerCase().includes(q)),
         );
-    }, [pppoe_customers, custSearch]);
+    }, [routerCustomers, custSearch]);
+
+    const visibleIds = filteredCustomers.map((customer) => Number(customer.id));
+    const allVisibleSelected =
+        visibleIds.length > 0 && visibleIds.every((id) => assignedIds.includes(id));
+    const selectedOnRouter = routerCustomers.filter((customer) =>
+        assignedIds.includes(Number(customer.id)),
+    ).length;
+    const selectedOnOtherRouters = assignedIds.length - selectedOnRouter;
 
     const toggleCustomer = (id) => {
-        const current = data.assigned_customer_ids || [];
-        if (current.includes(id)) {
+        const numericId = Number(id);
+        const current = asIdList(data.assigned_customer_ids);
+        if (current.includes(numericId)) {
             setData(
                 'assigned_customer_ids',
-                current.filter((cId) => cId !== id),
+                current.filter((cId) => cId !== numericId),
             );
         } else {
-            setData('assigned_customer_ids', [...current, id]);
+            setData('assigned_customer_ids', [...current, numericId]);
         }
     };
 
     const toggleAllCustomers = () => {
-        const current = data.assigned_customer_ids || [];
-        if (current.length === pppoe_customers.length) {
-            setData('assigned_customer_ids', []);
-        } else {
+        const current = asIdList(data.assigned_customer_ids);
+        if (allVisibleSelected) {
             setData(
                 'assigned_customer_ids',
-                pppoe_customers.map((c) => c.id),
+                current.filter((id) => !visibleIds.includes(id)),
             );
+            return;
         }
+
+        setData('assigned_customer_ids', [...new Set([...current, ...visibleIds])]);
     };
 
     const submit = (e) => {
@@ -270,40 +319,74 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
                                         Penugasan Pelanggan PPPoE
                                     </h4>
                                     <p className="text-xs text-ink-soft">
-                                        Pilih pelanggan yang dapat dilihat & dikelola oleh akun Agen
-                                        ini ({data.assigned_customer_ids?.length || 0} dipilih).
+                                        Pilih RouterOS dulu, lalu centang pelanggan di router itu
+                                        ({assignedIds.length} dipilih).
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={toggleAllCustomers}
+                                    disabled={filteredCustomers.length === 0}
                                     className="btn-action btn-action-xs btn-secondary"
                                 >
-                                    {data.assigned_customer_ids?.length === pppoe_customers.length
-                                        ? 'Hapus Semua'
-                                        : 'Pilih Semua'}
+                                    {allVisibleSelected ? 'Hapus pilihan router ini' : 'Pilih semua di router ini'}
                                 </button>
                             </div>
 
-                            <div className="mt-3">
-                                <input
-                                    type="text"
-                                    placeholder="Cari nama / username / telp pelanggan..."
-                                    value={custSearch}
-                                    onChange={(e) => setCustSearch(e.target.value)}
-                                    className="w-full border border-ink/15 bg-white px-3 py-1.5 text-xs outline-none focus:border-signal"
-                                />
+                            <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                                <label className="block text-xs font-medium text-ink">
+                                    RouterOS
+                                    <select
+                                        value={routerId}
+                                        onChange={(e) => {
+                                            setRouterId(e.target.value);
+                                            setCustSearch('');
+                                        }}
+                                        className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
+                                    >
+                                        <option value="">Semua RouterOS</option>
+                                        {routers.map((router) => (
+                                            <option key={router.id} value={router.id}>
+                                                {router.name}
+                                                {router.host ? ` (${router.host})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label className="block text-xs font-medium text-ink">
+                                    Cari pelanggan
+                                    <input
+                                        type="text"
+                                        placeholder="Nama, username, atau telp..."
+                                        value={custSearch}
+                                        onChange={(e) => setCustSearch(e.target.value)}
+                                        className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
+                                    />
+                                </label>
                             </div>
 
+                            <p className="mt-2 text-[11px] text-ink-soft">
+                                {selectedRouter
+                                    ? `${selectedOnRouter} dipilih dari ${routerCustomers.length} pelanggan ${selectedRouter.name}.`
+                                    : `${assignedIds.length} dipilih dari ${pppoe_customers.length} pelanggan.`}
+                                {routerId && selectedOnOtherRouters > 0
+                                    ? ` ${selectedOnOtherRouters} pelanggan di router lain tetap terpilih.`
+                                    : ''}
+                            </p>
+
                             <div className="mt-3 max-h-60 space-y-1 overflow-y-auto border border-ink/10 bg-white p-2 text-xs">
-                                {filteredCustomers.length === 0 ? (
+                                {routers.length === 0 ? (
                                     <p className="py-2 text-center text-ink-soft">
-                                        Tidak ada pelanggan PPPoE ditemukan.
+                                        Belum ada RouterOS. Tambah router di menu Jaringan dulu.
+                                    </p>
+                                ) : filteredCustomers.length === 0 ? (
+                                    <p className="py-2 text-center text-ink-soft">
+                                        Tidak ada pelanggan PPPoE
+                                        {selectedRouter ? ` di ${selectedRouter.name}` : ''}.
                                     </p>
                                 ) : (
                                     filteredCustomers.map((c) => {
-                                        const isChecked =
-                                            data.assigned_customer_ids?.includes(c.id);
+                                        const isChecked = assignedIds.includes(Number(c.id));
                                         return (
                                             <label
                                                 key={c.id}
@@ -313,22 +396,27 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
                                                         : 'hover:bg-mist/60 text-ink-soft'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex min-w-0 items-center gap-2">
                                                     <input
                                                         type="checkbox"
                                                         checked={isChecked}
                                                         onChange={() => toggleCustomer(c.id)}
                                                         className="h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
                                                     />
-                                                    <span>
+                                                    <span className="min-w-0">
                                                         <span className="text-ink">{c.name}</span>
                                                         <span className="ml-2 font-mono text-[11px] text-ink-soft">
                                                             ({c.username})
                                                         </span>
+                                                        {!routerId && c.router_name ? (
+                                                            <span className="ml-2 text-[11px] text-ink-soft">
+                                                                · {c.router_name}
+                                                            </span>
+                                                        ) : null}
                                                     </span>
                                                 </div>
                                                 {c.phone && (
-                                                    <span className="text-[11px] text-ink-soft">
+                                                    <span className="shrink-0 text-[11px] text-ink-soft">
                                                         {c.phone}
                                                     </span>
                                                 )}
@@ -337,6 +425,11 @@ export default function Form({ user, role_options, pppoe_customers = [] }) {
                                     })
                                 )}
                             </div>
+                            {errors.assigned_customer_ids && (
+                                <span className="mt-1 block text-xs text-red-600">
+                                    {errors.assigned_customer_ids}
+                                </span>
+                            )}
                         </div>
                     </div>
                 )}
