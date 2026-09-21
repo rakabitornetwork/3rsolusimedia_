@@ -187,13 +187,17 @@ class BillingAgentCollectionMarkTest extends TestCase
         ]);
 
         $body = (string) MessageLog::query()->value('body');
-        $this->assertStringContainsString('Agen menandai Cash', $body);
-        $this->assertStringContainsString('Agen Budi', $body);
-        $this->assertStringContainsString('Sari Pelanggan', $body);
-        $this->assertStringContainsString('sari01', $body);
-        $this->assertStringContainsString('081298765432', $body);
-        $this->assertStringContainsString('INV-CASH-TG', $body);
+        $this->assertStringContainsString('💵 Agen menandai Cash', $body);
+        $this->assertStringContainsString('🤝 Agen: Agen Budi', $body);
+        $this->assertStringContainsString('✅ Tanda: 💵 Cash', $body);
+        $this->assertStringContainsString('👤 Pelanggan: Sari Pelanggan', $body);
+        $this->assertStringContainsString('🔑 Akun: sari01', $body);
+        $this->assertStringContainsString('📱 HP: 081298765432', $body);
+        $this->assertStringContainsString('🧾 Invoice: INV-CASH-TG', $body);
+        $this->assertStringContainsString('💰 Total:', $body);
         $this->assertStringContainsString('150.000', $body);
+        $this->assertStringContainsString('⏰ Jatuh tempo:', $body);
+        $this->assertStringContainsString('📦 Paket:', $body);
     }
 
     #[Test]
@@ -220,8 +224,10 @@ class BillingAgentCollectionMarkTest extends TestCase
             'command' => 'agent_ready_tf',
             'status' => 'sent',
         ]);
-        $this->assertStringContainsString('Siap TF', (string) MessageLog::query()->value('body'));
-        $this->assertStringContainsString('Andi Transfer', (string) MessageLog::query()->value('body'));
+        $body = (string) MessageLog::query()->value('body');
+        $this->assertStringContainsString('🏦 Agen menandai Siap TF', $body);
+        $this->assertStringContainsString('✅ Tanda: 🏦 Siap TF', $body);
+        $this->assertStringContainsString('👤 Pelanggan: Andi Transfer', $body);
     }
 
     #[Test]

@@ -153,31 +153,39 @@ class CustomerNotifier
         };
 
         $statusLabels = [
-            'active' => 'Aktif',
-            'isolated' => 'Isolir',
-            'disabled' => 'Nonaktif',
+            'active' => '🟢 Aktif',
+            'isolated' => '🔴 Isolir',
+            'disabled' => '⚫ Nonaktif',
         ];
+        $markLabels = [
+            'Cash' => '💵 Cash',
+            'Siap TF' => '🏦 Siap TF',
+        ];
+        $tanda = implode(', ', array_map(
+            fn (string $label) => $markLabels[$label] ?? $label,
+            $labels,
+        ));
 
         $lines = [
             $title,
             '',
-            'Agen: '.$agent->name,
-            'Tanda: '.implode(', ', $labels),
+            '🤝 Agen: '.$agent->name,
+            '✅ Tanda: '.$tanda,
             '',
-            'Pelanggan: '.$customer->name,
-            'Akun: '.$customer->username,
-            'HP: '.$this->dash((string) ($customer->phone ?? '')),
-            'Invoice: '.$this->dash((string) $invoice->number),
-            'Total: '.$this->rupiah((int) $invoice->total),
-            'Jatuh tempo: '.($invoice->due_date?->format('d/m/Y') ?? '—'),
-            'Paket: '.$this->dash((string) ($invoice->package_name ?: $customer->package?->name ?: '')),
+            '👤 Pelanggan: '.$customer->name,
+            '🔑 Akun: '.$customer->username,
+            '📱 HP: '.$this->dash((string) ($customer->phone ?? '')),
+            '🧾 Invoice: '.$this->dash((string) $invoice->number),
+            '💰 Total: '.$this->rupiah((int) $invoice->total),
+            '⏰ Jatuh tempo: '.($invoice->due_date?->format('d/m/Y') ?? '—'),
+            '📦 Paket: '.$this->dash((string) ($invoice->package_name ?: $customer->package?->name ?: '')),
         ];
 
         if ($customer->router?->name) {
-            $lines[] = 'Router: '.$customer->router->name;
+            $lines[] = '🖥 Router: '.$customer->router->name;
         }
 
-        $lines[] = 'Status: '.($statusLabels[$customer->status] ?? (string) $customer->status);
+        $lines[] = '📡 Status: '.($statusLabels[$customer->status] ?? (string) $customer->status);
         $lines[] = '';
         $lines[] = '— '.AppSettings::companyName();
 
