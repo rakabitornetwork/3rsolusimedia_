@@ -41,6 +41,8 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
         email: user?.email || '',
         role: user?.role || role_options[0]?.value || 'admin',
         billing_commission: user?.billing_commission ?? 0,
+        can_pay: Boolean(user?.can_pay),
+        can_grant_grace: Boolean(user?.can_grant_grace),
         assigned_customer_ids: asIdList(user?.assigned_customer_ids),
         commission_customer_ids: asIdList(user?.commission_customer_ids),
         password: '',
@@ -159,11 +161,15 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                 delete payload.assigned_customer_ids;
                 delete payload.commission_customer_ids;
                 delete payload.billing_commission;
+                payload.can_pay = 0;
+                payload.can_grant_grace = 0;
             } else {
                 payload.billing_commission = Math.max(
                     0,
                     Number.parseInt(String(payload.billing_commission || 0), 10) || 0,
                 );
+                payload.can_pay = payload.can_pay ? 1 : 0;
+                payload.can_grant_grace = payload.can_grant_grace ? 1 : 0;
                 payload.assigned_customer_ids = asIdList(payload.assigned_customer_ids);
                 payload.commission_customer_ids = asIdList(payload.commission_customer_ids).filter(
                     (id) => payload.assigned_customer_ids.includes(id),
@@ -345,6 +351,41 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                                 </span>
                             )}
                         </label>
+
+                        <fieldset className="space-y-2">
+                            <legend className="text-sm font-bold text-ink">Aksi yang diizinkan</legend>
+                            <p className="text-xs text-ink-soft">
+                                Hanya berlaku untuk pelanggan yang ditugaskan ke agen ini.
+                            </p>
+                            <label className="flex items-start gap-2 text-sm text-ink">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(data.can_pay)}
+                                    onChange={(e) => setData('can_pay', e.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
+                                />
+                                <span>
+                                    <span className="font-semibold">Aksi Bayar</span>
+                                    <span className="mt-0.5 block text-xs font-normal text-ink-soft">
+                                        Menandai tagihan lunas, termasuk lunas massal.
+                                    </span>
+                                </span>
+                            </label>
+                            <label className="flex items-start gap-2 text-sm text-ink">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(data.can_grant_grace)}
+                                    onChange={(e) => setData('can_grant_grace', e.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded border-ink/20 text-signal focus:ring-signal"
+                                />
+                                <span>
+                                    <span className="font-semibold">Aksi Toleransi</span>
+                                    <span className="mt-0.5 block text-xs font-normal text-ink-soft">
+                                        Memberi atau mencabut toleransi isolir tanpa menggeser jatuh tempo.
+                                    </span>
+                                </span>
+                            </label>
+                        </fieldset>
 
                         <div>
                             <div className="flex flex-wrap items-center justify-between gap-2">

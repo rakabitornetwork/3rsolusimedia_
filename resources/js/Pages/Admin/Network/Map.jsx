@@ -705,6 +705,7 @@ function NetworkMapView({
 function DetailPanel({ customer, paymentMethods, onClose }) {
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
+    const canGrantGrace = auth?.user?.can_grant_grace !== false;
     const poll = useCustomerTrafficPoll(customer?.id);
     const [rebooting, setRebooting] = useState(false);
     const optical = customer?.optical;
@@ -941,7 +942,7 @@ function DetailPanelBody({
                             : 'tidak ada'}
                         {customer.grace_note ? ` — ${customer.grace_note}` : ''}
                     </p>
-                    {canWrite && (
+                    {canWrite && canGrantGrace && (
                         <div className="mt-2 flex flex-wrap gap-2">
                             {[3, 7, 14].map((days) => (
                                 <button

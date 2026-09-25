@@ -230,6 +230,8 @@ class UserController extends Controller
             ],
             'role' => ['required', Rule::in($allowedRoles)],
             'billing_commission' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'can_pay' => ['sometimes', 'boolean'],
+            'can_grant_grace' => ['sometimes', 'boolean'],
             'assigned_customer_ids' => ['nullable', 'array'],
             'assigned_customer_ids.*' => ['integer', 'exists:pppoe_customers,id'],
             'commission_customer_ids' => ['nullable', 'array'],
@@ -245,8 +247,12 @@ class UserController extends Controller
 
         if (($validated['role'] ?? null) !== User::ROLE_AGEN) {
             $validated['billing_commission'] = 0;
+            $validated['can_pay'] = false;
+            $validated['can_grant_grace'] = false;
         } else {
             $validated['billing_commission'] = max(0, (int) ($validated['billing_commission'] ?? 0));
+            $validated['can_pay'] = $request->boolean('can_pay');
+            $validated['can_grant_grace'] = $request->boolean('can_grant_grace');
         }
 
         return $validated;

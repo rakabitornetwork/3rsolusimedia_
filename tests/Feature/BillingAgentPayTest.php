@@ -72,6 +72,7 @@ class BillingAgentPayTest extends TestCase
                 ->component('Admin/Billing/Index')
                 ->where('auth.user.role', User::ROLE_AGEN)
                 ->where('auth.user.can_record_payment', false)
+                ->where('auth.user.can_grant_grace', false)
                 ->where('auth.user.can_write', true)
             );
     }
@@ -86,7 +87,121 @@ class BillingAgentPayTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->where('auth.user.can_record_payment', true)
+                ->where('auth.user.can_grant_grace', true)
             );
+    }
+
+    #[Test]
+    public function selected_agent_can_pay_assigned_invoice(): void
+    {
+        $agent = User::factory()->agen()->create(['can_pay' => true]);
+        $customer = $this->customer(['agent_id' => $agent->id, 'username' => 'agenboleh']);
+        $invoice = $this->unpaidInvoice($customer, 'INV-AGEN-BOLEH');
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->post("/admin/billing/invoices/{$invoice->id}/pay", [
+                'method' => 'cash',
+            ])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => 'paid',
+        ]);
+    }
+
+    #[Test]
+    public function selected_agent_cannot_pay_unassigned_invoice(): void
+    {
+        $agent = User::factory()->agen()->create(['can_pay' => true]);
+        $other = User::factory()->agen()->create();
+        $customer = $this->customer(['agent_id' => $other->id, 'username' => 'agenlain']);
+        $invoice = $this->unpaidInvoice($customer, 'INV-AGEN-LAIN');
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->post("/admin/billing/invoices/{$invoice->id}/pay", [
+                'method' => 'cash',
+            ])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('invoices', [
+            'id' => $invoice->id,
+            'status' => 'unpaid',
+        ]);
+    }
+
+    #[Test]
+    public function agent_without_tolerance_cannot_grant_grace(): void
+    {
+        $agent = User::factory()->agen()->create();
+        $customer = $this->customer(['agent_id' => $agent->id, 'username' => 'agentol']);
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->post("/admin/billing/customers/{$customer->id}/grace", [
+                'days' => 7,
+            ])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $customer->id,
+            'grace_until' => null,
+        ]);
+    }
+
+    #[Test]
+    public function selected_agent_can_grant_and_clear_grace_for_assigned_customer(): void
+    {
+        $agent = User::factory()->agen()->create(['can_grant_grace' => true]);
+        $customer = $this->customer(['agent_id' => $agent->id, 'username' => 'agentoleransi']);
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->post("/admin/billing/customers/{$customer->id}/grace", [
+                'days' => 7,
+                'note' => 'Janji bayar',
+            ])
+            ->assertRedirect('/admin/billing');
+
+        $customer->refresh();
+        $this->assertSame(now()->addDays(7)->toDateString(), $customer->grace_until?->toDateString());
+        $this->assertSame('Janji bayar', $customer->grace_note);
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->delete("/admin/billing/customers/{$customer->id}/grace")
+            ->assertRedirect('/admin/billing');
+
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $customer->id,
+            'grace_until' => null,
+        ]);
+    }
+
+    #[Test]
+    public function selected_agent_cannot_grant_grace_for_unassigned_customer(): void
+    {
+        $agent = User::factory()->agen()->create(['can_grant_grace' => true]);
+        $other = User::factory()->agen()->create();
+        $customer = $this->customer(['agent_id' => $other->id, 'username' => 'bukanmilik']);
+
+        $this->actingAs($agent)
+            ->from('/admin/billing')
+            ->post("/admin/billing/customers/{$customer->id}/grace", [
+                'days' => 3,
+            ])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('pppoe_customers', [
+            'id' => $customer->id,
+            'grace_until' => null,
+        ]);
     }
 
     /**

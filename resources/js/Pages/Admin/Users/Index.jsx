@@ -172,6 +172,16 @@ export default function Index({ users = [], filters, role_options, stats, can_ma
                                     >
                                         {user.role_label}
                                     </span>
+                                    {user.role === 'agen' && (user.can_pay || user.can_grant_grace) ? (
+                                        <p className="mt-1 text-[11px] text-ink-soft">
+                                            {[
+                                                user.can_pay ? 'Bayar' : null,
+                                                user.can_grant_grace ? 'Toleransi' : null,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
+                                        </p>
+                                    ) : null}
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
                                     {user.created_at

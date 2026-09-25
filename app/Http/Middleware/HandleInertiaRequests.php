@@ -29,6 +29,7 @@ class HandleInertiaRequests extends Middleware
                         'initials' => $request->user()->initials(),
                         'can_write' => $request->user()->canWrite(),
                         'can_record_payment' => $request->user()->canRecordPayment(),
+                        'can_grant_grace' => $request->user()->canGrantGrace(),
                         'can_manage_users' => $request->user()->canManageUsers(),
                         'is_superadmin' => $request->user()->isSuperadmin(),
                     ]

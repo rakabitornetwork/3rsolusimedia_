@@ -113,7 +113,7 @@ function StatusBadge({ status, overdue, graceUntil }) {
     );
 }
 
-function MoreActions({ invoice, onRemove, whatsapp }) {
+function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
     const customer = invoice.customer;
     const canCombine =
         Boolean(customer?.id) &&
@@ -202,7 +202,7 @@ function MoreActions({ invoice, onRemove, whatsapp }) {
                         </>
                     ) : null}
 
-                    {customer?.id ? (
+                    {customer?.id && canGrantGrace ? (
                         <>
                             <p className="admin-row-menu-label">Toleransi isolir</p>
                             {[3, 7, 14].map((days) => (
@@ -288,6 +288,7 @@ export default function Index({
 }) {
     const { auth } = usePage().props;
     const canPay = auth?.user?.can_record_payment !== false;
+    const canGrantGrace = auth?.user?.can_grant_grace !== false;
     const isAgen = auth?.user?.role === 'agen';
     const [query, setQuery] = useState(filters.q || '');
     const [page, setPage] = useState(1);
@@ -1004,6 +1005,7 @@ export default function Index({
                                             invoice={item}
                                             onRemove={remove}
                                             whatsapp={whatsapp}
+                                            canGrantGrace={canGrantGrace}
                                         />
                                     </div>
                                 </td>

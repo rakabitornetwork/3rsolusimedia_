@@ -11,7 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'email', 'password', 'role', 'avatar', 'billing_commission'])]
+#[Fillable(['name', 'email', 'password', 'role', 'avatar', 'billing_commission', 'can_pay', 'can_grant_grace'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -40,6 +40,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'voucher_commission' => 'integer',
             'billing_commission' => 'integer',
+            'can_pay' => 'boolean',
+            'can_grant_grace' => 'boolean',
         ];
     }
 
@@ -70,7 +72,20 @@ class User extends Authenticatable
 
     public function canRecordPayment(): bool
     {
-        return $this->canWrite() && ! $this->isAgen();
+        if (! $this->canWrite()) {
+            return false;
+        }
+
+        return ! $this->isAgen() || (bool) $this->can_pay;
+    }
+
+    public function canGrantGrace(): bool
+    {
+        if (! $this->canWrite()) {
+            return false;
+        }
+
+        return ! $this->isAgen() || (bool) $this->can_grant_grace;
     }
 
     public function canManageUsers(): bool
@@ -190,6 +205,8 @@ class User extends Authenticatable
             'billing_commission_label' => $this->isAgen()
                 ? 'Rp '.number_format((int) ($this->billing_commission ?? 0), 0, ',', '.')
                 : null,
+            'can_pay' => $this->isAgen() && (bool) $this->can_pay,
+            'can_grant_grace' => $this->isAgen() && (bool) $this->can_grant_grace,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
@@ -219,7 +236,7 @@ class User extends Authenticatable
             [
                 'value' => self::ROLE_AGEN,
                 'label' => 'Agen',
-                'description' => 'Melihat pelanggan & bayar tagihan khusus yang ditugaskan',
+                'description' => 'Melihat pelanggan yang ditugaskan. Aksi Bayar dan Aksi Toleransi bisa diaktifkan per agen',
             ],
         ];
 

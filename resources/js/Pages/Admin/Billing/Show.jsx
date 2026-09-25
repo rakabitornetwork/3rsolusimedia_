@@ -17,6 +17,7 @@ export default function Show({
 }) {
     const { flash, auth } = usePage().props;
     const canPay = auth?.user?.can_record_payment !== false;
+    const canGrantGrace = auth?.user?.can_grant_grace !== false;
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
         reference: '',
@@ -363,6 +364,7 @@ export default function Show({
                                     ? ` — ${invoice.customer.grace_note}`
                                     : ''}
                             </p>
+                            {canGrantGrace ? (
                             <div className="mt-4 flex flex-wrap gap-2">
                                 {[3, 7, 14].map((days) => (
                                     <button
@@ -391,6 +393,7 @@ export default function Show({
                                     </button>
                                 )}
                             </div>
+                            ) : null}
 
                             {canCombine && (
                                 <div className="mt-5 border-t border-ink/10 pt-4">

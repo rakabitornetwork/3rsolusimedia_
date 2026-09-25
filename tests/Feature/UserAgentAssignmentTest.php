@@ -55,6 +55,8 @@ class UserAgentAssignmentTest extends TestCase
                 'email' => 'agen.budi@example.com',
                 'role' => User::ROLE_AGEN,
                 'billing_commission' => 5000,
+                'can_pay' => 1,
+                'can_grant_grace' => 1,
                 'assigned_customer_ids' => [$onA->id],
                 'password' => 'Password1!',
                 'password_confirmation' => 'Password1!',
@@ -63,6 +65,8 @@ class UserAgentAssignmentTest extends TestCase
 
         $agent = User::query()->where('email', 'agen.budi@example.com')->first();
         $this->assertNotNull($agent);
+        $this->assertTrue($agent->can_pay);
+        $this->assertTrue($agent->can_grant_grace);
         $this->assertDatabaseHas('pppoe_customers', [
             'id' => $onA->id,
             'agent_id' => $agent->id,

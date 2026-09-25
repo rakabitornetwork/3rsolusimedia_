@@ -590,6 +590,21 @@ class BillingController extends Controller
         return back()->with('success', $message);
     }
 
+    private function denyGrace(Request $request, PppoeCustomer $pppoe): ?RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user?->canGrantGrace()) {
+            return back()->with('error', 'Akun ini tidak dapat mengatur toleransi isolir.');
+        }
+
+        if ($user->isAgen() && (int) $pppoe->agent_id !== (int) $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk mengatur toleransi pelanggan ini.');
+        }
+
+        return null;
+    }
+
     private function rememberBillingUnpaidFilter(Request $request): void
     {
         $key = AdminListState::sessionKey(AdminListState::BILLING);
@@ -603,6 +618,10 @@ class BillingController extends Controller
 
     public function grantGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        if ($denied = $this->denyGrace($request, $pppoe)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'days' => ['nullable', 'integer', Rule::in([3, 7, 14])],
             'months' => ['nullable', 'integer', Rule::in([1, 2])],
@@ -654,8 +673,12 @@ class BillingController extends Controller
         return back()->with('success', $message);
     }
 
-    public function clearGrace(PppoeCustomer $pppoe): RedirectResponse
+    public function clearGrace(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        if ($denied = $this->denyGrace($request, $pppoe)) {
+            return $denied;
+        }
+
         $this->billing->clearGrace($pppoe);
 
         return back()->with('success', 'Toleransi isolir dicabut.');
