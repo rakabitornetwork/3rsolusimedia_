@@ -370,7 +370,17 @@ class PppoeCustomerController extends Controller
             $validated['service_profile'] = $package->mikrotik_profile;
         }
 
-        $validated = $this->applyBillingCycle($validated, $package, $pppoe);
+        $billingUnchanged = $this->billingInputsUnchanged($validated, $pppoe);
+
+        if ($billingUnchanged) {
+            $validated['start_date'] = $pppoe->start_date?->toDateString();
+            $validated['due_date'] = $pppoe->due_date?->toDateString();
+            $validated['billing_day'] = $pppoe->billing_day;
+            $validated['first_bill_amount'] = $pppoe->first_bill_amount;
+            $validated['first_bill_days'] = $pppoe->first_bill_days;
+        } else {
+            $validated = $this->applyBillingCycle($validated, $package, $pppoe);
+        }
 
         $isActive = $request->boolean('is_active');
 
@@ -393,7 +403,9 @@ class PppoeCustomerController extends Controller
         $pppoe->update($payload);
         $fresh = $pppoe->fresh(['router', 'package']);
         $this->whatsappBinder->bindCustomer($fresh);
-        $this->billingService->ensureOpenInvoice($fresh);
+        if (! $billingUnchanged) {
+            $this->billingService->ensureOpenInvoice($fresh);
+        }
         $this->sync->sync($fresh, pushPassword: $passwordChanged);
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
@@ -855,6 +867,19 @@ class PppoeCustomerController extends Controller
             'secret_found' => (bool) ($secretResult['ok'] ?? false),
             'secret_message' => $secretResult['message'] ?? null,
         ];
+    }
+
+    /**
+     * Catatan, nama, dan field non-tagihan tidak boleh menghitung ulang prorata.
+     */
+    private function billingInputsUnchanged(array $validated, PppoeCustomer $existing): bool
+    {
+        $incomingStart = Carbon::parse($validated['start_date'])->toDateString();
+        $incomingDue = Carbon::parse($validated['due_date'])->toDateString();
+
+        return $incomingStart === $existing->start_date?->toDateString()
+            && $incomingDue === $existing->due_date?->toDateString()
+            && (int) $validated['subscription_package_id'] === (int) $existing->subscription_package_id;
     }
 
     private function applyBillingCycle(

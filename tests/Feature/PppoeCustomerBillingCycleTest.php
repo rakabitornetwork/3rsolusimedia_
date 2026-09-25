@@ -116,6 +116,78 @@ class PppoeCustomerBillingCycleTest extends TestCase
     }
 
     #[Test]
+    public function updating_notes_does_not_recalculate_prorata(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-20 13:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $package->update(['price' => 200000]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-08-20',
+            'billing_day' => 20,
+            'due_date' => '2026-10-20',
+            'first_bill_amount' => 155000,
+            'first_bill_days' => 61,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+            'notes' => 'lama',
+        ]);
+
+        $invoice = Invoice::query()->create([
+            'number' => 'INV/2026/09/0002',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'prorata',
+            'billing_months' => 1,
+            'period_start' => '2026-08-20',
+            'period_end' => '2026-10-20',
+            'due_date' => '2026-10-20',
+            'amount' => 155000,
+            'discount' => 0,
+            'total' => 155000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+            'notes' => 'Tagihan pertama (prorata)',
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/admin/customers/pppoe/'.$customer->id.'/edit')
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $package, [
+                'start_date' => '2026-08-20',
+                'due_date' => '2026-10-20',
+                'billing_day' => 20,
+                'password' => '',
+                'notes' => 'hanya catatan',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $customer->refresh();
+        $invoice->refresh();
+
+        $this->assertSame('hanya catatan', $customer->notes);
+        $this->assertSame('2026-10-20', $customer->due_date?->toDateString());
+        $this->assertSame(20, $customer->billing_day);
+        $this->assertSame(155000, $customer->first_bill_amount);
+        $this->assertSame(61, $customer->first_bill_days);
+        $this->assertSame('2026-10-20', $invoice->due_date?->toDateString());
+        $this->assertSame('2026-10-20', $invoice->period_end?->toDateString());
+        $this->assertSame(155000, $invoice->total);
+        $this->assertSame(1, Invoice::query()->count());
+    }
+
+    #[Test]
     public function updating_due_date_to_today_creates_invoice_when_none_exists(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-20 13:00:00', 'Asia/Jakarta'));

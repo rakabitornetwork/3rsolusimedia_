@@ -87,7 +87,27 @@ export default function Form({
         [routerPackages, data.subscription_package_id],
     );
 
+    const billingInputsChanged =
+        !editing ||
+        data.start_date !== customer.start_date ||
+        data.due_date !== customer.due_date ||
+        String(data.subscription_package_id) !== String(customer.subscription_package_id);
+
     const prorata = useMemo(() => {
+        if (
+            editing &&
+            !billingInputsChanged &&
+            customer.first_bill_amount != null &&
+            customer.due_date
+        ) {
+            return {
+                due_date: customer.due_date,
+                amount_label: customer.first_bill_amount_label,
+                days: customer.first_bill_days,
+                stored: true,
+            };
+        }
+
         if (!data.start_date || !data.due_date || !selectedPackage) return null;
         return calculateProrata(
             data.start_date,
@@ -95,7 +115,15 @@ export default function Form({
             selectedPackage.price,
             data.due_date,
         );
-    }, [data.start_date, data.billing_day, data.due_date, selectedPackage]);
+    }, [
+        editing,
+        billingInputsChanged,
+        customer,
+        data.start_date,
+        data.billing_day,
+        data.due_date,
+        selectedPackage,
+    ]);
 
     const applyStartDate = (value) => {
         setData((current) => {
@@ -501,7 +529,11 @@ export default function Form({
                                     <strong>{prorata.amount_label}</strong>
                                 </p>
                             </div>
-                            <p className="mt-2 text-xs text-ink-soft">{prorata.summary}</p>
+                            <p className="mt-2 text-xs text-ink-soft">
+                                {prorata.stored
+                                    ? `Prorata tersimpan (${prorata.days ?? '—'} hari). Nominal ini tidak dihitung ulang saat catatan atau data lain disimpan.`
+                                    : prorata.summary}
+                            </p>
                             <p className="mt-1 text-xs text-ink-soft">
                                 Nilai dibulatkan ke atas kelipatan Rp 1.000. Bulan berikutnya
                                 pelanggan membayar harga penuh paket
