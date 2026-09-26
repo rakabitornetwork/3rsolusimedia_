@@ -325,11 +325,21 @@
     }
 }
 
-/* Toolbar padat: 2 kolom di HP, tombol ganjil terakhir full-width */
+/* Toolbar padat: 2 kolom di HP, tombol ganjil terakhir full-width.
+   minmax(0, 1fr) + teks boleh wrap supaya label panjang tidak menimpa tombol sebelah. */
 .admin-toolbar-actions--dense {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
+}
+
+.admin-toolbar-actions--dense > a,
+.admin-toolbar-actions--dense > button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
 }
 
 .admin-toolbar-actions--dense > :last-child:nth-child(odd) {
@@ -341,6 +351,12 @@
         display: flex;
         justify-content: flex-end;
         width: auto;
+    }
+
+    .admin-toolbar-actions--dense > a,
+    .admin-toolbar-actions--dense > button {
+        width: auto;
+        white-space: nowrap;
     }
 
     .admin-toolbar-actions--dense > :last-child:nth-child(odd) {

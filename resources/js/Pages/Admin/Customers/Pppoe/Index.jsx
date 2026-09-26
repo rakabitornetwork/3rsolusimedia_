@@ -324,7 +324,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                     </select>
                 </div>
 
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
                     {canWrite && selected.length > 0 && (
                         <button
                             type="button"
