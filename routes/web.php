@@ -29,6 +29,7 @@ use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
+use App\Http\Controllers\Portal\WhatsappLoginController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Webhook\EvolutionWebhookController;
@@ -57,6 +58,15 @@ Route::get('/portal', [PaymentPortalController::class, 'index'])->name('portal.p
 Route::post('/portal/lookup', [PaymentPortalController::class, 'lookup'])
     ->middleware('throttle:10,1')
     ->name('portal.pay.lookup');
+Route::post('/portal/otp', [WhatsappLoginController::class, 'requestCode'])
+    ->middleware(['throttle:5,1,portal-otp-min', 'throttle:20,60,portal-otp-hour'])
+    ->name('portal.otp.request');
+Route::post('/portal/otp/verify', [WhatsappLoginController::class, 'verify'])
+    ->middleware('throttle:10,1')
+    ->name('portal.otp.verify');
+Route::post('/portal/otp/cancel', [WhatsappLoginController::class, 'cancel'])
+    ->middleware('throttle:20,1')
+    ->name('portal.otp.cancel');
 
 Route::middleware('throttle:60,1')->group(function () {
     Route::get('/portal/{token}', [CustomerPortalController::class, 'home'])

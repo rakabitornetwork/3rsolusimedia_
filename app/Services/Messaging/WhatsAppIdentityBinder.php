@@ -148,25 +148,36 @@ class WhatsAppIdentityBinder
 
     public function uniqueCustomerForNumber(string $number): ?PppoeCustomer
     {
+        $matches = $this->customersForNumber($number);
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
+    /**
+     * Pelanggan yang nomor HP-nya cocok. Kosong jika nomor tidak valid.
+     * Lebih dari satu berarti nomor dipakai bersama dan tidak boleh jadi OTP.
+     *
+     * @return \Illuminate\Support\Collection<int, PppoeCustomer>
+     */
+    public function customersForNumber(string $number): \Illuminate\Support\Collection
+    {
         $intl = PhoneNumber::toInternational($number);
         if ($intl === '' || strlen($intl) < 10) {
-            return null;
+            return collect();
         }
 
         $tail = substr(PhoneNumber::normalize($intl), -8);
         if (strlen($tail) < 8) {
-            return null;
+            return collect();
         }
 
-        $matches = PppoeCustomer::query()
+        return PppoeCustomer::query()
             ->whereNotNull('phone')
             ->where('phone', '!=', '')
             ->where('phone', 'like', '%'.$tail)
             ->get()
             ->filter(fn (PppoeCustomer $row) => PhoneNumber::matches((string) $row->phone, $intl))
             ->values();
-
-        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     private function identityByNumber(string $number): ?MessagingIdentity

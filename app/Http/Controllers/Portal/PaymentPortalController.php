@@ -7,6 +7,7 @@ use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Services\PaymentGateway\PaymentGatewayManager;
+use App\Services\Portal\PortalWhatsappLogin;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
@@ -25,12 +26,22 @@ class PaymentPortalController extends Controller
 
     public function __construct(private readonly PaymentGatewayManager $gateways) {}
 
-    public function index(): Response
+    public function index(PortalWhatsappLogin $whatsappLogin): Response
     {
         return Inertia::render('Portal/Pay/Index', [
             'branding' => AppSettings::branding(),
             'gateway_ready' => $this->gateways->hasEnabledGateway(),
+            'whatsapp_login' => $whatsappLogin->pageState(
+                $this->requestSessionPhone(),
+            ),
         ]);
+    }
+
+    private function requestSessionPhone(): ?string
+    {
+        $phone = session(PortalWhatsappLogin::SESSION_PHONE);
+
+        return is_string($phone) && $phone !== '' ? $phone : null;
     }
 
     public function lookup(Request $request): RedirectResponse
