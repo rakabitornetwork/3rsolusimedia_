@@ -396,52 +396,54 @@ export default function Index({
                             </label>
                         </div>
 
-                        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs tracking-wide text-ink-soft uppercase">
+                        <div className="mt-5 space-y-3 border-t border-ink/10 pt-4">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
                                     Webhook URL
                                 </p>
-                                <p className="mt-1 truncate font-mono text-xs text-ink">
+                                <p className="mt-1.5 overflow-x-auto border border-ink/10 bg-mist/40 px-3 py-2 font-mono text-xs leading-5 whitespace-nowrap text-ink">
                                     {webhook_urls.telegram}
                                 </p>
-                                <p className="mt-1 text-xs text-ink-soft">
+                                <p className="mt-1.5 text-xs leading-5 text-ink-soft">
                                     {telegramLive?.message || webhook?.message || 'Belum diperiksa.'}
                                 </p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => copyText('telegram', webhook_urls.telegram)}
-                                className="btn-action btn-action-xs btn-secondary"
-                            >
-                                {copied === 'telegram' ? (
-                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-                                ) : (
-                                    <Copy className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => copyText('telegram', webhook_urls.telegram)}
+                                    className="btn-action btn-action-sm btn-secondary"
+                                >
+                                    {copied === 'telegram' ? (
+                                        <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0 text-emerald-600" />
+                                    ) : (
+                                        <Copy className="mr-1.5 h-4 w-4 shrink-0 text-slate-600" />
+                                    )}
+                                    Salin
+                                </button>
+                                {canWrite && (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setWebhook('telegram')}
+                                            className="btn-action btn-action-sm btn-secondary"
+                                        >
+                                            <Link2 className="mr-1.5 h-4 w-4 shrink-0" />
+                                            Pasang webhook
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                testChannel('telegram', data.telegram_admin_chat_id)
+                                            }
+                                            className="btn-action btn-action-sm btn-primary"
+                                        >
+                                            <Wifi className="mr-1.5 h-4 w-4 shrink-0" />
+                                            Tes koneksi
+                                        </button>
+                                    </>
                                 )}
-                                Salin
-                            </button>
-                            {canWrite && (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={() => setWebhook('telegram')}
-                                        className="btn-action btn-action-xs btn-secondary"
-                                    >
-                                        <Link2 className="mr-1.5 h-3.5 w-3.5" />
-                                        Pasang webhook
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            testChannel('telegram', data.telegram_admin_chat_id)
-                                        }
-                                        className="btn-action btn-action-xs btn-primary"
-                                    >
-                                        <Wifi className="mr-1.5 h-3.5 w-3.5" />
-                                        Tes koneksi
-                                    </button>
-                                </>
-                            )}
+                            </div>
                         </div>
                     </div>
 
@@ -533,16 +535,16 @@ export default function Index({
                             </label>
                         </div>
 
-                        <div className="mt-5 grid gap-4 border-t border-ink/10 pt-4 lg:grid-cols-[1fr_auto]">
+                        <div className="mt-5 space-y-3 border-t border-ink/10 pt-4">
                             <div>
-                                <p className="text-xs tracking-wide text-ink-soft uppercase">
+                                <p className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
                                     Status & webhook
                                 </p>
-                                <p className="mt-1 text-sm text-ink">
+                                <p className="mt-1.5 text-sm leading-5 text-ink">
                                     {waMessage || 'Belum diperiksa.'}
                                     {waState ? ` (${waState})` : ''}
                                 </p>
-                                <p className="mt-1 truncate font-mono text-xs text-ink">
+                                <p className="mt-1.5 overflow-x-auto border border-ink/10 bg-mist/40 px-3 py-2 font-mono text-xs leading-5 whitespace-nowrap text-ink">
                                     {webhook_urls.whatsapp}
                                 </p>
                                 {waLive?.remote_webhook_url &&
@@ -559,16 +561,16 @@ export default function Index({
                                     </p>
                                 )}
                             </div>
-                            <div className="flex flex-wrap items-start gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => copyText('whatsapp', webhook_urls.whatsapp)}
-                                    className="btn-action btn-action-xs btn-secondary"
+                                    className="btn-action btn-action-sm btn-secondary"
                                 >
                                     {copied === 'whatsapp' ? (
-                                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                                        <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0 text-emerald-600" />
                                     ) : (
-                                        <Copy className="mr-1.5 h-3.5 w-3.5 text-slate-600" />
+                                        <Copy className="mr-1.5 h-4 w-4 shrink-0 text-slate-600" />
                                     )}
                                     Salin
                                 </button>
@@ -577,18 +579,18 @@ export default function Index({
                                         <button
                                             type="button"
                                             onClick={() => setWebhook('whatsapp')}
-                                            className="btn-action btn-action-xs btn-secondary"
+                                            className="btn-action btn-action-sm btn-secondary"
                                         >
-                                            <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                                            <Link2 className="mr-1.5 h-4 w-4 shrink-0" />
                                             Pasang webhook
                                         </button>
                                         <button
                                             type="button"
                                             onClick={connectWhatsapp}
                                             disabled={waBusy}
-                                            className="btn-action btn-action-xs btn-secondary"
+                                            className="btn-action btn-action-sm btn-secondary"
                                         >
-                                            <QrCode className="mr-1.5 h-3.5 w-3.5" />
+                                            <QrCode className="mr-1.5 h-4 w-4 shrink-0" />
                                             {waBusy ? 'Menghubungkan…' : 'Hubungkan / QR'}
                                         </button>
                                         <button
@@ -596,9 +598,9 @@ export default function Index({
                                             onClick={() =>
                                                 testChannel('whatsapp', data.whatsapp_test_number)
                                             }
-                                            className="btn-action btn-action-xs btn-primary"
+                                            className="btn-action btn-action-sm btn-primary"
                                         >
-                                            <Wifi className="mr-1.5 h-3.5 w-3.5" />
+                                            <Wifi className="mr-1.5 h-4 w-4 shrink-0" />
                                             Tes koneksi
                                         </button>
                                     </>
