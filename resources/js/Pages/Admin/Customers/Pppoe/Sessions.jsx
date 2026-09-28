@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Activity, UserPlus, RefreshCw, Search, Unplug, Users } from 'lucide-react';
+import { Activity, ChevronDown, RefreshCw, Search, Unplug, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import LocalPagination from '../../../../Components/Admin/LocalPagination';
 import StatCard from '../../../../Components/Admin/StatCard';
@@ -10,7 +10,21 @@ import { matchesSearch, paginateItems } from '../../../../lib/search';
 const PER_PAGE_OPTIONS = [25, 50, 100, 200, 500];
 
 const fieldClass =
-    'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal';
+    'mt-1.5 h-10 w-full border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus:border-signal';
+
+function ToolbarSelect({ className = '', children, ...props }) {
+    return (
+        <div className={`relative ${className}`}>
+            <select
+                {...props}
+                className="h-10 w-full appearance-none border border-ink/15 bg-white py-0 pr-9 pl-3 text-sm text-ink outline-none focus:border-signal"
+            >
+                {children}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+        </div>
+    );
+}
 
 function todayIso() {
     const now = new Date();
@@ -241,12 +255,12 @@ export default function Sessions({
                 />
             </div>
 
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-2">
-                    <select
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+                    <ToolbarSelect
                         value={selected_router_id || ''}
                         onChange={(e) => changeRouter(e.target.value)}
-                        className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        className="w-full shrink-0 sm:w-72"
+                        aria-label="Router"
                     >
                         {routers.length === 0 && <option value="">Tidak ada router</option>}
                         {routers.map((item) => (
@@ -254,9 +268,9 @@ export default function Sessions({
                                 {item.name} ({item.host})
                             </option>
                         ))}
-                    </select>
+                    </ToolbarSelect>
 
-                    <div className="relative">
+                    <div className="relative w-full shrink-0 sm:w-64">
                         <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
                         <input
                             type="search"
@@ -267,30 +281,28 @@ export default function Sessions({
                                 setPage(1);
                                 setSelected([]);
                             }}
-                            className="w-64 border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal"
+                            className="h-10 w-full border border-ink/15 bg-white py-0 pr-3 pl-9 text-sm text-ink outline-none focus:border-signal"
                         />
                     </div>
 
-                    <label className="block text-sm text-ink">
-                        <span className="sr-only">Baris / halaman</span>
-                        <select
-                            value={perPage}
-                            onChange={(e) => {
-                                setPerPage(Number(e.target.value));
-                                setPage(1);
-                            }}
-                            className="border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-signal"
-                            title="Baris / halaman"
-                        >
-                            {PER_PAGE_OPTIONS.map((n) => (
-                                <option key={n} value={n}>
-                                    {n} / halaman
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <ToolbarSelect
+                        value={perPage}
+                        onChange={(e) => {
+                            setPerPage(Number(e.target.value));
+                            setPage(1);
+                        }}
+                        className="w-full shrink-0 sm:w-40"
+                        aria-label="Baris per halaman"
+                        title="Baris / halaman"
+                    >
+                        {PER_PAGE_OPTIONS.map((n) => (
+                            <option key={n} value={n}>
+                                {n} / halaman
+                            </option>
+                        ))}
+                    </ToolbarSelect>
 
-                    <label className="inline-flex items-center gap-2 border border-ink/10 bg-white px-3 py-2 text-xs font-semibold text-ink">
+                    <label className="inline-flex h-10 w-full shrink-0 items-center gap-2 border border-ink/15 bg-white px-3 text-sm font-medium text-ink sm:w-auto">
                         <input
                             type="checkbox"
                             checked={Boolean(filters.only_unknown)}
@@ -300,22 +312,21 @@ export default function Sessions({
                                     page: 1,
                                 })
                             }
-                            className="accent-signal-deep"
+                            className="h-4 w-4 shrink-0 accent-signal-deep"
                         />
                         Hanya belum terdaftar
                     </label>
-                </div>
 
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions sm:ml-auto">
                     {unknown_usernames.length > 0 && (
                         <button
                             type="button"
                             onClick={() =>
                                 openImport(selected.length ? selected : unknown_usernames)
                             }
-                            className="btn-action btn-action-xs btn-warn"
+                            className="btn-action btn-action-sm btn-warn"
                         >
-                            <Users className="mr-1.5 h-3.5 w-3.5 text-amber-700" />
+                            <Users className="mr-1.5 h-4 w-4 shrink-0" />
                             {selected.length
                                 ? `Daftarkan terpilih (${selected.length})`
                                 : `Daftarkan semua (${unknown_usernames.length})`}
@@ -324,9 +335,9 @@ export default function Sessions({
                     <button
                         type="button"
                         onClick={refresh}
-                        className="btn-action btn-action-xs btn-sync"
+                        className="btn-action btn-action-sm btn-sync"
                     >
-                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        <RefreshCw className="mr-1.5 h-4 w-4 shrink-0" />
                         Refresh
                     </button>
                 </div>
@@ -337,7 +348,7 @@ export default function Sessions({
                     onSubmit={submitImport}
                     className="mb-5 space-y-4 border border-amber-200 bg-white p-5 sm:p-6"
                 >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                         <div>
                             <h2 className="text-sm font-semibold text-ink">
                                 Impor pelanggan dari sesi aktif
@@ -350,7 +361,7 @@ export default function Sessions({
                         <button
                             type="button"
                             onClick={() => setShowImport(false)}
-                            className="text-xs font-semibold text-ink-soft hover:text-ink"
+                            className="btn-action btn-action-xs btn-secondary shrink-0"
                         >
                             Tutup
                         </button>
@@ -370,12 +381,12 @@ export default function Sessions({
                     <div className="grid gap-4 sm:grid-cols-2">
                         <label className="block text-sm font-medium text-ink">
                             Paket langganan
-                            <select
+                            <ToolbarSelect
                                 value={importForm.data.subscription_package_id}
                                 onChange={(e) =>
                                     importForm.setData('subscription_package_id', e.target.value)
                                 }
-                                className={fieldClass}
+                                className="mt-1.5"
                                 required
                             >
                                 <option value="">
@@ -388,7 +399,7 @@ export default function Sessions({
                                         {pkg.name} — {pkg.price_label}
                                     </option>
                                 ))}
-                            </select>
+                            </ToolbarSelect>
                             {importForm.errors.subscription_package_id && (
                                 <span className="mt-1 block text-xs text-red-600">
                                     {importForm.errors.subscription_package_id}
@@ -429,12 +440,12 @@ export default function Sessions({
                         </label>
                         <label className="block text-sm font-medium text-ink">
                             Tanggal tagihan
-                            <select
+                            <ToolbarSelect
                                 value={importForm.data.billing_day}
                                 onChange={(e) =>
                                     importForm.setData('billing_day', Number(e.target.value))
                                 }
-                                className={fieldClass}
+                                className="mt-1.5"
                                 required
                             >
                                 {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
@@ -442,21 +453,21 @@ export default function Sessions({
                                         Tanggal {day}
                                     </option>
                                 ))}
-                            </select>
+                            </ToolbarSelect>
                         </label>
                         <label className="block text-sm font-medium text-ink">
                             Aksi tunggakan
-                            <select
+                            <ToolbarSelect
                                 value={importForm.data.overdue_action}
                                 onChange={(e) =>
                                     importForm.setData('overdue_action', e.target.value)
                                 }
-                                className={fieldClass}
+                                className="mt-1.5"
                                 required
                             >
                                 <option value="isolir">Isolir</option>
                                 <option value="bypass">Bypass</option>
-                            </select>
+                            </ToolbarSelect>
                         </label>
                     </div>
 
@@ -464,12 +475,12 @@ export default function Sessions({
                         <label className="block text-sm font-medium text-ink">
                             Profil isolir
                             {isolir_profiles.length > 0 ? (
-                                <select
+                                <ToolbarSelect
                                     value={importForm.data.isolir_profile}
                                     onChange={(e) =>
                                         importForm.setData('isolir_profile', e.target.value)
                                     }
-                                    className={fieldClass}
+                                    className="mt-1.5"
                                     required
                                 >
                                     <option value="">Pilih profil isolir</option>
@@ -478,7 +489,7 @@ export default function Sessions({
                                             {profile.name}
                                         </option>
                                     ))}
-                                </select>
+                                </ToolbarSelect>
                             ) : (
                                 <input
                                     type="text"
@@ -515,46 +526,52 @@ export default function Sessions({
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
-                            <th className="px-3 py-3 font-semibold">
+                            <th className="w-11 px-2 py-2.5 text-center font-semibold">
                                 {pageUnknownUsernames.length > 0 && (
                                     <input
                                         type="checkbox"
                                         checked={allPageUnknownSelected}
                                         onChange={toggleAllUnknown}
-                                        className="accent-signal-deep"
+                                        className="h-4 w-4 align-middle accent-signal-deep"
                                         title="Pilih semua belum terdaftar di halaman ini"
                                     />
                                 )}
                             </th>
-                            <th className="px-4 py-3 font-semibold">Username</th>
-                            <th className="px-4 py-3 font-semibold">Pelanggan</th>
-                            <th className="hidden px-4 py-3 font-semibold md:table-cell">IP</th>
-                            <th className="hidden px-4 py-3 font-semibold lg:table-cell">Caller ID</th>
-                            <th className="px-4 py-3 font-semibold">Uptime</th>
-                            <th className="hidden px-4 py-3 font-semibold xl:table-cell">Service</th>
-                            <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                            <th className="px-3 py-2.5 font-semibold">Username</th>
+                            <th className="px-3 py-2.5 font-semibold">Pelanggan</th>
+                            <th className="hidden px-3 py-2.5 font-semibold md:table-cell">IP</th>
+                            <th className="hidden px-3 py-2.5 font-semibold lg:table-cell">
+                                Caller ID
+                            </th>
+                            <th className="px-3 py-2.5 font-semibold">Uptime</th>
+                            <th className="hidden px-3 py-2.5 font-semibold xl:table-cell">
+                                Service
+                            </th>
+                            <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
                         {rows.map((session) => (
                             <tr key={session.id} className="border-b border-ink/5 last:border-0">
-                                <td className="px-3 py-3">
+                                <td className="w-11 px-2 py-2.5 text-center align-middle">
                                     {!session.customer_id && (
                                         <input
                                             type="checkbox"
                                             checked={selected.includes(session.name)}
                                             onChange={() => toggleOne(session.name)}
-                                            className="accent-signal-deep"
+                                            className="h-4 w-4 align-middle accent-signal-deep"
                                         />
                                     )}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-3 py-2.5 align-middle">
                                     <p className="font-medium text-ink">{session.name || '—'}</p>
                                     {session.service_profile && (
-                                        <p className="text-xs text-ink-soft">{session.service_profile}</p>
+                                        <p className="text-xs text-ink-soft">
+                                            {session.service_profile}
+                                        </p>
                                     )}
                                 </td>
-                                <td className="px-4 py-3">
+                                <td className="px-3 py-2.5 align-middle">
                                     {session.customer_id ? (
                                         <div>
                                             <Link
@@ -563,41 +580,45 @@ export default function Sessions({
                                             >
                                                 {session.customer_name}
                                             </Link>
-                                            <p className="text-xs text-ink-soft">{session.customer_status}</p>
+                                            <p className="text-xs text-ink-soft">
+                                                {session.customer_status}
+                                            </p>
                                         </div>
                                     ) : (
-                                        <span className="text-xs font-semibold text-amber-700">
+                                        <span className="inline-flex h-6 items-center bg-amber-50 px-2 text-xs font-semibold text-amber-800">
                                             Tidak terdaftar
                                         </span>
                                     )}
                                 </td>
-                                <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                                <td className="hidden px-3 py-2.5 align-middle font-mono text-[13px] tabular-nums text-ink-soft md:table-cell">
                                     {session.address || '—'}
                                 </td>
-                                <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
+                                <td className="hidden px-3 py-2.5 align-middle font-mono text-[13px] text-ink-soft lg:table-cell">
                                     {session.caller_id || '—'}
                                 </td>
-                                <td className="px-4 py-3 font-medium text-ink">{session.uptime || '—'}</td>
-                                <td className="hidden px-4 py-3 text-ink-soft xl:table-cell">
+                                <td className="px-3 py-2.5 align-middle font-medium text-ink tabular-nums">
+                                    {session.uptime || '—'}
+                                </td>
+                                <td className="hidden px-3 py-2.5 align-middle text-ink-soft xl:table-cell">
                                     {session.service || '—'}
                                 </td>
-                                <td className="px-4 py-3">
-                                    <div className="admin-actions">
+                                <td className="px-3 py-2.5 align-middle">
+                                    <div className="flex items-center justify-end gap-1.5">
                                         {!session.customer_id && (
                                             <Link
                                                 href={registerUrl(session.name)}
-                                                className="btn-action btn-action-xs btn-warn"
+                                                className="btn-action btn-action-xs btn-warn w-[7.5rem]"
                                             >
-                                                <UserPlus className="h-3.5 w-3.5 text-amber-700" />
+                                                <UserPlus className="h-3.5 w-3.5 shrink-0" />
                                                 Daftarkan
                                             </Link>
                                         )}
                                         <button
                                             type="button"
                                             onClick={() => disconnect(session)}
-                                            className="btn-action btn-action-xs btn-danger"
+                                            className="btn-action btn-action-xs btn-danger w-[6.25rem]"
                                         >
-                                            <Unplug className="h-3.5 w-3.5" />
+                                            <Unplug className="h-3.5 w-3.5 shrink-0" />
                                             Putus
                                         </button>
                                     </div>
