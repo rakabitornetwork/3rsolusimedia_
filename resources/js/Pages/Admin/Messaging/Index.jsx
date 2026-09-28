@@ -408,11 +408,11 @@ export default function Index({
                                     {telegramLive?.message || webhook?.message || 'Belum diperiksa.'}
                                 </p>
                             </div>
-                            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => copyText('telegram', webhook_urls.telegram)}
-                                    className="btn-action btn-action-sm btn-secondary shrink-0"
+                                    className="btn-action btn-action-sm btn-secondary w-full"
                                 >
                                     {copied === 'telegram' ? (
                                         <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -426,7 +426,7 @@ export default function Index({
                                         <button
                                             type="button"
                                             onClick={() => setWebhook('telegram')}
-                                            className="btn-action btn-action-sm btn-secondary shrink-0"
+                                            className="btn-action btn-action-sm btn-secondary w-full"
                                         >
                                             <Link2 className="mr-1.5 h-4 w-4 shrink-0" />
                                             Pasang webhook
@@ -436,7 +436,7 @@ export default function Index({
                                             onClick={() =>
                                                 testChannel('telegram', data.telegram_admin_chat_id)
                                             }
-                                            className="btn-action btn-action-sm btn-primary shrink-0"
+                                            className="btn-action btn-action-sm btn-primary col-span-2 w-full"
                                         >
                                             <Wifi className="mr-1.5 h-4 w-4 shrink-0" />
                                             Tes koneksi
@@ -561,11 +561,11 @@ export default function Index({
                                     </p>
                                 )}
                             </div>
-                            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => copyText('whatsapp', webhook_urls.whatsapp)}
-                                    className="btn-action btn-action-sm btn-secondary shrink-0"
+                                    className="btn-action btn-action-sm btn-secondary w-full"
                                 >
                                     {copied === 'whatsapp' ? (
                                         <CheckCircle2 className="mr-1.5 h-4 w-4 shrink-0 text-emerald-600" />
@@ -579,7 +579,7 @@ export default function Index({
                                         <button
                                             type="button"
                                             onClick={() => setWebhook('whatsapp')}
-                                            className="btn-action btn-action-sm btn-secondary shrink-0"
+                                            className="btn-action btn-action-sm btn-secondary w-full"
                                         >
                                             <Link2 className="mr-1.5 h-4 w-4 shrink-0" />
                                             Pasang webhook
@@ -588,7 +588,7 @@ export default function Index({
                                             type="button"
                                             onClick={connectWhatsapp}
                                             disabled={waBusy}
-                                            className="btn-action btn-action-sm btn-secondary shrink-0"
+                                            className="btn-action btn-action-sm btn-secondary w-full"
                                         >
                                             <QrCode className="mr-1.5 h-4 w-4 shrink-0" />
                                             {waBusy ? 'Menghubungkan…' : 'Hubungkan / QR'}
@@ -598,7 +598,7 @@ export default function Index({
                                             onClick={() =>
                                                 testChannel('whatsapp', data.whatsapp_test_number)
                                             }
-                                            className="btn-action btn-action-sm btn-primary shrink-0"
+                                            className="btn-action btn-action-sm btn-primary w-full"
                                         >
                                             <Wifi className="mr-1.5 h-4 w-4 shrink-0" />
                                             Tes koneksi
