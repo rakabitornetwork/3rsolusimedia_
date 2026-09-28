@@ -1380,15 +1380,8 @@ export default function MapPage({
                                 : 'pointer-events-none invisible absolute inset-0 lg:pointer-events-auto lg:visible lg:relative lg:flex lg:min-h-0 lg:flex-1 lg:flex-col'
                         } min-w-0`}
                     >
-                        <NetworkMapView
-                            customers={mapCustomers}
-                            selectedId={selectedId}
-                            onSelect={selectCustomer}
-                            filterActive={filterActive}
-                            active={mapActive}
-                        />
-                        <div className="pointer-events-none absolute inset-x-0 top-3 z-[400] flex justify-center px-3 lg:hidden">
-                            <label className="pointer-events-auto w-full max-w-xs">
+                        <div className="shrink-0 border-b border-ink/10 bg-white px-3 py-2 lg:hidden">
+                            <label className="block">
                                 <span className="sr-only">Filter RouterOS</span>
                                 <select
                                     value={routerId}
@@ -1397,7 +1390,7 @@ export default function MapPage({
                                         setRouterId(value);
                                         applyFilters({ nextRouterId: value });
                                     }}
-                                    className="w-full border border-ink/15 bg-white/95 px-3 py-2 text-sm shadow-sm outline-none backdrop-blur focus:border-signal"
+                                    className="h-10 w-full border border-ink/15 bg-white px-3 text-sm outline-none focus:border-signal"
                                 >
                                     <option value="">Semua RouterOS</option>
                                     {routers.map((item) => (
@@ -1408,13 +1401,22 @@ export default function MapPage({
                                 </select>
                             </label>
                         </div>
-                        {mapCustomers.length === 0 && (
-                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
-                                <p className="max-w-sm border border-ink/10 bg-white px-4 py-3 text-center text-sm text-ink-soft shadow-sm">
-                                    Belum ada pelanggan dengan koordinat GPS pada filter ini.
-                                </p>
-                            </div>
-                        )}
+                        <div className="relative min-h-0 flex-1">
+                            <NetworkMapView
+                                customers={mapCustomers}
+                                selectedId={selectedId}
+                                onSelect={selectCustomer}
+                                filterActive={filterActive}
+                                active={mapActive}
+                            />
+                            {mapCustomers.length === 0 && (
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/50 p-6">
+                                    <p className="max-w-sm border border-ink/10 bg-white px-4 py-3 text-center text-sm text-ink-soft shadow-sm">
+                                        Belum ada pelanggan dengan koordinat GPS pada filter ini.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {selected && (
