@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import {
+    ChevronDown,
     Cookie,
     Laptop,
     Link2,
@@ -21,7 +22,21 @@ const TABS = [
 ];
 
 const fieldClass =
-    'mt-1.5 w-full border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal';
+    'mt-1.5 h-10 w-full border border-ink/15 bg-white px-3 text-sm text-ink outline-none focus:border-signal';
+
+function ToolbarSelect({ className = '', children, ...props }) {
+    return (
+        <div className={`relative ${className}`}>
+            <select
+                {...props}
+                className="h-10 w-full appearance-none border border-ink/15 bg-white py-0 pr-9 pl-3 text-sm text-ink outline-none focus:border-signal"
+            >
+                {children}
+            </select>
+            <ChevronDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+        </div>
+    );
+}
 
 function bindingTypeLabel(type) {
     if (type === 'bypassed') return 'Bypassed';
@@ -207,46 +222,45 @@ export default function Tools({
                 </div>
             )}
 
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-                    <select
-                        value={selected_router_id || ''}
-                        onChange={(e) => change({ router_id: e.target.value, tab, host_filter })}
-                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
-                    >
-                        {routers.length === 0 && <option value="">Tidak ada router</option>}
-                        {routers.map((item) => (
-                            <option key={item.id} value={item.id}>
-                                {item.name} ({item.host})
-                            </option>
-                        ))}
-                    </select>
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+                <ToolbarSelect
+                    value={selected_router_id || ''}
+                    onChange={(e) => change({ router_id: e.target.value, tab, host_filter })}
+                    className="w-full shrink-0 sm:w-72"
+                    aria-label="Router"
+                >
+                    {routers.length === 0 && <option value="">Tidak ada router</option>}
+                    {routers.map((item) => (
+                        <option key={item.id} value={item.id}>
+                            {item.name} ({item.host})
+                        </option>
+                    ))}
+                </ToolbarSelect>
 
-                    <div className="relative w-full sm:w-auto">
-                        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
-                        <input
-                            type="search"
-                            value={query}
-                            placeholder="Cari..."
-                            onChange={(e) => setQuery(e.target.value)}
-                            className="w-full border border-ink/15 py-2 pr-3 pl-9 text-sm outline-none focus:border-signal sm:w-64"
-                        />
-                    </div>
+                <div className="relative w-full shrink-0 sm:w-64">
+                    <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+                    <input
+                        type="search"
+                        value={query}
+                        placeholder="Cari..."
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="h-10 w-full border border-ink/15 bg-white py-0 pr-3 pl-9 text-sm text-ink outline-none focus:border-signal"
+                    />
                 </div>
 
-                <div className="admin-toolbar-actions">
+                <div className="admin-toolbar-actions sm:ml-auto">
                     <button
                         type="button"
                         onClick={() => change({ router_id: selected_router_id })}
                         className="btn-action btn-action-sm btn-sync"
                     >
-                        <RefreshCw className="mr-1.5 h-4 w-4" />
+                        <RefreshCw className="mr-1.5 h-4 w-4 shrink-0" />
                         Refresh
                     </button>
                 </div>
             </div>
 
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
                 {TABS.map((item) => {
                     const Icon = item.icon;
                     const active = tab === item.id;
@@ -255,16 +269,18 @@ export default function Tools({
                             key={item.id}
                             type="button"
                             onClick={() => change({ tab: item.id })}
-                            className={`btn-action btn-action-sm ${
+                            className={`btn-action btn-action-sm w-full shrink-0 sm:w-[10.25rem] ${
                                 active ? 'btn-primary' : 'btn-secondary'
                             }`}
                         >
-                            <Icon className="mr-1.5 h-4 w-4" />
+                            <Icon className="mr-1.5 h-4 w-4 shrink-0" />
                             {item.label}
                         </button>
                     );
                 })}
-                <span className="self-center text-xs text-ink-soft">{count} item</span>
+                <span className="inline-flex h-10 items-center text-xs font-medium text-ink-soft tabular-nums">
+                    {count} item
+                </span>
             </div>
 
             {tab === 'hosts' && (
@@ -278,7 +294,7 @@ export default function Tools({
                             key={item.id}
                             type="button"
                             onClick={() => change({ host_filter: item.id })}
-                            className={`btn-action btn-action-xs ${
+                            className={`btn-action btn-action-sm w-full shrink-0 sm:w-[10.25rem] ${
                                 host_filter === item.id ? 'btn-primary' : 'btn-secondary'
                             }`}
                         >
@@ -321,22 +337,22 @@ export default function Tools({
                     </label>
                     <label className="block text-sm font-medium text-ink">
                         Tipe
-                        <select
+                        <ToolbarSelect
                             value={data.type}
                             onChange={(e) => setData('type', e.target.value)}
-                            className={fieldClass}
+                            className="mt-1.5"
                         >
                             <option value="bypassed">Bypassed</option>
                             <option value="regular">Regular</option>
                             <option value="blocked">Blocked</option>
-                        </select>
+                        </ToolbarSelect>
                     </label>
                     <label className="block text-sm font-medium text-ink">
                         Server
-                        <select
+                        <ToolbarSelect
                             value={data.server}
                             onChange={(e) => setData('server', e.target.value)}
-                            className={fieldClass}
+                            className="mt-1.5"
                         >
                             <option value="all">all</option>
                             {servers.map((server) => (
@@ -344,7 +360,7 @@ export default function Tools({
                                     {server.name}
                                 </option>
                             ))}
-                        </select>
+                        </ToolbarSelect>
                     </label>
                     <div className="flex items-end">
                         <button
@@ -363,49 +379,51 @@ export default function Tools({
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">Flag</th>
-                                <th className="px-4 py-3 font-semibold">MAC</th>
-                                <th className="px-4 py-3 font-semibold">Address</th>
-                                <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                <th className="px-3 py-2.5 font-semibold">Flag</th>
+                                <th className="px-3 py-2.5 font-semibold">MAC</th>
+                                <th className="px-3 py-2.5 font-semibold">Address</th>
+                                <th className="hidden px-3 py-2.5 font-semibold md:table-cell">
                                     To Address
                                 </th>
-                                <th className="hidden px-4 py-3 font-semibold lg:table-cell">
+                                <th className="hidden px-3 py-2.5 font-semibold lg:table-cell">
                                     Server
                                 </th>
-                                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                                <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {hostRows.map((host) => (
                                 <tr key={host.id} className="border-b border-ink/5 last:border-0">
-                                    <td className="px-4 py-3 font-mono text-xs font-semibold text-signal-deep">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-xs font-semibold text-signal-deep">
                                         {host.flags || '—'}
                                     </td>
-                                    <td className="px-4 py-3 font-mono text-xs">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px]">
                                         {host.mac_address || '—'}
                                     </td>
-                                    <td className="px-4 py-3">{host.address || '—'}</td>
-                                    <td className="hidden px-4 py-3 md:table-cell">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px] tabular-nums">
+                                        {host.address || '—'}
+                                    </td>
+                                    <td className="hidden px-3 py-2.5 align-middle font-mono text-[13px] tabular-nums md:table-cell">
                                         {host.to_address || '—'}
                                     </td>
-                                    <td className="hidden px-4 py-3 lg:table-cell">
+                                    <td className="hidden px-3 py-2.5 align-middle lg:table-cell">
                                         {host.server || '—'}
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="admin-actions">
+                                    <td className="px-3 py-2.5 align-middle">
+                                        <div className="flex items-center justify-end gap-1.5">
                                             <button
                                                 type="button"
                                                 onClick={() => bindHost(host)}
-                                                className="btn-action btn-action-xs btn-secondary"
+                                                className="btn-action btn-action-xs btn-secondary w-[6.5rem]"
                                             >
                                                 Binding
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => removeHost(host)}
-                                                className="btn-action btn-action-xs btn-danger"
+                                                className="btn-action btn-action-xs btn-danger w-[6.25rem]"
                                             >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-3.5 w-3.5 shrink-0" />
                                                 Hapus
                                             </button>
                                         </div>
@@ -427,38 +445,40 @@ export default function Tools({
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">User</th>
-                                <th className="px-4 py-3 font-semibold">MAC</th>
-                                <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                <th className="px-3 py-2.5 font-semibold">User</th>
+                                <th className="px-3 py-2.5 font-semibold">MAC</th>
+                                <th className="hidden px-3 py-2.5 font-semibold md:table-cell">
                                     Domain
                                 </th>
-                                <th className="hidden px-4 py-3 font-semibold lg:table-cell">
+                                <th className="hidden px-3 py-2.5 font-semibold lg:table-cell">
                                     Expires
                                 </th>
-                                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                                <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {cookieRows.map((cookie) => (
                                 <tr key={cookie.id} className="border-b border-ink/5 last:border-0">
-                                    <td className="px-4 py-3 font-mono">{cookie.user || '—'}</td>
-                                    <td className="px-4 py-3 font-mono text-xs">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px]">
+                                        {cookie.user || '—'}
+                                    </td>
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px]">
                                         {cookie.mac_address || '—'}
                                     </td>
-                                    <td className="hidden px-4 py-3 md:table-cell">
+                                    <td className="hidden px-3 py-2.5 align-middle md:table-cell">
                                         {cookie.domain || '—'}
                                     </td>
-                                    <td className="hidden px-4 py-3 lg:table-cell">
+                                    <td className="hidden px-3 py-2.5 align-middle tabular-nums lg:table-cell">
                                         {cookie.expires_in || '—'}
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="admin-actions">
+                                    <td className="px-3 py-2.5 align-middle">
+                                        <div className="flex items-center justify-end">
                                             <button
                                                 type="button"
                                                 onClick={() => removeCookie(cookie)}
-                                                className="btn-action btn-action-xs btn-danger"
+                                                className="btn-action btn-action-xs btn-danger w-[6.25rem]"
                                             >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-3.5 w-3.5 shrink-0" />
                                                 Hapus
                                             </button>
                                         </div>
@@ -480,14 +500,14 @@ export default function Tools({
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">Nama</th>
-                                <th className="px-4 py-3 font-semibold">MAC</th>
-                                <th className="px-4 py-3 font-semibold">Address</th>
-                                <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                <th className="px-3 py-2.5 font-semibold">Nama</th>
+                                <th className="px-3 py-2.5 font-semibold">MAC</th>
+                                <th className="px-3 py-2.5 font-semibold">Address</th>
+                                <th className="hidden px-3 py-2.5 font-semibold md:table-cell">
                                     Tipe
                                 </th>
-                                <th className="px-4 py-3 font-semibold">Status</th>
-                                <th className="px-4 py-3 text-center font-semibold">Aksi</th>
+                                <th className="px-3 py-2.5 font-semibold">Status</th>
+                                <th className="px-3 py-2.5 text-right font-semibold">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -496,40 +516,44 @@ export default function Tools({
                                     key={binding.id}
                                     className="border-b border-ink/5 last:border-0"
                                 >
-                                    <td className="px-4 py-3">{binding.comment || '—'}</td>
-                                    <td className="px-4 py-3 font-mono text-xs">
+                                    <td className="px-3 py-2.5 align-middle">
+                                        {binding.comment || '—'}
+                                    </td>
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px]">
                                         {binding.mac_address || '—'}
                                     </td>
-                                    <td className="px-4 py-3">{binding.address || '—'}</td>
-                                    <td className="hidden px-4 py-3 md:table-cell">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px] tabular-nums">
+                                        {binding.address || '—'}
+                                    </td>
+                                    <td className="hidden px-3 py-2.5 align-middle md:table-cell">
                                         {bindingTypeLabel(binding.type)}
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-3 py-2.5 align-middle">
                                         {binding.disabled ? (
-                                            <span className="bg-ink/10 px-2 py-1 text-xs font-semibold text-ink-soft">
+                                            <span className="inline-flex h-6 items-center bg-ink/10 px-2 text-xs font-semibold text-ink-soft">
                                                 Nonaktif
                                             </span>
                                         ) : (
-                                            <span className="bg-signal/15 px-2 py-1 text-xs font-semibold text-signal-deep">
+                                            <span className="inline-flex h-6 items-center bg-signal/15 px-2 text-xs font-semibold text-signal-deep">
                                                 Aktif
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3">
-                                        <div className="admin-actions">
+                                    <td className="px-3 py-2.5 align-middle">
+                                        <div className="flex items-center justify-end gap-1.5">
                                             <button
                                                 type="button"
                                                 onClick={() => toggleBinding(binding)}
-                                                className="btn-action btn-action-xs btn-warn"
+                                                className="btn-action btn-action-xs btn-warn w-[6.5rem]"
                                             >
                                                 {binding.disabled ? 'Aktifkan' : 'Nonaktif'}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => removeBinding(binding)}
-                                                className="btn-action btn-action-xs btn-danger"
+                                                className="btn-action btn-action-xs btn-danger w-[6.25rem]"
                                             >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-3.5 w-3.5 shrink-0" />
                                                 Hapus
                                             </button>
                                         </div>
@@ -551,9 +575,9 @@ export default function Tools({
                     <table className="w-full text-left text-sm">
                         <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                             <tr>
-                                <th className="px-4 py-3 font-semibold">Waktu</th>
-                                <th className="px-4 py-3 font-semibold">User (IP)</th>
-                                <th className="px-4 py-3 font-semibold">Pesan</th>
+                                <th className="px-3 py-2.5 font-semibold">Waktu</th>
+                                <th className="px-3 py-2.5 font-semibold">User (IP)</th>
+                                <th className="px-3 py-2.5 font-semibold">Pesan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -562,13 +586,13 @@ export default function Tools({
                                     key={row.id || `${row.time}-${index}`}
                                     className="border-b border-ink/5 last:border-0"
                                 >
-                                    <td className="px-4 py-3 whitespace-nowrap text-xs">
+                                    <td className="px-3 py-2.5 align-middle text-xs tabular-nums whitespace-nowrap">
                                         {row.time || '—'}
                                     </td>
-                                    <td className="px-4 py-3 font-mono text-xs">
+                                    <td className="px-3 py-2.5 align-middle font-mono text-[13px]">
                                         {row.user || '—'}
                                     </td>
-                                    <td className="px-4 py-3">{row.message || '—'}</td>
+                                    <td className="px-3 py-2.5 align-middle">{row.message || '—'}</td>
                                 </tr>
                             ))}
                             {logRows.length === 0 && (
