@@ -3,10 +3,10 @@ import { CreditCard, Router, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const fieldClass =
-    'mt-1.5 w-full rounded-xl border border-ink/10 bg-mist/40 px-3.5 py-3 text-sm outline-none transition focus:border-signal focus:bg-white focus:ring-4 focus:ring-signal/10 disabled:cursor-not-allowed disabled:opacity-60';
+    'mt-1.5 w-full rounded-lg border border-ink/10 bg-mist/40 px-3 py-2 text-sm outline-none transition focus:border-signal focus:bg-white focus:ring-4 focus:ring-signal/10 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-3.5 sm:py-3';
 
 const primaryButton =
-    'mt-6 w-full cursor-pointer rounded-xl bg-signal px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_-16px_rgba(26,110,255,0.95)] hover:bg-signal-deep disabled:cursor-not-allowed disabled:opacity-60';
+    'mt-4 w-full cursor-pointer rounded-lg bg-signal px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_-16px_rgba(26,110,255,0.95)] hover:bg-signal-deep disabled:cursor-not-allowed disabled:opacity-60 sm:mt-6 sm:rounded-xl sm:py-3';
 
 const quietButton =
     'cursor-pointer rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-medium text-ink hover:bg-mist disabled:cursor-not-allowed disabled:opacity-60';
@@ -77,34 +77,34 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
             </div>
             <Head title={`Portal Pelanggan · ${company}`} />
 
-            <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
-                <div className="overflow-hidden rounded-3xl border border-white/55 bg-white/50 shadow-[0_24px_60px_-32px_rgba(10,45,130,0.65)] backdrop-blur-[2px]">
-                    <div className="h-1.5 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />
-                    <div className="px-5 py-6 sm:px-7 sm:py-8">
+            <div className="relative mx-auto flex min-h-screen w-full flex-col items-center justify-center px-8 py-8 sm:max-w-md sm:px-4 sm:py-10">
+                <div className="w-full max-w-[18.75rem] overflow-hidden rounded-2xl border border-white/55 bg-white/50 shadow-[0_24px_60px_-32px_rgba(10,45,130,0.65)] backdrop-blur-[2px] sm:max-w-md sm:rounded-3xl">
+                    <div className="h-1 bg-gradient-to-r from-signal-deep via-signal to-signal-bright sm:h-1.5" />
+                    <div className="px-4 py-5 sm:px-7 sm:py-8">
                         <div className="text-center">
                             {branding?.logo_mark ? (
                                 <img
                                     src={branding.logo_mark}
                                     alt={company}
-                                    className="mx-auto h-14 w-auto object-contain"
+                                    className="mx-auto h-10 w-auto object-contain sm:h-12"
                                 />
                             ) : (
-                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-signal/15 text-signal-deep">
-                                    <Wifi className="h-7 w-7" />
+                                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-signal/15 text-signal-deep sm:h-12 sm:w-12 sm:rounded-2xl">
+                                    <Wifi className="h-5 w-5 sm:h-6 sm:w-6" />
                                 </div>
                             )}
-                            <p className="mt-4 text-[11px] font-semibold tracking-[0.16em] text-signal-deep uppercase">
+                            <p className="mt-3 text-[10px] font-semibold tracking-[0.16em] text-signal-deep uppercase sm:mt-4 sm:text-[11px]">
                                 {company}
                             </p>
-                            <h1 className="font-display mt-1 text-3xl leading-tight font-bold tracking-tight text-ink sm:text-4xl">
+                            <h1 className="font-display mt-1 text-2xl leading-tight font-bold tracking-tight text-ink sm:text-3xl">
                                 Portal Pelanggan
                             </h1>
-                            <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-soft">
+                            <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-ink-soft sm:mt-3 sm:text-sm">
                                 Cek tagihan, bayar online, kelola WiFi, dan pantau perangkat dari satu tempat.
                             </p>
                         </div>
 
-                        <div className="mt-5 grid grid-cols-3 gap-2">
+                        <div className="mt-4 grid grid-cols-3 gap-1.5 sm:mt-5 sm:gap-2">
                             {[
                                 [CreditCard, 'Tagihan'],
                                 [Wifi, 'WiFi'],
