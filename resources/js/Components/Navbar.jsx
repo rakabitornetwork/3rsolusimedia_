@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Logo from '../Icons/Logo';
 
 export default function Navbar({ settings, whatsappUrl }) {
     const [open, setOpen] = useState(false);
+    const [stuck, setStuck] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => setStuck(window.scrollY > 12);
+        onScroll();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
     const company = settings.company_name || 'Perusahaan';
 
     const links = [
@@ -16,7 +24,11 @@ export default function Navbar({ settings, whatsappUrl }) {
     ];
 
     return (
-        <header className="absolute inset-x-0 top-0 z-40">
+        <header
+            className={`absolute inset-x-0 top-0 z-40 transition-colors duration-300 lg:fixed ${
+                stuck ? 'lg:bg-ink/88 lg:shadow-[0_10px_30px_-18px_rgba(0,0,0,0.65)] lg:backdrop-blur-md' : ''
+            }`}
+        >
             <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
                 <a
                     href="#top"
