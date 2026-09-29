@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { CreditCard, ImagePlus, Landmark, Plus, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
+import { CreditCard, ImagePlus, Landmark, Megaphone, Plus, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -158,6 +158,7 @@ export default function Settings({ settings, branding, timezones }) {
     const [markPreview, setMarkPreview] = useState(branding?.logo_mark || '');
     const [fullPreview, setFullPreview] = useState(branding?.logo_full || '');
     const [faviconPreview, setFaviconPreview] = useState(branding?.favicon || '');
+    const [bannerPreview, setBannerPreview] = useState(settings.portal_banner_image || '');
 
     const { data, setData, post, processing, errors, transform } = useForm({
         app_timezone: settings.app_timezone || 'Asia/Jakarta',
@@ -174,6 +175,12 @@ export default function Settings({ settings, branding, timezones }) {
         remove_logo_mark: false,
         remove_logo_full: false,
         remove_favicon: false,
+        portal_banner_enabled: settings.portal_banner_enabled === '1',
+        portal_banner_title: settings.portal_banner_title || '',
+        portal_banner_subtitle: settings.portal_banner_subtitle || '',
+        portal_banner_link: settings.portal_banner_link || '',
+        portal_banner_image: null,
+        remove_portal_banner: false,
     });
 
     useEffect(() => {
@@ -197,18 +204,28 @@ export default function Settings({ settings, branding, timezones }) {
         return () => URL.revokeObjectURL(url);
     }, [data.app_favicon]);
 
+    useEffect(() => {
+        if (!(data.portal_banner_image instanceof File)) return undefined;
+        const url = URL.createObjectURL(data.portal_banner_image);
+        setBannerPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [data.portal_banner_image]);
+
     const submit = (e) => {
         e.preventDefault();
         if (!canWrite) return;
 
         transform((form) => {
             const payload = { ...form };
-            ['app_logo_mark', 'app_logo_full', 'app_favicon'].forEach((key) => {
+            ['app_logo_mark', 'app_logo_full', 'app_favicon', 'portal_banner_image'].forEach((key) => {
                 if (!(payload[key] instanceof File)) delete payload[key];
             });
-            ['remove_logo_mark', 'remove_logo_full', 'remove_favicon'].forEach((key) => {
-                if (!payload[key]) delete payload[key];
-            });
+            ['remove_logo_mark', 'remove_logo_full', 'remove_favicon', 'remove_portal_banner'].forEach(
+                (key) => {
+                    if (!payload[key]) delete payload[key];
+                },
+            );
+            payload.portal_banner_enabled = form.portal_banner_enabled ? '1' : '0';
             return payload;
         });
 
@@ -216,9 +233,11 @@ export default function Settings({ settings, branding, timezones }) {
             data.app_logo_mark instanceof File ||
             data.app_logo_full instanceof File ||
             data.app_favicon instanceof File ||
+            data.portal_banner_image instanceof File ||
             data.remove_logo_mark ||
             data.remove_logo_full ||
-            data.remove_favicon;
+            data.remove_favicon ||
+            data.remove_portal_banner;
 
         post('/admin/system', { forceFormData: hasFile });
     };
@@ -300,6 +319,128 @@ export default function Settings({ settings, branding, timezones }) {
                             setFaviconPreview('/images/brand/favicon.png');
                         }}
                     />
+                </Section>
+
+                <Section
+                    icon={Megaphone}
+                    title="Iklan header portal"
+                    description="Banner bergambar di beranda portal pelanggan. Kosongkan untuk menyembunyikan."
+                >
+                    <Toggle
+                        label="Tampilkan iklan"
+                        description="Aktif hanya jika ada gambar. Pelanggan melihatnya di bagian atas beranda."
+                        checked={data.portal_banner_enabled}
+                        disabled={!canWrite}
+                        onChange={(value) => setData('portal_banner_enabled', value)}
+                    />
+                    <div className="border border-ink/10 p-4">
+                        <div
+                            className="flex aspect-[21/8] items-center justify-center overflow-hidden border border-ink/10 bg-mist/50"
+                        >
+                            {bannerPreview ? (
+                                <img
+                                    src={bannerPreview}
+                                    alt="Pratinjau iklan portal"
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <span className="px-4 text-center text-xs text-ink-soft">
+                                    Belum ada gambar. Unggah banner lebar, disarankan 1680×640 px.
+                                </span>
+                            )}
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-ink">Gambar banner</p>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            JPG, PNG, atau WebP. Maks. 5MB. Gambar mengisi lebar kartu beranda.
+                        </p>
+                        {canWrite && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <label className="btn-action btn-action-xs btn-secondary">
+                                    <ImagePlus className="h-3.5 w-3.5" />
+                                    Pilih gambar
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            setData('portal_banner_image', e.target.files?.[0] || null);
+                                            setData('remove_portal_banner', false);
+                                        }}
+                                    />
+                                </label>
+                                {bannerPreview && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setData('portal_banner_image', null);
+                                            setData('remove_portal_banner', true);
+                                            setBannerPreview('');
+                                        }}
+                                        className="btn-action btn-action-xs btn-danger"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Hapus gambar
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                        {errors.portal_banner_image && (
+                            <span className="mt-2 block text-xs text-red-600">
+                                {errors.portal_banner_image}
+                            </span>
+                        )}
+                    </div>
+                    <label className="block text-sm font-medium text-ink">
+                        Judul (opsional)
+                        <input
+                            type="text"
+                            value={data.portal_banner_title}
+                            onChange={(e) => setData('portal_banner_title', e.target.value)}
+                            className={fieldClass}
+                            disabled={!canWrite}
+                            maxLength={80}
+                            placeholder="contoh: Upgrade ke 50 Mbps"
+                        />
+                        {errors.portal_banner_title && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.portal_banner_title}
+                            </span>
+                        )}
+                    </label>
+                    <label className="block text-sm font-medium text-ink">
+                        Teks pendukung (opsional)
+                        <input
+                            type="text"
+                            value={data.portal_banner_subtitle}
+                            onChange={(e) => setData('portal_banner_subtitle', e.target.value)}
+                            className={fieldClass}
+                            disabled={!canWrite}
+                            maxLength={160}
+                            placeholder="contoh: Promo berlaku sampai akhir bulan"
+                        />
+                        {errors.portal_banner_subtitle && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.portal_banner_subtitle}
+                            </span>
+                        )}
+                    </label>
+                    <label className="block text-sm font-medium text-ink">
+                        Tautan saat diklik (opsional)
+                        <input
+                            type="text"
+                            value={data.portal_banner_link}
+                            onChange={(e) => setData('portal_banner_link', e.target.value)}
+                            className={fieldClass}
+                            disabled={!canWrite}
+                            placeholder="https://... atau /halaman-internal"
+                            autoComplete="off"
+                        />
+                        {errors.portal_banner_link && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.portal_banner_link}
+                            </span>
+                        )}
+                    </label>
                 </Section>
 
                 <Section

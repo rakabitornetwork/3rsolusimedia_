@@ -4,6 +4,7 @@ import { useState } from 'react';
 import DeviceMetricCard, {
     splitMetricLabel,
 } from '../../Components/Portal/DeviceMetricCard';
+import PortalBanner from '../../Components/Portal/PortalBanner';
 import PortalLiveTraffic from '../../Components/Portal/LiveTrafficCard';
 import PortalLayout from '../../Layouts/PortalLayout';
 import {
@@ -20,6 +21,7 @@ export default function Home({
     device,
     device_available,
     device_message,
+    banner,
 }) {
     const [paying, setPaying] = useState(false);
     const online = onlineTone(device?.online);
@@ -66,7 +68,11 @@ export default function Home({
             active="home"
         >
             <div className="space-y-4">
-                <section className="border border-ink/10 bg-white p-4 sm:p-5">
+                <PortalBanner banner={banner} />
+
+                <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+                    <div className="h-1 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />
+                    <div className="p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <p className="text-xs tracking-wide text-ink-soft uppercase">Tagihan</p>
@@ -89,25 +95,28 @@ export default function Home({
                                 type="button"
                                 onClick={payOnline}
                                 disabled={paying}
-                                className="inline-flex cursor-pointer items-center justify-center bg-signal px-4 py-2.5 text-sm font-semibold text-white hover:bg-signal-deep disabled:cursor-wait disabled:opacity-60"
+                                className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-signal px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep disabled:cursor-wait disabled:opacity-60"
                             >
                                 {paying ? 'Menyiapkan pembayaran...' : 'Bayar online'}
                             </button>
                         )}
                         <Link
                             href={invoicesHref}
-                            className={`inline-flex cursor-pointer items-center justify-center px-4 py-2.5 text-sm font-semibold ${
+                            className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold ${
                                 unpaidCount > 0
                                     ? 'border border-ink/15 text-ink hover:bg-mist'
-                                    : 'bg-signal text-white hover:bg-signal-deep'
+                                    : 'bg-signal text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep'
                             }`}
                         >
                             Lihat tagihan
                         </Link>
                     </div>
+                    </div>
                 </section>
 
-                <section className="border border-ink/10 bg-white p-4 sm:p-5">
+                <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+                    <div className="h-1 bg-gradient-to-r from-amber-line via-signal-bright to-signal" />
+                    <div className="p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <p className="text-xs tracking-wide text-ink-soft uppercase">
@@ -164,10 +173,11 @@ export default function Home({
 
                     <Link
                         href={`/portal/${token}/perangkat`}
-                        className="mt-4 inline-flex w-full items-center justify-center border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist sm:w-auto"
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-mist sm:w-auto"
                     >
                         Kelola perangkat & WiFi
                     </Link>
+                    </div>
                 </section>
 
                 <PortalLiveTraffic token={token} />

@@ -31,6 +31,11 @@ class AppSettings
         'app_logo_mark' => self::DEFAULT_LOGO_MARK,
         'app_logo_full' => self::DEFAULT_LOGO_FULL,
         'app_favicon' => self::DEFAULT_FAVICON,
+        'portal_banner_enabled' => '0',
+        'portal_banner_image' => '',
+        'portal_banner_title' => '',
+        'portal_banner_subtitle' => '',
+        'portal_banner_link' => '',
         'genieacs_enabled' => '0',
         'genieacs_nbi_url' => 'http://127.0.0.1:7557',
         'genieacs_ui_url' => 'http://127.0.0.1:3000',
@@ -502,6 +507,24 @@ class AppSettings
             'logo_mark' => self::assetUrl('app_logo_mark', self::DEFAULT_LOGO_MARK),
             'logo_full' => self::assetUrl('app_logo_full', self::DEFAULT_LOGO_FULL),
             'favicon' => self::assetUrl('app_favicon', self::DEFAULT_FAVICON),
+        ];
+    }
+
+    /**
+     * Iklan header portal pelanggan. Tampil hanya jika diaktifkan dan ada gambar.
+     *
+     * @return array{enabled: bool, image: string, title: string, subtitle: string, link: string}
+     */
+    public static function portalBanner(): array
+    {
+        $image = trim((string) self::get('portal_banner_image', ''));
+
+        return [
+            'enabled' => self::bool('portal_banner_enabled', false) && $image !== '',
+            'image' => $image,
+            'title' => trim((string) self::get('portal_banner_title', '')),
+            'subtitle' => trim((string) self::get('portal_banner_subtitle', '')),
+            'link' => trim((string) self::get('portal_banner_link', '')),
         ];
     }
 

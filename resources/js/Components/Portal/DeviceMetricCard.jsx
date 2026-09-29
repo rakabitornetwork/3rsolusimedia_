@@ -13,7 +13,7 @@ export default function DeviceMetricCard({
     return (
         <div
             title={title || label}
-            className={`min-w-0 border px-2.5 py-2.5 sm:px-3 sm:py-3 ${tone?.card || 'border-ink/10 bg-mist/40'}`}
+            className={`min-w-0 rounded-xl border px-2.5 py-2.5 sm:px-3 sm:py-3 ${tone?.card || 'border-ink/10 bg-mist/40'}`}
         >
             <div className="flex items-center gap-1.5">
                 {Icon ? (

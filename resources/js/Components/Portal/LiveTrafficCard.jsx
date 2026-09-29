@@ -271,7 +271,9 @@ export default function PortalLiveTraffic({ token }) {
               : 'Sesi offline';
 
     return (
-        <section className="border border-ink/10 bg-white p-5">
+        <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+            <div className="h-1 bg-gradient-to-r from-teal-500 via-signal to-signal-deep" />
+            <div className="p-5">
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <div className="flex items-center gap-2">
@@ -336,6 +338,7 @@ export default function PortalLiveTraffic({ token }) {
                     />
                 </div>
             )}
+            </div>
         </section>
     );
 }

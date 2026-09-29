@@ -61,6 +61,23 @@ class AppSettingController extends Controller
             'remove_logo_mark' => ['sometimes', 'boolean'],
             'remove_logo_full' => ['sometimes', 'boolean'],
             'remove_favicon' => ['sometimes', 'boolean'],
+            'portal_banner_enabled' => ['sometimes', 'boolean'],
+            'portal_banner_title' => ['nullable', 'string', 'max:80'],
+            'portal_banner_subtitle' => ['nullable', 'string', 'max:160'],
+            'portal_banner_link' => ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, \Closure $fail): void {
+                $link = trim((string) $value);
+                if ($link === '') {
+                    return;
+                }
+
+                $internal = str_starts_with($link, '/') && ! str_starts_with($link, '//');
+                $external = filter_var($link, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $link) === 1;
+                if (! $internal && ! $external) {
+                    $fail('Tautan iklan harus URL http(s) atau path internal yang diawali /.');
+                }
+            }],
+            'portal_banner_image' => ['nullable', 'image', 'max:5120'],
+            'remove_portal_banner' => ['sometimes', 'boolean'],
         ]);
 
         $values = [
@@ -92,6 +109,24 @@ class AppSettingController extends Controller
                 $this->deleteUploadedAsset($values[$key], $default);
                 $values[$key] = '/storage/'.$request->file($key)->store('uploads/branding', 'public');
             }
+        }
+
+        if ($request->exists('portal_banner_enabled')) {
+            $values['portal_banner_enabled'] = $request->boolean('portal_banner_enabled') ? '1' : '0';
+        }
+        foreach (['portal_banner_title', 'portal_banner_subtitle', 'portal_banner_link'] as $key) {
+            if (array_key_exists($key, $validated)) {
+                $values[$key] = trim((string) ($validated[$key] ?? ''));
+            }
+        }
+
+        $currentBanner = (string) AppSettings::get('portal_banner_image', '');
+        if ($request->boolean('remove_portal_banner')) {
+            $this->deleteUploadedAsset($currentBanner, '');
+            $values['portal_banner_image'] = '';
+        } elseif ($request->hasFile('portal_banner_image')) {
+            $this->deleteUploadedAsset($currentBanner, '');
+            $values['portal_banner_image'] = '/storage/'.$request->file('portal_banner_image')->store('uploads/portal-banner', 'public');
         }
 
         SiteSetting::setMany($values);

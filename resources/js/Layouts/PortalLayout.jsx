@@ -19,11 +19,12 @@ export default function PortalLayout({
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-mist via-white to-mist text-ink">
+        <div className="min-h-screen bg-paper text-ink">
+            <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(26,110,255,0.16),transparent_52%),linear-gradient(180deg,#e8eef2_0%,#f5f8fa_42%,#e8eef2_100%)]" />
             <Head title={`${title} · ${company}`} />
 
             <div className="mx-auto max-w-2xl px-4 py-8 sm:py-10">
-                <div className="mb-6 flex items-center justify-between gap-4">
+                <div className="mb-5 flex items-center justify-between gap-4 rounded-2xl border border-white/80 bg-white/80 px-3.5 py-3 shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)] backdrop-blur-md">
                     <div className="flex min-w-0 items-center gap-3">
                         {branding?.logo_mark ? (
                             <img
@@ -32,7 +33,7 @@ export default function PortalLayout({
                                 className="h-10 w-auto object-contain"
                             />
                         ) : (
-                            <div className="flex h-10 w-10 items-center justify-center bg-signal/15 text-signal-deep">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-signal/15 text-signal-deep">
                                 <Wifi className="h-5 w-5" />
                             </div>
                         )}
@@ -57,7 +58,7 @@ export default function PortalLayout({
                     </Link>
                 </div>
 
-                <nav className="mb-5 flex gap-1 border border-ink/10 bg-white p-1">
+                <nav className="mb-5 flex gap-1 rounded-2xl border border-ink/10 bg-white/90 p-1 shadow-sm backdrop-blur">
                     {nav.map((item) => {
                         const Icon = item.icon;
                         const isActive = active === item.key;
@@ -66,9 +67,9 @@ export default function PortalLayout({
                             <Link
                                 key={item.key}
                                 href={item.href}
-                                className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-semibold ${
+                                className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold ${
                                     isActive
-                                        ? 'bg-signal text-white'
+                                        ? 'bg-signal text-white shadow-[0_8px_18px_-12px_rgba(26,110,255,0.95)]'
                                         : 'text-ink-soft hover:bg-mist hover:text-ink'
                                 }`}
                             >
@@ -82,7 +83,7 @@ export default function PortalLayout({
 
                 {(flash?.error || flash?.success) && (
                     <div
-                        className={`mb-4 border px-4 py-3 text-sm ${
+                        className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
                             flash.error
                                 ? 'border-red-200 bg-red-50 text-red-700'
                                 : 'border-emerald-200 bg-emerald-50 text-emerald-800'
