@@ -30,7 +30,7 @@ export default function HeroSection({ section, settings, whatsappUrl }) {
                         {badge || section.subtitle || 'Instalasi WiFi Rumahan'}
                     </p>
                     <h1
-                        className="animate-rise font-hero mt-5 text-5xl leading-[1.05] font-normal tracking-[-0.02em] text-white sm:text-6xl lg:text-7xl"
+                        className="animate-rise font-display mt-5 text-5xl leading-[0.95] font-bold tracking-tight text-white sm:text-6xl lg:text-7xl"
                         style={{ animationDelay: '100ms' }}
                     >
                         {settings.company_name || 'Perusahaan'}

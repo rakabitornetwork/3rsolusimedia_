@@ -89,7 +89,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             <p className="mt-4 text-[11px] font-semibold tracking-[0.16em] text-signal-deep uppercase">
                                 {company}
                             </p>
-                            <h1 className="font-hero mt-1 text-4xl leading-[1.05] font-normal tracking-[-0.02em] text-ink sm:text-5xl">
+                            <h1 className="font-display mt-1 text-4xl leading-[1.05] font-bold tracking-tight text-ink sm:text-5xl">
                                 Portal Pelanggan
                             </h1>
                             <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-soft">
