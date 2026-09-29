@@ -271,7 +271,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-C4fu8ZN8.css",
+    "file": "assets/app-D-L8MUWd.css",
     "name": "app",
     "names": [
       "app.css"
@@ -856,7 +856,7 @@
     ]
   },
   "resources/js/Pages/Landing.jsx": {
-    "file": "assets/Landing-BgAOcGBC.js",
+    "file": "assets/Landing-B4vg1WVz.js",
     "name": "Landing",
     "src": "resources/js/Pages/Landing.jsx",
     "isDynamicEntry": true,
@@ -997,7 +997,7 @@
     ]
   },
   "resources/js/Sections/PricingSection.jsx": {
-    "file": "assets/PricingSection-H_Rn7Wi9.js",
+    "file": "assets/PricingSection-Me47hmPx.js",
     "name": "PricingSection",
     "src": "resources/js/Sections/PricingSection.jsx",
     "isDynamicEntry": true,
@@ -1039,7 +1039,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-C4iEvBWt.js",
+    "file": "assets/app-D2lB5yu9.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1098,7 +1098,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-C4fu8ZN8.css"
+      "assets/app-D-L8MUWd.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

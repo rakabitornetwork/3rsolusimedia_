@@ -45,24 +45,32 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                         return (
                             <Reveal key={plan.name} delay={index * 80}>
                                 <article
-                                    className={`group relative flex h-full flex-col border bg-white p-5 text-ink transition duration-500 sm:p-6 ${
+                                    className={`group relative flex h-full flex-col overflow-hidden border p-5 transition duration-500 sm:p-6 ${
                                         featured
-                                            ? 'border-signal/30 shadow-[0_22px_44px_-28px_rgba(26,110,255,0.55)] ring-1 ring-signal/15'
-                                            : 'border-ink/10 hover:bg-mist/60'
+                                            ? 'border-white/10 bg-gradient-to-br from-[#2a6cf2] via-[#1650cc] to-[#0c3a9a] text-white shadow-[0_28px_50px_-28px_rgba(12,58,154,0.72)]'
+                                            : 'border-ink/10 bg-white text-ink hover:bg-mist/60'
                                     }`}
                                 >
                                     {featured && (
-                                        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-signal-deep via-signal-bright to-amber-line" />
+                                        <>
+                                            <div className="pointer-events-none absolute -top-16 -right-8 h-40 w-40 rounded-full bg-signal-bright/30 blur-2xl" />
+                                            <div className="pointer-events-none absolute -bottom-20 -left-10 h-36 w-36 rounded-full bg-amber-line/20 blur-2xl" />
+                                            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-signal-bright via-white/70 to-amber-line" />
+                                        </>
                                     )}
 
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className="font-display text-[11px] font-semibold tracking-[0.2em] text-ink/25">
+                                    <div className="relative flex items-center justify-between gap-3">
+                                        <span
+                                            className={`font-display text-[11px] font-semibold tracking-[0.2em] ${
+                                                featured ? 'text-white/45' : 'text-ink/25'
+                                            }`}
+                                        >
                                             {order}
                                         </span>
                                         {plan.badge && (
                                             <span
                                                 className={`text-[10px] font-semibold tracking-[0.16em] uppercase ${
-                                                    featured ? 'text-signal' : 'text-signal-deep'
+                                                    featured ? 'text-amber-line' : 'text-signal-deep'
                                                 }`}
                                             >
                                                 {plan.badge}
@@ -70,33 +78,53 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                         )}
                                     </div>
 
-                                    <h3 className="font-display mt-4 text-lg font-bold tracking-tight text-ink">
+                                    <h3
+                                        className={`font-display relative mt-4 text-lg font-bold tracking-tight ${
+                                            featured ? 'text-white' : 'text-ink'
+                                        }`}
+                                    >
                                         {plan.name}
                                     </h3>
-                                    <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+                                    <p
+                                        className={`relative mt-1.5 text-xs leading-relaxed ${
+                                            featured ? 'text-white/75' : 'text-ink-soft'
+                                        }`}
+                                    >
                                         {plan.description}
                                     </p>
 
-                                    <div className="mt-4 border-y border-ink/10 py-3.5">
+                                    <div
+                                        className={`relative mt-4 border-y py-3.5 ${
+                                            featured ? 'border-white/15' : 'border-ink/10'
+                                        }`}
+                                    >
                                         <p className="font-hero text-3xl leading-none tracking-[-0.03em]">
                                             {plan.price}
                                         </p>
                                         {plan.period && (
-                                            <p className="mt-1.5 text-[10px] font-medium tracking-[0.12em] text-ink/45 uppercase">
+                                            <p
+                                                className={`mt-1.5 text-[10px] font-medium tracking-[0.12em] uppercase ${
+                                                    featured ? 'text-white/55' : 'text-ink/45'
+                                                }`}
+                                            >
                                                 {plan.period}
                                             </p>
                                         )}
                                     </div>
 
-                                    <ul className="mt-3 flex-1">
+                                    <ul className="relative mt-3 flex-1">
                                         {(plan.features || []).map((feature) => (
                                             <li
                                                 key={feature}
-                                                className="flex items-start gap-2.5 border-b border-ink/8 py-2 text-xs leading-snug text-ink-soft last:border-b-0"
+                                                className={`flex items-start gap-2.5 border-b py-2 text-xs leading-snug last:border-b-0 ${
+                                                    featured
+                                                        ? 'border-white/10 text-white/85'
+                                                        : 'border-ink/8 text-ink-soft'
+                                                }`}
                                             >
                                                 <span
                                                     className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${
-                                                        featured ? 'bg-signal' : 'bg-signal-deep'
+                                                        featured ? 'bg-amber-line' : 'bg-signal-deep'
                                                     }`}
                                                     aria-hidden
                                                 />
@@ -109,9 +137,9 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                         href={planUrl(plan)}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className={`mt-5 inline-flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-semibold tracking-wide transition duration-300 ${
+                                        className={`relative mt-5 inline-flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-semibold tracking-wide transition duration-300 ${
                                             featured
-                                                ? 'bg-signal text-white hover:bg-signal-deep'
+                                                ? 'bg-white text-signal-deep hover:bg-amber-line hover:text-ink'
                                                 : 'border border-ink/15 bg-transparent text-ink hover:border-signal-deep hover:bg-signal-deep hover:text-white'
                                         }`}
                                     >
