@@ -1,9 +1,15 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
+import { CreditCard, MessageCircle, Router, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Wifi } from 'lucide-react';
 
 const fieldClass =
-    'mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal';
+    'mt-1.5 w-full rounded-xl border border-ink/10 bg-mist/40 px-3.5 py-3 text-sm outline-none transition focus:border-signal focus:bg-white focus:ring-4 focus:ring-signal/10 disabled:cursor-not-allowed disabled:opacity-60';
+
+const primaryButton =
+    'mt-6 w-full cursor-pointer rounded-xl bg-signal px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_-16px_rgba(26,110,255,0.95)] hover:bg-signal-deep disabled:cursor-not-allowed disabled:opacity-60';
+
+const quietButton =
+    'cursor-pointer rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-medium text-ink hover:bg-mist disabled:cursor-not-allowed disabled:opacity-60';
 
 export default function Index({ branding, gateway_ready, whatsapp_login }) {
     const { flash, errors } = usePage().props;
@@ -57,76 +63,99 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
         otp.post('/portal/otp/cancel', { preserveScroll: true });
     };
 
+    const company = branding?.company_name || 'Portal';
+
     return (
-        <div className="min-h-screen bg-gradient-to-b from-mist via-white to-mist text-ink">
-            <Head title={`Portal Pelanggan · ${branding?.company_name || 'Portal'}`} />
+        <div className="min-h-screen bg-paper text-ink">
+            <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(26,110,255,0.18),transparent_48%),linear-gradient(180deg,#e8eef2_0%,#f5f8fa_46%,#e8eef2_100%)]" />
+            <Head title={`Portal Pelanggan · ${company}`} />
 
-            <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10">
-                <div className="mb-8 text-center">
-                    {branding?.logo_mark ? (
-                        <img
-                            src={branding.logo_mark}
-                            alt={branding.company_name || 'Logo'}
-                            className="mx-auto h-14 w-auto object-contain"
-                        />
-                    ) : (
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center bg-signal/15 text-signal-deep">
-                            <Wifi className="h-7 w-7" />
+            <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+                <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/85 shadow-[0_24px_60px_-32px_rgba(10,45,130,0.65)] backdrop-blur-md">
+                    <div className="h-1.5 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />
+                    <div className="px-5 py-6 sm:px-7 sm:py-8">
+                        <div className="text-center">
+                            {branding?.logo_mark ? (
+                                <img
+                                    src={branding.logo_mark}
+                                    alt={company}
+                                    className="mx-auto h-14 w-auto object-contain"
+                                />
+                            ) : (
+                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-signal/15 text-signal-deep">
+                                    <Wifi className="h-7 w-7" />
+                                </div>
+                            )}
+                            <p className="mt-4 text-[11px] font-semibold tracking-[0.16em] text-signal-deep uppercase">
+                                {company}
+                            </p>
+                            <h1 className="font-hero mt-1 text-4xl leading-none text-ink">
+                                Portal Pelanggan
+                            </h1>
+                            <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-ink-soft">
+                                Cek tagihan, bayar online, kelola WiFi, dan pantau perangkat dari satu tempat.
+                            </p>
                         </div>
-                    )}
-                    <h1 className="mt-4 text-2xl font-semibold tracking-tight text-ink">
-                        Portal Pelanggan
-                    </h1>
-                    <p className="mt-2 text-sm text-ink-soft">
-                        Cek tagihan, bayar online, kelola WiFi, pantau redaman/suhu ONU, dan restart
-                        perangkat secara mandiri.
-                    </p>
-                </div>
 
-                {(flash?.error || flash?.success) && (
-                    <div
-                        className={`mb-4 border px-4 py-3 text-sm ${
-                            flash.error
-                                ? 'border-red-200 bg-red-50 text-red-700'
-                                : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        }`}
-                    >
-                        {flash.error || flash.success}
-                    </div>
-                )}
+                        <div className="mt-5 grid grid-cols-3 gap-2">
+                            {[
+                                [CreditCard, 'Tagihan'],
+                                [Wifi, 'WiFi'],
+                                [Router, 'ONU'],
+                            ].map(([Icon, label]) => (
+                                <div
+                                    key={label}
+                                    className="flex items-center justify-center gap-1.5 rounded-xl bg-mist/70 px-2 py-2 text-[11px] font-semibold text-ink-soft"
+                                >
+                                    <Icon className="h-3.5 w-3.5 text-signal-deep" />
+                                    {label}
+                                </div>
+                            ))}
+                        </div>
 
-                {!gateway_ready && (
-                    <div className="mb-4 border border-ink/10 bg-white px-4 py-3 text-sm text-ink-soft">
-                        Pembayaran online mungkin belum aktif. Fitur perangkat & WiFi tetap dapat
-                        digunakan jika ONU terpantau.
-                    </div>
-                )}
+                        {(flash?.error || flash?.success) && (
+                            <div
+                                className={`mt-5 rounded-xl border px-4 py-3 text-sm ${
+                                    flash.error
+                                        ? 'border-red-200 bg-red-50 text-red-700'
+                                        : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                }`}
+                            >
+                                {flash.error || flash.success}
+                            </div>
+                        )}
 
-                <div className="border border-ink/10 bg-white p-6 shadow-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setMode('username')}
-                            className={`px-3 py-2 text-sm font-medium ${
-                                mode === 'username'
-                                    ? 'bg-signal text-white'
-                                    : 'border border-ink/15 text-ink'
-                            }`}
-                        >
-                            Username
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setMode('whatsapp')}
-                            className={`px-3 py-2 text-sm font-medium ${
-                                mode === 'whatsapp'
-                                    ? 'bg-signal text-white'
-                                    : 'border border-ink/15 text-ink'
-                            }`}
-                        >
-                            WhatsApp
-                        </button>
-                    </div>
+                        {!gateway_ready && (
+                            <div className="mt-5 rounded-xl border border-amber-line/40 bg-amber-50/80 px-4 py-3 text-sm text-ink-soft">
+                                Pembayaran online mungkin belum aktif. Fitur perangkat dan WiFi tetap dapat digunakan jika ONU terpantau.
+                            </div>
+                        )}
+
+                        <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-mist/80 p-1">
+                            <button
+                                type="button"
+                                onClick={() => setMode('username')}
+                                className={`cursor-pointer rounded-xl px-3 py-2.5 text-sm font-semibold outline-none ${
+                                    mode === 'username'
+                                        ? 'bg-signal text-white shadow-[0_8px_18px_-12px_rgba(26,110,255,0.95)]'
+                                        : 'text-ink-soft hover:text-ink'
+                                }`}
+                            >
+                                Username
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMode('whatsapp')}
+                                className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none ${
+                                    mode === 'whatsapp'
+                                        ? 'bg-signal text-white shadow-[0_8px_18px_-12px_rgba(26,110,255,0.95)]'
+                                        : 'text-ink-soft hover:text-ink'
+                                }`}
+                            >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                WhatsApp
+                            </button>
+                        </div>
 
                     {mode === 'username' ? (
                         <form onSubmit={submitLookup}>
@@ -165,7 +194,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             <button
                                 type="submit"
                                 disabled={lookup.processing}
-                                className="mt-6 w-full bg-signal px-4 py-3 text-sm font-semibold text-white hover:bg-signal-deep disabled:opacity-60"
+                                className={primaryButton}
                             >
                                 {lookup.processing ? 'Memeriksa...' : 'Masuk portal'}
                             </button>
@@ -211,7 +240,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                     <button
                                         type="submit"
                                         disabled={otp.processing || otp.data.code.length !== 6}
-                                        className="mt-6 w-full bg-signal px-4 py-3 text-sm font-semibold text-white hover:bg-signal-deep disabled:opacity-60"
+                                        className={primaryButton}
                                     >
                                         {otp.processing ? 'Memeriksa...' : 'Masuk portal'}
                                     </button>
@@ -220,7 +249,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                             type="button"
                                             onClick={submitOtpRequest}
                                             disabled={otp.processing}
-                                            className="border border-ink/15 px-3 py-2 text-sm text-ink hover:border-signal disabled:opacity-60"
+                                            className={quietButton}
                                         >
                                             Kirim ulang
                                         </button>
@@ -228,7 +257,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                             type="button"
                                             onClick={cancelOtp}
                                             disabled={otp.processing}
-                                            className="border border-ink/15 px-3 py-2 text-sm text-ink hover:border-signal disabled:opacity-60"
+                                            className={quietButton}
                                         >
                                             Ganti nomor
                                         </button>
@@ -255,7 +284,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                     <button
                                         type="submit"
                                         disabled={otp.processing || !login.enabled}
-                                        className="mt-6 w-full bg-signal px-4 py-3 text-sm font-semibold text-white hover:bg-signal-deep disabled:opacity-60"
+                                        className={primaryButton}
                                     >
                                         {otp.processing ? 'Mengirim...' : 'Kirim kode WhatsApp'}
                                     </button>
@@ -263,11 +292,11 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             )}
                         </div>
                     )}
+                    </div>
                 </div>
 
-                <p className="mt-6 text-center text-xs text-ink-soft">
-                    Password PPPoE tidak diminta. Kode WhatsApp hanya dikirim ke nomor yang tersimpan
-                    di data pelanggan.
+                <p className="mt-5 text-center text-xs leading-relaxed text-ink-soft">
+                    Password PPPoE tidak diminta. Kode WhatsApp hanya dikirim ke nomor yang tersimpan di data pelanggan.
                 </p>
             </div>
         </div>
