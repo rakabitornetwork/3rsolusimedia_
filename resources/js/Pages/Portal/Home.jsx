@@ -21,7 +21,7 @@ export default function Home({
     device,
     device_available,
     device_message,
-    banner,
+    banners,
 }) {
     const [paying, setPaying] = useState(false);
     const online = onlineTone(device?.online);
@@ -68,7 +68,7 @@ export default function Home({
             active="home"
         >
             <div className="space-y-4">
-                <PortalBanner banner={banner} />
+                <PortalBanner banners={banners} />
 
                 <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
                     <div className="h-1 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />

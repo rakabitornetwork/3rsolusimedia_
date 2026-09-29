@@ -36,20 +36,33 @@ class PortalBannerSettingTest extends TestCase
     }
 
     #[Test]
-    public function banner_stays_hidden_until_it_is_enabled_with_an_image(): void
+    public function default_portal_shows_three_rotating_banners(): void
     {
-        $this->assertFalse(AppSettings::portalBanner()['enabled']);
+        SiteSetting::setValue('whatsapp', '6287778888820');
 
-        SiteSetting::setMany([
-            'portal_banner_enabled' => '1',
-            'portal_banner_title' => 'Tanpa gambar',
-        ]);
+        $banners = AppSettings::portalBanners('tokenportal');
 
-        $this->assertFalse(AppSettings::portalBanner()['enabled']);
+        $this->assertCount(3, $banners);
+        $this->assertStringContainsString('/images/portal/banner-referral.png', $banners[0]['image']);
+        $this->assertStringContainsString('wa.me/6287778888820', $banners[0]['link']);
+        $this->assertStringContainsString('text=bayar', $banners[1]['link']);
+        $this->assertSame('/portal/tokenportal/perangkat', $banners[2]['link']);
     }
 
     #[Test]
-    public function admin_can_save_a_portal_header_banner(): void
+    public function disabled_banner_is_omitted(): void
+    {
+        SiteSetting::setValue('portal_banner_2_enabled', '0');
+
+        $banners = AppSettings::portalBanners();
+
+        $this->assertCount(2, $banners);
+        $this->assertSame('Pasang atau pindah WiFi', $banners[0]['title']);
+        $this->assertSame('Pantau WiFi sendiri', $banners[1]['title']);
+    }
+
+    #[Test]
+    public function admin_can_replace_a_portal_banner_image(): void
     {
         Storage::fake('public');
         $admin = User::factory()->superadmin()->create();
@@ -57,22 +70,20 @@ class PortalBannerSettingTest extends TestCase
         $this->actingAs($admin)
             ->from('/admin/system')
             ->post('/admin/system', $this->systemPayload([
-                'portal_banner_enabled' => '1',
-                'portal_banner_title' => 'Upgrade Fiber',
-                'portal_banner_subtitle' => 'Promo bulan ini',
-                'portal_banner_link' => 'https://example.com/promo',
-                'portal_banner_image' => UploadedFile::fake()->image('banner.jpg', 1680, 640),
+                'portal_banner_2_enabled' => '1',
+                'portal_banner_2_title' => 'Bayar sekarang',
+                'portal_banner_2_link' => 'https://example.com/bayar',
+                'portal_banner_2_image' => UploadedFile::fake()->image('banner.jpg', 1280, 720),
             ]))
             ->assertRedirect('/admin/system')
             ->assertSessionHasNoErrors();
 
-        $banner = AppSettings::portalBanner();
-        $this->assertTrue($banner['enabled']);
-        $this->assertSame('Upgrade Fiber', $banner['title']);
-        $this->assertSame('Promo bulan ini', $banner['subtitle']);
-        $this->assertSame('https://example.com/promo', $banner['link']);
-        $this->assertStringStartsWith('/storage/uploads/portal-banner/', $banner['image']);
-        Storage::disk('public')->assertExists(str_replace('/storage/', '', $banner['image']));
+        $banners = collect(AppSettings::portalBanners());
+        $replaced = $banners->firstWhere('title', 'Bayar sekarang');
+        $this->assertNotNull($replaced);
+        $this->assertStringStartsWith('/storage/uploads/portal-banner/', $replaced['image']);
+        $this->assertSame('https://example.com/bayar', $replaced['link']);
+        Storage::disk('public')->assertExists(str_replace('/storage/', '', strtok($replaced['image'], '?')));
     }
 
     #[Test]
@@ -83,13 +94,13 @@ class PortalBannerSettingTest extends TestCase
         $this->actingAs($admin)
             ->from('/admin/system')
             ->post('/admin/system', $this->systemPayload([
-                'portal_banner_link' => 'javascript:alert(1)',
+                'portal_banner_2_link' => 'javascript:alert(1)',
             ]))
-            ->assertSessionHasErrors('portal_banner_link');
+            ->assertSessionHasErrors('portal_banner_2_link');
     }
 
     #[Test]
-    public function portal_home_receives_the_saved_banner(): void
+    public function portal_home_receives_the_banner_carousel(): void
     {
         $router = MikrotikRouter::query()->create([
             'name' => 'Router 1',
@@ -112,22 +123,16 @@ class PortalBannerSettingTest extends TestCase
         ]);
         $token = Str::lower(Str::random(48));
         Cache::put('portal_pay:'.$token, $customer->id, now()->addHours(2));
-
-        SiteSetting::setMany([
-            'portal_banner_enabled' => '1',
-            'portal_banner_image' => '/storage/uploads/portal-banner/promo.jpg',
-            'portal_banner_title' => 'Halo pelanggan',
-            'portal_banner_link' => '/promo',
-        ]);
+        SiteSetting::setValue('whatsapp', '6287778888820');
 
         $this->get("/portal/{$token}")
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Portal/Home')
-                ->where('banner.enabled', true)
-                ->where('banner.image', '/storage/uploads/portal-banner/promo.jpg')
-                ->where('banner.title', 'Halo pelanggan')
-                ->where('banner.link', '/promo')
+                ->has('banners', 3)
+                ->where('banners.1.title', 'Bayar tagihan lewat WhatsApp')
+                ->where('banners.1.link', 'https://wa.me/6287778888820?text=bayar')
+                ->where('banners.2.link', '/portal/'.$token.'/perangkat')
             );
     }
 }

@@ -61,23 +61,7 @@ class AppSettingController extends Controller
             'remove_logo_mark' => ['sometimes', 'boolean'],
             'remove_logo_full' => ['sometimes', 'boolean'],
             'remove_favicon' => ['sometimes', 'boolean'],
-            'portal_banner_enabled' => ['sometimes', 'boolean'],
-            'portal_banner_title' => ['nullable', 'string', 'max:80'],
-            'portal_banner_subtitle' => ['nullable', 'string', 'max:160'],
-            'portal_banner_link' => ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, \Closure $fail): void {
-                $link = trim((string) $value);
-                if ($link === '') {
-                    return;
-                }
-
-                $internal = str_starts_with($link, '/') && ! str_starts_with($link, '//');
-                $external = filter_var($link, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $link) === 1;
-                if (! $internal && ! $external) {
-                    $fail('Tautan iklan harus URL http(s) atau path internal yang diawali /.');
-                }
-            }],
-            'portal_banner_image' => ['nullable', 'image', 'max:5120'],
-            'remove_portal_banner' => ['sometimes', 'boolean'],
+            ...$this->portalBannerRules(),
         ]);
 
         $values = [
@@ -111,22 +95,30 @@ class AppSettingController extends Controller
             }
         }
 
-        if ($request->exists('portal_banner_enabled')) {
-            $values['portal_banner_enabled'] = $request->boolean('portal_banner_enabled') ? '1' : '0';
-        }
-        foreach (['portal_banner_title', 'portal_banner_subtitle', 'portal_banner_link'] as $key) {
-            if (array_key_exists($key, $validated)) {
-                $values[$key] = trim((string) ($validated[$key] ?? ''));
-            }
-        }
+        for ($i = 1; $i <= AppSettings::PORTAL_BANNER_COUNT; $i++) {
+            $enabledKey = "portal_banner_{$i}_enabled";
+            $imageKey = "portal_banner_{$i}_image";
+            $removeKey = "remove_portal_banner_{$i}";
+            $defaultImage = (string) (AppSettings::DEFAULTS[$imageKey] ?? '');
 
-        $currentBanner = (string) AppSettings::get('portal_banner_image', '');
-        if ($request->boolean('remove_portal_banner')) {
-            $this->deleteUploadedAsset($currentBanner, '');
-            $values['portal_banner_image'] = '';
-        } elseif ($request->hasFile('portal_banner_image')) {
-            $this->deleteUploadedAsset($currentBanner, '');
-            $values['portal_banner_image'] = '/storage/'.$request->file('portal_banner_image')->store('uploads/portal-banner', 'public');
+            if ($request->exists($enabledKey)) {
+                $values[$enabledKey] = $request->boolean($enabledKey) ? '1' : '0';
+            }
+            foreach (['title', 'subtitle', 'link'] as $field) {
+                $key = "portal_banner_{$i}_{$field}";
+                if (array_key_exists($key, $validated)) {
+                    $values[$key] = trim((string) ($validated[$key] ?? ''));
+                }
+            }
+
+            $currentBanner = (string) AppSettings::get($imageKey, $defaultImage);
+            if ($request->boolean($removeKey)) {
+                $this->deleteUploadedAsset($currentBanner, $defaultImage);
+                $values[$imageKey] = $defaultImage;
+            } elseif ($request->hasFile($imageKey)) {
+                $this->deleteUploadedAsset($currentBanner, $defaultImage);
+                $values[$imageKey] = '/storage/'.$request->file($imageKey)->store('uploads/portal-banner', 'public');
+            }
         }
 
         SiteSetting::setMany($values);
@@ -134,6 +126,37 @@ class AppSettingController extends Controller
         return redirect()
             ->route('admin.system.index')
             ->with('success', 'Pengaturan aplikasi berhasil disimpan.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function portalBannerRules(): array
+    {
+        $rules = [];
+        $linkRule = function (string $attribute, mixed $value, \Closure $fail): void {
+            $link = trim((string) $value);
+            if ($link === '') {
+                return;
+            }
+
+            $internal = str_starts_with($link, '/') && ! str_starts_with($link, '//');
+            $external = filter_var($link, FILTER_VALIDATE_URL) && preg_match('#^https?://#i', $link) === 1;
+            if (! $internal && ! $external) {
+                $fail('Tautan iklan harus URL http(s) atau path internal yang diawali /.');
+            }
+        };
+
+        for ($i = 1; $i <= AppSettings::PORTAL_BANNER_COUNT; $i++) {
+            $rules["portal_banner_{$i}_enabled"] = ['sometimes', 'boolean'];
+            $rules["portal_banner_{$i}_title"] = ['nullable', 'string', 'max:80'];
+            $rules["portal_banner_{$i}_subtitle"] = ['nullable', 'string', 'max:160'];
+            $rules["portal_banner_{$i}_link"] = ['nullable', 'string', 'max:500', $linkRule];
+            $rules["portal_banner_{$i}_image"] = ['nullable', 'image', 'max:5120'];
+            $rules["remove_portal_banner_{$i}"] = ['sometimes', 'boolean'];
+        }
+
+        return $rules;
     }
 
     /**

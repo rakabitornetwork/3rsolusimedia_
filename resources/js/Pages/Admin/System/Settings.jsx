@@ -105,6 +105,46 @@ function canWriteButtons(disabled) {
     return !disabled;
 }
 
+const BANNER_DEFAULTS = {
+    1: '/images/portal/banner-referral.png',
+    2: '/images/portal/banner-whatsapp.png',
+    3: '/images/portal/banner-monitor.png',
+};
+
+const BANNER_SLOTS = [
+    {
+        n: 1,
+        label: 'Banner 1 · Ajak pasang atau pindah',
+        hint: 'Komisi Rp 25.000 per pelanggan yang sudah diaktifkan. Tautan kosong membuka WhatsApp dengan ajakan pemasangan.',
+        placeholder: 'Kosong = chat WhatsApp ajakan pasang',
+    },
+    {
+        n: 2,
+        label: 'Banner 2 · Bayar lewat WhatsApp',
+        hint: 'Pelanggan mengetik perintah bayar. Tautan kosong memakai nomor WhatsApp di Pengaturan Situs.',
+        placeholder: 'Kosong = wa.me dengan pesan bayar',
+    },
+    {
+        n: 3,
+        label: 'Banner 3 · Pantau WiFi sendiri',
+        hint: 'Ajak pelanggan cek redaman, suhu, dan password WiFi. Tautan kosong membuka halaman perangkat.',
+        placeholder: 'Kosong = halaman perangkat portal',
+    },
+];
+
+function bannerFormState(settings) {
+    const state = {};
+    [1, 2, 3].forEach((slot) => {
+        state[`portal_banner_${slot}_enabled`] = settings[`portal_banner_${slot}_enabled`] !== '0';
+        state[`portal_banner_${slot}_title`] = settings[`portal_banner_${slot}_title`] || '';
+        state[`portal_banner_${slot}_subtitle`] = settings[`portal_banner_${slot}_subtitle`] || '';
+        state[`portal_banner_${slot}_link`] = settings[`portal_banner_${slot}_link`] || '';
+        state[`portal_banner_${slot}_image`] = null;
+        state[`remove_portal_banner_${slot}`] = false;
+    });
+    return state;
+}
+
 const emptyBankAccount = () => ({
     bank_name: '',
     bank_account_name: '',
@@ -158,7 +198,11 @@ export default function Settings({ settings, branding, timezones }) {
     const [markPreview, setMarkPreview] = useState(branding?.logo_mark || '');
     const [fullPreview, setFullPreview] = useState(branding?.logo_full || '');
     const [faviconPreview, setFaviconPreview] = useState(branding?.favicon || '');
-    const [bannerPreview, setBannerPreview] = useState(settings.portal_banner_image || '');
+    const [bannerPreviews, setBannerPreviews] = useState({
+        1: settings.portal_banner_1_image || BANNER_DEFAULTS[1],
+        2: settings.portal_banner_2_image || BANNER_DEFAULTS[2],
+        3: settings.portal_banner_3_image || BANNER_DEFAULTS[3],
+    });
 
     const { data, setData, post, processing, errors, transform } = useForm({
         app_timezone: settings.app_timezone || 'Asia/Jakarta',
@@ -175,12 +219,7 @@ export default function Settings({ settings, branding, timezones }) {
         remove_logo_mark: false,
         remove_logo_full: false,
         remove_favicon: false,
-        portal_banner_enabled: settings.portal_banner_enabled === '1',
-        portal_banner_title: settings.portal_banner_title || '',
-        portal_banner_subtitle: settings.portal_banner_subtitle || '',
-        portal_banner_link: settings.portal_banner_link || '',
-        portal_banner_image: null,
-        remove_portal_banner: false,
+        ...bannerFormState(settings),
     });
 
     useEffect(() => {
@@ -205,11 +244,16 @@ export default function Settings({ settings, branding, timezones }) {
     }, [data.app_favicon]);
 
     useEffect(() => {
-        if (!(data.portal_banner_image instanceof File)) return undefined;
-        const url = URL.createObjectURL(data.portal_banner_image);
-        setBannerPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [data.portal_banner_image]);
+        const urls = [];
+        [1, 2, 3].forEach((slot) => {
+            const file = data[`portal_banner_${slot}_image`];
+            if (!(file instanceof File)) return;
+            const url = URL.createObjectURL(file);
+            urls.push(url);
+            setBannerPreviews((prev) => ({ ...prev, [slot]: url }));
+        });
+        return () => urls.forEach((url) => URL.revokeObjectURL(url));
+    }, [data.portal_banner_1_image, data.portal_banner_2_image, data.portal_banner_3_image]);
 
     const submit = (e) => {
         e.preventDefault();
@@ -217,15 +261,21 @@ export default function Settings({ settings, branding, timezones }) {
 
         transform((form) => {
             const payload = { ...form };
-            ['app_logo_mark', 'app_logo_full', 'app_favicon', 'portal_banner_image'].forEach((key) => {
+            ['app_logo_mark', 'app_logo_full', 'app_favicon'].forEach((key) => {
                 if (!(payload[key] instanceof File)) delete payload[key];
             });
-            ['remove_logo_mark', 'remove_logo_full', 'remove_favicon', 'remove_portal_banner'].forEach(
-                (key) => {
-                    if (!payload[key]) delete payload[key];
-                },
-            );
-            payload.portal_banner_enabled = form.portal_banner_enabled ? '1' : '0';
+            ['remove_logo_mark', 'remove_logo_full', 'remove_favicon'].forEach((key) => {
+                if (!payload[key]) delete payload[key];
+            });
+            [1, 2, 3].forEach((slot) => {
+                const fileKey = `portal_banner_${slot}_image`;
+                const removeKey = `remove_portal_banner_${slot}`;
+                if (!(payload[fileKey] instanceof File)) delete payload[fileKey];
+                if (!payload[removeKey]) delete payload[removeKey];
+                payload[`portal_banner_${slot}_enabled`] = form[`portal_banner_${slot}_enabled`]
+                    ? '1'
+                    : '0';
+            });
             return payload;
         });
 
@@ -233,11 +283,14 @@ export default function Settings({ settings, branding, timezones }) {
             data.app_logo_mark instanceof File ||
             data.app_logo_full instanceof File ||
             data.app_favicon instanceof File ||
-            data.portal_banner_image instanceof File ||
+            [1, 2, 3].some(
+                (slot) =>
+                    data[`portal_banner_${slot}_image`] instanceof File ||
+                    data[`remove_portal_banner_${slot}`],
+            ) ||
             data.remove_logo_mark ||
             data.remove_logo_full ||
-            data.remove_favicon ||
-            data.remove_portal_banner;
+            data.remove_favicon;
 
         post('/admin/system', { forceFormData: hasFile });
     };
@@ -324,123 +377,119 @@ export default function Settings({ settings, branding, timezones }) {
                 <Section
                     icon={Megaphone}
                     title="Iklan header portal"
-                    description="Banner bergambar di beranda portal pelanggan. Kosongkan untuk menyembunyikan."
+                    description="Tiga banner beranda yang bergantian sendiri. Gambar bawaan sudah berisi teks promo."
                 >
-                    <Toggle
-                        label="Tampilkan iklan"
-                        description="Aktif hanya jika ada gambar. Pelanggan melihatnya di bagian atas beranda."
-                        checked={data.portal_banner_enabled}
-                        disabled={!canWrite}
-                        onChange={(value) => setData('portal_banner_enabled', value)}
-                    />
-                    <div className="border border-ink/10 p-4">
-                        <div
-                            className="flex aspect-[21/8] items-center justify-center overflow-hidden border border-ink/10 bg-mist/50"
-                        >
-                            {bannerPreview ? (
-                                <img
-                                    src={bannerPreview}
-                                    alt="Pratinjau iklan portal"
-                                    className="h-full w-full object-cover"
-                                />
-                            ) : (
-                                <span className="px-4 text-center text-xs text-ink-soft">
-                                    Belum ada gambar. Unggah banner lebar, disarankan 1680×640 px.
-                                </span>
-                            )}
-                        </div>
-                        <p className="mt-3 text-sm font-semibold text-ink">Gambar banner</p>
-                        <p className="mt-0.5 text-xs text-ink-soft">
-                            JPG, PNG, atau WebP. Maks. 5MB. Gambar mengisi lebar kartu beranda.
-                        </p>
-                        {canWrite && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                                <label className="btn-action btn-action-xs btn-secondary">
-                                    <ImagePlus className="h-3.5 w-3.5" />
-                                    Pilih gambar
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            setData('portal_banner_image', e.target.files?.[0] || null);
-                                            setData('remove_portal_banner', false);
-                                        }}
+                    {BANNER_SLOTS.map((slot) => (
+                        <div key={slot.n} className="space-y-3 border border-ink/10 p-4">
+                            <Toggle
+                                label={slot.label}
+                                description={slot.hint}
+                                checked={Boolean(data[`portal_banner_${slot.n}_enabled`])}
+                                disabled={!canWrite}
+                                onChange={(value) =>
+                                    setData(`portal_banner_${slot.n}_enabled`, value)
+                                }
+                            />
+                            <div className="overflow-hidden border border-ink/10 bg-mist/50">
+                                {bannerPreviews[slot.n] ? (
+                                    <img
+                                        src={bannerPreviews[slot.n]}
+                                        alt={slot.label}
+                                        className="aspect-[16/9] w-full object-cover"
                                     />
-                                </label>
-                                {bannerPreview && (
+                                ) : (
+                                    <div className="flex aspect-[16/9] items-center justify-center px-4 text-center text-xs text-ink-soft">
+                                        Belum ada gambar
+                                    </div>
+                                )}
+                            </div>
+                            {canWrite && (
+                                <div className="flex flex-wrap gap-2">
+                                    <label className="btn-action btn-action-xs btn-secondary">
+                                        <ImagePlus className="h-3.5 w-3.5" />
+                                        Ganti gambar
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                setData(
+                                                    `portal_banner_${slot.n}_image`,
+                                                    e.target.files?.[0] || null,
+                                                );
+                                                setData(`remove_portal_banner_${slot.n}`, false);
+                                            }}
+                                        />
+                                    </label>
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setData('portal_banner_image', null);
-                                            setData('remove_portal_banner', true);
-                                            setBannerPreview('');
+                                            setData(`portal_banner_${slot.n}_image`, null);
+                                            setData(`remove_portal_banner_${slot.n}`, true);
+                                            setBannerPreviews((prev) => ({
+                                                ...prev,
+                                                [slot.n]: BANNER_DEFAULTS[slot.n],
+                                            }));
                                         }}
-                                        className="btn-action btn-action-xs btn-danger"
+                                        className="btn-action btn-action-xs btn-secondary"
                                     >
                                         <Trash2 className="h-3.5 w-3.5" />
-                                        Hapus gambar
+                                        Gambar bawaan
                                     </button>
+                                </div>
+                            )}
+                            {errors[`portal_banner_${slot.n}_image`] && (
+                                <span className="block text-xs text-red-600">
+                                    {errors[`portal_banner_${slot.n}_image`]}
+                                </span>
+                            )}
+                            <label className="block text-sm font-medium text-ink">
+                                Judul
+                                <input
+                                    type="text"
+                                    value={data[`portal_banner_${slot.n}_title`]}
+                                    onChange={(e) =>
+                                        setData(`portal_banner_${slot.n}_title`, e.target.value)
+                                    }
+                                    className={fieldClass}
+                                    disabled={!canWrite}
+                                    maxLength={80}
+                                />
+                            </label>
+                            <label className="block text-sm font-medium text-ink">
+                                Teks pendukung
+                                <input
+                                    type="text"
+                                    value={data[`portal_banner_${slot.n}_subtitle`]}
+                                    onChange={(e) =>
+                                        setData(`portal_banner_${slot.n}_subtitle`, e.target.value)
+                                    }
+                                    className={fieldClass}
+                                    disabled={!canWrite}
+                                    maxLength={160}
+                                />
+                            </label>
+                            <label className="block text-sm font-medium text-ink">
+                                Tautan saat diklik
+                                <input
+                                    type="text"
+                                    value={data[`portal_banner_${slot.n}_link`]}
+                                    onChange={(e) =>
+                                        setData(`portal_banner_${slot.n}_link`, e.target.value)
+                                    }
+                                    className={fieldClass}
+                                    disabled={!canWrite}
+                                    placeholder={slot.placeholder}
+                                    autoComplete="off"
+                                />
+                                {errors[`portal_banner_${slot.n}_link`] && (
+                                    <span className="mt-1 block text-xs text-red-600">
+                                        {errors[`portal_banner_${slot.n}_link`]}
+                                    </span>
                                 )}
-                            </div>
-                        )}
-                        {errors.portal_banner_image && (
-                            <span className="mt-2 block text-xs text-red-600">
-                                {errors.portal_banner_image}
-                            </span>
-                        )}
-                    </div>
-                    <label className="block text-sm font-medium text-ink">
-                        Judul (opsional)
-                        <input
-                            type="text"
-                            value={data.portal_banner_title}
-                            onChange={(e) => setData('portal_banner_title', e.target.value)}
-                            className={fieldClass}
-                            disabled={!canWrite}
-                            maxLength={80}
-                            placeholder="contoh: Upgrade ke 50 Mbps"
-                        />
-                        {errors.portal_banner_title && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.portal_banner_title}
-                            </span>
-                        )}
-                    </label>
-                    <label className="block text-sm font-medium text-ink">
-                        Teks pendukung (opsional)
-                        <input
-                            type="text"
-                            value={data.portal_banner_subtitle}
-                            onChange={(e) => setData('portal_banner_subtitle', e.target.value)}
-                            className={fieldClass}
-                            disabled={!canWrite}
-                            maxLength={160}
-                            placeholder="contoh: Promo berlaku sampai akhir bulan"
-                        />
-                        {errors.portal_banner_subtitle && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.portal_banner_subtitle}
-                            </span>
-                        )}
-                    </label>
-                    <label className="block text-sm font-medium text-ink">
-                        Tautan saat diklik (opsional)
-                        <input
-                            type="text"
-                            value={data.portal_banner_link}
-                            onChange={(e) => setData('portal_banner_link', e.target.value)}
-                            className={fieldClass}
-                            disabled={!canWrite}
-                            placeholder="https://... atau /halaman-internal"
-                            autoComplete="off"
-                        />
-                        {errors.portal_banner_link && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.portal_banner_link}
-                            </span>
-                        )}
-                    </label>
+                            </label>
+                        </div>
+                    ))}
                 </Section>
 
                 <Section

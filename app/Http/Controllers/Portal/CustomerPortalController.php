@@ -58,7 +58,7 @@ class CustomerPortalController extends Controller
             'device_available' => $deviceSummary['available'],
             'device_message' => $deviceSummary['message'],
             'genieacs_configured' => $this->genie->isConfigured(),
-            'banner' => AppSettings::portalBanner(),
+            'banners' => AppSettings::portalBanners($token),
         ]);
     }
 

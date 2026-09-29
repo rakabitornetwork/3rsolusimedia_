@@ -36,6 +36,21 @@ class AppSettings
         'portal_banner_title' => '',
         'portal_banner_subtitle' => '',
         'portal_banner_link' => '',
+        'portal_banner_1_enabled' => '1',
+        'portal_banner_1_image' => '/images/portal/banner-referral.png',
+        'portal_banner_1_title' => 'Pasang atau pindah WiFi',
+        'portal_banner_1_subtitle' => 'Komisi Rp 25.000 tiap pelanggan yang sudah aktif',
+        'portal_banner_1_link' => '',
+        'portal_banner_2_enabled' => '1',
+        'portal_banner_2_image' => '/images/portal/banner-whatsapp.png',
+        'portal_banner_2_title' => 'Bayar tagihan lewat WhatsApp',
+        'portal_banner_2_subtitle' => 'Ketik bayar',
+        'portal_banner_2_link' => '',
+        'portal_banner_3_enabled' => '1',
+        'portal_banner_3_image' => '/images/portal/banner-monitor.png',
+        'portal_banner_3_title' => 'Pantau WiFi sendiri',
+        'portal_banner_3_subtitle' => 'Cek redaman, suhu, dan password WiFi',
+        'portal_banner_3_link' => '',
         'genieacs_enabled' => '0',
         'genieacs_nbi_url' => 'http://127.0.0.1:7557',
         'genieacs_ui_url' => 'http://127.0.0.1:3000',
@@ -510,22 +525,80 @@ class AppSettings
         ];
     }
 
-    /**
-     * Iklan header portal pelanggan. Tampil hanya jika diaktifkan dan ada gambar.
-     *
-     * @return array{enabled: bool, image: string, title: string, subtitle: string, link: string}
-     */
-    public static function portalBanner(): array
-    {
-        $image = trim((string) self::get('portal_banner_image', ''));
+    public const PORTAL_BANNER_COUNT = 3;
 
-        return [
-            'enabled' => self::bool('portal_banner_enabled', false) && $image !== '',
-            'image' => $image,
-            'title' => trim((string) self::get('portal_banner_title', '')),
-            'subtitle' => trim((string) self::get('portal_banner_subtitle', '')),
-            'link' => trim((string) self::get('portal_banner_link', '')),
-        ];
+    /**
+     * Tiga iklan header portal. Tautan kosong memakai default:
+     * 1 dan 2 membuka WhatsApp nomor Pengaturan Situs, 3 membuka halaman perangkat.
+     *
+     * @return list<array{image: string, title: string, subtitle: string, link: string}>
+     */
+    public static function portalBanners(?string $portalToken = null): array
+    {
+        $cached = SiteSetting::allCached();
+        $slides = [];
+
+        for ($i = 1; $i <= self::PORTAL_BANNER_COUNT; $i++) {
+            $enabledKey = "portal_banner_{$i}_enabled";
+            $imageKey = "portal_banner_{$i}_image";
+            $enabled = array_key_exists($enabledKey, $cached)
+                ? in_array((string) $cached[$enabledKey], ['1', 'true', 'yes', 'on'], true)
+                : self::bool($enabledKey, true);
+            $image = trim((string) self::get($imageKey));
+            if (! $enabled || $image === '') {
+                continue;
+            }
+
+            $link = trim((string) self::get("portal_banner_{$i}_link"));
+            if ($link === '') {
+                $link = match ($i) {
+                    1 => self::whatsappChatUrl('Halo, saya ingin mengajak pemasangan atau pindahan WiFi.'),
+                    2 => self::whatsappChatUrl('bayar'),
+                    3 => $portalToken ? '/portal/'.$portalToken.'/perangkat' : '',
+                    default => '',
+                };
+            }
+
+            $slides[] = [
+                'image' => self::publicAssetUrl($image),
+                'title' => trim((string) self::get("portal_banner_{$i}_title")),
+                'subtitle' => trim((string) self::get("portal_banner_{$i}_subtitle")),
+                'link' => $link,
+            ];
+        }
+
+        return $slides;
+    }
+
+    public static function whatsappChatUrl(string $text = ''): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) self::get('whatsapp', '')) ?? '';
+        if ($digits === '') {
+            return '';
+        }
+        if (str_starts_with($digits, '0')) {
+            $digits = '62'.substr($digits, 1);
+        }
+
+        $url = 'https://wa.me/'.$digits;
+        if ($text !== '') {
+            $url .= '?text='.rawurlencode($text);
+        }
+
+        return $url;
+    }
+
+    private static function publicAssetUrl(string $path): string
+    {
+        $bare = strtok($path, '?') ?: $path;
+        if (str_starts_with($bare, '/images/')) {
+            $full = public_path(ltrim($bare, '/'));
+            if (is_file($full)) {
+                return $bare.'?v='.filemtime($full);
+            }
+        }
+
+        return $path;
     }
 
     public static function assetUrl(string $key, string $fallback): string
