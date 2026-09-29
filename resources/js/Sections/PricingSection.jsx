@@ -45,10 +45,10 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                         return (
                             <Reveal key={plan.name} delay={index * 80}>
                                 <article
-                                    className={`group relative flex h-full flex-col border border-ink/10 p-5 transition duration-500 sm:p-6 ${
+                                    className={`group relative flex h-full flex-col border bg-white p-5 text-ink transition duration-500 sm:p-6 ${
                                         featured
-                                            ? 'bg-ink text-white lg:z-10 lg:shadow-[0_28px_56px_-36px_rgba(16,24,32,0.65)]'
-                                            : 'bg-white text-ink hover:bg-mist/60'
+                                            ? 'border-signal/30 shadow-[0_22px_44px_-28px_rgba(26,110,255,0.55)] ring-1 ring-signal/15'
+                                            : 'border-ink/10 hover:bg-mist/60'
                                     }`}
                                 >
                                     {featured && (
@@ -56,19 +56,13 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                     )}
 
                                     <div className="flex items-center justify-between gap-3">
-                                        <span
-                                            className={`font-display text-[11px] font-semibold tracking-[0.2em] ${
-                                                featured ? 'text-white/35' : 'text-ink/25'
-                                            }`}
-                                        >
+                                        <span className="font-display text-[11px] font-semibold tracking-[0.2em] text-ink/25">
                                             {order}
                                         </span>
                                         {plan.badge && (
                                             <span
                                                 className={`text-[10px] font-semibold tracking-[0.16em] uppercase ${
-                                                    featured
-                                                        ? 'text-signal-bright'
-                                                        : 'text-signal-deep'
+                                                    featured ? 'text-signal' : 'text-signal-deep'
                                                 }`}
                                             >
                                                 {plan.badge}
@@ -76,35 +70,19 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                         )}
                                     </div>
 
-                                    <h3
-                                        className={`font-display mt-4 text-lg font-bold tracking-tight ${
-                                            featured ? 'text-white' : 'text-ink'
-                                        }`}
-                                    >
+                                    <h3 className="font-display mt-4 text-lg font-bold tracking-tight text-ink">
                                         {plan.name}
                                     </h3>
-                                    <p
-                                        className={`mt-1.5 text-xs leading-relaxed ${
-                                            featured ? 'text-white/60' : 'text-ink-soft'
-                                        }`}
-                                    >
+                                    <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
                                         {plan.description}
                                     </p>
 
-                                    <div
-                                        className={`mt-4 border-y py-3.5 ${
-                                            featured ? 'border-white/10' : 'border-ink/10'
-                                        }`}
-                                    >
+                                    <div className="mt-4 border-y border-ink/10 py-3.5">
                                         <p className="font-hero text-3xl leading-none tracking-[-0.03em]">
                                             {plan.price}
                                         </p>
                                         {plan.period && (
-                                            <p
-                                                className={`mt-1.5 text-[10px] font-medium tracking-[0.12em] uppercase ${
-                                                    featured ? 'text-white/45' : 'text-ink/45'
-                                                }`}
-                                            >
+                                            <p className="mt-1.5 text-[10px] font-medium tracking-[0.12em] text-ink/45 uppercase">
                                                 {plan.period}
                                             </p>
                                         )}
@@ -114,17 +92,11 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                         {(plan.features || []).map((feature) => (
                                             <li
                                                 key={feature}
-                                                className={`flex items-start gap-2.5 border-b py-2 text-xs leading-snug last:border-b-0 ${
-                                                    featured
-                                                        ? 'border-white/8 text-white/75'
-                                                        : 'border-ink/8 text-ink-soft'
-                                                }`}
+                                                className="flex items-start gap-2.5 border-b border-ink/8 py-2 text-xs leading-snug text-ink-soft last:border-b-0"
                                             >
                                                 <span
                                                     className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${
-                                                        featured
-                                                            ? 'bg-signal-bright'
-                                                            : 'bg-signal-deep'
+                                                        featured ? 'bg-signal' : 'bg-signal-deep'
                                                     }`}
                                                     aria-hidden
                                                 />
@@ -139,7 +111,7 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                                         rel="noreferrer"
                                         className={`mt-5 inline-flex items-center justify-between gap-2 px-3.5 py-2.5 text-xs font-semibold tracking-wide transition duration-300 ${
                                             featured
-                                                ? 'bg-signal-bright text-ink hover:bg-white'
+                                                ? 'bg-signal text-white hover:bg-signal-deep'
                                                 : 'border border-ink/15 bg-transparent text-ink hover:border-signal-deep hover:bg-signal-deep hover:text-white'
                                         }`}
                                     >
