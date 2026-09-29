@@ -37,7 +37,7 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                     </p>
                 </Reveal>
 
-                <div className="mt-10 grid gap-3 lg:grid-cols-3 lg:gap-0 lg:border lg:border-ink/10">
+                <div className="mt-10 grid gap-4 sm:gap-5 lg:grid-cols-3 lg:gap-6">
                     {plans.map((plan, index) => {
                         const featured = Boolean(plan.featured);
                         const order = String(index + 1).padStart(2, '0');
@@ -45,7 +45,7 @@ export default function PricingSection({ section, whatsappUrl, settings = {} }) 
                         return (
                             <Reveal key={plan.name} delay={index * 80}>
                                 <article
-                                    className={`group relative flex h-full flex-col border border-ink/10 p-5 transition duration-500 sm:p-6 lg:border-0 lg:border-r lg:border-ink/10 lg:last:border-r-0 ${
+                                    className={`group relative flex h-full flex-col border border-ink/10 p-5 transition duration-500 sm:p-6 ${
                                         featured
                                             ? 'bg-ink text-white lg:z-10 lg:shadow-[0_28px_56px_-36px_rgba(16,24,32,0.65)]'
                                             : 'bg-white text-ink hover:bg-mist/60'
