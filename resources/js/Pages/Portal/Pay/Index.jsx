@@ -275,10 +275,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                         </button>
                     </div>
                 </div>
-
-                <p className="mt-5 text-center text-xs leading-relaxed text-ink-soft">
-                    Password PPPoE tidak diminta. Kode WhatsApp hanya dikirim ke nomor yang tersimpan di data pelanggan.
-                </p>
             </div>
         </div>
     );
