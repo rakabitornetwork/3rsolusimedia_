@@ -66,12 +66,19 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
     const company = branding?.company_name || 'Portal';
 
     return (
-        <div className="min-h-screen bg-paper text-ink">
-            <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(26,110,255,0.18),transparent_48%),linear-gradient(180deg,#e8eef2_0%,#f5f8fa_46%,#e8eef2_100%)]" />
+        <div className="relative min-h-screen text-ink">
+            <div className="pointer-events-none fixed inset-0">
+                <img
+                    src="/images/portal/login-bg-huawei.png"
+                    alt=""
+                    className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-ink/40" />
+            </div>
             <Head title={`Portal Pelanggan · ${company}`} />
 
-            <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
-                <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/85 shadow-[0_24px_60px_-32px_rgba(10,45,130,0.65)] backdrop-blur-md">
+            <div className="relative mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-10">
+                <div className="overflow-hidden rounded-3xl border border-white/55 bg-white/50 shadow-[0_24px_60px_-32px_rgba(10,45,130,0.65)] backdrop-blur-[2px]">
                     <div className="h-1.5 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />
                     <div className="px-5 py-6 sm:px-7 sm:py-8">
                         <div className="text-center">
