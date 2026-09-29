@@ -1,5 +1,5 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { CreditCard, MessageCircle, Router, Wifi } from 'lucide-react';
+import { CreditCard, Router, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const fieldClass =
@@ -14,7 +14,7 @@ const quietButton =
 export default function Index({ branding, gateway_ready, whatsapp_login }) {
     const { flash, errors } = usePage().props;
     const login = whatsapp_login || { enabled: false, pending: false, phone: '', phone_mask: '' };
-    const [mode, setMode] = useState(login.pending || errors?.whatsapp || errors?.code ? 'whatsapp' : 'username');
+    const [mode, setMode] = useState(errors?.username || errors?.phone ? 'username' : 'whatsapp');
 
     const lookup = useForm({
         username: '',
@@ -131,32 +131,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             </div>
                         )}
 
-                        <div className="mt-5 grid grid-cols-2 gap-1 rounded-2xl bg-mist/80 p-1">
-                            <button
-                                type="button"
-                                onClick={() => setMode('username')}
-                                className={`cursor-pointer rounded-xl px-3 py-2.5 text-sm font-semibold outline-none ${
-                                    mode === 'username'
-                                        ? 'bg-signal text-white shadow-[0_8px_18px_-12px_rgba(26,110,255,0.95)]'
-                                        : 'text-ink-soft hover:text-ink'
-                                }`}
-                            >
-                                Username
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setMode('whatsapp')}
-                                className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold outline-none ${
-                                    mode === 'whatsapp'
-                                        ? 'bg-signal text-white shadow-[0_8px_18px_-12px_rgba(26,110,255,0.95)]'
-                                        : 'text-ink-soft hover:text-ink'
-                                }`}
-                            >
-                                <MessageCircle className="h-3.5 w-3.5" />
-                                WhatsApp
-                            </button>
-                        </div>
-
                     {mode === 'username' ? (
                         <form onSubmit={submitLookup}>
                             <label className="mt-5 block text-sm font-medium text-ink">
@@ -203,8 +177,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                         <div>
                             {!login.enabled && (
                                 <p className="mt-5 text-sm text-ink-soft">
-                                    Login WhatsApp belum aktif. Gunakan username PPPoE dan nomor
-                                    telepon.
+                                    Login WhatsApp belum aktif.
                                 </p>
                             )}
 
@@ -292,6 +265,14 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             )}
                         </div>
                     )}
+
+                        <button
+                            type="button"
+                            onClick={() => setMode(mode === 'whatsapp' ? 'username' : 'whatsapp')}
+                            className="mt-5 w-full cursor-pointer text-center text-sm font-semibold text-signal-deep hover:underline"
+                        >
+                            {mode === 'whatsapp' ? 'Masuk dengan username' : 'Masuk dengan WhatsApp'}
+                        </button>
                     </div>
                 </div>
 
