@@ -121,7 +121,7 @@ const BANNER_SLOTS = [
     {
         n: 2,
         label: 'Banner 2 · Bayar lewat WhatsApp',
-        hint: 'Pelanggan mengetik perintah bayar. Tautan kosong memakai nomor WhatsApp di Pengaturan Situs.',
+        hint: 'Pelanggan mengetik perintah bayar ke nomor billing 085168100781. Tautan kosong membuka chat itu.',
         placeholder: 'Kosong = wa.me dengan pesan bayar',
     },
     {

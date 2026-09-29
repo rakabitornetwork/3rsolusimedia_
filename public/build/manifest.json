@@ -271,7 +271,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-Bbe9BozG.css",
+    "file": "assets/app-BXvVo5XW.css",
     "name": "app",
     "names": [
       "app.css"
@@ -781,7 +781,7 @@
     ]
   },
   "resources/js/Pages/Admin/System/Settings.jsx": {
-    "file": "assets/Settings-VNHJPZuw.js",
+    "file": "assets/Settings-Du_bBCms.js",
     "name": "Settings",
     "src": "resources/js/Pages/Admin/System/Settings.jsx",
     "isDynamicEntry": true,
@@ -1039,7 +1039,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-BmILojRE.js",
+    "file": "assets/app-DFC68qn2.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1098,7 +1098,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-Bbe9BozG.css"
+      "assets/app-BXvVo5XW.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

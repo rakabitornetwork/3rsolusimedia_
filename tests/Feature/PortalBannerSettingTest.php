@@ -45,7 +45,10 @@ class PortalBannerSettingTest extends TestCase
         $this->assertCount(3, $banners);
         $this->assertStringContainsString('/images/portal/banner-referral.png', $banners[0]['image']);
         $this->assertStringContainsString('wa.me/6287778888820', $banners[0]['link']);
-        $this->assertStringContainsString('text=bayar', $banners[1]['link']);
+        $this->assertSame(
+            'https://wa.me/6285168100781?text=bayar',
+            $banners[1]['link'],
+        );
         $this->assertSame('/portal/tokenportal/perangkat', $banners[2]['link']);
     }
 
@@ -131,7 +134,7 @@ class PortalBannerSettingTest extends TestCase
                 ->component('Portal/Home')
                 ->has('banners', 3)
                 ->where('banners.1.title', 'Bayar tagihan lewat WhatsApp')
-                ->where('banners.1.link', 'https://wa.me/6287778888820?text=bayar')
+                ->where('banners.1.link', 'https://wa.me/6285168100781?text=bayar')
                 ->where('banners.2.link', '/portal/'.$token.'/perangkat')
             );
     }

@@ -527,9 +527,12 @@ class AppSettings
 
     public const PORTAL_BANNER_COUNT = 3;
 
+    /** Nomor WhatsApp billing untuk banner bayar tagihan. */
+    public const PORTAL_BILLING_WHATSAPP = '6285168100781';
+
     /**
      * Tiga iklan header portal. Tautan kosong memakai default:
-     * 1 dan 2 membuka WhatsApp nomor Pengaturan Situs, 3 membuka halaman perangkat.
+     * banner 1 membuka WhatsApp nomor situs, banner 2 membuka nomor billing, banner 3 membuka halaman perangkat.
      *
      * @return list<array{image: string, title: string, subtitle: string, link: string}>
      */
@@ -553,7 +556,7 @@ class AppSettings
             if ($link === '') {
                 $link = match ($i) {
                     1 => self::whatsappChatUrl('Halo, saya ingin mengajak pemasangan atau pindahan WiFi.'),
-                    2 => self::whatsappChatUrl('bayar'),
+                    2 => self::whatsappChatUrl('bayar', self::PORTAL_BILLING_WHATSAPP),
                     3 => $portalToken ? '/portal/'.$portalToken.'/perangkat' : '',
                     default => '',
                 };
@@ -570,9 +573,9 @@ class AppSettings
         return $slides;
     }
 
-    public static function whatsappChatUrl(string $text = ''): string
+    public static function whatsappChatUrl(string $text = '', ?string $number = null): string
     {
-        $digits = preg_replace('/\D+/', '', (string) self::get('whatsapp', '')) ?? '';
+        $digits = preg_replace('/\D+/', '', $number ?? (string) self::get('whatsapp', '')) ?? '';
         if ($digits === '') {
             return '';
         }
