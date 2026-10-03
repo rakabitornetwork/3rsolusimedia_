@@ -734,6 +734,9 @@ class BillingController extends Controller
 
         if ($status = $request->get('status')) {
             $query->where('invoices.status', $status);
+        } else {
+            // Tagihan dibatalkan tetap tersimpan, tetapi tidak dicampur ke daftar kerja.
+            $query->where('invoices.status', '<>', 'void');
         }
 
         $hideOldPaid = $request->has('hide_old_paid')
@@ -815,6 +818,7 @@ class BillingController extends Controller
             ($request->has('hide_old_paid') ? $request->boolean('hide_old_paid') : true)
                 ? 'Sembunyikan lunas bulan lalu'
                 : null,
+            $request->get('status') ? null : 'Sembunyikan yang dibatalkan',
             ($q = trim((string) $request->get('q', ''))) !== '' ? 'Cari “'.$q.'”' : null,
         ])->filter()->implode(' · ') ?: 'Semua tagihan';
     }

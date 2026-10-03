@@ -518,6 +518,7 @@ export default function Index({
         filters.hide_old_paid !== false && filters.hide_old_paid !== 0 && filters.hide_old_paid !== '0'
             ? 'Sembunyikan lunas bulan lalu'
             : null,
+        filters.status ? null : 'Sembunyikan yang dibatalkan',
         query.trim() ? `Cari “${query.trim()}”` : null,
     ]
         .filter(Boolean)
@@ -626,7 +627,7 @@ export default function Index({
                         onChange={(e) => applyFilters('status', e.target.value)}
                         className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
                     >
-                        <option value="">Semua status</option>
+                        <option value="">Selain dibatalkan</option>
                         <option value="unpaid">Belum bayar</option>
                         <option value="paid">Lunas</option>
                         <option value="void">Dibatalkan</option>
@@ -1019,8 +1020,14 @@ export default function Index({
                                         : filters.hide_old_paid !== false &&
                                             filters.hide_old_paid !== 0 &&
                                             filters.hide_old_paid !== '0'
-                                          ? 'Tidak ada tagihan untuk ditampilkan. Lunas bulan lalu disembunyikan.'
-                                          : 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'}
+                                          ? `Tidak ada tagihan untuk ditampilkan. Lunas bulan lalu disembunyikan.${
+                                                filters.status
+                                                    ? ''
+                                                    : ' Tagihan yang dibatalkan juga disembunyikan.'
+                                            }`
+                                          : filters.status
+                                            ? 'Belum ada tagihan. Gunakan Generate Tagihan atau tambah pelanggan baru.'
+                                            : 'Belum ada tagihan aktif. Tagihan yang dibatalkan disembunyikan.'}
                                 </td>
                             </tr>
                         )}

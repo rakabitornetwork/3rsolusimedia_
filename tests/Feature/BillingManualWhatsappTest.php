@@ -169,6 +169,37 @@ class BillingManualWhatsappTest extends TestCase
     }
 
     #[Test]
+    public function billing_index_hides_void_invoices_unless_that_status_is_selected(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $customer = $this->customer();
+        $this->invoice($customer, ['number' => 'INV-OPEN']);
+        $this->invoice($customer, [
+            'number' => 'INV-VOID',
+            'status' => 'void',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/billing')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->has('invoices', 1)
+                ->where('invoices.0.number', 'INV-OPEN')
+            );
+
+        $this->actingAs($admin)
+            ->get('/admin/billing?status=void')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index')
+                ->where('filters.status', 'void')
+                ->has('invoices', 1)
+                ->where('invoices.0.number', 'INV-VOID')
+            );
+    }
+
+    #[Test]
     public function billing_index_defaults_per_page_to_20(): void
     {
         $admin = User::factory()->superadmin()->create();
