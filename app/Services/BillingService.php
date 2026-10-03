@@ -181,6 +181,68 @@ class BillingService
             ->exists();
     }
 
+    /**
+     * Sudah ada tagihan yang nominalnya ditentukan (belum bayar atau lunas).
+     */
+    public function hasDeterminedInvoice(PppoeCustomer $customer): bool
+    {
+        return Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->whereIn('status', ['unpaid', 'paid'])
+            ->exists();
+    }
+
+    /**
+     * Ganti paket pada pelanggan yang sudah jatuh tempo.
+     *
+     * Tagihan terbuka yang lama dibatalkan. Tagihan baru memakai harga penuh
+     * paket baru untuk satu siklus ke depan, jatuh tempo bulan berikutnya.
+     * Tanggal mulai layanan di bulan-bulan sebelumnya tidak ikut dihitung.
+     */
+    public function reissueNextMonthInvoiceForPackageChange(PppoeCustomer $customer): Invoice
+    {
+        $customer->loadMissing('package');
+
+        $price = (int) ($customer->package?->price ?? 0);
+        if ($price <= 0) {
+            throw new InvalidArgumentException('Paket baru belum punya harga yang valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        }
+
+        $unpaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->get();
+
+        foreach ($unpaid as $existing) {
+            if ((int) ($existing->billing_months ?: 1) > 1 || $existing->type === 'multi_month') {
+                throw new InvalidArgumentException(
+                    'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu sebelum mengganti paket.'
+                );
+            }
+        }
+
+        foreach ($unpaid as $existing) {
+            $this->voidInvoice(
+                $existing,
+                'Diganti paket layanan. Tagihan baru dibayar bulan berikutnya, tanpa hitungan tanggal mulai sebelumnya.'
+            );
+        }
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: 'monthly',
+            periodStart: $this->periodStartBeforeDue($customer),
+            periodEnd: $customer->due_date->toDateString(),
+            dueDate: $customer->due_date->toDateString(),
+            amount: $price,
+            notes: 'Tagihan bulanan paket baru. Jatuh tempo bulan berikutnya, tanpa hitungan tanggal mulai layanan sebelumnya.',
+        );
+    }
+
     public function hasProrataInvoiceHistory(PppoeCustomer $customer): bool
     {
         return Invoice::query()

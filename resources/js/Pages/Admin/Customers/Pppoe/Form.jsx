@@ -4,6 +4,7 @@ import DatePickerField from '../../../../Components/Admin/DatePickerField';
 import GpsMapPicker from '../../../../Components/Admin/GpsMapPicker';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import {
+    advanceDueDate,
     alignDueDate,
     billingDayFromDate,
     calculateProrata,
@@ -93,7 +94,34 @@ export default function Form({
         data.due_date !== customer.due_date ||
         String(data.subscription_package_id) !== String(customer.subscription_package_id);
 
+    const deferPackageToNextMonth =
+        editing &&
+        Boolean(customer.package_change_defers_to_next_month) &&
+        String(data.subscription_package_id) !== String(customer.subscription_package_id) &&
+        data.start_date === customer.start_date;
+
     const prorata = useMemo(() => {
+        if (deferPackageToNextMonth && selectedPackage && customer.due_date) {
+            const today = todayIso();
+            const day = billingDayFromDate(data.due_date || customer.due_date);
+            let nextDue = data.due_date && data.due_date > today ? alignDueDate(data.due_date) : null;
+            if (!nextDue || nextDue <= today) {
+                nextDue = advanceDueDate(customer.due_date, day);
+                if (nextDue && nextDue <= today) {
+                    nextDue = advanceDueDate(today, day);
+                }
+            }
+
+            return {
+                due_date: nextDue,
+                amount_label: selectedPackage.price_label,
+                days: null,
+                package_change: true,
+                summary:
+                    'Paket diganti. Tagihan bulan berikutnya memakai harga penuh paket baru. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung, dan tagihan jatuh tempo yang masih terbuka diganti.',
+            };
+        }
+
         if (
             editing &&
             !billingInputsChanged &&
@@ -118,10 +146,12 @@ export default function Form({
     }, [
         editing,
         billingInputsChanged,
+        deferPackageToNextMonth,
         customer,
         data.start_date,
         data.billing_day,
         data.due_date,
+        data.subscription_package_id,
         selectedPackage,
     ]);
 
@@ -521,24 +551,36 @@ export default function Form({
                         <div className="border border-signal/20 bg-white px-4 py-3 text-sm text-ink">
                             <div className="grid gap-2 sm:grid-cols-2">
                                 <p>
-                                    <span className="text-ink-soft">Jatuh tempo pertama:</span>{' '}
+                                    <span className="text-ink-soft">
+                                        {prorata.package_change
+                                            ? 'Jatuh tempo bulan berikutnya:'
+                                            : 'Jatuh tempo pertama:'}
+                                    </span>{' '}
                                     <strong>{prorata.due_date}</strong>
                                 </p>
                                 <p>
-                                    <span className="text-ink-soft">Tagihan pertama (prorata):</span>{' '}
+                                    <span className="text-ink-soft">
+                                        {prorata.package_change
+                                            ? 'Tagihan paket baru:'
+                                            : 'Tagihan pertama (prorata):'}
+                                    </span>{' '}
                                     <strong>{prorata.amount_label}</strong>
                                 </p>
                             </div>
                             <p className="mt-2 text-xs text-ink-soft">
-                                {prorata.stored
-                                    ? `Prorata tersimpan (${prorata.days ?? '—'} hari). Nominal ini tidak dihitung ulang saat catatan atau data lain disimpan.`
-                                    : prorata.summary}
+                                {prorata.package_change
+                                    ? prorata.summary
+                                    : prorata.stored
+                                      ? `Prorata tersimpan (${prorata.days ?? '—'} hari). Nominal ini tidak dihitung ulang saat catatan atau data lain disimpan.`
+                                      : prorata.summary}
                             </p>
-                            <p className="mt-1 text-xs text-ink-soft">
-                                Nilai dibulatkan ke atas kelipatan Rp 1.000. Bulan berikutnya
-                                pelanggan membayar harga penuh paket
-                                {selectedPackage ? ` (${selectedPackage.price_label})` : ''}.
-                            </p>
+                            {!prorata.package_change && (
+                                <p className="mt-1 text-xs text-ink-soft">
+                                    Nilai dibulatkan ke atas kelipatan Rp 1.000. Bulan berikutnya
+                                    pelanggan membayar harga penuh paket
+                                    {selectedPackage ? ` (${selectedPackage.price_label})` : ''}.
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <p className="text-xs text-amber-700">

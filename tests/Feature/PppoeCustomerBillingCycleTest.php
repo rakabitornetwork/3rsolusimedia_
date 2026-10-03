@@ -232,6 +232,345 @@ class PppoeCustomerBillingCycleTest extends TestCase
     }
 
     #[Test]
+    public function changing_package_on_due_customer_bills_next_month_without_old_start_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-03 09:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $upgrade = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '20 Mbps',
+            'price' => 250000,
+            'mikrotik_profile' => '20Mbps',
+            'is_active' => true,
+        ]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-01-03',
+            'billing_day' => 3,
+            'due_date' => '2026-10-03',
+            'first_bill_amount' => 150000,
+            'first_bill_days' => 31,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $current = Invoice::query()->create([
+            'number' => 'INV/2026/10/0001',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'prorata',
+            'billing_months' => 1,
+            'period_start' => '2026-01-03',
+            'period_end' => '2026-10-03',
+            'due_date' => '2026-10-03',
+            'amount' => 1350000,
+            'discount' => 0,
+            'total' => 1350000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+            'notes' => 'Tagihan pertama (prorata)',
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/admin/customers/pppoe/'.$customer->id.'/edit')
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $upgrade, [
+                'start_date' => '2026-01-03',
+                'due_date' => '2026-10-03',
+                'billing_day' => 3,
+                'service_profile' => '20Mbps',
+                'password' => '',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $customer->refresh();
+        $current->refresh();
+
+        $this->assertSame($upgrade->id, $customer->subscription_package_id);
+        $this->assertSame('2026-01-03', $customer->start_date?->toDateString());
+        $this->assertSame('2026-11-03', $customer->due_date?->toDateString());
+        $this->assertSame(3, $customer->billing_day);
+        $this->assertSame(150000, $customer->first_bill_amount);
+        $this->assertSame(31, $customer->first_bill_days);
+
+        $this->assertSame('void', $current->status);
+
+        $replacement = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->first();
+
+        $this->assertNotNull($replacement);
+        $this->assertSame('monthly', $replacement->type);
+        $this->assertSame($upgrade->id, $replacement->subscription_package_id);
+        $this->assertSame('2026-10-03', $replacement->period_start?->toDateString());
+        $this->assertSame('2026-11-03', $replacement->period_end?->toDateString());
+        $this->assertSame('2026-11-03', $replacement->due_date?->toDateString());
+        $this->assertSame(250000, $replacement->total);
+        $this->assertNotSame('2026-01-03', $replacement->period_start?->toDateString());
+    }
+
+    #[Test]
+    public function changing_package_keeps_paid_history_and_replaces_only_the_open_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-03 09:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $upgrade = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '30 Mbps',
+            'price' => 300000,
+            'mikrotik_profile' => '30Mbps',
+            'is_active' => true,
+        ]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-03-03',
+            'billing_day' => 3,
+            'due_date' => '2026-10-03',
+            'first_bill_amount' => 150000,
+            'first_bill_days' => 31,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $paid = Invoice::query()->create([
+            'number' => 'INV/2026/09/0008',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-08-03',
+            'period_end' => '2026-09-03',
+            'due_date' => '2026-09-03',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'paid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $open = Invoice::query()->create([
+            'number' => 'INV/2026/10/0002',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-09-03',
+            'period_end' => '2026-10-03',
+            'due_date' => '2026-10-03',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/admin/customers/pppoe/'.$customer->id.'/edit')
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $upgrade, [
+                'start_date' => '2026-03-03',
+                'due_date' => '2026-10-03',
+                'billing_day' => 3,
+                'service_profile' => '30Mbps',
+                'password' => '',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $customer->refresh();
+        $paid->refresh();
+        $open->refresh();
+
+        $this->assertSame('2026-11-03', $customer->due_date?->toDateString());
+        $this->assertSame('2026-03-03', $customer->start_date?->toDateString());
+        $this->assertSame('paid', $paid->status);
+        $this->assertSame(150000, $paid->total);
+        $this->assertSame('void', $open->status);
+
+        $replacement = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->first();
+
+        $this->assertSame(300000, $replacement?->total);
+        $this->assertSame('2026-10-03', $replacement?->period_start?->toDateString());
+        $this->assertSame('2026-11-03', $replacement?->due_date?->toDateString());
+    }
+
+    #[Test]
+    public function overdue_package_change_is_anchored_to_the_next_month_from_today(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-03 09:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $upgrade = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '20 Mbps',
+            'price' => 250000,
+            'mikrotik_profile' => '20Mbps',
+            'is_active' => true,
+        ]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-01-03',
+            'billing_day' => 3,
+            'due_date' => '2026-09-03',
+            'first_bill_amount' => 150000,
+            'first_bill_days' => 31,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        Invoice::query()->create([
+            'number' => 'INV/2026/09/0009',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-08-03',
+            'period_end' => '2026-09-03',
+            'due_date' => '2026-09-03',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->actingAs($admin)
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $upgrade, [
+                'start_date' => '2026-01-03',
+                'due_date' => '2026-09-03',
+                'billing_day' => 3,
+                'service_profile' => '20Mbps',
+                'password' => '',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $customer->refresh();
+        $replacement = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->first();
+
+        $this->assertSame('2026-11-03', $customer->due_date?->toDateString());
+        $this->assertSame('2026-11-03', $replacement?->due_date?->toDateString());
+        $this->assertSame('2026-10-03', $replacement?->period_start?->toDateString());
+        $this->assertSame(250000, $replacement?->total);
+    }
+
+    #[Test]
+    public function changing_package_and_due_does_not_prorate_from_the_old_start_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-03 09:00:00', 'Asia/Jakarta'));
+
+        [$admin, $router, $package] = $this->setupAdminRouter();
+        $this->mockSecretUpsert();
+
+        $upgrade = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '20 Mbps',
+            'price' => 250000,
+            'mikrotik_profile' => '20Mbps',
+            'is_active' => true,
+        ]);
+
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Budi Santoso',
+            'username' => 'budi01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'start_date' => '2026-07-03',
+            'billing_day' => 3,
+            'due_date' => '2026-08-03',
+            'first_bill_amount' => 150000,
+            'first_bill_days' => 31,
+            'overdue_action' => 'bypass',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        Invoice::query()->create([
+            'number' => 'INV/2026/08/0100',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'prorata',
+            'billing_months' => 1,
+            'period_start' => '2026-07-03',
+            'period_end' => '2026-08-03',
+            'due_date' => '2026-08-03',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->actingAs($admin)
+            ->put('/admin/customers/pppoe/'.$customer->id, $this->payload($router, $upgrade, [
+                'start_date' => '2026-07-03',
+                'due_date' => '2026-11-03',
+                'billing_day' => 3,
+                'service_profile' => '20Mbps',
+                'password' => '',
+            ]))
+            ->assertRedirect('/admin/customers/pppoe');
+
+        $customer->refresh();
+        $replacement = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->first();
+
+        $this->assertSame('2026-07-03', $customer->start_date?->toDateString());
+        $this->assertSame('2026-11-03', $customer->due_date?->toDateString());
+        $this->assertSame(150000, $customer->first_bill_amount);
+        $this->assertSame('monthly', $replacement?->type);
+        $this->assertSame(250000, $replacement?->total);
+        $this->assertSame('2026-10-03', $replacement?->period_start?->toDateString());
+        $this->assertSame('2026-11-03', $replacement?->due_date?->toDateString());
+        $this->assertNotSame('2026-07-03', $replacement?->period_start?->toDateString());
+    }
+
+    #[Test]
     public function billing_page_generates_invoice_when_due_date_is_today(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-20 13:00:00', 'Asia/Jakarta'));

@@ -21,9 +21,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 class PppoeCustomerController extends Controller
 {
@@ -347,9 +349,11 @@ class PppoeCustomerController extends Controller
         }
 
         $pppoe->load(['router', 'package']);
+        $customer = $pppoe->toSafeArray();
+        $customer['package_change_defers_to_next_month'] = $this->packageChangeDefersToNextMonth($pppoe);
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
-            'customer' => $pppoe->toSafeArray(),
+            'customer' => $customer,
             ...$this->formOptions($pppoe->mikrotik_router_id, $pppoe->subscription_package_id),
         ]);
     }
@@ -371,13 +375,24 @@ class PppoeCustomerController extends Controller
         }
 
         $billingUnchanged = $this->billingInputsUnchanged($validated, $pppoe);
+        $deferPackageToNextMonth = $this->shouldDeferPackageChangeToNextMonth($validated, $pppoe);
 
-        if ($billingUnchanged) {
+        if ($billingUnchanged || $deferPackageToNextMonth) {
             $validated['start_date'] = $pppoe->start_date?->toDateString();
-            $validated['due_date'] = $pppoe->due_date?->toDateString();
-            $validated['billing_day'] = $pppoe->billing_day;
             $validated['first_bill_amount'] = $pppoe->first_bill_amount;
             $validated['first_bill_days'] = $pppoe->first_bill_days;
+            if ($deferPackageToNextMonth) {
+                $validated['due_date'] = $this->nextMonthDueAfterPackageChange(
+                    $pppoe,
+                    $validated['due_date'] ?? null,
+                );
+                $validated['billing_day'] = $this->billing->normalizeBillingDay(
+                    (int) Carbon::parse($validated['due_date'])->day
+                );
+            } else {
+                $validated['billing_day'] = $pppoe->billing_day;
+                $validated['due_date'] = $pppoe->due_date?->toDateString();
+            }
         } else {
             $validated = $this->applyBillingCycle($validated, $package, $pppoe);
         }
@@ -400,16 +415,40 @@ class PppoeCustomerController extends Controller
             unset($payload['password']);
         }
 
-        $pppoe->update($payload);
-        $fresh = $pppoe->fresh(['router', 'package']);
-        $this->whatsappBinder->bindCustomer($fresh);
-        if (! $billingUnchanged) {
-            $this->billingService->ensureOpenInvoice($fresh);
+        try {
+            $invoice = DB::transaction(function () use ($pppoe, $payload, $billingUnchanged, $deferPackageToNextMonth) {
+                $pppoe->update($payload);
+                $fresh = $pppoe->fresh(['router', 'package']);
+                $this->whatsappBinder->bindCustomer($fresh);
+
+                if ($deferPackageToNextMonth) {
+                    return $this->billingService->reissueNextMonthInvoiceForPackageChange($fresh);
+                }
+
+                if (! $billingUnchanged) {
+                    $this->billingService->ensureOpenInvoice($fresh);
+                }
+
+                return null;
+            });
+        } catch (InvalidArgumentException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
         }
+
+        $fresh = $pppoe->fresh(['router', 'package']);
         $this->sync->sync($fresh, pushPassword: $passwordChanged);
 
+        $message = 'Pelanggan PPPoE berhasil diperbarui.';
+        if ($invoice) {
+            $dueLabel = $invoice->due_date?->format('d/m/Y') ?? '—';
+            $message = 'Paket layanan diubah. Tagihan '.$invoice->number
+                .' sebesar Rp '.number_format((int) $invoice->total, 0, ',', '.')
+                .' jatuh tempo '.$dueLabel
+                .'. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung.';
+        }
+
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
-            ->with('success', 'Pelanggan PPPoE berhasil diperbarui.');
+            ->with('success', $message);
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
@@ -867,6 +906,61 @@ class PppoeCustomerController extends Controller
             'secret_found' => (bool) ($secretResult['ok'] ?? false),
             'secret_message' => $secretResult['message'] ?? null,
         ];
+    }
+
+    /**
+     * Pelanggan yang sudah jatuh tempo dan tagihannya sudah ditentukan
+     * boleh ganti paket tanpa menghitung ulang dari tanggal mulai lama.
+     */
+    private function packageChangeDefersToNextMonth(PppoeCustomer $existing): bool
+    {
+        $due = $existing->due_date?->copy()->startOfDay();
+        if (! $due || $due->greaterThan(now()->startOfDay())) {
+            return false;
+        }
+
+        return $this->billingService->hasDeterminedInvoice($existing)
+            || (int) ($existing->first_bill_amount ?? 0) > 0;
+    }
+
+    private function shouldDeferPackageChangeToNextMonth(array $validated, PppoeCustomer $existing): bool
+    {
+        if (! $this->packageChangeDefersToNextMonth($existing)) {
+            return false;
+        }
+
+        if ((int) $validated['subscription_package_id'] === (int) $existing->subscription_package_id) {
+            return false;
+        }
+
+        $incomingStart = Carbon::parse($validated['start_date'])->toDateString();
+
+        return $incomingStart === $existing->start_date?->toDateString();
+    }
+
+    private function nextMonthDueAfterPackageChange(PppoeCustomer $existing, ?string $requestedDue = null): string
+    {
+        $billingDay = $this->billing->normalizeBillingDay(
+            (int) ($existing->billing_day ?: $existing->due_date?->day ?: 1)
+        );
+        $today = now()->startOfDay();
+
+        if ($requestedDue) {
+            $requestedDay = $this->billing->normalizeBillingDay((int) Carbon::parse($requestedDue)->day);
+            $aligned = $this->billing->alignToBillingDay($requestedDue, $requestedDay);
+            if ($aligned->greaterThan($today)) {
+                return $aligned->toDateString();
+            }
+
+            $billingDay = $requestedDay;
+        }
+
+        $next = $this->billing->advanceDueDate($existing->due_date, $billingDay);
+        if ($next->lessThanOrEqualTo($today)) {
+            $next = $this->billing->advanceDueDate($today, $billingDay);
+        }
+
+        return $next->toDateString();
     }
 
     /**
