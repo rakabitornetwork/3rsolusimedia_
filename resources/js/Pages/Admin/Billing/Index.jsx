@@ -115,8 +115,13 @@ function StatusBadge({ status, overdue, graceUntil }) {
 
 function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
     const customer = invoice.customer;
+    const paid = invoice.status === 'paid';
+    const waTemplates = (whatsapp?.templates || []).filter((item) =>
+        paid ? item.value === 'paid' || item.value === 'restore' : true,
+    );
     const canCombine =
         Boolean(customer?.id) &&
+        !paid &&
         !(
             invoice.status === 'unpaid' &&
             (invoice.billing_months > 1 || invoice.type === 'multi_month')
@@ -176,7 +181,7 @@ function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
                         <>
                             <p className="admin-row-menu-label">Kirim WhatsApp</p>
                             {whatsapp?.enabled
-                                ? (whatsapp.templates || []).map((item) => (
+                                ? waTemplates.map((item) => (
                                       <button
                                           key={item.value}
                                           type="button"
@@ -202,7 +207,7 @@ function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
                         </>
                     ) : null}
 
-                    {customer?.id && canGrantGrace ? (
+                    {customer?.id && canGrantGrace && !paid ? (
                         <>
                             <p className="admin-row-menu-label">Toleransi isolir</p>
                             {[3, 7, 14].map((days) => (

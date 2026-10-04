@@ -126,8 +126,13 @@ export default function Show({
         }, keepPage);
     };
 
+    const paid = invoice.status === 'paid';
+    const waTemplates = (whatsapp?.templates || []).filter((item) =>
+        paid ? item.value === 'paid' || item.value === 'restore' : true,
+    );
     const canCombine =
         invoice.customer &&
+        !paid &&
         !(
             invoice.status === 'unpaid' &&
             (invoice.billing_months > 1 || invoice.type === 'multi_month')
@@ -321,7 +326,7 @@ export default function Show({
                             </p>
                             {whatsapp.enabled ? (
                                 <div className="mt-4 flex flex-col gap-2">
-                                    {(whatsapp.templates || []).map((item) => (
+                                    {waTemplates.map((item) => (
                                         <button
                                             key={item.value}
                                             type="button"
@@ -347,7 +352,7 @@ export default function Show({
                         </div>
                     )}
 
-                    {invoice.customer && (
+                    {invoice.customer && !paid && (
                         <div className="border border-ink/10 bg-white p-6">
                             <h3 className="text-sm font-semibold text-ink">Toleransi isolir</h3>
                             <p className="mt-1 text-sm text-ink-soft">
