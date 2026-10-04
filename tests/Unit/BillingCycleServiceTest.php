@@ -4,11 +4,14 @@ namespace Tests\Unit;
 
 use App\Services\BillingCycleService;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class BillingCycleServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     private BillingCycleService $cycle;
 
     protected function setUp(): void
@@ -87,5 +90,21 @@ class BillingCycleServiceTest extends TestCase
         $next = $this->cycle->nextDueDate('2026-08-20', 20);
 
         $this->assertSame('2026-09-20', $next->toDateString());
+    }
+
+    #[Test]
+    public function package_delta_rounds_the_remaining_days(): void
+    {
+        $delta = $this->cycle->signedRoundedDelta(150000, 250000, 15, 30);
+
+        $this->assertSame(50000, $delta);
+        $this->assertSame(-25000, $this->cycle->signedRoundedDelta(150000, 100000, 15, 30));
+    }
+
+    #[Test]
+    public function span_charge_uses_full_price_for_a_full_cycle(): void
+    {
+        $this->assertSame(150000, $this->cycle->chargeForSpan(150000, 31, 31));
+        $this->assertSame(78000, $this->cycle->chargeForSpan(150000, 16, 31));
     }
 }

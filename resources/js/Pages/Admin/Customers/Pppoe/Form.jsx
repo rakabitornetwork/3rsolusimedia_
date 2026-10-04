@@ -7,7 +7,11 @@ import {
     advanceDueDate,
     alignDueDate,
     billingDayFromDate,
+    calculatePackageDelta,
     calculateProrata,
+    calculateSpanCharge,
+    calculateStopCharge,
+    periodStartBeforeDue,
     suggestedDueDate,
 } from '../../../../Utils/billingCycle';
 
@@ -70,6 +74,9 @@ export default function Form({
         isolir_profile: customer?.isolir_profile || prefill?.isolir_profile || '',
         notes: customer?.notes || (fromSession ? 'Diimpor dari sesi aktif PPPoE' : ''),
         is_active: customer?.is_active ?? true,
+        service_change_date: todayIso(),
+        stop_date: customer?.stopped_at || todayIso(),
+        reactivate_date: todayIso(),
     });
 
     const routerPackages = useMemo(
@@ -100,7 +107,56 @@ export default function Form({
         String(data.subscription_package_id) !== String(customer.subscription_package_id) &&
         data.start_date === customer.start_date;
 
+    const packageChanged =
+        editing &&
+        String(data.subscription_package_id) !== String(customer.subscription_package_id);
+    const dueChanged = editing && data.due_date !== customer.due_date;
+    const midCyclePackageChange =
+        packageChanged &&
+        !deferPackageToNextMonth &&
+        Boolean(customer.has_paid_invoice) &&
+        customer.due_date > todayIso();
+    const billingDateChange = dueChanged && !packageChanged && Boolean(customer.has_paid_invoice);
+    const stopping = editing && customer.is_active && !data.is_active;
+    const reactivating = editing && !customer.is_active && data.is_active;
+
     const prorata = useMemo(() => {
+        if (stopping && customer.due_date && selectedPackage) {
+            const periodStart = periodStartBeforeDue(customer.due_date, customer.billing_day);
+            const settlement = calculateStopCharge(
+                periodStart,
+                customer.due_date,
+                data.stop_date,
+                selectedPackage.price,
+            );
+            if (settlement) {
+                return {
+                    due_date: data.stop_date,
+                    amount_label: settlement.amount_label,
+                    due_label: 'Berhenti pada:',
+                    amount_label_title: 'Tagihan pemakaian:',
+                    summary: settlement.summary,
+                };
+            }
+        }
+
+        if (reactivating && data.reactivate_date && data.due_date && selectedPackage) {
+            const reactivation = calculateProrata(
+                data.reactivate_date,
+                data.billing_day,
+                selectedPackage.price,
+                data.due_date,
+            );
+            if (reactivation) {
+                return {
+                    ...reactivation,
+                    due_label: 'Jatuh tempo:',
+                    amount_label_title: 'Prorata aktivasi kembali:',
+                    summary: `Prorata dari ${data.reactivate_date} sampai jatuh tempo. ${reactivation.summary}`,
+                };
+            }
+        }
+
         if (deferPackageToNextMonth && selectedPackage && customer.due_date) {
             const today = todayIso();
             const day = billingDayFromDate(data.due_date || customer.due_date);
@@ -118,8 +174,45 @@ export default function Form({
                 days: null,
                 package_change: true,
                 summary:
-                    'Paket diganti. Tagihan bulan berikutnya memakai harga penuh paket baru. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung, dan tagihan jatuh tempo yang masih terbuka diganti.',
+                    'Paket diganti. Tagihan bulan berikutnya memakai harga penuh paket baru. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung, dan tagihan jatuh tempo yang masih terbuka diganti. Sesi PPPoE diputus agar profile baru langsung dipakai.',
             };
+        }
+
+        if (midCyclePackageChange && selectedPackage && customer.due_date && !dueChanged) {
+            const periodStart = periodStartBeforeDue(customer.due_date, customer.billing_day);
+            const delta = calculatePackageDelta(
+                periodStart,
+                customer.due_date,
+                data.service_change_date,
+                customer.package?.price,
+                selectedPackage.price,
+            );
+            if (delta) {
+                return {
+                    due_date: customer.due_date,
+                    amount_label: delta.amount_label,
+                    due_label: 'Jatuh tempo siklus ini:',
+                    amount_label_title: delta.direction === 'credit' ? 'Kredit:' : 'Tagihan selisih:',
+                    summary: `${delta.summary} Profile RouterOS diganti saat disimpan dan sesi yang sedang tersambung diputus.`,
+                };
+            }
+        }
+
+        if (billingDateChange && selectedPackage && customer.last_paid_due_date) {
+            const moved = calculateSpanCharge(
+                customer.last_paid_due_date,
+                data.due_date,
+                selectedPackage.price,
+            );
+            if (moved) {
+                return {
+                    due_date: moved.due_date,
+                    amount_label: moved.amount_label,
+                    due_label: 'Jatuh tempo baru:',
+                    amount_label_title: 'Tagihan dari bulan lunas:',
+                    summary: `${moved.summary} Tagihan awal pendaftaran tidak dihitung.`,
+                };
+            }
         }
 
         if (
@@ -147,11 +240,19 @@ export default function Form({
         editing,
         billingInputsChanged,
         deferPackageToNextMonth,
+        midCyclePackageChange,
+        billingDateChange,
+        stopping,
+        reactivating,
+        dueChanged,
         customer,
         data.start_date,
         data.billing_day,
         data.due_date,
         data.subscription_package_id,
+        data.service_change_date,
+        data.stop_date,
+        data.reactivate_date,
         selectedPackage,
     ]);
 
@@ -361,6 +462,15 @@ export default function Form({
                     </label>
                 </div>
 
+                {midCyclePackageChange && (
+                    <DatePickerField
+                        label="Tanggal ganti layanan"
+                        value={data.service_change_date}
+                        onChange={(value) => setData('service_change_date', value)}
+                        error={errors.service_change_date}
+                    />
+                )}
+
                 {agents.length > 0 && (
                     <div className="space-y-3">
                         <label className="block text-sm font-medium text-ink">
@@ -552,17 +662,19 @@ export default function Form({
                             <div className="grid gap-2 sm:grid-cols-2">
                                 <p>
                                     <span className="text-ink-soft">
-                                        {prorata.package_change
-                                            ? 'Jatuh tempo bulan berikutnya:'
-                                            : 'Jatuh tempo pertama:'}
+                                        {prorata.due_label ||
+                                            (prorata.package_change
+                                                ? 'Jatuh tempo bulan berikutnya:'
+                                                : 'Jatuh tempo pertama:')}
                                     </span>{' '}
                                     <strong>{prorata.due_date}</strong>
                                 </p>
                                 <p>
                                     <span className="text-ink-soft">
-                                        {prorata.package_change
-                                            ? 'Tagihan paket baru:'
-                                            : 'Tagihan pertama (prorata):'}
+                                        {prorata.amount_label_title ||
+                                            (prorata.package_change
+                                                ? 'Tagihan paket baru:'
+                                                : 'Tagihan pertama (prorata):')}
                                     </span>{' '}
                                     <strong>{prorata.amount_label}</strong>
                                 </p>
@@ -574,7 +686,7 @@ export default function Form({
                                       ? `Prorata tersimpan (${prorata.days ?? '—'} hari). Nominal ini tidak dihitung ulang saat catatan atau data lain disimpan.`
                                       : prorata.summary}
                             </p>
-                            {!prorata.package_change && (
+                            {!prorata.package_change && !prorata.due_label && (
                                 <p className="mt-1 text-xs text-ink-soft">
                                     Nilai dibulatkan ke atas kelipatan Rp 1.000. Bulan berikutnya
                                     pelanggan membayar harga penuh paket
@@ -670,7 +782,23 @@ export default function Form({
                         <input
                             type="checkbox"
                             checked={data.is_active}
-                            onChange={(e) => setData('is_active', e.target.checked)}
+                            onChange={(e) => {
+                                const checked = e.target.checked;
+                                setData((current) => {
+                                    const next = { ...current, is_active: checked };
+                                    if (checked && customer && !customer.is_active) {
+                                        const from = current.reactivate_date || todayIso();
+                                        if (!current.due_date || current.due_date <= from) {
+                                            const suggested = suggestedDueDate(from, current.billing_day);
+                                            next.due_date = suggested;
+                                            next.billing_day = suggested
+                                                ? billingDayFromDate(suggested)
+                                                : current.billing_day;
+                                        }
+                                    }
+                                    return next;
+                                });
+                            }}
                         />
                         Pelanggan aktif
                     </label>
@@ -679,6 +807,38 @@ export default function Form({
                         di-disable. Ini berbeda dari <strong>Isolir</strong> (otomatis saat lewat
                         jatuh tempo).
                     </p>
+                    {stopping && (
+                        <div className="mt-3">
+                            <DatePickerField
+                                label="Tanggal berhenti"
+                                value={data.stop_date}
+                                onChange={(value) => setData('stop_date', value)}
+                                error={errors.stop_date}
+                            />
+                            <p className="mt-1 text-xs text-ink-soft">
+                                Tagihan dihitung sampai tanggal ini jika masih sebelum jatuh tempo.
+                                Secret PPPoE dinonaktifkan.
+                            </p>
+                        </div>
+                    )}
+                    {reactivating && (
+                        <div className="mt-3">
+                            <DatePickerField
+                                label="Tanggal aktif kembali"
+                                value={data.reactivate_date}
+                                onChange={(value) => setData('reactivate_date', value)}
+                                error={errors.reactivate_date}
+                            />
+                            <p className="mt-1 text-xs text-ink-soft">
+                                Prorata dihitung dari tanggal ini sampai jatuh tempo yang dipilih.
+                            </p>
+                        </div>
+                    )}
+                    {editing && Number(customer.billing_credit) > 0 && (
+                        <p className="mt-2 text-xs text-ink-soft">
+                            Kredit tagihan tersimpan: <strong>{customer.billing_credit_label}</strong>
+                        </p>
+                    )}
                 </div>
 
                 <div className="rounded-sm border border-ink/10 bg-mist/40 px-4 py-3 text-xs leading-relaxed text-ink-soft">

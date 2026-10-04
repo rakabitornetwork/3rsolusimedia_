@@ -194,4 +194,57 @@ class BillingCycleService
     {
         return max(1, min(28, $billingDay));
     }
+
+    /**
+     * Awal siklus yang berakhir pada tanggal jatuh tempo (satu bulan sebelumnya).
+     */
+    public function periodStart(CarbonInterface|string $due, int $billingDay): Carbon
+    {
+        $billingDay = $this->normalizeBillingDay($billingDay);
+        $dueDate = Carbon::parse($due)->startOfDay();
+
+        return $this->alignToBillingDay($dueDate->copy()->subMonthNoOverflow(), $billingDay);
+    }
+
+    public function cycleLength(CarbonInterface|string $due, int $billingDay): int
+    {
+        $end = Carbon::parse($due)->startOfDay();
+
+        return max(1, (int) $this->periodStart($end, $billingDay)->diffInDays($end));
+    }
+
+    /**
+     * Selisih harga yang sudah dibulatkan. Positif = tagihan tambahan, negatif = kredit.
+     */
+    public function signedRoundedDelta(int $oldPrice, int $newPrice, int $remainingDays, int $cycleDays): int
+    {
+        if ($remainingDays <= 0 || $cycleDays <= 0 || $oldPrice === $newPrice) {
+            return 0;
+        }
+
+        $raw = (int) round(($newPrice - $oldPrice) * $remainingDays / $cycleDays);
+        if ($raw === 0) {
+            return 0;
+        }
+
+        $rounded = $this->roundUpToThousand(abs($raw));
+
+        return $raw > 0 ? $rounded : -$rounded;
+    }
+
+    /**
+     * Nominal pemakaian sekian hari dalam satu siklus. Satu siklus penuh = harga paket.
+     */
+    public function chargeForSpan(int $price, int $usedDays, int $cycleDays): int
+    {
+        if ($usedDays <= 0 || $price <= 0 || $cycleDays <= 0) {
+            return 0;
+        }
+
+        if ($usedDays === $cycleDays) {
+            return $price;
+        }
+
+        return $this->roundUpToThousand((int) round($price * $usedDays / $cycleDays));
+    }
 }

@@ -19,8 +19,10 @@ class PppoeSyncService
      * @param  bool  $pushPassword  true hanya saat create/update password sengaja diganti.
      *                              Isolir, lunas, grace, dan sync rutin tidak boleh
      *                              menimpa password secret yang sudah ada di MikroTik.
+     * @param  bool  $forceDisconnect  putus sesi aktif supaya CPE reconnect ke profile baru
+     *                                 (ganti paket / aktivasi kembali).
      */
-    public function sync(PppoeCustomer $customer, bool $pushPassword = false): void
+    public function sync(PppoeCustomer $customer, bool $pushPassword = false, bool $forceDisconnect = false): void
     {
         $customer->loadMissing(['router', 'package']);
 
@@ -57,10 +59,10 @@ class PppoeSyncService
             $status = 'isolated';
         }
 
-        // Putus sesi saat isolir ATAU saat restore dari isolir ke profile paket,
-        // agar CPE reconnect dengan profile yang benar. Pelanggan yang sudah aktif
-        // (mis. bayar sebelum jatuh tempo) tidak diputus.
-        $disconnectActive = $status === 'isolated'
+        // Putus sesi saat isolir, pulih dari isolir, atau profile layanan baru
+        // supaya CPE reconnect dan langsung memakai profile yang benar.
+        $disconnectActive = $forceDisconnect
+            || $status === 'isolated'
             || ($wasIsolated && $status === 'active');
 
         $password = (string) ($customer->password ?? '');

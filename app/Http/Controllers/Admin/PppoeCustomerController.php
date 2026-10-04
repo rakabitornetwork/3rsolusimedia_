@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
@@ -351,6 +352,16 @@ class PppoeCustomerController extends Controller
         $pppoe->load(['router', 'package']);
         $customer = $pppoe->toSafeArray();
         $customer['package_change_defers_to_next_month'] = $this->packageChangeDefersToNextMonth($pppoe);
+        $lastPaidDue = Invoice::query()
+            ->where('pppoe_customer_id', $pppoe->id)
+            ->where('status', 'paid')
+            ->orderByDesc('due_date')
+            ->orderByDesc('id')
+            ->value('due_date');
+        $customer['has_paid_invoice'] = $lastPaidDue !== null;
+        $customer['last_paid_due_date'] = $lastPaidDue
+            ? Carbon::parse($lastPaidDue)->toDateString()
+            : null;
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => $customer,
@@ -366,41 +377,76 @@ class PppoeCustomerController extends Controller
         }
 
         $validated = $this->validateCustomer($request, $pppoe);
+        $pppoe->loadMissing('package');
         $package = isset($validated['subscription_package_id'])
             ? SubscriptionPackage::query()->find($validated['subscription_package_id'])
             : null;
 
-        if ($package && empty($validated['service_profile'])) {
+        $packageChanged = (int) ($validated['subscription_package_id'] ?? 0) !== (int) $pppoe->subscription_package_id;
+        if ($package && ($packageChanged || empty($validated['service_profile']))) {
             $validated['service_profile'] = $package->mikrotik_profile;
         }
 
+        $isActive = $request->boolean('is_active');
+        $wasActive = (bool) $pppoe->is_active;
+        $stopping = $wasActive && ! $isActive;
+        $reactivating = ! $wasActive && $isActive;
+        $oldPrice = (int) ($pppoe->package?->price ?? 0);
+        $oldProfile = (string) ($pppoe->service_profile ?? '');
+        $requestedDue = $validated['due_date'] ?? null;
+        $dueChanged = Carbon::parse($validated['due_date'])->toDateString() !== $pppoe->due_date?->toDateString();
+        $hasPaid = $this->billingService->hasPaidInvoice($pppoe);
         $billingUnchanged = $this->billingInputsUnchanged($validated, $pppoe);
         $deferPackageToNextMonth = $this->shouldDeferPackageChangeToNextMonth($validated, $pppoe);
+        $midCyclePackageChange = $packageChanged
+            && ! $deferPackageToNextMonth
+            && $hasPaid
+            && $pppoe->due_date
+            && $pppoe->due_date->copy()->startOfDay()->greaterThan(now()->startOfDay());
 
-        if ($billingUnchanged || $deferPackageToNextMonth) {
-            $validated['start_date'] = $pppoe->start_date?->toDateString();
-            $validated['first_bill_amount'] = $pppoe->first_bill_amount;
-            $validated['first_bill_days'] = $pppoe->first_bill_days;
+        $stopDate = Carbon::parse($validated['stop_date'] ?? now()->toDateString())->startOfDay();
+        $reactivateDate = Carbon::parse($validated['reactivate_date'] ?? now()->toDateString())->startOfDay();
+        $changeDate = Carbon::parse($validated['service_change_date'] ?? now()->toDateString())->startOfDay();
+
+        if (
+            $stopping
+            && $pppoe->due_date
+            && $stopDate->greaterThan($pppoe->due_date->copy()->startOfDay())
+            && $pppoe->due_date->copy()->startOfDay()->greaterThanOrEqualTo(now()->startOfDay())
+        ) {
+            return back()->withInput()->with('error', 'Tanggal berhenti harus pada atau sebelum jatuh tempo.');
+        }
+
+        if ($reactivating && Carbon::parse($validated['due_date'])->startOfDay()->lessThanOrEqualTo($reactivateDate)) {
+            return back()->withInput()->with('error', 'Tanggal jatuh tempo harus setelah tanggal aktif kembali.');
+        }
+
+        if ($stopping) {
+            $validated = $this->preserveHistoricalBilling($validated, $pppoe);
+            $validated['stopped_at'] = $stopDate->toDateString();
+        } elseif ($reactivating) {
+            $validated = $this->preserveHistoricalBilling($validated, $pppoe, keepDue: false);
+            $validated['stopped_at'] = null;
+            $validated['reactivated_at'] = $reactivateDate->toDateString();
+        } elseif ($billingUnchanged || $deferPackageToNextMonth) {
+            $validated = $this->preserveHistoricalBilling($validated, $pppoe);
             if ($deferPackageToNextMonth) {
                 $validated['due_date'] = $this->nextMonthDueAfterPackageChange(
                     $pppoe,
-                    $validated['due_date'] ?? null,
+                    is_string($requestedDue) ? $requestedDue : null,
                 );
                 $validated['billing_day'] = $this->billing->normalizeBillingDay(
                     (int) Carbon::parse($validated['due_date'])->day
                 );
-            } else {
-                $validated['billing_day'] = $pppoe->billing_day;
-                $validated['due_date'] = $pppoe->due_date?->toDateString();
             }
+        } elseif ($hasPaid && ($dueChanged || $midCyclePackageChange)) {
+            $validated = $this->preserveHistoricalBilling($validated, $pppoe, keepDue: $dueChanged === false);
         } else {
             $validated = $this->applyBillingCycle($validated, $package, $pppoe);
         }
 
-        $isActive = $request->boolean('is_active');
-
         $payload = [
-            ...$validated,
+            ...$this->customerColumns($validated),
             'is_active' => $isActive,
             'status' => $isActive ? $pppoe->status : 'disabled',
         ];
@@ -416,39 +462,83 @@ class PppoeCustomerController extends Controller
         }
 
         try {
-            $invoice = DB::transaction(function () use ($pppoe, $payload, $billingUnchanged, $deferPackageToNextMonth) {
+            $result = DB::transaction(function () use (
+                $pppoe,
+                $payload,
+                $billingUnchanged,
+                $deferPackageToNextMonth,
+                $stopping,
+                $reactivating,
+                $stopDate,
+                $reactivateDate,
+                $midCyclePackageChange,
+                $dueChanged,
+                $hasPaid,
+                $packageChanged,
+                $oldPrice,
+                $changeDate,
+            ) {
                 $pppoe->update($payload);
                 $fresh = $pppoe->fresh(['router', 'package']);
                 $this->whatsappBinder->bindCustomer($fresh);
 
+                if ($stopping) {
+                    return ['kind' => 'stop', ...$this->billingService->settleStoppedService($fresh, $stopDate)];
+                }
+
+                if ($reactivating) {
+                    return [
+                        'kind' => 'reactivate',
+                        'invoice' => $this->billingService->createReactivationInvoice($fresh, $reactivateDate),
+                    ];
+                }
+
                 if ($deferPackageToNextMonth) {
-                    return $this->billingService->reissueNextMonthInvoiceForPackageChange($fresh);
+                    return [
+                        'kind' => 'defer',
+                        'invoice' => $this->billingService->reissueNextMonthInvoiceForPackageChange($fresh),
+                    ];
+                }
+
+                if ($midCyclePackageChange && ! $dueChanged) {
+                    return [
+                        'kind' => 'mid',
+                        ...$this->billingService->applyMidCyclePackageChange($fresh, $oldPrice, $changeDate),
+                    ];
+                }
+
+                if ($hasPaid && $dueChanged) {
+                    return [
+                        'kind' => 'due',
+                        ...$this->billingService->reissueInvoiceForBillingDateChange(
+                            $fresh,
+                            $packageChanged ? $oldPrice : null,
+                            $packageChanged ? $changeDate : null,
+                        ),
+                    ];
                 }
 
                 if (! $billingUnchanged) {
                     $this->billingService->ensureOpenInvoice($fresh);
                 }
 
-                return null;
+                return ['kind' => 'none'];
             });
         } catch (InvalidArgumentException $exception) {
             return back()->withInput()->with('error', $exception->getMessage());
         }
 
         $fresh = $pppoe->fresh(['router', 'package']);
-        $this->sync->sync($fresh, pushPassword: $passwordChanged);
-
-        $message = 'Pelanggan PPPoE berhasil diperbarui.';
-        if ($invoice) {
-            $dueLabel = $invoice->due_date?->format('d/m/Y') ?? '—';
-            $message = 'Paket layanan diubah. Tagihan '.$invoice->number
-                .' sebesar Rp '.number_format((int) $invoice->total, 0, ',', '.')
-                .' jatuh tempo '.$dueLabel
-                .'. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung.';
-        }
+        $profileChanged = (string) ($fresh->service_profile ?? '') !== $oldProfile
+            && (string) ($fresh->service_profile ?? '') !== '';
+        $this->sync->sync(
+            $fresh,
+            pushPassword: $passwordChanged,
+            forceDisconnect: $profileChanged || $packageChanged || $reactivating,
+        );
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
-            ->with('success', $message);
+            ->with('success', $this->customerUpdateMessage($result, $profileChanged || $packageChanged));
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
@@ -835,6 +925,9 @@ class PppoeCustomerController extends Controller
                 'notes' => ['nullable', 'string', 'max:1000'],
                 'is_active' => ['nullable', 'boolean'],
                 'agent_pays_commission' => ['sometimes', 'boolean'],
+                'stop_date' => ['nullable', 'date'],
+                'service_change_date' => ['nullable', 'date'],
+                'reactivate_date' => ['nullable', 'date'],
             ],
             [
                 'subscription_package_id.exists' => 'Paket langganan tidak tersedia untuk router yang dipilih.',
@@ -961,6 +1054,125 @@ class PppoeCustomerController extends Controller
         }
 
         return $next->toDateString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function preserveHistoricalBilling(array $validated, PppoeCustomer $existing, bool $keepDue = true): array
+    {
+        $validated['start_date'] = $existing->start_date?->toDateString();
+        $validated['first_bill_amount'] = $existing->first_bill_amount;
+        $validated['first_bill_days'] = $existing->first_bill_days;
+
+        if ($keepDue) {
+            $validated['billing_day'] = $existing->billing_day;
+            $validated['due_date'] = $existing->due_date?->toDateString();
+        } else {
+            $validated['billing_day'] = $this->billingDayFromInput($validated);
+            $validated['due_date'] = $this->explicitDueFromInput($validated, (int) $validated['billing_day'])
+                ?? $existing->due_date?->toDateString();
+        }
+
+        return $validated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function customerColumns(array $validated): array
+    {
+        unset($validated['stop_date'], $validated['service_change_date'], $validated['reactivate_date']);
+
+        return $validated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function customerUpdateMessage(array $result, bool $disconnectForNewProfile): string
+    {
+        $kind = $result['kind'] ?? 'none';
+        $invoice = $result['invoice'] ?? null;
+        $format = static fn (int $amount): string => 'Rp '.number_format($amount, 0, ',', '.');
+        $disconnectNote = $disconnectForNewProfile
+            ? ' Sesi PPPoE diputus agar profile baru langsung dipakai.'
+            : '';
+
+        return match ($kind) {
+            'stop' => $this->stopUpdateMessage($result, $format),
+            'reactivate' => $invoice instanceof Invoice
+                ? 'Pelanggan diaktifkan kembali. Tagihan prorata '.$invoice->number
+                    .' sebesar '.$format((int) $invoice->total)
+                    .' jatuh tempo '.($invoice->due_date?->format('d/m/Y') ?? '—')
+                    .'. Dihitung dari tanggal aktif kembali sampai jatuh tempo.'
+                    .' Sesi PPPoE diputus agar profile paket langsung dipakai.'
+                : 'Pelanggan diaktifkan kembali.',
+            'defer' => ($invoice instanceof Invoice
+                ? 'Paket layanan diubah. Tagihan '.$invoice->number
+                    .' sebesar '.$format((int) $invoice->total)
+                    .' jatuh tempo '.($invoice->due_date?->format('d/m/Y') ?? '—')
+                    .'. Tanggal mulai layanan pada bulan sebelumnya tidak dihitung.'
+                : 'Paket layanan diubah.').$disconnectNote,
+            'mid' => $this->midCycleUpdateMessage($result, $format).$disconnectNote,
+            'due' => ($invoice instanceof Invoice
+                ? 'Tanggal tagihan diubah. Tagihan '.$invoice->number
+                    .' sebesar '.$format((int) $invoice->total)
+                    .' dihitung dari jatuh tempo terakhir yang sudah lunas ('
+                    .Carbon::parse($result['anchor'] ?? $invoice->period_start)->format('d/m/Y')
+                    .'), tanpa tagihan awal pendaftaran.'
+                : 'Tanggal tagihan diubah. Tagihan awal pendaftaran tidak dihitung ulang.')
+                .$disconnectNote,
+            default => 'Pelanggan PPPoE berhasil diperbarui.',
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @param  callable(int): string  $format
+     */
+    private function stopUpdateMessage(array $result, callable $format): string
+    {
+        $invoice = $result['invoice'] ?? null;
+        $credit = (int) ($result['credit'] ?? 0);
+
+        if ($invoice instanceof Invoice) {
+            return 'Layanan dihentikan. Tagihan pemakaian '.$invoice->number
+                .' sebesar '.$format((int) $invoice->total)
+                .' sampai '.($invoice->period_end?->format('d/m/Y') ?? 'tanggal berhenti').'.';
+        }
+
+        if ($credit > 0) {
+            return 'Layanan dihentikan. Pemakaian sampai tanggal berhenti lebih kecil dari yang sudah dibayar. Kredit '
+                .$format($credit).' dipakai pada tagihan berikutnya.';
+        }
+
+        return 'Layanan dihentikan. Tidak ada tagihan tambahan untuk tanggal berhenti ini.';
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @param  callable(int): string  $format
+     */
+    private function midCycleUpdateMessage(array $result, callable $format): string
+    {
+        $invoice = $result['invoice'] ?? null;
+        $credit = (int) ($result['credit'] ?? 0);
+
+        if ($invoice instanceof Invoice) {
+            return 'Paket layanan diubah di tengah siklus. Tagihan selisih '.$invoice->number
+                .' sebesar '.$format((int) $invoice->total)
+                .' jatuh tempo '.($invoice->due_date?->format('d/m/Y') ?? '—').'.';
+        }
+
+        if ($credit > 0) {
+            return 'Paket layanan diturunkan. Kredit '.$format($credit)
+                .' mengurangi tagihan yang masih terbuka atau tagihan berikutnya.';
+        }
+
+        return 'Paket layanan diubah.';
     }
 
     /**

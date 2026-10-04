@@ -154,4 +154,112 @@ export function calculateProrata(startDateValue, billingDay, packagePrice, dueDa
     };
 }
 
+function formatRp(value) {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+    }).format(value);
+}
+
+export function periodStartBeforeDue(dueValue, billingDay) {
+    const due = parseDate(dueValue);
+    if (!due) return null;
+    const day = normalizeBillingDay(billingDay ?? due.getDate());
+    const prev = new Date(due.getFullYear(), due.getMonth() - 1, 1);
+    return formatDate(dateOnBillingDay(prev, day));
+}
+
+export function calculateSpanCharge(fromValue, toValue, price) {
+    const from = parseDate(fromValue);
+    const to = parseDate(alignDueDate(toValue));
+    if (!from || !to || to <= from) return null;
+
+    const day = billingDayFromDate(formatDate(to));
+    const cycleStart = parseDate(periodStartBeforeDue(formatDate(to), day));
+    const cycleDays = Math.max(1, diffInDays(cycleStart, to));
+    const usedDays = Math.max(0, diffInDays(from, to));
+    const packagePrice = Number(price) || 0;
+    const full = usedDays === cycleDays;
+    const raw = full ? packagePrice : Math.round((packagePrice * usedDays) / cycleDays);
+    const amount = full ? packagePrice : roundUpToThousand(raw);
+
+    return {
+        from: formatDate(from),
+        due_date: formatDate(to),
+        days: usedDays,
+        cycle_days: cycleDays,
+        amount,
+        amount_label: formatRp(amount),
+        summary: `Dihitung dari ${formatDate(from)} s/d ${formatDate(to)} (${usedDays}/${cycleDays} hari) = ${formatRp(amount)}`,
+    };
+}
+
+export function calculatePackageDelta(periodStartValue, dueValue, changeValue, oldPrice, newPrice) {
+    const start = parseDate(periodStartValue);
+    const due = parseDate(dueValue);
+    const change = parseDate(changeValue);
+    if (!start || !due || !change || change < start || change >= due) return null;
+
+    const cycleDays = Math.max(1, diffInDays(start, due));
+    const remaining = Math.max(0, diffInDays(change, due));
+    const raw = Math.round(((Number(newPrice) - Number(oldPrice)) * remaining) / cycleDays);
+    if (raw === 0) {
+        return {
+            remaining,
+            cycle_days: cycleDays,
+            amount: 0,
+            amount_label: formatRp(0),
+            direction: 'none',
+            summary: 'Tidak ada selisih harga untuk sisa hari sampai jatuh tempo.',
+        };
+    }
+
+    const rounded = roundUpToThousand(Math.abs(raw));
+    const amount = raw > 0 ? rounded : -rounded;
+
+    return {
+        remaining,
+        cycle_days: cycleDays,
+        amount,
+        amount_label: formatRp(Math.abs(amount)),
+        direction: amount > 0 ? 'charge' : 'credit',
+        summary:
+            amount > 0
+                ? `Selisih naik paket ${remaining}/${cycleDays} hari sampai jatuh tempo = ${formatRp(amount)}`
+                : `Kredit turun paket ${remaining}/${cycleDays} hari = ${formatRp(Math.abs(amount))}`,
+    };
+}
+
+export function calculateStopCharge(periodStartValue, dueValue, stopValue, price) {
+    const start = parseDate(periodStartValue);
+    const due = parseDate(dueValue);
+    const stop = parseDate(stopValue);
+    if (!start || !due || !stop) return null;
+
+    if (stop >= due) {
+        return {
+            amount: 0,
+            amount_label: formatRp(0),
+            summary: 'Tanggal berhenti pada atau sesudah jatuh tempo. Tagihan periode ini tidak dipotong.',
+        };
+    }
+
+    const usedStop = stop < start ? start : stop;
+    const cycleDays = Math.max(1, diffInDays(start, due));
+    const usedDays = Math.max(0, diffInDays(start, usedStop));
+    const packagePrice = Number(price) || 0;
+    const full = usedDays === cycleDays;
+    const raw = full ? packagePrice : Math.round((packagePrice * usedDays) / cycleDays);
+    const amount = full ? packagePrice : roundUpToThousand(raw);
+
+    return {
+        days: usedDays,
+        cycle_days: cycleDays,
+        amount,
+        amount_label: formatRp(amount),
+        summary: `Pemakaian ${formatDate(start)} s/d ${formatDate(usedStop)} (${usedDays}/${cycleDays} hari) = ${formatRp(amount)}`,
+    };
+}
+
 export const billingDayOptions = Array.from({ length: 28 }, (_, i) => i + 1);

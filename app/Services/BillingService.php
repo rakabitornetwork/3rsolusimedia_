@@ -170,6 +170,7 @@ class BillingService
             amount: $amount,
             notes: $type === 'prorata' ? 'Tagihan pertama (prorata)' : 'Tagihan bulanan',
             notify: $notify,
+            applyCredit: $type === 'monthly',
         );
     }
 
@@ -240,6 +241,286 @@ class BillingService
             dueDate: $customer->due_date->toDateString(),
             amount: $price,
             notes: 'Tagihan bulanan paket baru. Jatuh tempo bulan berikutnya, tanpa hitungan tanggal mulai layanan sebelumnya.',
+        );
+    }
+
+    /**
+     * Ganti paket di tengah siklus yang belum jatuh tempo.
+     * Tagihan bulan berjalan tetap. Selisih harga dihitung dari tanggal ganti sampai jatuh tempo.
+     *
+     * @return array{invoice: ?Invoice, credit: int}
+     */
+    public function applyMidCyclePackageChange(PppoeCustomer $customer, int $oldPrice, Carbon $changeDate): array
+    {
+        $customer->loadMissing('package');
+        $newPrice = (int) ($customer->package?->price ?? 0);
+        if ($newPrice <= 0) {
+            throw new InvalidArgumentException('Paket baru belum punya harga yang valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        }
+
+        $due = $customer->due_date->copy()->startOfDay();
+        $periodStart = $this->openPeriodStart($customer, $due);
+        $change = $this->clampChangeDate($changeDate, $periodStart, $due);
+        $cycleDays = max(1, (int) $periodStart->diffInDays($due));
+        $remaining = max(0, (int) $change->diffInDays($due));
+        $delta = $this->cycle->signedRoundedDelta($oldPrice, $newPrice, $remaining, $cycleDays);
+
+        if ($delta > 0) {
+            $invoice = $this->createInvoice(
+                customer: $customer,
+                type: 'adjustment',
+                periodStart: $change->toDateString(),
+                periodEnd: $due->toDateString(),
+                dueDate: $due->toDateString(),
+                amount: $delta,
+                notes: 'Ganti layanan. Selisih harga '.$remaining.'/'.$cycleDays.' hari sampai jatuh tempo.',
+                applyCredit: true,
+            );
+
+            return ['invoice' => $invoice, 'credit' => 0];
+        }
+
+        if ($delta < 0) {
+            $credit = abs($delta);
+            $applied = $this->applyCreditToOpenInvoices($customer, $credit);
+            $stored = $credit - $applied;
+            if ($stored > 0) {
+                $customer->update([
+                    'billing_credit' => (int) $customer->billing_credit + $stored,
+                ]);
+            }
+
+            return ['invoice' => null, 'credit' => $credit];
+        }
+
+        return ['invoice' => null, 'credit' => 0];
+    }
+
+    /**
+     * Pindah tanggal tagihan pelanggan yang sudah pernah bayar.
+     * Tagihan awal pendaftaran tidak dihitung ulang. Periode baru dimulai dari
+     * jatuh tempo terakhir yang sudah lunas.
+     *
+     * @return array{invoice: ?Invoice, anchor: string, due_date: string}
+     */
+    public function reissueInvoiceForBillingDateChange(
+        PppoeCustomer $customer,
+        ?int $oldPrice = null,
+        ?Carbon $changeDate = null,
+    ): array {
+        $customer->loadMissing('package');
+        $newPrice = (int) ($customer->package?->price ?? 0);
+        if ($newPrice <= 0) {
+            throw new InvalidArgumentException('Pelanggan belum punya paket berharga valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        }
+
+        $lastPaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->orderByDesc('due_date')
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $lastPaid?->due_date) {
+            throw new InvalidArgumentException('Belum ada tagihan lunas. Tanggal tagihan belum bisa dipindah tanpa menghitung tagihan awal.');
+        }
+
+        $anchor = $lastPaid->due_date->copy()->startOfDay();
+        $due = $customer->due_date->copy()->startOfDay();
+        $billingDay = $this->cycle->normalizeBillingDay((int) $customer->billing_day);
+
+        if ($due->lessThanOrEqualTo($anchor)) {
+            $due = $this->cycle->advanceDueDate($anchor, $billingDay);
+            $billingDay = $this->cycle->normalizeBillingDay((int) $due->day);
+            $customer->update([
+                'due_date' => $due->toDateString(),
+                'billing_day' => $billingDay,
+            ]);
+        }
+
+        $cycleDays = $this->cycle->cycleLength($due, $billingDay);
+        $splitPrices = $oldPrice !== null && $changeDate !== null && $oldPrice !== $newPrice;
+        $daysOld = 0;
+        $daysNew = max(0, (int) $anchor->diffInDays($due));
+
+        if ($splitPrices) {
+            $change = $changeDate->copy()->startOfDay();
+            if ($change->lessThan($anchor)) {
+                $change = $anchor->copy();
+            }
+            if ($change->greaterThan($due)) {
+                $change = $due->copy();
+            }
+            $daysOld = max(0, (int) $anchor->diffInDays($change));
+            $daysNew = max(0, (int) $change->diffInDays($due));
+            $raw = (int) round(($oldPrice * $daysOld + $newPrice * $daysNew) / max(1, $cycleDays));
+        } else {
+            $raw = (int) round($newPrice * $daysNew / max(1, $cycleDays));
+        }
+
+        $usedDays = $daysOld + $daysNew;
+        $samePrice = ! $splitPrices;
+        $amount = $usedDays === 0
+            ? 0
+            : ($samePrice && $usedDays === $cycleDays
+                ? $newPrice
+                : $this->cycle->roundUpToThousand($raw));
+
+        $this->voidOpenSingleInvoices(
+            $customer,
+            'Diganti karena tanggal tagihan diubah. Tagihan awal pendaftaran tidak dihitung.',
+            'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu sebelum mengubah tanggal tagihan.'
+        );
+
+        if ($amount <= 0) {
+            return [
+                'invoice' => null,
+                'anchor' => $anchor->toDateString(),
+                'due_date' => $due->toDateString(),
+            ];
+        }
+
+        $invoice = $this->createInvoice(
+            customer: $customer,
+            type: $samePrice && $usedDays === $cycleDays ? 'monthly' : 'adjustment',
+            periodStart: $anchor->toDateString(),
+            periodEnd: $due->toDateString(),
+            dueDate: $due->toDateString(),
+            amount: $amount,
+            notes: 'Perubahan tanggal tagihan. Dihitung dari jatuh tempo terakhir yang sudah lunas ('
+                .$anchor->format('d/m/Y').'), tanpa tagihan awal pendaftaran.',
+            applyCredit: true,
+        );
+
+        return [
+            'invoice' => $invoice,
+            'anchor' => $anchor->toDateString(),
+            'due_date' => $due->toDateString(),
+        ];
+    }
+
+    /**
+     * Hitung tagihan pemakaian sampai tanggal berhenti.
+     * Jika periode ini sudah lunas dan pemakaian lebih kecil, selisihnya jadi kredit.
+     *
+     * @return array{invoice: ?Invoice, credit: int, amount: int}
+     */
+    public function settleStoppedService(PppoeCustomer $customer, Carbon $stopDate): array
+    {
+        $customer->loadMissing('package');
+        $price = (int) ($customer->package?->price ?? 0);
+        if (! $customer->due_date || $price <= 0) {
+            return ['invoice' => null, 'credit' => 0, 'amount' => 0];
+        }
+
+        $due = $customer->due_date->copy()->startOfDay();
+        $periodStart = $this->openPeriodStart($customer, $due);
+        $stop = $stopDate->copy()->startOfDay();
+
+        if ($stop->greaterThanOrEqualTo($due)) {
+            return ['invoice' => null, 'credit' => 0, 'amount' => 0];
+        }
+
+        if ($stop->lessThan($periodStart)) {
+            $stop = $periodStart->copy();
+        }
+
+        $cycleDays = max(1, (int) $periodStart->diffInDays($due));
+        $usedDays = max(0, (int) $periodStart->diffInDays($stop));
+        $amount = $this->cycle->chargeForSpan($price, $usedDays, $cycleDays);
+
+        $paidThisCycle = (int) Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->whereDate('due_date', $due->toDateString())
+            ->sum('total');
+
+        $this->voidOpenSingleInvoices(
+            $customer,
+            'Diganti tagihan pemberhentian layanan per '.$stop->format('d/m/Y').'.',
+            'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu sebelum menghentikan layanan.'
+        );
+
+        if ($paidThisCycle > 0) {
+            $credit = max(0, $paidThisCycle - $amount);
+            if ($credit > 0) {
+                $customer->update([
+                    'billing_credit' => (int) $customer->billing_credit + $credit,
+                ]);
+            }
+
+            $owed = max(0, $amount - $paidThisCycle);
+            if ($owed <= 0) {
+                return ['invoice' => null, 'credit' => $credit, 'amount' => $amount];
+            }
+
+            $amount = $owed;
+        }
+
+        if ($amount <= 0) {
+            return ['invoice' => null, 'credit' => 0, 'amount' => 0];
+        }
+
+        $invoice = $this->createInvoice(
+            customer: $customer,
+            type: 'adjustment',
+            periodStart: $periodStart->toDateString(),
+            periodEnd: $stop->toDateString(),
+            dueDate: $stop->toDateString(),
+            amount: $amount,
+            notes: 'Pemberhentian layanan per '.$stop->format('d/m/Y').'. Tagihan pemakaian '.$usedDays.'/'.$cycleDays.' hari.',
+            applyCredit: true,
+        );
+
+        return ['invoice' => $invoice->fresh(), 'credit' => 0, 'amount' => (int) $invoice->total];
+    }
+
+    /**
+     * Aktifkan kembali pelanggan yang berhenti. Prorata dihitung dari tanggal
+     * aktif kembali sampai jatuh tempo yang dipilih, bukan dari tanggal daftar lama.
+     */
+    public function createReactivationInvoice(PppoeCustomer $customer, Carbon $from): Invoice
+    {
+        $customer->loadMissing('package');
+        $price = (int) ($customer->package?->price ?? 0);
+        if ($price <= 0) {
+            throw new InvalidArgumentException('Pelanggan belum punya paket berharga valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Tentukan tanggal jatuh tempo untuk aktivasi kembali.');
+        }
+
+        $start = $from->copy()->startOfDay();
+        $due = $customer->due_date->copy()->startOfDay();
+        if ($due->lessThanOrEqualTo($start)) {
+            throw new InvalidArgumentException('Tanggal jatuh tempo harus setelah tanggal aktif kembali.');
+        }
+
+        $calc = $this->cycle->calculateProrata(
+            $start,
+            (int) $customer->billing_day,
+            $price,
+            $due->toDateString(),
+        );
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: 'prorata',
+            periodStart: $calc['start_date'],
+            periodEnd: $calc['due_date'],
+            dueDate: $calc['due_date'],
+            amount: $calc['amount'],
+            notes: 'Aktivasi kembali (prorata)',
+            applyCredit: true,
         );
     }
 
@@ -800,12 +1081,17 @@ class BillingService
         ?string $notes = null,
         int $billingMonths = 1,
         bool $notify = true,
+        int $discount = 0,
+        bool $applyCredit = false,
     ): Invoice {
         $package = $customer->relationLoaded('package')
             ? $customer->package
             : $customer->package()->first();
 
-        $discount = 0;
+        $discount = max(0, $discount);
+        if ($applyCredit) {
+            $discount += $this->takeCredit($customer, max(0, $amount - $discount));
+        }
         $total = max(0, $amount - $discount);
 
         $invoice = Invoice::query()->create([
@@ -835,12 +1121,113 @@ class BillingService
 
     private function periodStartBeforeDue(PppoeCustomer $customer): string
     {
-        $due = $customer->due_date->copy()->startOfDay();
-        $billingDay = $this->cycle->normalizeBillingDay((int) $customer->billing_day);
-        $prevMonth = $due->copy()->subMonthNoOverflow();
-        $day = min($billingDay, $prevMonth->daysInMonth);
+        return $this->cycle->periodStart($customer->due_date, (int) $customer->billing_day)->toDateString();
+    }
 
-        return $prevMonth->day($day)->toDateString();
+    private function openPeriodStart(PppoeCustomer $customer, Carbon $due): Carbon
+    {
+        $periodStart = $this->cycle->periodStart($due, (int) $customer->billing_day);
+        $serviceStart = $customer->start_date?->copy()->startOfDay();
+
+        if ($serviceStart && $serviceStart->greaterThan($periodStart) && $serviceStart->lessThan($due)) {
+            return $serviceStart;
+        }
+
+        return $periodStart;
+    }
+
+    private function clampChangeDate(Carbon $changeDate, Carbon $periodStart, Carbon $due): Carbon
+    {
+        $change = $changeDate->copy()->startOfDay();
+        $today = now()->startOfDay();
+
+        if ($change->greaterThan($today)) {
+            throw new InvalidArgumentException('Tanggal ganti layanan tidak boleh setelah hari ini.');
+        }
+
+        if ($change->lessThan($periodStart) || $change->greaterThanOrEqualTo($due)) {
+            throw new InvalidArgumentException('Tanggal ganti layanan harus berada di dalam siklus tagihan yang sedang berjalan.');
+        }
+
+        return $change;
+    }
+
+    private function voidOpenSingleInvoices(PppoeCustomer $customer, string $reason, string $blockedMessage): void
+    {
+        $unpaid = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->get();
+
+        foreach ($unpaid as $existing) {
+            if ((int) ($existing->billing_months ?: 1) > 1 || $existing->type === 'multi_month') {
+                throw new InvalidArgumentException($blockedMessage);
+            }
+        }
+
+        foreach ($unpaid as $existing) {
+            $this->voidInvoice($existing, $reason);
+        }
+    }
+
+    private function applyCreditToOpenInvoices(PppoeCustomer $customer, int $credit): int
+    {
+        if ($credit <= 0) {
+            return 0;
+        }
+
+        $invoices = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->orderBy('id')
+            ->get();
+
+        $remaining = $credit;
+        $applied = 0;
+
+        foreach ($invoices as $invoice) {
+            if ((int) ($invoice->billing_months ?: 1) > 1 || $invoice->type === 'multi_month') {
+                throw new InvalidArgumentException(
+                    'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu sebelum mengganti paket.'
+                );
+            }
+
+            $room = max(0, (int) $invoice->total);
+            $used = min($remaining, $room);
+            if ($used <= 0) {
+                continue;
+            }
+
+            $discount = (int) $invoice->discount + $used;
+            $invoice->update([
+                'discount' => $discount,
+                'total' => max(0, (int) $invoice->amount - $discount),
+                'notes' => trim(($invoice->notes ? $invoice->notes."\n" : '').'Kredit turun paket Rp '.number_format($used, 0, ',', '.').'.'),
+            ]);
+
+            $applied += $used;
+            $remaining -= $used;
+            if ($remaining <= 0) {
+                break;
+            }
+        }
+
+        return $applied;
+    }
+
+    private function takeCredit(PppoeCustomer $customer, int $amount): int
+    {
+        $amount = max(0, $amount);
+        $available = max(0, (int) $customer->billing_credit);
+        $used = min($available, $amount);
+
+        if ($used > 0) {
+            $left = $available - $used;
+            $customer->update(['billing_credit' => $left]);
+            $customer->billing_credit = $left;
+        }
+
+        return $used;
     }
 
     private function nextNumber(): string
