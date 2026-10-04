@@ -218,7 +218,7 @@ export default function NewCustomersCard({ data }) {
                                 </p>
                             </div>
                             <div className="text-right">
-                                <p className="text-sm font-semibold text-ink">{item.start_label}</p>
+                                <p className="text-sm font-semibold text-ink">{item.registered_label}</p>
                                 <Link
                                     href={`/admin/customers/pppoe/${item.id}/edit`}
                                     className={`text-xs font-semibold hover:underline ${statusClass(item.status)}`}

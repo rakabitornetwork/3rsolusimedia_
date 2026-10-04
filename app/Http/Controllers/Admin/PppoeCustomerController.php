@@ -262,8 +262,8 @@ class PppoeCustomerController extends Controller
                 ->count(),
             'overdue' => (clone $statsQuery)->whereDate('due_date', '<', now()->toDateString())->count(),
             'new_this_month' => (clone $statsQuery)
-                ->whereDate('start_date', '>=', now()->copy()->startOfMonth()->toDateString())
-                ->whereDate('start_date', '<=', now()->copy()->endOfMonth()->toDateString())
+                ->where('created_at', '>=', now()->copy()->startOfMonth())
+                ->where('created_at', '<=', now()->copy()->endOfMonth())
                 ->count(),
             'new_month_label' => $this->currentMonthLabel(),
         ];

@@ -255,7 +255,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                 <StatCard
                     label="Baru bulan ini"
                     value={stats.new_this_month ?? 0}
-                    hint={stats.new_month_label}
+                    hint={stats.new_month_label ? `Terdaftar ${stats.new_month_label}` : undefined}
                     icon={UserPlus}
                     tone="emerald"
                 />

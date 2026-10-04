@@ -43,21 +43,21 @@ class DashboardNewCustomersTest extends TestCase
 
         [$admin, $router, $package] = $this->setupAdminRouter();
 
-        $this->customer($router, $package, [
+        $this->registeredAt($this->customer($router, $package, [
             'name' => 'Masuk awal',
             'username' => 'baru-awal',
-            'start_date' => '2026-10-01',
-        ]);
-        $today = $this->customer($router, $package, [
-            'name' => 'Masuk hari ini',
-            'username' => 'baru-hari-ini',
-            'start_date' => '2026-10-04',
-        ]);
-        $this->customer($router, $package, [
+            'start_date' => '2026-01-20',
+        ]), '2026-10-01 08:00:00');
+        $today = $this->registeredAt($this->customer($router, $package, [
+            'name' => 'Revaldi',
+            'username' => 'revaldi',
+            'start_date' => '2026-01-20',
+        ]), '2026-10-04 09:30:00');
+        $this->registeredAt($this->customer($router, $package, [
             'name' => 'Pelanggan lama',
             'username' => 'lama',
-            'start_date' => '2026-09-15',
-        ]);
+            'start_date' => '2026-10-04',
+        ]), '2026-09-15 08:00:00');
 
         $this->actingAs($admin)
             ->get('/admin')
@@ -68,9 +68,10 @@ class DashboardNewCustomersTest extends TestCase
                 ->where('new_customers.total_this_month', 2)
                 ->has('new_customers.recent', 2)
                 ->where('new_customers.recent.0.id', $today->id)
-                ->where('new_customers.recent.0.username', 'baru-hari-ini')
+                ->where('new_customers.recent.0.name', 'Revaldi')
+                ->where('new_customers.recent.0.username', 'revaldi')
                 ->where('new_customers.recent.0.package', '10 Mbps')
-                ->where('new_customers.recent.0.start_label', '4 Okt 2026')
+                ->where('new_customers.recent.0.registered_label', '4 Okt 2026')
                 ->where('new_customers.recent.0.status_label', 'Aktif')
                 ->where('new_customers.recent.1.username', 'baru-awal')
                 ->where('new_customers.charts.daily.points.0.total', 1)
@@ -143,5 +144,14 @@ class DashboardNewCustomersTest extends TestCase
             'sync_status' => 'synced',
             'is_active' => true,
         ], $overrides));
+    }
+
+    private function registeredAt(PppoeCustomer $customer, string $at): PppoeCustomer
+    {
+        PppoeCustomer::query()->whereKey($customer->id)->update([
+            'created_at' => $at,
+        ]);
+
+        return $customer->refresh();
     }
 }

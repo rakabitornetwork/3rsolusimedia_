@@ -184,8 +184,6 @@ class DashboardController extends Controller
      */
     private function newCustomers($customerQuery): array
     {
-        $monthStart = now()->copy()->startOfMonth()->toDateString();
-        $monthEnd = now()->copy()->endOfMonth()->toDateString();
         $statusLabels = [
             'active' => 'Aktif',
             'isolated' => 'Isolir',
@@ -194,24 +192,23 @@ class DashboardController extends Controller
 
         $recent = (clone $customerQuery)
             ->with('package')
-            ->whereNotNull('start_date')
-            ->whereDate('start_date', '>=', $monthStart)
-            ->whereDate('start_date', '<=', $monthEnd)
-            ->orderByDesc('start_date')
+            ->where('created_at', '>=', now()->copy()->startOfMonth())
+            ->where('created_at', '<=', now()->copy()->endOfMonth())
+            ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(5)
             ->get()
             ->map(function (PppoeCustomer $customer) use ($statusLabels) {
-                $start = $customer->start_date;
+                $registered = $customer->created_at?->copy()->timezone(config('app.timezone'));
 
                 return [
                     'id' => $customer->id,
                     'name' => $customer->name,
                     'username' => $customer->username,
                     'package' => $customer->package?->name,
-                    'start_date' => $start?->format('Y-m-d'),
-                    'start_label' => $start
-                        ? $start->format('j').' '.$this->monthName((int) $start->format('n'), short: true).' '.$start->format('Y')
+                    'registered_at' => $registered?->toIso8601String(),
+                    'registered_label' => $registered
+                        ? $registered->format('j').' '.$this->monthName((int) $registered->format('n'), short: true).' '.$registered->format('Y')
                         : null,
                     'status' => $customer->status,
                     'status_label' => $statusLabels[$customer->status] ?? $customer->status,
@@ -220,9 +217,8 @@ class DashboardController extends Controller
             ->values();
 
         $totalThisMonth = (clone $customerQuery)
-            ->whereNotNull('start_date')
-            ->whereDate('start_date', '>=', $monthStart)
-            ->whereDate('start_date', '<=', $monthEnd)
+            ->where('created_at', '>=', now()->copy()->startOfMonth())
+            ->where('created_at', '<=', now()->copy()->endOfMonth())
             ->count();
 
         $monthLabel = $this->monthName((int) now()->format('n')).' '.now()->format('Y');
@@ -234,7 +230,7 @@ class DashboardController extends Controller
                 'daily' => [
                     'key' => 'daily',
                     'title' => 'Harian',
-                    'subtitle' => 'Tiap tanggal di '.$monthLabel,
+                    'subtitle' => 'Tanggal data pelanggan disimpan di '.$monthLabel,
                     'x_label' => 'Tanggal',
                     'y_label' => 'Pelanggan',
                     'points' => $this->dailyNewCustomers($customerQuery),
@@ -242,7 +238,7 @@ class DashboardController extends Controller
                 'monthly' => [
                     'key' => 'monthly',
                     'title' => 'Bulanan',
-                    'subtitle' => '6 bulan terakhir',
+                    'subtitle' => '6 bulan terakhir, menurut waktu pendaftaran',
                     'x_label' => 'Bulan',
                     'y_label' => 'Pelanggan',
                     'points' => $this->monthlyNewCustomers($customerQuery),
@@ -260,12 +256,11 @@ class DashboardController extends Controller
     {
         $start = now()->copy()->startOfMonth();
         $end = now()->copy()->endOfMonth();
-        $dayExpr = $this->dateKeyExpression('start_date', '%Y-%m-%d', 'YYYY-MM-DD', '%Y-%m-%d');
+        $dayExpr = $this->dateKeyExpression('created_at', '%Y-%m-%d', 'YYYY-MM-DD', '%Y-%m-%d');
 
         $rows = (clone $customerQuery)
-            ->whereNotNull('start_date')
-            ->whereDate('start_date', '>=', $start->toDateString())
-            ->whereDate('start_date', '<=', $end->toDateString())
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<=', $end)
             ->select(DB::raw("{$dayExpr} as day_key"), DB::raw('COUNT(*) as total'))
             ->groupBy(DB::raw($dayExpr))
             ->pluck('total', 'day_key');
@@ -294,12 +289,11 @@ class DashboardController extends Controller
     {
         $start = now()->copy()->subMonthsNoOverflow($months - 1)->startOfMonth();
         $end = now()->copy()->endOfMonth();
-        $monthExpr = $this->dateKeyExpression('start_date', '%Y-%m', 'YYYY-MM', '%Y-%m');
+        $monthExpr = $this->dateKeyExpression('created_at', '%Y-%m', 'YYYY-MM', '%Y-%m');
 
         $rows = (clone $customerQuery)
-            ->whereNotNull('start_date')
-            ->whereDate('start_date', '>=', $start->toDateString())
-            ->whereDate('start_date', '<=', $end->toDateString())
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<=', $end)
             ->select(DB::raw("{$monthExpr} as month_key"), DB::raw('COUNT(*) as total'))
             ->groupBy(DB::raw($monthExpr))
             ->pluck('total', 'month_key');

@@ -47,27 +47,27 @@ class PppoeCustomerNewMonthStatsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->customer($router, $package, [
+        $this->registeredAt($this->customer($router, $package, [
             'name' => 'Masuk awal bulan',
             'username' => 'baru-awal',
-            'start_date' => '2026-10-01',
-        ]);
-        $this->customer($router, $package, [
+            'start_date' => '2026-01-20',
+        ]), '2026-10-01 08:00:00');
+        $this->registeredAt($this->customer($router, $package, [
             'name' => 'Masuk hari ini',
             'username' => 'baru-hari-ini',
-            'start_date' => '2026-10-04',
-        ]);
-        $this->customer($router, $package, [
+            'start_date' => '2026-01-20',
+        ]), '2026-10-04 09:00:00');
+        $this->registeredAt($this->customer($router, $package, [
             'name' => 'Pelanggan lama',
             'username' => 'lama',
-            'start_date' => '2026-09-30',
-        ]);
-        $this->customer($otherRouter, $package, [
+            'start_date' => '2026-10-04',
+        ]), '2026-09-30 08:00:00');
+        $this->registeredAt($this->customer($otherRouter, $package, [
             'name' => 'Router lain',
             'username' => 'router-lain',
             'mikrotik_router_id' => $otherRouter->id,
-            'start_date' => '2026-10-02',
-        ]);
+            'start_date' => '2026-01-20',
+        ]), '2026-10-02 08:00:00');
 
         $this->actingAs($admin)
             ->get('/admin/customers/pppoe')
@@ -145,5 +145,14 @@ class PppoeCustomerNewMonthStatsTest extends TestCase
             'sync_status' => 'synced',
             'is_active' => true,
         ], $overrides));
+    }
+
+    private function registeredAt(PppoeCustomer $customer, string $at): PppoeCustomer
+    {
+        PppoeCustomer::query()->whereKey($customer->id)->update([
+            'created_at' => $at,
+        ]);
+
+        return $customer->refresh();
     }
 }

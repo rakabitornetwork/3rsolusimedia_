@@ -199,9 +199,12 @@ export default function Dashboard({
 
             {newCustomers && (
                 <section className="mb-8">
-                    <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                    <h3 className="text-xs font-semibold tracking-wide text-ink-soft uppercase">
                         Pelanggan baru
                     </h3>
+                    <p className="mb-3 mt-1 text-xs text-ink-soft">
+                        Dihitung saat data pelanggan pertama kali disimpan. Mengubah tanggal mulai layanan tidak membuat pelanggan lama terhitung baru.
+                    </p>
                     <NewCustomersCard data={newCustomers} />
                 </section>
             )}
