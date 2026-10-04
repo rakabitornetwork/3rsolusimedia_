@@ -5,7 +5,6 @@ import {
     CheckCircle2,
     ChevronDown,
     ChevronUp,
-    Clock,
     Coins,
     Eye,
     FilePlus2,
@@ -20,6 +19,7 @@ import {
     WalletCards,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import GraceUntilForm from '../../../Components/Admin/GraceUntilForm';
 import LocalPagination from '../../../Components/Admin/LocalPagination';
 import OverflowMenu from '../../../Components/Admin/OverflowMenu';
 import QuickPayMenu from '../../../Components/Admin/QuickPayMenu';
@@ -116,6 +116,7 @@ function StatusBadge({ status, overdue, graceUntil }) {
 function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
     const customer = invoice.customer;
     const paid = invoice.status === 'paid';
+    const unpaid = invoice.status === 'unpaid';
     const waTemplates = (whatsapp?.templates || []).filter((item) =>
         paid ? item.value === 'paid' || item.value === 'restore' : true,
     );
@@ -126,20 +127,6 @@ function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
             invoice.status === 'unpaid' &&
             (invoice.billing_months > 1 || invoice.type === 'multi_month')
         );
-
-    const grantGrace = ({ days, months } = {}) => {
-        const label = months ? `+${months} bulan` : `+${days} hari`;
-        const note = window.prompt(
-            `Tempo isolir ${label} (tagihan tetap belum lunas, jatuh tempo tidak digeser).\nProfil paket akan dipulihkan.\nCatatan opsional:`,
-            customer.grace_note || '',
-        );
-        if (note === null) return;
-        router.post(
-            `/admin/billing/customers/${customer.id}/grace`,
-            { days, months, note: note || undefined },
-            keepPage,
-        );
-    };
 
     const clearGrace = () => {
         if (!window.confirm('Cabut toleransi isolir untuk pelanggan ini?')) return;
@@ -164,7 +151,7 @@ function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
             trigger={<MoreHorizontal className="h-4 w-4" />}
             triggerClassName="admin-icon-btn"
             triggerTitle="Aksi lainnya"
-            menuClassName="py-1"
+            menuClassName={`py-1${customer?.id && canGrantGrace && unpaid ? ' admin-row-menu--picker' : ''}`}
         >
             {(close) => (
                 <>
@@ -207,34 +194,16 @@ function MoreActions({ invoice, onRemove, whatsapp, canGrantGrace = true }) {
                         </>
                     ) : null}
 
-                    {customer?.id && canGrantGrace && !paid ? (
+                    {customer?.id && canGrantGrace && unpaid ? (
                         <>
                             <p className="admin-row-menu-label">Toleransi isolir</p>
-                            {[3, 7, 14].map((days) => (
-                                <button
-                                    key={days}
-                                    type="button"
-                                    onClick={() => {
-                                        close();
-                                        grantGrace({ days });
-                                    }}
-                                    className="admin-row-menu-item"
-                                >
-                                    <Clock className="h-3.5 w-3.5 text-ink-soft" />
-                                    +{days} hari
-                                </button>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    close();
-                                    grantGrace({ months: 1 });
-                                }}
-                                className="admin-row-menu-item"
-                            >
-                                <Clock className="h-3.5 w-3.5 text-ink-soft" />
-                                +1 bulan
-                            </button>
+                            <GraceUntilForm
+                                customerId={customer.id}
+                                graceUntil={customer.grace_until}
+                                graceNote={customer.grace_note}
+                                compact
+                                onDone={close}
+                            />
                             {customer.has_active_grace ? (
                                 <button
                                     type="button"

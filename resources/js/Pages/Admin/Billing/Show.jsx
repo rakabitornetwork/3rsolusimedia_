@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import GraceUntilForm from '../../../Components/Admin/GraceUntilForm';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { sendBillingWhatsapp } from '../../../lib/billingWhatsapp';
 import { keepPage } from '../../../lib/keepPage';
@@ -85,21 +86,6 @@ export default function Show({
             return;
         }
         router.post(`/admin/billing/invoices/${invoice.id}/void`);
-    };
-
-    const grantGrace = ({ days, months } = {}) => {
-        if (!invoice.customer?.id) return;
-        const label = months ? `+${months} bulan` : `+${days} hari`;
-        const note = window.prompt(
-            `Tempo isolir ${label} (tagihan tetap belum lunas, jatuh tempo tidak digeser).\nProfil paket akan dipulihkan.\nCatatan opsional:`,
-            invoice.customer.grace_note || '',
-        );
-        if (note === null) return;
-        router.post(`/admin/billing/customers/${invoice.customer.id}/grace`, {
-            days,
-            months,
-            note: note || undefined,
-        }, keepPage);
     };
 
     const clearGrace = () => {
@@ -352,7 +338,7 @@ export default function Show({
                         </div>
                     )}
 
-                    {invoice.customer && !paid && (
+                    {invoice.customer && invoice.status === 'unpaid' && (
                         <div className="border border-ink/10 bg-white p-6">
                             <h3 className="text-sm font-semibold text-ink">Toleransi isolir</h3>
                             <p className="mt-1 text-sm text-ink-soft">
@@ -369,34 +355,22 @@ export default function Show({
                                     : ''}
                             </p>
                             {canGrantGrace ? (
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {[3, 7, 14].map((days) => (
-                                    <button
-                                        key={days}
-                                        type="button"
-                                        onClick={() => grantGrace({ days })}
-                                        className="btn-action btn-action-xs btn-warn"
-                                    >
-                                        +{days} hari
-                                    </button>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={() => grantGrace({ months: 1 })}
-                                    className="btn-action btn-action-xs btn-warn"
-                                >
-                                    +1 bulan
-                                </button>
-                                {invoice.customer.has_active_grace && (
-                                    <button
-                                        type="button"
-                                        onClick={clearGrace}
-                                        className="btn-action btn-action-xs btn-danger"
-                                    >
-                                        Cabut toleransi
-                                    </button>
-                                )}
-                            </div>
+                                <>
+                                    <GraceUntilForm
+                                        customerId={invoice.customer.id}
+                                        graceUntil={invoice.customer.grace_until}
+                                        graceNote={invoice.customer.grace_note}
+                                    />
+                                    {invoice.customer.has_active_grace && (
+                                        <button
+                                            type="button"
+                                            onClick={clearGrace}
+                                            className="mt-3 btn-action btn-action-xs btn-danger"
+                                        >
+                                            Cabut toleransi
+                                        </button>
+                                    )}
+                                </>
                             ) : null}
 
                             {canCombine && (

@@ -203,6 +203,11 @@
     color: var(--color-ink);
 }
 
+.admin-row-menu.admin-row-menu--picker {
+    width: 20rem;
+    overflow: visible;
+}
+
 .admin-row-menu {
     position: absolute;
     top: calc(100% + 0.25rem);
