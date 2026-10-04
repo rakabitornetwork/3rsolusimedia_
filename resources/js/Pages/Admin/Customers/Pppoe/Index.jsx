@@ -253,6 +253,13 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <StatCard
+                    label="Baru bulan ini"
+                    value={stats.new_this_month ?? 0}
+                    hint={stats.new_month_label}
+                    icon={UserPlus}
+                    tone="emerald"
+                />
+                <StatCard
                     label="Total"
                     value={stats.total}
                     icon={Users}
@@ -281,13 +288,6 @@ export default function Index({ customers = [], filters, routers, stats }) {
                     value={stats.overdue}
                     icon={AlertTriangle}
                     tone="amber"
-                />
-                <StatCard
-                    label="Baru bulan ini"
-                    value={stats.new_this_month ?? 0}
-                    hint={stats.new_month_label}
-                    icon={UserPlus}
-                    tone="emerald"
                 />
             </div>
 
