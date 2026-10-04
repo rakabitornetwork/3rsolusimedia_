@@ -507,11 +507,40 @@ class MessageTemplate
         $stored = trim((string) AppSettings::get(self::settingKey($template), ''));
         $legacy = self::legacyDefaults()[$template] ?? null;
         $legacyList = is_array($legacy) ? $legacy : ($legacy !== null ? [$legacy] : []);
-        if ($stored === '' || in_array($stored, $legacyList, true)) {
-            return $defaults[$template];
+        $body = ($stored === '' || in_array($stored, $legacyList, true))
+            ? $defaults[$template]
+            : self::withCompanyPlaceholder($stored);
+
+        return self::withoutPppoePortalLogin($body);
+    }
+
+    /**
+     * Template tersimpan yang masih memakai login username PPPoE
+     * dinaikkan ke cara masuk portal yang sama dengan selamat datang.
+     */
+    public static function withoutPppoePortalLogin(string $body): string
+    {
+        $login = implode("\n", array_slice(self::portalLoginLines(), 2));
+        $patterns = [
+            '/Masuk dengan username PPPoE dan nomor HP:\s*Username:\s*\{\{username\}\}\s*Nomor HP:\s*\{\{phone\}\}/u',
+            '/Masuk pakai username PPPoE atau nomor HP\./u',
+            '/Masuk dengan username PPPoE dan nomor HP:?/u',
+            '/🔐 \*Akun PPPoE\* \(isi di modem\/router\)\s*Username:\s*\{\{username\}\}\s*Password:\s*\{\{password\}\}\s*/u',
+            '/🔐 Akun:\s*\{\{username\}\}\s*/u',
+            '/^Username:\s*\{\{username\}\}\s*$/mu',
+            '/^Nomor HP:\s*\{\{phone\}\}\s*$/mu',
+            '/^Password:\s*\{\{password\}\}\s*$/mu',
+        ];
+
+        foreach ($patterns as $pattern) {
+            $replacement = str_contains($body, 'Kode OTP dikirim ke HP terdaftar') ? '' : $login;
+            $body = preg_replace($pattern, $replacement, $body, 1) ?? $body;
+            $body = preg_replace($pattern, '', $body) ?? $body;
         }
 
-        return self::withCompanyPlaceholder($stored);
+        $body = preg_replace("/\n{3,}/", "\n\n", $body) ?? $body;
+
+        return trim($body);
     }
 
     /**

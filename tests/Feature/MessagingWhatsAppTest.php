@@ -452,6 +452,33 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function stored_template_with_pppoe_portal_login_is_rewritten_like_welcome(): void
+    {
+        SiteSetting::setValue('msg_tpl_isolir', implode("\n", [
+            '⛔ *Layanan diisolir*',
+            '',
+            'Halo {{nama}}, tagihan isolir khusus cabang utara.',
+            '',
+            '🌐 *Bayar di portal pelanggan*',
+            '{{portal}}',
+            'Masuk dengan username PPPoE dan nomor HP:',
+            'Username: {{username}}',
+            'Nomor HP: {{phone}}',
+            '',
+            '— {{perusahaan}}',
+        ]));
+
+        $body = MessageTemplate::get(MessageTemplate::ISOLIR);
+
+        $this->assertStringNotContainsString('username PPPoE', $body);
+        $this->assertStringNotContainsString('Username: {{username}}', $body);
+        $this->assertStringNotContainsString('Nomor HP: {{phone}}', $body);
+        $this->assertStringContainsString('Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.', $body);
+        $this->assertStringContainsString('cek & bayar tagihan', $body);
+        $this->assertStringContainsString('tagihan isolir khusus cabang utara', $body);
+    }
+
+    #[Test]
     public function stored_template_hardcoded_3rsolusimedia_follows_site_company_name(): void
     {
         SiteSetting::setMany([
