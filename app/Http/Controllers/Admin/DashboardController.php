@@ -103,6 +103,8 @@ class DashboardController extends Controller
                 ])
                 ->values();
 
+        $newCustomers = $this->newCustomers($customerQuery);
+
         return Inertia::render('Admin/Dashboard', [
             'company' => AppSettings::companyName(),
             'traffic_routers' => $trafficRouters,
@@ -124,6 +126,7 @@ class DashboardController extends Controller
                 'packages_active' => $packagesActive,
             ],
             'revenue_charts' => $this->revenueCharts(),
+            'new_customers' => $newCustomers,
             'due_soon' => $dueSoon,
             'attention_invoices' => $attentionInvoices,
             'quick_actions' => collect([
@@ -173,6 +176,179 @@ class DashboardController extends Controller
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<PppoeCustomer>  $customerQuery
+     * @return array<string, mixed>
+     */
+    private function newCustomers($customerQuery): array
+    {
+        $monthStart = now()->copy()->startOfMonth()->toDateString();
+        $monthEnd = now()->copy()->endOfMonth()->toDateString();
+        $statusLabels = [
+            'active' => 'Aktif',
+            'isolated' => 'Isolir',
+            'disabled' => 'Nonaktif',
+        ];
+
+        $recent = (clone $customerQuery)
+            ->with('package')
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>=', $monthStart)
+            ->whereDate('start_date', '<=', $monthEnd)
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get()
+            ->map(function (PppoeCustomer $customer) use ($statusLabels) {
+                $start = $customer->start_date;
+
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'username' => $customer->username,
+                    'package' => $customer->package?->name,
+                    'start_date' => $start?->format('Y-m-d'),
+                    'start_label' => $start
+                        ? $start->format('j').' '.$this->monthName((int) $start->format('n'), short: true).' '.$start->format('Y')
+                        : null,
+                    'status' => $customer->status,
+                    'status_label' => $statusLabels[$customer->status] ?? $customer->status,
+                ];
+            })
+            ->values();
+
+        $totalThisMonth = (clone $customerQuery)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>=', $monthStart)
+            ->whereDate('start_date', '<=', $monthEnd)
+            ->count();
+
+        $monthLabel = $this->monthName((int) now()->format('n')).' '.now()->format('Y');
+
+        return [
+            'month_label' => $monthLabel,
+            'total_this_month' => $totalThisMonth,
+            'charts' => [
+                'daily' => [
+                    'key' => 'daily',
+                    'title' => 'Harian',
+                    'subtitle' => 'Tiap tanggal di '.$monthLabel,
+                    'x_label' => 'Tanggal',
+                    'y_label' => 'Pelanggan',
+                    'points' => $this->dailyNewCustomers($customerQuery),
+                ],
+                'monthly' => [
+                    'key' => 'monthly',
+                    'title' => 'Bulanan',
+                    'subtitle' => '6 bulan terakhir',
+                    'x_label' => 'Bulan',
+                    'y_label' => 'Pelanggan',
+                    'points' => $this->monthlyNewCustomers($customerQuery),
+                ],
+            ],
+            'recent' => $recent,
+        ];
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<PppoeCustomer>  $customerQuery
+     * @return array<int, array<string, mixed>>
+     */
+    private function dailyNewCustomers($customerQuery): array
+    {
+        $start = now()->copy()->startOfMonth();
+        $end = now()->copy()->endOfMonth();
+        $dayExpr = $this->dateKeyExpression('start_date', '%Y-%m-%d', 'YYYY-MM-DD', '%Y-%m-%d');
+
+        $rows = (clone $customerQuery)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>=', $start->toDateString())
+            ->whereDate('start_date', '<=', $end->toDateString())
+            ->select(DB::raw("{$dayExpr} as day_key"), DB::raw('COUNT(*) as total'))
+            ->groupBy(DB::raw($dayExpr))
+            ->pluck('total', 'day_key');
+
+        $series = [];
+        for ($i = 0; $i < $start->daysInMonth; $i++) {
+            $day = $start->copy()->addDays($i);
+            $key = $day->format('Y-m-d');
+            $total = (int) ($rows[$key] ?? 0);
+            $series[] = [
+                'key' => $key,
+                'label' => $day->format('j'),
+                'total' => $total,
+                'total_label' => $total.' pelanggan',
+            ];
+        }
+
+        return $series;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<PppoeCustomer>  $customerQuery
+     * @return array<int, array<string, mixed>>
+     */
+    private function monthlyNewCustomers($customerQuery, int $months = 6): array
+    {
+        $start = now()->copy()->subMonthsNoOverflow($months - 1)->startOfMonth();
+        $end = now()->copy()->endOfMonth();
+        $monthExpr = $this->dateKeyExpression('start_date', '%Y-%m', 'YYYY-MM', '%Y-%m');
+
+        $rows = (clone $customerQuery)
+            ->whereNotNull('start_date')
+            ->whereDate('start_date', '>=', $start->toDateString())
+            ->whereDate('start_date', '<=', $end->toDateString())
+            ->select(DB::raw("{$monthExpr} as month_key"), DB::raw('COUNT(*) as total'))
+            ->groupBy(DB::raw($monthExpr))
+            ->pluck('total', 'month_key');
+
+        $series = [];
+        for ($i = 0; $i < $months; $i++) {
+            $month = $start->copy()->addMonthsNoOverflow($i);
+            $key = $month->format('Y-m');
+            $total = (int) ($rows[$key] ?? 0);
+            $series[] = [
+                'key' => $key,
+                'label' => $this->monthName((int) $month->format('n'), short: true).' '.$month->format('Y'),
+                'total' => $total,
+                'total_label' => $total.' pelanggan',
+            ];
+        }
+
+        return $series;
+    }
+
+    private function dateKeyExpression(string $column, string $sqlite, string $pgsql, string $mysql): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return match ($driver) {
+            'sqlite' => "strftime('{$sqlite}', {$column})",
+            'pgsql' => "to_char({$column}, '{$pgsql}')",
+            default => "DATE_FORMAT({$column}, '{$mysql}')",
+        };
+    }
+
+    private function monthName(int $month, bool $short = false): string
+    {
+        $names = [
+            1 => ['Januari', 'Jan'],
+            2 => ['Februari', 'Feb'],
+            3 => ['Maret', 'Mar'],
+            4 => ['April', 'Apr'],
+            5 => ['Mei', 'Mei'],
+            6 => ['Juni', 'Jun'],
+            7 => ['Juli', 'Jul'],
+            8 => ['Agustus', 'Agu'],
+            9 => ['September', 'Sep'],
+            10 => ['Oktober', 'Okt'],
+            11 => ['November', 'Nov'],
+            12 => ['Desember', 'Des'],
+        ];
+
+        return $names[$month][$short ? 1 : 0] ?? '';
     }
 
     /**

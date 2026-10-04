@@ -17,6 +17,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import LiveTrafficCard from '../../Components/Admin/LiveTrafficCard';
+import NewCustomersCard from '../../Components/Admin/NewCustomersCard';
 import RevenueChartCard from '../../Components/Admin/RevenueChartCard';
 import StatCard from '../../Components/Admin/StatCard';
 import AdminLayout from '../../Layouts/AdminLayout';
@@ -37,6 +38,7 @@ export default function Dashboard({
     traffic_routers: trafficRouters = [],
     update_notice: updateNotice = null,
     revenue_charts: revenueCharts = null,
+    new_customers: newCustomers = null,
     due_soon: dueSoon,
     attention_invoices: attentionInvoices,
     quick_actions: quickActions,
@@ -194,6 +196,15 @@ export default function Dashboard({
                     />
                 </div>
             </section>
+
+            {newCustomers && (
+                <section className="mb-8">
+                    <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        Pelanggan baru
+                    </h3>
+                    <NewCustomersCard data={newCustomers} />
+                </section>
+            )}
 
             <section className="mb-8">
                 <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
