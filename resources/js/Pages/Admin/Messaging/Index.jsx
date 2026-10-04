@@ -649,8 +649,8 @@ export default function Index({
                             </Link>
                             {companyName ? ` (sekarang: ${companyName})` : ''}. Jangan tulis nama brand secara
                             hardcode.
-                            {'{{portal}}'} adalah alamat portal pelanggan. Login portal memakai {'{{username}}'} (PPPoE) dan {'{{phone}}'} — password modem tidak diperlukan.
-                            {'{{alamat}}'} memakai teks alamat, atau koordinat GPS (tanpa tautan peta) jika kosong.
+                            {'{{portal}}'} adalah alamat portal pelanggan. Login memakai WhatsApp; kode OTP dikirim ke {'{{phone}}'} yang terdaftar.
+                            {'{{alamat}}'} menampilkan alamat dan tautan Google Maps (koordinat GPS bila ada, atau teks alamat).
                             {'{{rekening}}'} menampilkan semua rekening dari kartu Rekening bank di{' '}
                             <Link href="/admin/system" className="font-semibold text-signal-deep hover:underline">
                                 Pengaturan Aplikasi
@@ -743,8 +743,8 @@ export default function Index({
                                         Selamat datang pelanggan baru
                                     </span>
                                     <span className="mt-0.5 block text-xs text-ink-soft">
-                                        Dikirim ke WhatsApp saat pelanggan PPPoE baru disimpan, termasuk akun,
-                                        paket, tagihan pertama, dan portal.
+                                        Dikirim ke WhatsApp saat pelanggan baru disimpan, termasuk paket,
+                                        tagihan pertama, tautan peta, dan cara masuk portal.
                                     </span>
                                 </span>
                                 <input

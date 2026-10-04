@@ -394,8 +394,9 @@ class MessagingWhatsAppTest extends TestCase
                 && ($request['number'] ?? null) === '6281234567890'
                 && str_contains($text, 'INV-NOTIF')
                 && str_contains($text, '/portal')
-                && str_contains($text, 'budi01')
-                && str_contains($text, '081234567890')
+                && str_contains($text, 'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.')
+                && str_contains($text, 'cek & bayar tagihan')
+                && ! str_contains($text, 'budi01')
                 && str_contains($text, 'Bayar di portal pelanggan')
                 && isset($request['delay']);
         });
@@ -444,9 +445,10 @@ class MessagingWhatsAppTest extends TestCase
         $body = MessageTemplate::get(MessageTemplate::INVOICE);
 
         $this->assertStringContainsString('{{portal}}', $body);
-        $this->assertStringContainsString('Username: {{username}}', $body);
-        $this->assertStringContainsString('Nomor HP: {{phone}}', $body);
+        $this->assertStringContainsString('Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.', $body);
+        $this->assertStringNotContainsString('Username: {{username}}', $body);
         $this->assertStringContainsString('Bayar di portal pelanggan', $body);
+        $this->assertStringContainsString('cek & bayar tagihan', $body);
     }
 
     #[Test]
@@ -568,10 +570,10 @@ class MessagingWhatsAppTest extends TestCase
 
         $body = MessageLog::query()->where('command', 'isolir')->value('body');
         $this->assertStringContainsString('Budi Santoso', (string) $body);
-        $this->assertStringContainsString('budi01', (string) $body);
+        $this->assertStringNotContainsString('budi01', (string) $body);
         $this->assertStringContainsString('diisolir', (string) $body);
         $this->assertStringContainsString('/portal', (string) $body);
-        $this->assertStringContainsString('081234567890', (string) $body);
+        $this->assertStringContainsString('Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.', (string) $body);
     }
 
     #[Test]
@@ -909,14 +911,16 @@ class MessagingWhatsAppTest extends TestCase
                 && ($request['number'] ?? null) === '6281234567890'
                 && str_contains($text, 'Selamat datang')
                 && str_contains($text, 'Budi Santoso')
-                && str_contains($text, 'budi01')
-                && str_contains($text, 'secret')
+                && ! str_contains($text, 'budi01')
+                && ! str_contains($text, 'secret')
+                && ! str_contains($text, 'Akun PPPoE')
                 && str_contains($text, 'Jl. Melati 1')
+                && str_contains($text, 'https://www.google.com/maps/search/?api=1&query=')
                 && str_contains($text, 'INV-WELCOME')
                 && str_contains($text, 'tagihan')
                 && str_contains($text, '/portal')
-                && str_contains($text, 'Masuk dengan username PPPoE dan nomor HP')
-                && str_contains($text, 'Nomor HP: 081234567890');
+                && str_contains($text, 'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.')
+                && str_contains($text, 'ubah WiFi');
         });
 
         $log = MessageLog::query()->where('command', 'welcome')->value('body');
@@ -942,8 +946,7 @@ class MessagingWhatsAppTest extends TestCase
             $text = (string) ($request['text'] ?? '');
 
             return str_contains($request->url(), '/message/sendText/teslatech')
-                && str_contains($text, '-6.175392, 106.827153')
-                && ! str_contains($text, 'maps.google.com')
+                && str_contains($text, 'https://www.google.com/maps/search/?api=1&query='.rawurlencode('-6.175392,106.827153'))
                 && str_contains($text, '/portal');
         });
     }

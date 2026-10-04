@@ -517,18 +517,17 @@ class CustomerNotifier
     private function customerAddress(PppoeCustomer $customer): string
     {
         $address = trim((string) ($customer->address ?? ''));
-        if ($address !== '') {
-            return $address;
-        }
-
-        if ($customer->latitude === null || $customer->longitude === null) {
+        $hasGps = $customer->latitude !== null && $customer->longitude !== null;
+        if ($address === '' && ! $hasGps) {
             return '—';
         }
 
-        $lat = number_format((float) $customer->latitude, 6, '.', '');
-        $lng = number_format((float) $customer->longitude, 6, '.', '');
+        $query = $hasGps
+            ? number_format((float) $customer->latitude, 6, '.', '').','.number_format((float) $customer->longitude, 6, '.', '')
+            : $address;
+        $url = 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($query);
 
-        return $lat.', '.$lng;
+        return $address !== '' ? $address."\n".$url : $url;
     }
 
     private function dash(string $value): string

@@ -605,6 +605,9 @@ class BotCommandRouter
             $slash.'bayar — tautan bayar tagihan tertua',
             $slash.'lepas — putuskan ikatan chat ini',
             $slash.'bantuan — tampilkan pesan ini',
+            '',
+            'Portal pelanggan: '.url('/portal'),
+            'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.',
         ];
 
         if ($admin && $channel === 'telegram') {
