@@ -206,11 +206,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
             params.set('status', printStatus);
         }
 
-        window.open(
-            `/admin/customers/pppoe/print?${params.toString()}`,
-            '_blank',
-            'noopener,noreferrer',
-        );
+        window.open(`/admin/customers/pppoe/print?${params.toString()}`, '_blank');
     };
 
     const submitBulkDelete = () => {

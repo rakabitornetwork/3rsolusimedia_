@@ -149,14 +149,13 @@ export default function Show({
                 >
                     ← Kembali ke daftar tagihan
                 </Link>
-                <a
-                    href={`/admin/billing/invoices/${invoice.id}/print`}
-                    target="_blank"
-                    rel="noreferrer"
+                <button
+                    type="button"
+                    onClick={() => window.open(`/admin/billing/invoices/${invoice.id}/print`, '_blank')}
                     className="btn-action btn-action-xs btn-print"
                 >
                     Cetak invoice (½ A4)
-                </a>
+                </button>
             </div>
 
             <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">

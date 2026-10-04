@@ -750,7 +750,7 @@
             </div>
             <div class="toolbar-cta">
                 <button type="button" class="primary" onclick="window.print()">Cetak</button>
-                <a class="toolbar-back" href="{{ route('admin.billing.show', $invoice) }}">Kembali</a>
+                <button type="button" class="toolbar-back" onclick="closePrintTab()">Kembali</button>
             </div>
         </div>
     </div>
@@ -799,6 +799,10 @@
     </div>
 
     <script>
+        function closePrintTab() {
+            window.close();
+        }
+
         const stage = document.querySelector('.sheet-stage');
         const sheet = document.querySelector('.sheet');
 

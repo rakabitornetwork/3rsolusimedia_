@@ -41,6 +41,7 @@ class BillingCustomerPrintTest extends TestCase
             ->get('/admin/billing/print?status=unpaid&hide_old_paid=0')
             ->assertOk()
             ->assertSee('Daftar Tagihan Pelanggan')
+            ->assertSee('closePrintTab()', false)
             ->assertSee('Andi Wijaya')
             ->assertSee('Budi Santoso')
             ->assertDontSee('Citra Lestari')

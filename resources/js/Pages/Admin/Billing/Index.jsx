@@ -493,11 +493,7 @@ export default function Index({
         }
         params.set('hide_old_paid', String(hideOldPaidQueryValue(filters.hide_old_paid)));
 
-        window.open(
-            `/admin/billing/print?${params.toString()}`,
-            '_blank',
-            'noopener,noreferrer',
-        );
+        window.open(`/admin/billing/print?${params.toString()}`, '_blank');
     };
 
     const printFilterSummary = [
@@ -993,15 +989,19 @@ export default function Index({
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
                                         <QuickPayMenu invoice={item} methods={payment_methods} />
-                                        <a
-                                            href={`/admin/billing/invoices/${item.id}/print`}
-                                            target="_blank"
-                                            rel="noreferrer"
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                window.open(
+                                                    `/admin/billing/invoices/${item.id}/print`,
+                                                    '_blank',
+                                                )
+                                            }
                                             className="admin-icon-btn"
                                             title="Cetak invoice"
                                         >
                                             <Printer className="h-3.5 w-3.5" />
-                                        </a>
+                                        </button>
                                         <MoreActions
                                             invoice={item}
                                             onRemove={remove}

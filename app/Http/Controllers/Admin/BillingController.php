@@ -291,7 +291,6 @@ class BillingController extends Controller
             'list_title' => 'Daftar Tagihan Pelanggan',
             'page_title' => 'Cetak Pelanggan · Tagihan & Pembayaran',
             'filter_bits' => $this->billingPrintFilterBits($request, $router),
-            'back_url' => route('admin.billing.index'),
             'empty_message' => 'Tidak ada pelanggan untuk filter tagihan ini.',
             'company' => $this->companyPrintPayload(),
             'agent_marks' => (bool) $request->user()?->isAgen(),

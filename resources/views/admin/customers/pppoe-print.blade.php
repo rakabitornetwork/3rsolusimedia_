@@ -31,7 +31,6 @@
     ])->filter()->implode(' · ');
     $listTitle = $list_title ?? 'Daftar Tagihan Pelanggan PPPoE';
     $pageTitle = $page_title ?? ('Cetak Tagihan PPPoE · '.$fmtShort($date ?? now()));
-    $backUrl = $back_url ?? route('admin.customers.pppoe');
     $emptyMessage = $empty_message ?? 'Tidak ada pelanggan untuk filter tanggal ini.';
     $agentMarks = (bool) ($agent_marks ?? false);
     $tfColumnLabel = $agentMarks ? 'Siap TF' : 'TF';
@@ -325,7 +324,7 @@
         </p>
         <div class="toolbar-actions">
             <button type="button" class="primary" onclick="window.print()">Cetak</button>
-            <a href="{{ $backUrl }}">Kembali</a>
+            <button type="button" onclick="closePrintTab()">Kembali</button>
         </div>
     </div>
 
@@ -417,6 +416,10 @@
     </div>
 
     <script>
+        function closePrintTab() {
+            window.close();
+        }
+
         if (new URLSearchParams(window.location.search).get('autoprint') === '1') {
             window.addEventListener('load', () => setTimeout(() => window.print(), 250));
         }
