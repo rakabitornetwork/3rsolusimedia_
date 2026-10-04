@@ -365,16 +365,21 @@
 }
 
 .admin-actions--equal {
-    display: grid;
+    display: inline-grid;
+    width: max-content;
+    max-width: none;
     grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    justify-content: stretch;
+    grid-auto-columns: max-content;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .admin-actions--equal > a,
 .admin-actions--equal > button {
-    width: 100%;
-    min-width: 0;
+    width: auto;
+    min-width: 6.75rem;
+    flex-shrink: 0;
 }
 
 /* —— Semantic action button colors (admin) —— */

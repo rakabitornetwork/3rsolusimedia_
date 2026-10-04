@@ -162,12 +162,12 @@ export default function Index({ config, connection, devices, devices_error, stat
         >
             <Head title="GenieACS" />
 
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <p className="max-w-2xl text-sm text-ink-soft">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+                <p className="min-w-0 max-w-2xl flex-1 text-sm text-ink-soft">
                     Hubungkan aplikasi ke GenieACS NBI (default port <strong>7557</strong>). Setelah
                     aktif, daftar perangkat CPE dapat dipantau dan di-summon dari panel ini.
                 </p>
-                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense shrink-0">
                     <button
                         type="button"
                         onClick={() => setShowSettings((v) => !v)}
@@ -494,7 +494,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                                             tone={status}
                                         />
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-4 py-3 text-center whitespace-nowrap">
                                         <div className="admin-actions admin-actions--equal">
                                             <Link
                                                 href={`/admin/network/genieacs/devices/${encodeURIComponent(item.id)}`}

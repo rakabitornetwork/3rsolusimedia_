@@ -122,7 +122,7 @@ export default function Show({ device, ui_url }) {
         >
             <Head title={`GenieACS · ${device.serial || device.id}`} />
 
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <Link
                     href="/admin/network/genieacs"
                     className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-sky-700 hover:text-ink"
@@ -130,7 +130,7 @@ export default function Show({ device, ui_url }) {
                     <ArrowLeft className="h-4 w-4 shrink-0 text-sky-600" />
                     Kembali ke daftar
                 </Link>
-                <div className="admin-toolbar-actions admin-toolbar-actions--dense">
+                <div className="admin-toolbar-actions admin-toolbar-actions--dense shrink-0">
                     {ui_url && (
                         <a
                             href={`${ui_url.replace(/\/$/, '')}/#!/devices/${encodeURIComponent(device.id)}`}
