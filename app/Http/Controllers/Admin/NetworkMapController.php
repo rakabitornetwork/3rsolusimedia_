@@ -166,8 +166,6 @@ class NetworkMapController extends Controller
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
-                ['value' => 'qris', 'label' => 'QRIS'],
-                ['value' => 'other', 'label' => 'Lainnya'],
             ],
             'stats' => [
                 'total' => count($items),

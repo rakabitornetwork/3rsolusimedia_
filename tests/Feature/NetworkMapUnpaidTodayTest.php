@@ -137,7 +137,7 @@ class NetworkMapUnpaidTodayTest extends TestCase
                 ->where('customers.1.unpaid_invoices', [])
                 ->where('customers.2.unpaid_invoices', [])
                 ->where('customers.3.unpaid_invoices', [])
-                ->has('payment_methods', 4)
+                ->has('payment_methods', 2)
                 ->where('payment_methods.0.value', 'cash')
                 ->has('routers', 1)
                 ->where('filters.router_id', '')

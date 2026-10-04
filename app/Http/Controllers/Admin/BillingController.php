@@ -153,8 +153,6 @@ class BillingController extends Controller
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
-                ['value' => 'qris', 'label' => 'QRIS'],
-                ['value' => 'other', 'label' => 'Lainnya'],
             ],
         ]);
     }
@@ -185,8 +183,6 @@ class BillingController extends Controller
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
-                ['value' => 'qris', 'label' => 'QRIS'],
-                ['value' => 'other', 'label' => 'Lainnya'],
             ],
             'whatsapp' => $this->notifier->whatsappManualUi(),
             'online_pay' => [
@@ -329,7 +325,7 @@ class BillingController extends Controller
             return back()->with('error', 'Anda tidak memiliki akses untuk memproses pembayaran tagihan pelanggan ini.');
         }
         $validated = $request->validate([
-            'method' => ['required', Rule::in(['cash', 'transfer', 'qris', 'other'])],
+            'method' => ['required', Rule::in(['cash', 'transfer'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -414,7 +410,7 @@ class BillingController extends Controller
         $validated = $request->validate([
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'exists:invoices,id'],
-            'method' => ['required', Rule::in(['cash', 'transfer', 'qris', 'other'])],
+            'method' => ['required', Rule::in(['cash', 'transfer'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
