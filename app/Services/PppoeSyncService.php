@@ -39,13 +39,19 @@ class PppoeSyncService
 
         $wasIsolated = $customer->status === 'isolated';
         $targetProfile = $customer->service_profile;
-        $disabled = ! $customer->is_active;
+        $stopService = ! $customer->is_active;
+        $disableSecret = $stopService;
         $status = 'active';
 
-        if ($disabled) {
+        if ($stopService) {
             $status = 'disabled';
         } elseif ($customer->shouldIsolir()) {
-            if (! $customer->isolir_profile) {
+            // VPN L2TP tidak punya halaman isolir. Secret dimatikan supaya
+            // login ditolak, lalu dihidupkan lagi saat tagihan lunas.
+            if ($customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+                $disableSecret = true;
+                $status = 'isolated';
+            } elseif (! $customer->isolir_profile) {
                 $customer->update([
                     'sync_status' => 'error',
                     'sync_message' => 'Aksi isolir dipilih, tapi profile isolir belum diisi.',
@@ -53,10 +59,10 @@ class PppoeSyncService
                 ]);
 
                 return;
+            } else {
+                $targetProfile = $customer->isolir_profile;
+                $status = 'isolated';
             }
-
-            $targetProfile = $customer->isolir_profile;
-            $status = 'isolated';
         }
 
         // Putus sesi saat isolir, pulih dari isolir, atau profile layanan baru
@@ -73,7 +79,7 @@ class PppoeSyncService
             $password,
             $targetProfile,
             $customer->name,
-            $disabled,
+            $disableSecret,
             disconnectActive: $disconnectActive,
             updatePassword: $pushPassword && $password !== '',
             service: $customer->pppService(),

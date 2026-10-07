@@ -83,7 +83,10 @@ class SyncOverduePppoeCustomers extends Command
                     $this->error("ERR [{$customer->username}]: {$fresh->sync_message}");
                 } elseif ($fresh->status === 'isolated') {
                     $isolatedCount++;
-                    $this->line("ISOLIR [{$customer->username}]: Profile diubah ke {$fresh->isolir_profile}");
+                    $detail = $fresh->pppService() === PppoeCustomer::SERVICE_L2TP
+                        ? 'Secret VPN L2TP dinonaktifkan'
+                        : "Profile diubah ke {$fresh->isolir_profile}";
+                    $this->line("ISOLIR [{$customer->username}]: {$detail}");
                 } else {
                     $restoredCount++;
                     $this->info("RESTORE [{$customer->username}]: Profile dikembalikan ke {$fresh->service_profile}");

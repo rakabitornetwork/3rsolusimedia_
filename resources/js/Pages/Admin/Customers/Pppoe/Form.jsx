@@ -675,30 +675,32 @@ export default function Form({
                     </label>
                 </div>
 
-                <label className="block text-sm font-medium text-ink">
-                    Profile layanan (aktif)
-                    <select
-                        value={data.service_profile || ''}
-                        onChange={(e) => setData('service_profile', e.target.value)}
-                        className={fieldClass}
-                        disabled={loadingProfiles}
-                    >
-                        <option value="">
-                            {loadingProfiles ? 'Memuat profile...' : 'Pilih profile RouterOS'}
-                        </option>
-                        {profiles.map((profile) => (
-                            <option key={profile.name} value={profile.name}>
-                                {profile.name}
-                                {profile.rate_limit ? ` (${profile.rate_limit})` : ''}
+                {editing && (
+                    <label className="block text-sm font-medium text-ink">
+                        Profile layanan (aktif)
+                        <select
+                            value={data.service_profile || ''}
+                            onChange={(e) => setData('service_profile', e.target.value)}
+                            className={fieldClass}
+                            disabled={loadingProfiles}
+                        >
+                            <option value="">
+                                {loadingProfiles ? 'Memuat profile...' : 'Pilih profile RouterOS'}
                             </option>
-                        ))}
-                    </select>
-                    {errors.service_profile && (
-                        <span className="mt-1 block text-xs text-red-600">
-                            {errors.service_profile}
-                        </span>
-                    )}
-                </label>
+                            {profiles.map((profile) => (
+                                <option key={profile.name} value={profile.name}>
+                                    {profile.name}
+                                    {profile.rate_limit ? ` (${profile.rate_limit})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {errors.service_profile && (
+                            <span className="mt-1 block text-xs text-red-600">
+                                {errors.service_profile}
+                            </span>
+                        )}
+                    </label>
+                )}
 
                 <div className="border border-ink/10 bg-mist/30 p-4 space-y-4">
                     <div>
