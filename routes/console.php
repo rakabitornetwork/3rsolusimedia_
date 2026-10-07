@@ -41,3 +41,9 @@ Schedule::command('messaging:send-outbox')
 
 // Pantau sesi PPPoE connected/disconnected → Telegram admin
 Schedule::command('pppoe:watch-sessions')->everyMinute()->withoutOverlapping(5);
+
+// Akumulasi pemakaian RX/TX per pelanggan. Bulan baru mulai dari nol tanggal 1.
+Schedule::command('pppoe:collect-usage')
+    ->everyFiveMinutes()
+    ->timezone($appTimezone)
+    ->withoutOverlapping(10);

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Crypt;
 
 class PppoeCustomer extends Model
@@ -101,6 +102,22 @@ class PppoeCustomer extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function monthlyUsages(): HasMany
+    {
+        return $this->hasMany(PppoeMonthlyUsage::class);
+    }
+
+    public function usageThisMonth(): HasOne
+    {
+        return $this->hasOne(PppoeMonthlyUsage::class)
+            ->where('period', now()->format('Y-m'));
+    }
+
+    public function trafficCursor(): HasOne
+    {
+        return $this->hasOne(PppoeTrafficCursor::class);
     }
 
     public function isOverdue(): bool

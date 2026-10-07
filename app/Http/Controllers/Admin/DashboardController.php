@@ -90,24 +90,10 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Invoice $invoice) => $invoice->toAdminArray());
 
-        $trafficRouters = $user->isAgen()
-            ? []
-            : MikrotikRouter::query()
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->get(['id', 'name', 'host'])
-                ->map(fn (MikrotikRouter $router) => [
-                    'id' => $router->id,
-                    'name' => $router->name,
-                    'host' => $router->host,
-                ])
-                ->values();
-
         $newCustomers = $this->newCustomers($customerQuery);
 
         return Inertia::render('Admin/Dashboard', [
             'company' => AppSettings::companyName(),
-            'traffic_routers' => $trafficRouters,
             'update_notice' => $this->git->dashboardNotice(),
             'stats' => [
                 'customers_total' => $customersTotal,

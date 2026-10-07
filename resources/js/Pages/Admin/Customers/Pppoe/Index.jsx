@@ -592,6 +592,9 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 onSort={applySort}
                                 className="hidden lg:table-cell"
                             />
+                            <th className="hidden px-4 py-3 font-semibold md:table-cell">
+                                Pemakaian bulan ini
+                            </th>
                             <SortableHeader
                                 label="Jatuh Tempo"
                                 column="due_date"
@@ -651,7 +654,14 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                         </p>
                                     )}
                                 </td>
-                                <td className="px-4 py-3 text-ink-soft">{customer.username}</td>
+                                <td className="px-4 py-3 text-ink-soft">
+                                    <p>{customer.username}</p>
+                                    <p className="mt-1 text-xs md:hidden">
+                                        RX {customer.monthly_usage?.rx_label ?? '0 B'}
+                                        {' · '}
+                                        TX {customer.monthly_usage?.tx_label ?? '0 B'}
+                                    </p>
+                                </td>
                                 <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
                                     {customer.phone ? (
                                         <a
@@ -669,6 +679,13 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 </td>
                                 <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {customer.package?.name || '—'}
+                                </td>
+                                <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
+                                    <p>RX {customer.monthly_usage?.rx_label ?? '0 B'}</p>
+                                    <p>TX {customer.monthly_usage?.tx_label ?? '0 B'}</p>
+                                    <p className="text-xs text-ink-soft/80">
+                                        {customer.monthly_usage?.period_label || 'Bulan ini'}
+                                    </p>
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
                                     <p>{customer.due_date}</p>

@@ -16,7 +16,6 @@ import {
     WalletCards,
     Wifi,
 } from 'lucide-react';
-import LiveTrafficCard from '../../Components/Admin/LiveTrafficCard';
 import NewCustomersCard from '../../Components/Admin/NewCustomersCard';
 import RevenueChartCard from '../../Components/Admin/RevenueChartCard';
 import StatCard from '../../Components/Admin/StatCard';
@@ -35,7 +34,6 @@ function actionIcon(label) {
 export default function Dashboard({
     company,
     stats,
-    traffic_routers: trafficRouters = [],
     update_notice: updateNotice = null,
     revenue_charts: revenueCharts = null,
     new_customers: newCustomers = null,
@@ -208,13 +206,6 @@ export default function Dashboard({
                     <NewCustomersCard data={newCustomers} />
                 </section>
             )}
-
-            <section className="mb-8">
-                <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                    Live Traffic
-                </h3>
-                <LiveTrafficCard routers={trafficRouters} variant="gauge" />
-            </section>
 
             {revenueCharts && (
                 <section className="mb-8">

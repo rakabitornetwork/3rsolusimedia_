@@ -362,6 +362,50 @@ export default function Form({
         >
             <Head title={editing ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'} />
 
+            {editing && customer?.monthly_usage && (
+                <section className="mb-4 max-w-3xl border border-ink/10 bg-white p-4 sm:p-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <h3 className="text-sm font-semibold text-ink">
+                            Pemakaian {customer.monthly_usage.period_label}
+                        </h3>
+                        <p className="text-xs text-ink-soft">{customer.monthly_usage.reset_label}</p>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <div className="border border-sky-200/80 bg-sky-50/70 px-3 py-2">
+                            <p className="text-[11px] font-semibold tracking-wide text-sky-800 uppercase">
+                                Download (RX)
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-sky-950">
+                                {customer.monthly_usage.rx_label}
+                            </p>
+                        </div>
+                        <div className="border border-orange-200/80 bg-orange-50/70 px-3 py-2">
+                            <p className="text-[11px] font-semibold tracking-wide text-orange-800 uppercase">
+                                Upload (TX)
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-orange-950">
+                                {customer.monthly_usage.tx_label}
+                            </p>
+                        </div>
+                        <div className="border border-ink/10 bg-mist/40 px-3 py-2">
+                            <p className="text-[11px] font-semibold tracking-wide text-ink-soft uppercase">
+                                Total
+                            </p>
+                            <p className="mt-1 text-lg font-semibold text-ink">
+                                {customer.monthly_usage.total_label}
+                            </p>
+                        </div>
+                    </div>
+                    <p className="mt-3 text-xs text-ink-soft">
+                        {customer.monthly_usage.has_sample
+                            ? `Terakhir dibaca ${customer.monthly_usage.sampled_at || '—'}. `
+                            : 'Belum ada pembacaan. '}
+                        Angka bertambah tiap 5 menit selama pelanggan online, lalu mulai dari nol
+                        pada tanggal 1.
+                    </p>
+                </section>
+            )}
+
             {fromSession && (
                 <div className="mb-4 border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
                     Data diisi dari sesi aktif

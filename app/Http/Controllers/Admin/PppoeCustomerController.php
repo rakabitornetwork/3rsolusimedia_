@@ -14,6 +14,7 @@ use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Services\MikrotikApiService;
+use App\Services\PppoeMonthlyUsageService;
 use App\Services\PppoeSyncService;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
@@ -35,6 +36,7 @@ class PppoeCustomerController extends Controller
         private readonly BillingCycleService $billing,
         private readonly BillingService $billingService,
         private readonly PppoeSyncService $sync,
+        private readonly PppoeMonthlyUsageService $usage,
         private readonly CustomerNotifier $notifier,
         private readonly WhatsAppIdentityBinder $whatsappBinder,
     ) {
@@ -64,7 +66,7 @@ class PppoeCustomerController extends Controller
         }
 
         $query = PppoeCustomer::query()
-            ->with(['router', 'package', 'agent'])
+            ->with(['router', 'package', 'agent', 'usageThisMonth', 'trafficCursor'])
             ->select('pppoe_customers.*');
 
         if ($user->isAgen()) {
@@ -102,9 +104,15 @@ class PppoeCustomerController extends Controller
         $query->orderBy($allowedSorts[$sort], $direction)
             ->orderBy('pppoe_customers.id', $direction);
 
-        $customers = $query->get()->map(
-            fn (PppoeCustomer $customer) => $customer->toSafeArray()
-        )->values();
+        $customers = $query->get()->map(function (PppoeCustomer $customer) {
+            $payload = $customer->toSafeArray();
+            $payload['monthly_usage'] = $this->usage->present(
+                $customer->usageThisMonth,
+                $customer->trafficCursor,
+            );
+
+            return $payload;
+        })->values();
 
         return Inertia::render('Admin/Customers/Pppoe/Index', [
             'customers' => $customers,
@@ -374,8 +382,12 @@ class PppoeCustomerController extends Controller
                 ->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
         }
 
-        $pppoe->load(['router', 'package']);
+        $pppoe->load(['router', 'package', 'usageThisMonth', 'trafficCursor']);
         $customer = $pppoe->toSafeArray();
+        $customer['monthly_usage'] = $this->usage->present(
+            $pppoe->usageThisMonth,
+            $pppoe->trafficCursor,
+        );
         $customer['package_change_defers_to_next_month'] = $this->packageChangeDefersToNextMonth($pppoe);
         $lastPaidDue = Invoice::query()
             ->where('pppoe_customer_id', $pppoe->id)

@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Services\GenieAcsService;
 use App\Services\MikrotikApiService;
+use App\Services\PppoeMonthlyUsageService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,7 @@ class CustomerPortalController extends Controller
         private readonly GenieAcsService $genie,
         private readonly PaymentGatewayManager $gateways,
         private readonly MikrotikApiService $mikrotik,
+        private readonly PppoeMonthlyUsageService $usage,
     ) {}
 
     public function home(Request $request, string $token): Response|RedirectResponse
@@ -42,6 +44,7 @@ class CustomerPortalController extends Controller
         $oldestUnpaidId = (clone $unpaidQuery)->orderBy('due_date')->orderBy('id')->value('id');
 
         $deviceSummary = $this->resolvePortalDevice($customer);
+        $customer->load(['usageThisMonth', 'trafficCursor']);
 
         return Inertia::render('Portal/Home', [
             'branding' => AppSettings::branding(),
@@ -54,6 +57,7 @@ class CustomerPortalController extends Controller
                 'oldest_unpaid_id' => $oldestUnpaidId ? (int) $oldestUnpaidId : null,
                 'gateway_ready' => $this->gateways->hasEnabledGateway(),
             ],
+            'usage' => $this->usage->present($customer->usageThisMonth, $customer->trafficCursor),
             'device' => $deviceSummary['device'],
             'device_available' => $deviceSummary['available'],
             'device_message' => $deviceSummary['message'],

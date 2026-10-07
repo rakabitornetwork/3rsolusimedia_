@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { CreditCard, Radio, Router, Thermometer, Users } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, CreditCard, Radio, Router, Thermometer, Users } from 'lucide-react';
 import { useState } from 'react';
 import DeviceMetricCard, {
     splitMetricLabel,
@@ -22,6 +22,7 @@ export default function Home({
     device_available,
     device_message,
     banners,
+    usage = null,
 }) {
     const [paying, setPaying] = useState(false);
     const online = onlineTone(device?.online);
@@ -111,6 +112,46 @@ export default function Home({
                             Lihat tagihan
                         </Link>
                     </div>
+                    </div>
+                </section>
+
+                <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+                    <div className="h-1 bg-gradient-to-r from-sky-400 via-signal to-orange-400" />
+                    <div className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs tracking-wide text-ink-soft uppercase">
+                                    Pemakaian {usage?.period_label || 'bulan ini'}
+                                </p>
+                                <h2 className="mt-1 text-base font-semibold text-ink">
+                                    Total {usage?.total_label || '0 B'}
+                                </h2>
+                                <p className="mt-1 text-sm text-ink-soft">
+                                    {usage?.reset_label || 'Reset tiap tanggal 1'}
+                                    {usage?.sampled_at ? ` · dibaca ${usage.sampled_at}` : ''}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-sky-200/80 bg-sky-50/80 px-3 py-3">
+                                <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-sky-800 uppercase">
+                                    <ArrowDownToLine className="h-3.5 w-3.5" />
+                                    Download (RX)
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-sky-950">
+                                    {usage?.rx_label || '0 B'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-orange-200/80 bg-orange-50/80 px-3 py-3">
+                                <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-orange-800 uppercase">
+                                    <ArrowUpFromLine className="h-3.5 w-3.5" />
+                                    Upload (TX)
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-orange-950">
+                                    {usage?.tx_label || '0 B'}
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
