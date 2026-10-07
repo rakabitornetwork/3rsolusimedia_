@@ -475,42 +475,22 @@ export default function Form({
                     </label>
 
                     <label className="block text-sm font-medium text-ink">
-                        Paket langganan
+                        Jenis layanan
                         <select
-                            value={data.subscription_package_id || ''}
-                            onChange={(e) => setData('subscription_package_id', e.target.value)}
+                            value={data.ppp_service || 'pppoe'}
+                            onChange={(e) => setData('ppp_service', e.target.value)}
                             className={fieldClass}
-                            required
-                            disabled={!data.mikrotik_router_id}
                         >
-                            <option value="">
-                                {!data.mikrotik_router_id
-                                    ? 'Pilih router dulu'
-                                    : routerPackages.length
-                                      ? 'Pilih paket'
-                                      : 'Tidak ada paket untuk router ini'}
-                            </option>
-                            {routerPackages.map((pkg) => (
-                                <option key={pkg.id} value={pkg.id}>
-                                    {pkg.name} — {pkg.price_label}
-                                </option>
-                            ))}
+                            <option value="pppoe">PPPoE</option>
+                            <option value="l2tp">VPN L2TP</option>
                         </select>
-                        {data.mikrotik_router_id && routerPackages.length === 0 && (
-                            <span className="mt-1 block text-xs text-amber-700">
-                                Belum ada paket langganan untuk router ini.{' '}
-                                <Link
-                                    href={`/admin/customers/pppoe/service-profiles/create?router_id=${data.mikrotik_router_id}`}
-                                    className="font-semibold underline"
-                                >
-                                    Tambah paket
-                                </Link>
-                            </span>
-                        )}
-                        {errors.subscription_package_id && (
-                            <span className="mt-1 block text-xs text-red-600">
-                                {errors.subscription_package_id}
-                            </span>
+                        <span className="mt-1 block text-xs font-normal text-ink-soft">
+                            {data.ppp_service === 'l2tp'
+                                ? 'Secret di RouterOS memakai service l2tp. Username di bawah adalah nama secret yang sama, dipakai pelanggan untuk login VPN.'
+                                : 'Secret di RouterOS memakai service pppoe. Username di bawah adalah nama secret PPPoE.'}
+                        </span>
+                        {errors.ppp_service && (
+                            <span className="mt-1 block text-xs text-red-600">{errors.ppp_service}</span>
                         )}
                     </label>
                 </div>
@@ -623,22 +603,42 @@ export default function Form({
                 />
 
                 <label className="block text-sm font-medium text-ink">
-                    Jenis layanan
+                    Paket langganan
                     <select
-                        value={data.ppp_service || 'pppoe'}
-                        onChange={(e) => setData('ppp_service', e.target.value)}
+                        value={data.subscription_package_id || ''}
+                        onChange={(e) => setData('subscription_package_id', e.target.value)}
                         className={fieldClass}
+                        required
+                        disabled={!data.mikrotik_router_id}
                     >
-                        <option value="pppoe">PPPoE</option>
-                        <option value="l2tp">VPN L2TP</option>
+                        <option value="">
+                            {!data.mikrotik_router_id
+                                ? 'Pilih router dulu'
+                                : routerPackages.length
+                                  ? 'Pilih paket'
+                                  : 'Tidak ada paket untuk router ini'}
+                        </option>
+                        {routerPackages.map((pkg) => (
+                            <option key={pkg.id} value={pkg.id}>
+                                {pkg.name} — {pkg.price_label}
+                            </option>
+                        ))}
                     </select>
-                    <span className="mt-1 block text-xs font-normal text-ink-soft">
-                        {data.ppp_service === 'l2tp'
-                            ? 'Secret di RouterOS memakai service l2tp. Username di bawah adalah nama secret yang sama, dipakai pelanggan untuk login VPN.'
-                            : 'Secret di RouterOS memakai service pppoe. Username di bawah adalah nama secret PPPoE.'}
-                    </span>
-                    {errors.ppp_service && (
-                        <span className="mt-1 block text-xs text-red-600">{errors.ppp_service}</span>
+                    {data.mikrotik_router_id && routerPackages.length === 0 && (
+                        <span className="mt-1 block text-xs text-amber-700">
+                            Belum ada paket langganan untuk router ini.{' '}
+                            <Link
+                                href={`/admin/customers/pppoe/service-profiles/create?router_id=${data.mikrotik_router_id}`}
+                                className="font-semibold underline"
+                            >
+                                Tambah paket
+                            </Link>
+                        </span>
+                    )}
+                    {errors.subscription_package_id && (
+                        <span className="mt-1 block text-xs text-red-600">
+                            {errors.subscription_package_id}
+                        </span>
                     )}
                 </label>
 
