@@ -34,7 +34,16 @@ function whatsappHref(phone) {
     return `https://wa.me/${normalized}`;
 }
 
-function SortableHeader({ label, column, sort, direction, onSort, className = '' }) {
+function SortableHeader({
+    label,
+    column,
+    sort,
+    direction,
+    onSort,
+    className = '',
+    ascTitle,
+    descTitle,
+}) {
     const active = sort === column;
 
     return (
@@ -45,7 +54,7 @@ function SortableHeader({ label, column, sort, direction, onSort, className = ''
                     <button
                         type="button"
                         onClick={() => onSort(column, 'asc')}
-                        title={`Urutkan ${label} A → Z`}
+                        title={ascTitle || `Urutkan ${label} A → Z`}
                         className={`leading-none ${
                             active && direction === 'asc'
                                 ? 'text-signal-deep'
@@ -57,7 +66,7 @@ function SortableHeader({ label, column, sort, direction, onSort, className = ''
                     <button
                         type="button"
                         onClick={() => onSort(column, 'desc')}
-                        title={`Urutkan ${label} Z → A`}
+                        title={descTitle || `Urutkan ${label} Z → A`}
                         className={`leading-none ${
                             active && direction === 'desc'
                                 ? 'text-signal-deep'
@@ -106,6 +115,19 @@ function StatusBadge({ status, overdue, graceUntil }) {
     return (
         <span className={`px-2 py-1 text-xs font-semibold ${map[status] || map.disabled}`}>
             {label[status] || status}
+        </span>
+    );
+}
+
+function UsageAmount({ kind, label, compact = false }) {
+    const rx = kind === 'rx';
+
+    return (
+        <span className={compact ? 'inline' : 'block'}>
+            <span className={`font-semibold ${rx ? 'text-sky-700' : 'text-orange-700'}`}>
+                {rx ? 'RX' : 'TX'}
+            </span>{' '}
+            <span className={rx ? 'text-sky-950' : 'text-orange-950'}>{label}</span>
         </span>
     );
 }
@@ -592,9 +614,16 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 onSort={applySort}
                                 className="hidden lg:table-cell"
                             />
-                            <th className="hidden px-4 py-3 font-semibold md:table-cell">
-                                Pemakaian bulan ini
-                            </th>
+                            <SortableHeader
+                                label="Pemakaian bulan ini"
+                                column="usage"
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={applySort}
+                                className="hidden md:table-cell"
+                                ascTitle="Pemakaian terkecil dulu"
+                                descTitle="Pemakaian terbanyak dulu"
+                            />
                             <SortableHeader
                                 label="Jatuh Tempo"
                                 column="due_date"
@@ -657,9 +686,17 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 <td className="px-4 py-3 text-ink-soft">
                                     <p>{customer.username}</p>
                                     <p className="mt-1 text-xs md:hidden">
-                                        RX {customer.monthly_usage?.rx_label ?? '0 B'}
-                                        {' · '}
-                                        TX {customer.monthly_usage?.tx_label ?? '0 B'}
+                                        <UsageAmount
+                                            kind="rx"
+                                            label={customer.monthly_usage?.rx_label ?? '0 B'}
+                                            compact
+                                        />
+                                        <span className="text-ink-soft/50"> · </span>
+                                        <UsageAmount
+                                            kind="tx"
+                                            label={customer.monthly_usage?.tx_label ?? '0 B'}
+                                            compact
+                                        />
                                     </p>
                                 </td>
                                 <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
@@ -680,9 +717,18 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 <td className="hidden px-4 py-3 text-ink-soft lg:table-cell">
                                     {customer.package?.name || '—'}
                                 </td>
-                                <td className="hidden px-4 py-3 text-ink-soft md:table-cell">
-                                    <p>RX {customer.monthly_usage?.rx_label ?? '0 B'}</p>
-                                    <p>TX {customer.monthly_usage?.tx_label ?? '0 B'}</p>
+                                <td className="hidden px-4 py-3 md:table-cell">
+                                    <UsageAmount
+                                        kind="rx"
+                                        label={customer.monthly_usage?.rx_label ?? '0 B'}
+                                    />
+                                    <UsageAmount
+                                        kind="tx"
+                                        label={customer.monthly_usage?.tx_label ?? '0 B'}
+                                    />
+                                    <p className="mt-0.5 text-xs text-ink">
+                                        Total {customer.monthly_usage?.total_label ?? '0 B'}
+                                    </p>
                                     <p className="text-xs text-ink-soft/80">
                                         {customer.monthly_usage?.period_label || 'Bulan ini'}
                                     </p>

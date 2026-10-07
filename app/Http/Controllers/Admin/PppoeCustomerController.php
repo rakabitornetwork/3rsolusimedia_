@@ -59,6 +59,7 @@ class PppoeCustomerController extends Controller
             'due_date' => 'pppoe_customers.due_date',
             'overdue_action' => 'pppoe_customers.overdue_action',
             'status' => 'pppoe_customers.status',
+            'usage' => 'usage',
         ];
 
         if (! array_key_exists($sort, $allowedSorts)) {
@@ -82,6 +83,13 @@ class PppoeCustomerController extends Controller
             );
         }
 
+        if ($sort === 'usage') {
+            $query->leftJoin('pppoe_monthly_usages as monthly_usage_sort', function ($join) {
+                $join->on('monthly_usage_sort.pppoe_customer_id', '=', 'pppoe_customers.id')
+                    ->where('monthly_usage_sort.period', '=', now()->format('Y-m'));
+            });
+        }
+
         if ($status = $request->get('status')) {
             if ($status === 'grace') {
                 $query->whereNotNull('pppoe_customers.grace_until')
@@ -101,8 +109,15 @@ class PppoeCustomerController extends Controller
             $query->where('pppoe_customers.mikrotik_router_id', $routerId);
         }
 
-        $query->orderBy($allowedSorts[$sort], $direction)
-            ->orderBy('pppoe_customers.id', $direction);
+        if ($sort === 'usage') {
+            $query->orderByRaw(
+                '(COALESCE(monthly_usage_sort.rx_bytes, 0) + COALESCE(monthly_usage_sort.tx_bytes, 0)) '.$direction
+            );
+        } else {
+            $query->orderBy($allowedSorts[$sort], $direction);
+        }
+
+        $query->orderBy('pppoe_customers.id', $direction);
 
         $customers = $query->get()->map(function (PppoeCustomer $customer) {
             $payload = $customer->toSafeArray();

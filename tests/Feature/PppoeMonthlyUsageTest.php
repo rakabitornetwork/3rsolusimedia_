@@ -140,6 +140,60 @@ class PppoeMonthlyUsageTest extends TestCase
             );
     }
 
+    #[Test]
+    public function customer_list_sorts_by_current_month_usage_total(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        Carbon::setTestNow(Carbon::parse('2026-10-07 11:00:00', 'Asia/Jakarta'));
+
+        $admin = User::factory()->superadmin()->create();
+        $router = $this->router();
+        $light = $this->customer($router, ['name' => 'Ringan', 'username' => 'ringan']);
+        $heavy = $this->customer($router, ['name' => 'Berat', 'username' => 'berat']);
+        $none = $this->customer($router, ['name' => 'Kosong', 'username' => 'kosong']);
+
+        PppoeMonthlyUsage::query()->create([
+            'pppoe_customer_id' => $light->id,
+            'period' => '2026-10',
+            'rx_bytes' => 100,
+            'tx_bytes' => 50,
+        ]);
+        PppoeMonthlyUsage::query()->create([
+            'pppoe_customer_id' => $heavy->id,
+            'period' => '2026-09',
+            'rx_bytes' => 9_000_000,
+            'tx_bytes' => 9_000_000,
+        ]);
+        PppoeMonthlyUsage::query()->create([
+            'pppoe_customer_id' => $heavy->id,
+            'period' => '2026-10',
+            'rx_bytes' => 8_000,
+            'tx_bytes' => 2_000,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/customers/pppoe?sort=usage&direction=desc')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Customers/Pppoe/Index', false)
+                ->where('filters.sort', 'usage')
+                ->where('filters.direction', 'desc')
+                ->where('customers.0.username', $heavy->username)
+                ->where('customers.1.username', $light->username)
+                ->where('customers.2.username', $none->username)
+            );
+
+        $this->actingAs($admin)
+            ->get('/admin/customers/pppoe?sort=usage&direction=asc')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Customers/Pppoe/Index', false)
+                ->where('customers.0.username', $none->username)
+                ->where('customers.1.username', $light->username)
+                ->where('customers.2.username', $heavy->username)
+            );
+    }
+
     private function router(string $name = 'Router 1', string $host = '192.168.88.1'): MikrotikRouter
     {
         return MikrotikRouter::query()->create([
