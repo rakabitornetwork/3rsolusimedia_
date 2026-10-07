@@ -81,7 +81,7 @@ class VpnSignupController extends Controller
 
         return redirect()
             ->route('portal.pay.index')
-            ->with('success', 'Akun VPN Tunnel sudah dibuat. Masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang didaftarkan. Router pertama gratis sampai '.$trialEnds->translatedFormat('d M Y').'.');
+            ->with('success', 'Akun VPN Tunnel sudah dibuat. Masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang didaftarkan. GRATIS coba 3 hari sampai '.$trialEnds->translatedFormat('d M Y').'.');
     }
 
     /**
