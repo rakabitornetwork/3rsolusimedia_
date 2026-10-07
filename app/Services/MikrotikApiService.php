@@ -1620,7 +1620,11 @@ class MikrotikApiService
         bool $disabled = false,
         bool $disconnectActive = false,
         bool $updatePassword = true,
+        string $service = 'pppoe',
     ): array {
+        $service = $service === 'l2tp' ? 'l2tp' : 'pppoe';
+        $serviceLabel = $service === 'l2tp' ? 'VPN L2TP' : 'PPPoE';
+
         try {
             $client = $this->makeClient($router);
             $existing = $client->query(
@@ -1630,6 +1634,7 @@ class MikrotikApiService
             if (! empty($existing[0]['.id'])) {
                 $query = (new Query('/ppp/secret/set'))
                     ->equal('.id', $existing[0]['.id'])
+                    ->equal('service', $service)
                     ->equal('disabled', $disabled ? 'yes' : 'no');
 
                 // Jangan timpa password RouterOS saat sync status (isolir/lunas)
@@ -1654,22 +1659,22 @@ class MikrotikApiService
                 return [
                     'ok' => true,
                     'message' => $disabled
-                        ? 'Secret PPPoE dinonaktifkan di RouterOS.'
-                        : 'Secret PPPoE berhasil diperbarui di RouterOS.',
+                        ? 'Secret '.$serviceLabel.' dinonaktifkan di RouterOS.'
+                        : 'Secret '.$serviceLabel.' berhasil diperbarui di RouterOS.',
                 ];
             }
 
             if ($password === '') {
                 return [
                     'ok' => false,
-                    'message' => 'Password PPPoE wajib diisi untuk membuat secret baru di RouterOS.',
+                    'message' => 'Password '.$serviceLabel.' wajib diisi untuk membuat secret baru di RouterOS.',
                 ];
             }
 
             $query = (new Query('/ppp/secret/add'))
                 ->equal('name', $username)
                 ->equal('password', $password)
-                ->equal('service', 'pppoe')
+                ->equal('service', $service)
                 ->equal('disabled', $disabled ? 'yes' : 'no');
 
             if ($profile) {
@@ -1684,8 +1689,8 @@ class MikrotikApiService
             return [
                 'ok' => true,
                 'message' => $disabled
-                    ? 'Secret PPPoE ditambahkan dalam keadaan nonaktif di RouterOS.'
-                    : 'Secret PPPoE berhasil ditambahkan di RouterOS.',
+                    ? 'Secret '.$serviceLabel.' ditambahkan dalam keadaan nonaktif di RouterOS.'
+                    : 'Secret '.$serviceLabel.' berhasil ditambahkan di RouterOS.',
             ];
         } catch (Throwable $e) {
             return ['ok' => false, 'message' => $this->friendlyError($e)];
@@ -1863,7 +1868,7 @@ class MikrotikApiService
                 }
 
                 $name = (string) ($row['name'] ?? '');
-                if (! preg_match('/^<pppoe-(.+)>$/i', $name, $matches)) {
+                if (! preg_match('/^<(?:pppoe|l2tp)-(.+)>$/i', $name, $matches)) {
                     continue;
                 }
 

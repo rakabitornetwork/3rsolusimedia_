@@ -45,7 +45,7 @@ class PppoeCustomerController extends Controller
     public function index(Request $request): Response
     {
         AdminListState::apply($request, AdminListState::PPPOE, [
-            'q', 'status', 'router_id', 'sort', 'direction', 'page',
+            'q', 'status', 'router_id', 'service', 'sort', 'direction', 'page',
         ]);
 
         $user = $request->user();
@@ -109,6 +109,11 @@ class PppoeCustomerController extends Controller
             $query->where('pppoe_customers.mikrotik_router_id', $routerId);
         }
 
+        $service = PppoeCustomer::normalizePppService((string) $request->get('service', ''));
+        if ($request->filled('service')) {
+            $query->where('pppoe_customers.ppp_service', $service);
+        }
+
         if ($sort === 'usage') {
             $query->orderByRaw(
                 '(COALESCE(monthly_usage_sort.rx_bytes, 0) + COALESCE(monthly_usage_sort.tx_bytes, 0)) '.$direction
@@ -135,6 +140,7 @@ class PppoeCustomerController extends Controller
                 'q' => $request->get('q', ''),
                 'status' => $request->get('status', ''),
                 'router_id' => $request->get('router_id', ''),
+                'service' => $request->filled('service') ? $service : '',
                 'sort' => $sort,
                 'direction' => $direction,
             ],
@@ -323,6 +329,9 @@ class PppoeCustomerController extends Controller
             ? $request->integer('router_id')
             : AdminListState::lastRouterId($request);
         $username = trim((string) $request->get('username', ''));
+        $requestedService = $request->filled('service')
+            ? PppoeCustomer::normalizePppService((string) $request->get('service'))
+            : null;
 
         if ($routerId && $username !== '') {
             $existing = PppoeCustomer::query()
@@ -337,7 +346,7 @@ class PppoeCustomerController extends Controller
             }
         }
 
-        $prefill = $this->buildSessionPrefill($routerId, $username);
+        $prefill = $this->buildSessionPrefill($routerId, $username, $requestedService);
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => null,
@@ -379,7 +388,7 @@ class PppoeCustomerController extends Controller
         $this->sync->sync($customer->fresh(['router', 'package']), pushPassword: true);
         $this->notifier->notifyWelcome($customer->fresh('package'), $invoice);
 
-        $message = 'Pelanggan PPPoE berhasil ditambahkan. Tagihan pertama (prorata): Rp '.
+        $message = 'Pelanggan '.$customer->pppServiceLabel().' berhasil ditambahkan. Tagihan pertama (prorata): Rp '.
             number_format((int) $customer->first_bill_amount, 0, ',', '.').'.';
 
         if ($invoice) {
@@ -445,6 +454,7 @@ class PppoeCustomerController extends Controller
         $reactivating = ! $wasActive && $isActive;
         $oldPrice = (int) ($pppoe->package?->price ?? 0);
         $oldProfile = (string) ($pppoe->service_profile ?? '');
+        $oldService = $pppoe->pppService();
         $requestedDue = $validated['due_date'] ?? null;
         $dueChanged = Carbon::parse($validated['due_date'])->toDateString() !== $pppoe->due_date?->toDateString();
         $hasPaid = $this->billingService->hasPaidInvoice($pppoe);
@@ -583,10 +593,11 @@ class PppoeCustomerController extends Controller
         $fresh = $pppoe->fresh(['router', 'package']);
         $profileChanged = (string) ($fresh->service_profile ?? '') !== $oldProfile
             && (string) ($fresh->service_profile ?? '') !== '';
+        $serviceChanged = $fresh->pppService() !== $oldService;
         $this->sync->sync(
             $fresh,
             pushPassword: $passwordChanged,
-            forceDisconnect: $profileChanged || $packageChanged || $reactivating,
+            forceDisconnect: $profileChanged || $packageChanged || $reactivating || $serviceChanged,
         );
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
@@ -832,12 +843,15 @@ class PppoeCustomerController extends Controller
                 $serviceProfile = (string) $package->mikrotik_profile;
             }
 
+            $pppService = PppoeCustomer::normalizePppService($secret['service'] ?? null);
+
             $payload = [
                 'mikrotik_router_id' => $router->id,
                 'subscription_package_id' => $package->id,
                 'name' => $name,
                 'username' => $username,
                 'password' => $validated['password'],
+                'ppp_service' => $pppService,
                 'service_profile' => $serviceProfile,
                 'start_date' => $validated['start_date'],
                 'billing_day' => (int) $validated['billing_day'],
@@ -845,7 +859,9 @@ class PppoeCustomerController extends Controller
                 'isolir_profile' => $validated['overdue_action'] === 'isolir'
                     ? ($validated['isolir_profile'] ?? null)
                     : null,
-                'notes' => 'Diimpor dari sesi aktif PPPoE',
+                'notes' => $pppService === PppoeCustomer::SERVICE_L2TP
+                    ? 'Diimpor dari sesi aktif L2TP'
+                    : 'Diimpor dari sesi aktif PPPoE',
                 'is_active' => true,
             ];
 
@@ -962,6 +978,7 @@ class PppoeCustomerController extends Controller
                         ->where(fn ($q) => $q->where('mikrotik_router_id', $request->input('mikrotik_router_id')))
                         ->ignore($customer?->id),
                 ],
+                'ppp_service' => ['nullable', Rule::in([PppoeCustomer::SERVICE_PPPOE, PppoeCustomer::SERVICE_L2TP])],
                 'password' => [$customer ? 'nullable' : 'required', 'string', 'max:255'],
                 'service_profile' => ['nullable', 'string', 'max:120'],
                 'start_date' => ['required', 'date'],
@@ -987,6 +1004,8 @@ class PppoeCustomerController extends Controller
             ]
         );
 
+        $validated['ppp_service'] = PppoeCustomer::normalizePppService($validated['ppp_service'] ?? null);
+
         if (empty($validated['agent_id'])) {
             $validated['agent_pays_commission'] = false;
         } else {
@@ -1001,7 +1020,7 @@ class PppoeCustomerController extends Controller
      *
      * @return array<string, mixed>|null
      */
-    private function buildSessionPrefill(?int $routerId, string $username): ?array
+    private function buildSessionPrefill(?int $routerId, string $username, ?string $requestedService = null): ?array
     {
         if (! $routerId || $username === '') {
             return null;
@@ -1018,6 +1037,7 @@ class PppoeCustomerController extends Controller
         $profile = trim((string) ($secret['profile'] ?? ''));
         $comment = trim((string) ($secret['comment'] ?? ''));
         $password = (string) ($secret['password'] ?? '');
+        $pppService = $requestedService ?? PppoeCustomer::normalizePppService($secret['service'] ?? null);
 
         $packageId = null;
         if ($profile !== '') {
@@ -1043,6 +1063,7 @@ class PppoeCustomerController extends Controller
             'name' => $comment !== '' ? $comment : $username,
             'username' => $username,
             'password' => $password,
+            'ppp_service' => $pppService,
             'service_profile' => $profile !== '' ? $profile : null,
             'start_date' => now()->toDateString(),
             'billing_day' => AppSettings::int('app_default_billing_day', 1),

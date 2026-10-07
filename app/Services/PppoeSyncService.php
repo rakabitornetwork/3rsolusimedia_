@@ -76,6 +76,7 @@ class PppoeSyncService
             $disabled,
             disconnectActive: $disconnectActive,
             updatePassword: $pushPassword && $password !== '',
+            service: $customer->pppService(),
         );
 
         $customer->update([

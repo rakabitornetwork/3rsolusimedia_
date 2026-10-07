@@ -41,7 +41,7 @@ export const adminNav = [
         title: 'Pelanggan',
         items: [
             {
-                label: 'Pelanggan PPPoE',
+                label: 'Pelanggan',
                 href: '/admin/customers/pppoe',
                 icon: Cable,
                 match: ['/admin/customers/pppoe'],

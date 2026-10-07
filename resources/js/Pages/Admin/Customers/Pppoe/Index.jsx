@@ -268,10 +268,10 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
     return (
         <AdminLayout
-            title="Pelanggan PPPoE"
-            subtitle="Kelola pelanggan, jatuh tempo, dan aksi isolir/bypass"
+            title="Pelanggan"
+            subtitle="PPPoE dan VPN L2TP pada router yang dipilih"
         >
-            <Head title="Pelanggan PPPoE" />
+            <Head title="Pelanggan" />
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <StatCard
@@ -347,6 +347,15 @@ export default function Index({ customers = [], filters, routers, stats }) {
                         <option value="isolated">Isolir</option>
                         <option value="grace">Grace</option>
                         <option value="disabled">Nonaktif</option>
+                    </select>
+                    <select
+                        value={filters.service || ''}
+                        onChange={(e) => applyFilters('service', e.target.value)}
+                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
+                    >
+                        <option value="">Semua jenis</option>
+                        <option value="pppoe">PPPoE</option>
+                        <option value="l2tp">VPN L2TP</option>
                     </select>
                 </div>
 
@@ -685,6 +694,17 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
                                     <p>{customer.username}</p>
+                                    <p className="mt-1">
+                                        <span
+                                            className={`inline-flex px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
+                                                customer.ppp_service === 'l2tp'
+                                                    ? 'bg-violet-50 text-violet-800'
+                                                    : 'bg-slate-100 text-slate-700'
+                                            }`}
+                                        >
+                                            {customer.ppp_service_label || 'PPPoE'}
+                                        </span>
+                                    </p>
                                     <p className="mt-1 text-xs md:hidden">
                                         <UsageAmount
                                             kind="rx"

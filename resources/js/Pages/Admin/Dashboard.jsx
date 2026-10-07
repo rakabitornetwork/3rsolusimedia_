@@ -159,7 +159,7 @@ export default function Dashboard({
 
             <section className="mb-8">
                 <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                    Pelanggan PPPoE
+                    Pelanggan
                 </h3>
                 <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatCard

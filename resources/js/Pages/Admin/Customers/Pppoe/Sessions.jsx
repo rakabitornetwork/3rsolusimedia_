@@ -122,7 +122,7 @@ export default function Sessions({
         if (!selected_router_id) return;
         if (
             !window.confirm(
-                `Putus sesi PPPoE "${session.name}"${session.customer_name ? ` (${session.customer_name})` : ''}?`,
+                `Putus sesi "${session.name}"${session.customer_name ? ` (${session.customer_name})` : ''}?`,
             )
         ) {
             return;
@@ -134,11 +134,14 @@ export default function Sessions({
         );
     };
 
-    const registerUrl = (username) => {
+    const registerUrl = (session) => {
         const params = new URLSearchParams({
             router_id: String(selected_router_id || ''),
-            username: username || '',
+            username: session?.name || '',
         });
+        if (session?.service) {
+            params.set('service', session.service);
+        }
         return `/admin/customers/pppoe/create?${params.toString()}`;
     };
 
@@ -565,6 +568,11 @@ export default function Sessions({
                                 </td>
                                 <td className="px-3 py-2.5 align-middle">
                                     <p className="font-medium text-ink">{session.name || '—'}</p>
+                                    {String(session.service || '').toLowerCase() === 'l2tp' && (
+                                        <span className="mt-1 inline-flex bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-violet-800 uppercase">
+                                            VPN L2TP
+                                        </span>
+                                    )}
                                     {session.service_profile && (
                                         <p className="text-xs text-ink-soft">
                                             {session.service_profile}
@@ -600,13 +608,15 @@ export default function Sessions({
                                     {session.uptime || '—'}
                                 </td>
                                 <td className="hidden px-3 py-2.5 align-middle text-ink-soft xl:table-cell">
-                                    {session.service || '—'}
+                                    {String(session.service || '').toLowerCase() === 'l2tp'
+                                        ? 'VPN L2TP'
+                                        : session.service || '—'}
                                 </td>
                                 <td className="px-3 py-2.5 align-middle">
                                     <div className="flex items-center justify-end gap-1.5">
                                         {!session.customer_id && (
                                             <Link
-                                                href={registerUrl(session.name)}
+                                                href={registerUrl(session)}
                                                 className="btn-action btn-action-xs btn-warn w-[7.5rem]"
                                             >
                                                 <UserPlus className="h-3.5 w-3.5 shrink-0" />

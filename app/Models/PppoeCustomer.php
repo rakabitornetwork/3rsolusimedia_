@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Crypt;
 
 class PppoeCustomer extends Model
 {
+    public const SERVICE_PPPOE = 'pppoe';
+
+    public const SERVICE_L2TP = 'l2tp';
+
     protected $fillable = [
         'mikrotik_router_id',
         'agent_id',
@@ -22,6 +26,7 @@ class PppoeCustomer extends Model
         'latitude',
         'longitude',
         'username',
+        'ppp_service',
         'password',
         'service_profile',
         'start_date',
@@ -82,6 +87,23 @@ class PppoeCustomer extends Model
                 ? Crypt::encryptString($value)
                 : $value,
         );
+    }
+
+    public static function normalizePppService(?string $value): string
+    {
+        return strtolower(trim((string) $value)) === self::SERVICE_L2TP
+            ? self::SERVICE_L2TP
+            : self::SERVICE_PPPOE;
+    }
+
+    public function pppService(): string
+    {
+        return self::normalizePppService($this->ppp_service);
+    }
+
+    public function pppServiceLabel(): string
+    {
+        return $this->pppService() === self::SERVICE_L2TP ? 'VPN L2TP' : 'PPPoE';
     }
 
     public function router(): BelongsTo
@@ -177,6 +199,8 @@ class PppoeCustomer extends Model
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'username' => $this->username,
+            'ppp_service' => $this->pppService(),
+            'ppp_service_label' => $this->pppServiceLabel(),
             'service_profile' => $this->service_profile,
             'start_date' => $this->start_date?->format('Y-m-d'),
             'billing_day' => $this->billing_day,

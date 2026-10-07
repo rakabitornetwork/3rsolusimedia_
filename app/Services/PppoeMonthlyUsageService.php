@@ -86,7 +86,7 @@ class PppoeMonthlyUsageService
     }
 
     /**
-     * Counter MikroTik pada interface `<pppoe-user>`:
+     * Counter MikroTik pada interface `<pppoe-user>` atau `<l2tp-user>`:
      * rx-byte = upload pelanggan, tx-byte = download pelanggan.
      * Pemakaian disimpan sebagai RX (download) dan TX (upload).
      * Pembacaan pertama hanya menjadi patokan, supaya sisa sesi yang sudah

@@ -65,6 +65,7 @@ export default function Form({
         latitude: customer?.latitude ?? '',
         longitude: customer?.longitude ?? '',
         username: customer?.username || prefill?.username || '',
+        ppp_service: customer?.ppp_service || prefill?.ppp_service || 'pppoe',
         password: prefill?.password || '',
         service_profile: customer?.service_profile || prefill?.service_profile || '',
         start_date: initialStart,
@@ -72,7 +73,13 @@ export default function Form({
         billing_day: initialDue ? billingDayFromDate(initialDue) : initialBillingDay,
         overdue_action: customer?.overdue_action || prefill?.overdue_action || 'isolir',
         isolir_profile: customer?.isolir_profile || prefill?.isolir_profile || '',
-        notes: customer?.notes || (fromSession ? 'Diimpor dari sesi aktif PPPoE' : ''),
+        notes:
+            customer?.notes ||
+            (fromSession
+                ? prefill?.ppp_service === 'l2tp'
+                    ? 'Diimpor dari sesi aktif L2TP'
+                    : 'Diimpor dari sesi aktif PPPoE'
+                : ''),
         is_active: customer?.is_active ?? true,
         service_change_date: todayIso(),
         stop_date: customer?.stopped_at || todayIso(),
@@ -355,12 +362,14 @@ export default function Form({
         }
     };
 
+    const serviceLabel = data.ppp_service === 'l2tp' ? 'VPN L2TP' : 'PPPoE';
+
     return (
         <AdminLayout
-            title={editing ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
+            title={editing ? `Edit Pelanggan ${serviceLabel}` : `Tambah Pelanggan ${serviceLabel}`}
             subtitle="Jatuh tempo tetap tiap bulan + tagihan pertama prorata"
         >
-            <Head title={editing ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'} />
+            <Head title={editing ? `Edit Pelanggan ${serviceLabel}` : `Tambah Pelanggan ${serviceLabel}`} />
 
             {editing && customer?.monthly_usage && (
                 <section className="mb-4 max-w-3xl border border-ink/10 bg-white p-4 sm:p-5">
@@ -613,9 +622,29 @@ export default function Form({
                     }}
                 />
 
+                <label className="block text-sm font-medium text-ink">
+                    Jenis layanan
+                    <select
+                        value={data.ppp_service || 'pppoe'}
+                        onChange={(e) => setData('ppp_service', e.target.value)}
+                        className={fieldClass}
+                    >
+                        <option value="pppoe">PPPoE</option>
+                        <option value="l2tp">VPN L2TP</option>
+                    </select>
+                    <span className="mt-1 block text-xs font-normal text-ink-soft">
+                        {data.ppp_service === 'l2tp'
+                            ? 'Secret di RouterOS memakai service l2tp. Username di bawah adalah nama secret yang sama, dipakai pelanggan untuk login VPN.'
+                            : 'Secret di RouterOS memakai service pppoe. Username di bawah adalah nama secret PPPoE.'}
+                    </span>
+                    {errors.ppp_service && (
+                        <span className="mt-1 block text-xs text-red-600">{errors.ppp_service}</span>
+                    )}
+                </label>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block text-sm font-medium text-ink">
-                        Username PPPoE
+                        Username
                         <input
                             type="text"
                             value={data.username}
@@ -623,12 +652,15 @@ export default function Form({
                             className={fieldClass}
                             required
                         />
+                        <span className="mt-1 block text-xs font-normal text-ink-soft">
+                            Satu username untuk secret PPP di router ini. Tidak perlu kolom username VPN terpisah.
+                        </span>
                         {errors.username && (
                             <span className="mt-1 block text-xs text-red-600">{errors.username}</span>
                         )}
                     </label>
                     <label className="block text-sm font-medium text-ink">
-                        Password PPPoE
+                        Password
                         <input
                             type="text"
                             value={data.password}

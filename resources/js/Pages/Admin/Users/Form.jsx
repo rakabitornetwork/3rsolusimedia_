@@ -391,7 +391,7 @@ export default function Form({ user, role_options, pppoe_customers = [], routers
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <h4 className="text-sm font-bold text-ink">
-                                        Penugasan Pelanggan PPPoE
+                                        Penugasan Pelanggan
                                     </h4>
                                     <p className="text-xs text-ink-soft">
                                         Pilih RouterOS, lalu tugaskan pelanggan. Komisi hanya untuk
