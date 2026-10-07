@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\VpnPortalLoginController;
 use App\Http\Controllers\VpnSignupController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Portal\CustomerPortalController;
@@ -44,6 +45,10 @@ Route::get('/vpn/daftar', [VpnSignupController::class, 'create'])->name('vpn.sig
 Route::post('/vpn/daftar', [VpnSignupController::class, 'store'])
     ->middleware('throttle:8,1')
     ->name('vpn.signup.store');
+Route::get('/vpn/masuk', [VpnPortalLoginController::class, 'create'])->name('vpn.login');
+Route::post('/vpn/masuk', [VpnPortalLoginController::class, 'store'])
+    ->middleware('throttle:8,1')
+    ->name('vpn.login.store');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 Route::get('/robots.txt', RobotsController::class)->name('robots');
@@ -256,6 +261,17 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::delete('/customers/pppoe/{pppoe}/vpn/routers/{vpnRouter}', [PppoeCustomerController::class, 'destroyVpnRouter'])->whereNumber('pppoe')->whereNumber('vpnRouter')->name('customers.pppoe.vpn.routers.destroy');
     Route::post('/customers/pppoe/{pppoe}/vpn/ports', [PppoeCustomerController::class, 'storeVpnPort'])->whereNumber('pppoe')->name('customers.pppoe.vpn.ports.store');
     Route::delete('/customers/pppoe/{pppoe}/vpn/ports/{port}', [PppoeCustomerController::class, 'destroyVpnPort'])->whereNumber('pppoe')->whereNumber('port')->name('customers.pppoe.vpn.ports.destroy');
+
+    Route::get('/customers/vpn', [PppoeCustomerController::class, 'index'])->name('customers.vpn');
+    Route::get('/customers/vpn/create', [PppoeCustomerController::class, 'create'])->name('customers.vpn.create');
+    Route::get('/customers/vpn/print', [PppoeCustomerController::class, 'print'])->name('customers.vpn.print');
+    Route::post('/customers/vpn/bulk-destroy', [PppoeCustomerController::class, 'bulkDestroy'])->name('customers.vpn.bulk-destroy');
+    Route::post('/customers/vpn/sync-overdue', [PppoeCustomerController::class, 'syncOverdue'])->name('customers.vpn.sync-overdue');
+    Route::post('/customers/vpn', [PppoeCustomerController::class, 'store'])->name('customers.vpn.store');
+    Route::get('/customers/vpn/{pppoe}/edit', [PppoeCustomerController::class, 'edit'])->whereNumber('pppoe')->name('customers.vpn.edit');
+    Route::put('/customers/vpn/{pppoe}', [PppoeCustomerController::class, 'update'])->whereNumber('pppoe')->name('customers.vpn.update');
+    Route::delete('/customers/vpn/{pppoe}', [PppoeCustomerController::class, 'destroy'])->whereNumber('pppoe')->name('customers.vpn.destroy');
+    Route::post('/customers/vpn/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->whereNumber('pppoe')->name('customers.vpn.sync');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');

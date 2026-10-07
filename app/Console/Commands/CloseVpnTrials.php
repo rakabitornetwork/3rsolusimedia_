@@ -10,7 +10,7 @@ class CloseVpnTrials extends Command
 {
     protected $signature = 'vpn:close-trials';
 
-    protected $description = 'Tagih masa gratis VPN Tunnel yang sudah lewat 3 hari, lalu hapus dari CHR jika sebulan tidak ada pembayaran';
+    protected $description = 'Sebulan setelah masa gratis VPN Tunnel berakhir, kirim tagihan ke WhatsApp dan hapus akun dari CHR jika belum dibayar';
 
     public function handle(BillingService $billing, VpnRouterAccounts $accounts): int
     {

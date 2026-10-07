@@ -639,17 +639,18 @@ class BillingService
     }
 
     /**
-     * Setelah 3 hari gratis, kirim tagihan WhatsApp dan matikan secret sampai lunas.
+     * Sebulan setelah masa gratis berakhir, kirim tagihan WhatsApp dan hapus akun dari CHR sampai lunas.
      */
     public function billEndedVpnTrials(): int
     {
         $today = now()->startOfDay();
+        $cutoff = $today->copy()->subMonthNoOverflow()->toDateString();
         $customers = PppoeCustomer::query()
             ->with(['package', 'vpnRouters.portForwards'])
             ->where('ppp_service', PppoeCustomer::SERVICE_L2TP)
             ->whereNotNull('vpn_trial_ends_at')
             ->whereNull('vpn_trial_billed_at')
-            ->whereDate('vpn_trial_ends_at', '<', $today->toDateString())
+            ->whereDate('vpn_trial_ends_at', '<=', $cutoff)
             ->get();
 
         $count = 0;
@@ -669,7 +670,7 @@ class BillingService
                 $end,
                 $start,
                 $amount,
-                'Tagihan setelah masa gratis 3 hari VPN Tunnel',
+                'Tagihan sebulan setelah masa gratis VPN Tunnel',
                 notify: false,
             );
 
@@ -681,10 +682,16 @@ class BillingService
 
             foreach ($customer->vpnRouters as $router) {
                 try {
-                    $this->vpnRouters->pushRouter($router->fresh(['customer', 'portForwards']) ?? $router);
+                    $this->vpnRouters->removeRouter($router->fresh(['customer', 'portForwards']) ?? $router);
                 } catch (\Throwable) {
                     // Tagihan tetap terkirim meski CHR tidak terjangkau.
                 }
+            }
+
+            try {
+                $this->vpnRouters->removeCustomer($customer->fresh(['vpnPortForwards', 'vpnRouters.portForwards']) ?? $customer);
+            } catch (\Throwable) {
+                // Secret pelanggan tetap dicoba dihapus; tagihan sudah tersimpan.
             }
 
             try {
@@ -880,6 +887,15 @@ class BillingService
                 }
 
                 $paidCustomer = $customer->fresh(['vpnRouters.portForwards']);
+                if (
+                    $paidCustomer?->pppService() === PppoeCustomer::SERVICE_L2TP
+                    && $paidCustomer->is_active
+                    && $paidCustomer->status === 'isolated'
+                    && ! $paidCustomer->shouldIsolir()
+                ) {
+                    $paidCustomer->update(['status' => 'active']);
+                    $paidCustomer = $paidCustomer->fresh(['vpnRouters.portForwards']);
+                }
                 if ($paidCustomer?->pppService() === PppoeCustomer::SERVICE_L2TP && $paidCustomer->status === 'active') {
                     foreach ($paidCustomer->vpnRouters as $vpnRouter) {
                         if (! $vpnRouter->included || ! $vpnRouter->isUsable()) {

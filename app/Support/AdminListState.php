@@ -15,6 +15,8 @@ class AdminListState
 
     public const PPPOE = 'pppoe';
 
+    public const VPN = 'vpn';
+
     public const PPPOE_SESSIONS = 'pppoe-sessions';
 
     public const HOTSPOT = 'hotspot';

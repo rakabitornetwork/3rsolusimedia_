@@ -142,7 +142,11 @@ export default function Sessions({
         if (session?.service) {
             params.set('service', session.service);
         }
-        return `/admin/customers/pppoe/create?${params.toString()}`;
+        const path =
+            String(session?.service || '').toLowerCase() === 'l2tp'
+                ? '/admin/customers/vpn/create'
+                : '/admin/customers/pppoe/create';
+        return `${path}?${params.toString()}`;
     };
 
     const toggleOne = (username) => {

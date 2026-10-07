@@ -2,6 +2,7 @@
 
 namespace App\Services\Vpn;
 
+use App\Models\MikrotikRouter;
 use App\Models\SiteSetting;
 use Illuminate\Support\Facades\Crypt;
 use Throwable;
@@ -52,6 +53,31 @@ class VpnChrSettings
         } catch (Throwable) {
             return '';
         }
+    }
+
+    /**
+     * RouterOS yang dipakai pelanggan VPN Tunnel.
+     * Catatan router yang berisi "VPN TUNNEL" menang; kalau belum ada, nama yang berisi "CHR".
+     */
+    public static function mikrotikRouterId(): ?int
+    {
+        $byNotes = MikrotikRouter::query()
+            ->where('is_active', true)
+            ->whereRaw('LOWER(COALESCE(notes, "")) LIKE ?', ['%vpn tunnel%'])
+            ->orderBy('id')
+            ->value('id');
+
+        if ($byNotes) {
+            return (int) $byNotes;
+        }
+
+        $byName = MikrotikRouter::query()
+            ->where('is_active', true)
+            ->whereRaw('LOWER(name) LIKE ?', ['%chr%'])
+            ->orderBy('id')
+            ->value('id');
+
+        return $byName ? (int) $byName : null;
     }
 
     public static function store(string $host, int $port, string $username, string $password): void

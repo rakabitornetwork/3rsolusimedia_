@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
+use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\WhatsAppIdentityBinder;
+use App\Services\Vpn\VpnChrSettings;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,6 +19,7 @@ class VpnSignupController extends Controller
 {
     public function __construct(
         private readonly WhatsAppIdentityBinder $binder,
+        private readonly CustomerNotifier $notifier,
     ) {}
 
     public function create(): Response
@@ -33,8 +36,26 @@ class VpnSignupController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'email', 'max:150'],
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                Rule::unique('pppoe_customers', 'email')->where(
+                    fn ($query) => $query->where('ppp_service', PppoeCustomer::SERVICE_L2TP)
+                ),
+            ],
+            'password' => ['required', 'string', 'min:8', 'max:64', 'confirmed', 'regex:/^[A-Za-z0-9._@!-]+$/'],
             'phone' => ['required', 'string', 'max:40'],
+        ], [
+            'name.required' => 'Nama wajib diisi.',
+            'email.required' => 'E-mail wajib diisi.',
+            'email.email' => 'E-mail tidak valid.',
+            'email.unique' => 'E-mail ini sudah terdaftar. Masuk dengan email dan password tersebut.',
+            'password.required' => 'Password wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password tidak sama.',
+            'password.regex' => 'Password hanya boleh huruf, angka, dan karakter . _ @ ! -',
+            'phone.required' => 'Nomor WhatsApp wajib diisi.',
         ]);
 
         $package = $this->packages()->first();
@@ -47,41 +68,51 @@ class VpnSignupController extends Controller
             return back()->withErrors(['phone' => 'Nomor WhatsApp tidak valid.'])->withInput();
         }
 
+        $usernameError = $this->usernameFromNameError($validated['name'], (int) $package->mikrotik_router_id);
+        if ($usernameError !== null) {
+            return back()->withErrors(['name' => $usernameError])->withInput();
+        }
+
         if ($this->binder->customersForNumber($phone)->isNotEmpty()) {
             return back()->withErrors([
-                'phone' => 'Nomor WhatsApp ini sudah terdaftar. Masuk portal dengan kode OTP.',
+                'phone' => 'Nomor WhatsApp ini sudah terdaftar.',
             ])->withInput();
         }
 
         $today = now()->startOfDay();
-        $trialEnds = $today->copy()->addDays(3);
 
-        PppoeCustomer::query()->create([
+        $customer = PppoeCustomer::query()->create([
             'mikrotik_router_id' => $package->mikrotik_router_id,
             'subscription_package_id' => $package->id,
             'name' => $validated['name'],
-            'email' => $validated['email'],
+            'email' => strtolower($validated['email']),
             'phone' => $phone,
-            'username' => $this->uniqueUsername($phone),
-            'password' => Str::password(16, symbols: false),
+            'username' => trim($validated['name']),
+            'password' => $validated['password'],
             'ppp_service' => PppoeCustomer::SERVICE_L2TP,
             'service_profile' => $package->mikrotik_profile,
             'start_date' => $today->toDateString(),
-            'billing_day' => min(28, (int) $trialEnds->day),
-            'due_date' => $trialEnds->toDateString(),
-            'vpn_trial_ends_at' => $trialEnds->toDateString(),
+            'billing_day' => min(28, (int) $today->day),
+            'due_date' => $today->toDateString(),
             'first_bill_amount' => (int) $package->price,
             'first_bill_days' => 3,
             'overdue_action' => 'isolir',
-            'status' => 'active',
+            'status' => 'disabled',
             'sync_status' => 'pending',
-            'is_active' => true,
-            'notes' => 'Daftar sendiri dari halaman VPN Tunnel.',
+            'is_active' => false,
+            'vpn_self_signup' => true,
+            'notes' => 'Daftar sendiri dari halaman VPN Tunnel. Akun CHR dibuat dari portal.',
         ]);
 
+        try {
+            $this->notifier->notifyVpnSignup($customer);
+        } catch (\Throwable) {
+            // Pendaftaran tetap tersimpan meski WhatsApp gagal.
+        }
+
         return redirect()
-            ->route('portal.pay.index')
-            ->with('success', 'Akun VPN Tunnel sudah dibuat. Masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang didaftarkan. GRATIS coba 3 hari sampai '.$trialEnds->translatedFormat('d M Y').'.');
+            ->route('vpn.login')
+            ->with('success', 'Pendaftaran berhasil. Masuk dengan email dan password yang baru dibuat. Informasi akun juga dikirim ke WhatsApp.');
     }
 
     /**
@@ -89,27 +120,47 @@ class VpnSignupController extends Controller
      */
     private function packages()
     {
-        return SubscriptionPackage::query()
+        $routerId = VpnChrSettings::mikrotikRouterId();
+
+        $query = SubscriptionPackage::query()
             ->where('is_active', true)
             ->where('price', '>', 0)
-            ->whereHas('router', fn ($query) => $query->where('is_active', true))
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
-    }
+            ->whereHas('router', fn ($query) => $query->where('is_active', true));
 
-    private function uniqueUsername(string $phone): string
-    {
-        $digits = preg_replace('/\D+/', '', $phone) ?: 'user';
-        $base = 'vt'.substr($digits, -8);
-        $candidate = $base;
-
-        for ($attempt = 1; PppoeCustomer::query()->where('username', $candidate)->exists(); $attempt++) {
-            $candidate = $attempt > 20
-                ? 'vt'.Str::lower(Str::random(8))
-                : substr($base, 0, 24).$attempt;
+        if ($routerId) {
+            $query->where('mikrotik_router_id', $routerId);
+        } else {
+            return collect();
         }
 
-        return $candidate;
+        $packages = $query->orderBy('sort_order')->orderBy('name')->get();
+        $tunnel = $packages->filter(
+            fn (SubscriptionPackage $package) => str_contains(strtolower($package->name), 'vpn tunnel')
+        );
+
+        return $tunnel->isNotEmpty() ? $tunnel->values() : $packages;
+    }
+
+    private function usernameFromNameError(string $name, int $routerId): ?string
+    {
+        $username = trim($name);
+        if ($username === '') {
+            return 'Nama wajib diisi.';
+        }
+
+        if (mb_strlen($username) > 100) {
+            return 'Nama pelanggan maksimal 100 karakter karena dipakai sebagai username secret.';
+        }
+
+        $taken = PppoeCustomer::query()
+            ->where('mikrotik_router_id', $routerId)
+            ->whereRaw('LOWER(username) = ?', [mb_strtolower($username)])
+            ->exists();
+
+        if ($taken) {
+            return 'Nama ini sudah dipakai pelanggan lain di router yang sama.';
+        }
+
+        return null;
     }
 }

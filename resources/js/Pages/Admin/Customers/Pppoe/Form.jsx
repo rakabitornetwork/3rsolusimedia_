@@ -29,6 +29,7 @@ function todayIso() {
 
 export default function Form({
     customer,
+    section = 'pppoe',
     prefill = null,
     routers,
     agents = [],
@@ -38,6 +39,8 @@ export default function Form({
     overdue_actions,
     vpn_access = null,
 }) {
+    const vpn = section === 'vpn';
+    const base = vpn ? '/admin/customers/vpn' : '/admin/customers/pppoe';
     const editing = Boolean(customer);
     const fromSession = Boolean(prefill?.from_session) && !editing;
     const initialStart = customer?.start_date || prefill?.start_date || todayIso();
@@ -50,6 +53,16 @@ export default function Form({
     const [isolirProfiles, setIsolirProfiles] = useState(initialIsolirProfiles || []);
     const [loadingProfiles, setLoadingProfiles] = useState(false);
     const [profileError, setProfileError] = useState('');
+    const tabStorageKey = `vpn-customer-tab:${customer?.id || 'new'}`;
+    const [vpnTab, setVpnTab] = useState(() => {
+        if (section !== 'vpn' || typeof window === 'undefined') return 'data';
+        return window.sessionStorage.getItem(tabStorageKey) === 'akses' ? 'akses' : 'data';
+    });
+
+    const selectVpnTab = (tab) => {
+        setVpnTab(tab);
+        window.sessionStorage.setItem(tabStorageKey, tab);
+    };
 
     const { data, setData, post, put, processing, errors } = useForm({
         mikrotik_router_id:
@@ -62,13 +75,16 @@ export default function Form({
         subscription_package_id:
             customer?.subscription_package_id || prefill?.subscription_package_id || '',
         name: customer?.name || prefill?.name || '',
+        email: customer?.email || '',
         phone: customer?.phone || '',
         address: customer?.address || '',
         latitude: customer?.latitude ?? '',
         longitude: customer?.longitude ?? '',
-        username: customer?.username || prefill?.username || '',
-        ppp_service: customer?.ppp_service || prefill?.ppp_service || 'pppoe',
-        password: prefill?.password || '',
+        username: vpn
+            ? customer?.name || prefill?.name || ''
+            : customer?.username || prefill?.username || '',
+        ppp_service: vpn ? 'l2tp' : 'pppoe',
+        password: (vpn && customer?.password) || prefill?.password || '',
         service_profile: customer?.service_profile || prefill?.service_profile || '',
         start_date: initialStart,
         due_date: initialDue,
@@ -78,7 +94,7 @@ export default function Form({
         notes:
             customer?.notes ||
             (fromSession
-                ? prefill?.ppp_service === 'l2tp'
+                ? vpn
                     ? 'Diimpor dari sesi aktif L2TP'
                     : 'Diimpor dari sesi aktif PPPoE'
                 : ''),
@@ -328,11 +344,10 @@ export default function Form({
     };
 
     useEffect(() => {
-        if (data.mikrotik_router_id) {
-            loadProfiles(data.mikrotik_router_id);
-        }
+        if (vpn || !data.mikrotik_router_id) return;
+        loadProfiles(data.mikrotik_router_id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data.mikrotik_router_id]);
+    }, [data.mikrotik_router_id, vpn]);
 
     useEffect(() => {
         if (!data.subscription_package_id) return;
@@ -358,18 +373,22 @@ export default function Form({
     const submit = (e) => {
         e.preventDefault();
         if (editing) {
-            put(`/admin/customers/pppoe/${customer.id}`);
+            put(`${base}/${customer.id}`);
         } else {
-            post('/admin/customers/pppoe');
+            post(base);
         }
     };
 
-    const serviceLabel = data.ppp_service === 'l2tp' ? 'VPN L2TP' : 'PPPoE';
+    const serviceLabel = vpn ? 'VPN Tunnel' : 'PPPoE';
 
     return (
         <AdminLayout
             title={editing ? `Edit Pelanggan ${serviceLabel}` : `Tambah Pelanggan ${serviceLabel}`}
-            subtitle="Jatuh tempo tetap tiap bulan + tagihan pertama prorata"
+            subtitle={
+                vpn
+                    ? 'Akun portal, paket, dan jatuh tempo'
+                    : 'Jatuh tempo tetap tiap bulan + tagihan pertama prorata'
+            }
         >
             <Head title={editing ? `Edit Pelanggan ${serviceLabel}` : `Tambah Pelanggan ${serviceLabel}`} />
 
@@ -427,11 +446,34 @@ export default function Form({
                 </div>
             )}
 
+            {vpn && (
+                <div className="mb-4 flex max-w-3xl border-b border-ink/10">
+                    {[
+                        ['data', 'Data pelanggan'],
+                        ['akses', 'Akses VPN dan port forward'],
+                    ].map(([id, label]) => (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => selectVpnTab(id)}
+                            className={`border-b-2 px-4 py-2.5 text-sm font-semibold ${
+                                vpnTab === id
+                                    ? 'border-signal text-ink'
+                                    : 'border-transparent text-ink-soft hover:text-ink'
+                            }`}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {(!vpn || vpnTab === 'data') && (
             <form
                 onSubmit={submit}
                 className="max-w-3xl space-y-4 border border-ink/10 bg-white p-6 sm:p-8"
             >
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={vpn ? '' : 'grid gap-4 sm:grid-cols-2'}>
                     <label className="block text-sm font-medium text-ink">
                         Router
                         <select
@@ -476,25 +518,15 @@ export default function Form({
                         )}
                     </label>
 
-                    <label className="block text-sm font-medium text-ink">
-                        Jenis layanan
-                        <select
-                            value={data.ppp_service || 'pppoe'}
-                            onChange={(e) => setData('ppp_service', e.target.value)}
-                            className={fieldClass}
-                        >
-                            <option value="pppoe">PPPoE</option>
-                            <option value="l2tp">VPN L2TP</option>
-                        </select>
-                        <span className="mt-1 block text-xs font-normal text-ink-soft">
-                            {data.ppp_service === 'l2tp'
-                                ? 'Secret di RouterOS memakai service l2tp. Username di bawah adalah nama secret yang sama, dipakai pelanggan untuk login VPN.'
-                                : 'Secret di RouterOS memakai service pppoe. Username di bawah adalah nama secret PPPoE.'}
-                        </span>
-                        {errors.ppp_service && (
-                            <span className="mt-1 block text-xs text-red-600">{errors.ppp_service}</span>
-                        )}
-                    </label>
+                    {!vpn && (
+                        <label className="block text-sm font-medium text-ink">
+                            Jenis layanan
+                            <p className={`${fieldClass} bg-mist/40 text-ink`}>{serviceLabel}</p>
+                            <span className="mt-1 block text-xs font-normal text-ink-soft">
+                                Secret di RouterOS memakai service pppoe. Username di bawah adalah nama secret PPPoE.
+                            </span>
+                        </label>
+                    )}
                 </div>
 
                 {midCyclePackageChange && (
@@ -562,10 +594,22 @@ export default function Form({
                         <input
                             type="text"
                             value={data.name}
-                            onChange={(e) => setData('name', e.target.value)}
+                            onChange={(e) => {
+                                const name = e.target.value;
+                                if (vpn) {
+                                    setData((current) => ({ ...current, name, username: name }));
+                                    return;
+                                }
+                                setData('name', name);
+                            }}
                             className={fieldClass}
                             required
                         />
+                        {vpn && (
+                            <span className="mt-1 block text-xs font-normal text-ink-soft">
+                                Nama ini dipakai sebagai username secret.
+                            </span>
+                        )}
                         {errors.name && (
                             <span className="mt-1 block text-xs text-red-600">{errors.name}</span>
                         )}
@@ -581,28 +625,72 @@ export default function Form({
                     </label>
                 </div>
 
-                <label className="block text-sm font-medium text-ink">
-                    Alamat
-                    <textarea
-                        rows={2}
-                        value={data.address}
-                        onChange={(e) => setData('address', e.target.value)}
-                        className={fieldClass}
-                    />
-                </label>
+                {vpn && (
+                    <div className="border border-ink/10 bg-mist/30 p-4">
+                        <p className="text-sm font-semibold text-ink">Akun portal</p>
+                        <p className="mt-1 text-xs text-ink-soft">
+                            Email dan password yang didaftarkan. Pelanggan memakai keduanya untuk masuk
+                            portal VPN. Password yang sama dipakai secret akun VPN.
+                        </p>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                            <label className="block text-sm font-medium text-ink">
+                                E-mail
+                                <input
+                                    type="email"
+                                    value={data.email}
+                                    onChange={(e) => setData('email', e.target.value)}
+                                    className={fieldClass}
+                                    required
+                                    autoComplete="off"
+                                />
+                                {errors.email && (
+                                    <span className="mt-1 block text-xs text-red-600">{errors.email}</span>
+                                )}
+                            </label>
+                            <label className="block text-sm font-medium text-ink">
+                                Password
+                                <input
+                                    type="text"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    className={fieldClass}
+                                    required={!editing}
+                                    autoComplete="off"
+                                />
+                                {errors.password && (
+                                    <span className="mt-1 block text-xs text-red-600">{errors.password}</span>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+                )}
 
-                <GpsMapPicker
-                    latitude={data.latitude}
-                    longitude={data.longitude}
-                    errors={{
-                        latitude: errors.latitude,
-                        longitude: errors.longitude,
-                    }}
-                    onChange={({ latitude, longitude }) => {
-                        setData('latitude', latitude);
-                        setData('longitude', longitude);
-                    }}
-                />
+                {!vpn && (
+                    <>
+                        <label className="block text-sm font-medium text-ink">
+                            Alamat
+                            <textarea
+                                rows={2}
+                                value={data.address}
+                                onChange={(e) => setData('address', e.target.value)}
+                                className={fieldClass}
+                            />
+                        </label>
+
+                        <GpsMapPicker
+                            latitude={data.latitude}
+                            longitude={data.longitude}
+                            errors={{
+                                latitude: errors.latitude,
+                                longitude: errors.longitude,
+                            }}
+                            onChange={({ latitude, longitude }) => {
+                                setData('latitude', latitude);
+                                setData('longitude', longitude);
+                            }}
+                        />
+                    </>
+                )}
 
                 <label className="block text-sm font-medium text-ink">
                     Paket langganan
@@ -644,40 +732,45 @@ export default function Form({
                     )}
                 </label>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="block text-sm font-medium text-ink">
-                        Username
-                        <input
-                            type="text"
-                            value={data.username}
-                            onChange={(e) => setData('username', e.target.value)}
-                            className={fieldClass}
-                            required
-                        />
-                        <span className="mt-1 block text-xs font-normal text-ink-soft">
-                            Satu username untuk secret PPP di router ini. Tidak perlu kolom username VPN terpisah.
-                        </span>
-                        {errors.username && (
-                            <span className="mt-1 block text-xs text-red-600">{errors.username}</span>
-                        )}
-                    </label>
-                    <label className="block text-sm font-medium text-ink">
-                        Password
-                        <input
-                            type="text"
-                            value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
-                            className={fieldClass}
-                            placeholder={editing ? 'Kosongkan jika tidak diganti' : ''}
-                            required={!editing}
-                        />
-                        {errors.password && (
-                            <span className="mt-1 block text-xs text-red-600">{errors.password}</span>
-                        )}
-                    </label>
-                </div>
+                {!vpn && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Username
+                            <input
+                                type="text"
+                                value={data.username}
+                                onChange={(e) => setData('username', e.target.value)}
+                                className={fieldClass}
+                                required
+                            />
+                            <span className="mt-1 block text-xs font-normal text-ink-soft">
+                                Nama secret PPPoE di router ini.
+                            </span>
+                            {errors.username && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.username}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Password
+                            <input
+                                type="text"
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                className={fieldClass}
+                                placeholder={editing ? 'Kosongkan jika tidak diganti' : ''}
+                                required={!editing}
+                            />
+                            {errors.password && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.password}</span>
+                            )}
+                        </label>
+                    </div>
+                )}
+                {vpn && errors.username && (
+                    <span className="block text-xs text-red-600">{errors.username}</span>
+                )}
 
-                {editing && (
+                {editing && !vpn && (
                     <label className="block text-sm font-medium text-ink">
                         Profile layanan (aktif)
                         <select
@@ -708,9 +801,9 @@ export default function Form({
                     <div>
                         <p className="text-sm font-semibold text-ink">Siklus tagihan</p>
                         <p className="mt-1 text-xs text-ink-soft">
-                            Pilih tanggal jatuh tempo pertama secara lengkap (hari, bulan, tahun).
-                            Tanggal yang sama dipakai setiap bulan berikutnya. Tagihan pertama
-                            dihitung prorata dari tanggal mulai sampai jatuh tempo.
+                            {vpn
+                                ? 'Tanggal jatuh tempo yang dipilih diulang setiap bulan.'
+                                : 'Pilih tanggal jatuh tempo pertama secara lengkap (hari, bulan, tahun). Tanggal yang sama dipakai setiap bulan berikutnya. Tagihan pertama dihitung prorata dari tanggal mulai sampai jatuh tempo.'}
                         </p>
                     </div>
 
@@ -731,11 +824,13 @@ export default function Form({
                             required
                         />
                     </div>
-                    <p className="text-xs text-ink-soft">
-                        Contoh: mulai 20 Agustus 2026 dan jatuh tempo 20 September 2026. Tagihan
-                        berikutnya setiap tanggal {data.billing_day || '—'}. Tanggal 29–31 disimpan
-                        sebagai tanggal 28.
-                    </p>
+                    {!vpn && (
+                        <p className="text-xs text-ink-soft">
+                            Contoh: mulai 20 Agustus 2026 dan jatuh tempo 20 September 2026. Tagihan
+                            berikutnya setiap tanggal {data.billing_day || '—'}. Tanggal 29–31 disimpan
+                            sebagai tanggal 28.
+                        </p>
+                    )}
 
                     {prorata ? (
                         <div className="border border-signal/20 bg-white px-4 py-3 text-sm text-ink">
@@ -781,7 +876,7 @@ export default function Form({
                     )}
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={vpn ? '' : 'grid gap-4 sm:grid-cols-2'}>
                     <label className="block text-sm font-medium text-ink">
                         Jika lewat jatuh tempo
                         <select
@@ -803,6 +898,7 @@ export default function Form({
                         )}
                     </label>
 
+                    {!vpn && (
                     <label className="block text-sm font-medium text-ink">
                         Profile isolir
                         <select
@@ -831,6 +927,7 @@ export default function Form({
                             </span>
                         )}
                     </label>
+                    )}
                 </div>
 
                 {editing && customer.has_active_grace && (
@@ -883,9 +980,9 @@ export default function Form({
                         Pelanggan aktif
                     </label>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Uncheck = status <strong>Nonaktif</strong> dan secret PPPoE di MikroTik
-                        di-disable. Ini berbeda dari <strong>Isolir</strong> (otomatis saat lewat
-                        jatuh tempo).
+                        Uncheck = status <strong>Nonaktif</strong> dan secret {vpn ? 'L2TP' : 'PPPoE'} di
+                        MikroTik di-disable. Ini berbeda dari <strong>Isolir</strong> (otomatis saat
+                        lewat jatuh tempo).
                     </p>
                     {stopping && (
                         <div className="mt-3">
@@ -897,7 +994,7 @@ export default function Form({
                             />
                             <p className="mt-1 text-xs text-ink-soft">
                                 Tagihan dihitung sampai tanggal ini jika masih sebelum jatuh tempo.
-                                Secret PPPoE dinonaktifkan.
+                                Secret {vpn ? 'L2TP' : 'PPPoE'} dinonaktifkan.
                             </p>
                         </div>
                     )}
@@ -922,8 +1019,9 @@ export default function Form({
                 </div>
 
                 <div className="rounded-sm border border-ink/10 bg-mist/40 px-4 py-3 text-xs leading-relaxed text-ink-soft">
-                    Secret PPPoE ikut dibuat/diperbarui di RouterOS. Jika sudah lewat jatuh tempo dan
-                    aksi = Isolir, profile secret diganti ke profile isolir yang dipilih.
+                    {vpn
+                        ? 'Password portal ikut dipakai secret akun VPN di CHR. Jika lewat jatuh tempo dan aksi = Isolir, secret dimatikan sampai tagihan lunas.'
+                        : 'Secret PPPoE ikut dibuat/diperbarui di RouterOS. Jika sudah lewat jatuh tempo dan aksi = Isolir, profile secret diganti ke profile isolir yang dipilih.'}
                 </div>
 
                 <div className="flex flex-wrap gap-3 pt-2">
@@ -939,15 +1037,28 @@ export default function Form({
                               : 'Simpan Pelanggan'}
                     </button>
                     <Link
-                        href="/admin/customers/pppoe"
+                        href={base}
                         className="btn-action btn-action-sm btn-secondary"
                     >
                         Batal
                     </Link>
                 </div>
             </form>
-            {editing && customer?.ppp_service === 'l2tp' && (
-                <VpnAccess customerId={customer.id} access={vpn_access} />
+            )}
+            {vpn && vpnTab === 'akses' && (
+                <div className="max-w-3xl">
+                    {editing && vpn_access ? (
+                        <VpnAccess customerId={customer.id} access={vpn_access} flush />
+                    ) : (
+                        <section className="border border-ink/10 bg-white p-6">
+                            <h2 className="text-sm font-semibold text-ink">Akses VPN dan port forward</h2>
+                            <p className="mt-2 text-sm text-ink-soft">
+                                Simpan data pelanggan terlebih dahulu. Setelah tersimpan, akun VPN dan
+                                port forward diisi di tab ini.
+                            </p>
+                        </section>
+                    )}
+                </div>
             )}
         </AdminLayout>
     );

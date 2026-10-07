@@ -271,7 +271,12 @@ class CustomerPortalController extends Controller
                 'trial' => [
                     'active' => $customer->vpnTrialActive(),
                     'ends_at' => $customer->vpn_trial_ends_at?->toDateString(),
+                    'started' => $customer->vpn_trial_ends_at !== null,
                 ],
+                'chr_ready' => VpnChrSettings::configured(),
+                'needs_account' => (bool) $customer->vpn_self_signup
+                    && $customer->vpnRouters->isEmpty()
+                    && $customer->vpn_trial_ends_at === null,
                 'extra_routers' => $customer->vpnRouters->map(fn ($router) => [
                     'id' => $router->id,
                     'name' => $router->name,
@@ -302,7 +307,14 @@ class CustomerPortalController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:32'],
+        ], [
+            'name.required' => 'Nama akun VPN wajib diisi.',
         ]);
+
+        $startingTrial = (bool) $customer->vpn_self_signup && $customer->vpn_trial_ends_at === null;
+        if ($startingTrial && ! VpnChrSettings::configured()) {
+            return back()->with('error', 'Layanan VPN belum terhubung ke RouterOS CHR lewat SSH. Hubungi admin.');
+        }
 
         try {
             $enrolled = $this->vpnAccounts->enroll($customer, $validated['name']);
@@ -313,6 +325,21 @@ class CustomerPortalController extends Controller
         $router = $enrolled['router'];
         $push = $this->vpn->pushRouter($router);
         $name = $validated['name'];
+        $customer->refresh();
+
+        if ($startingTrial && $customer->vpnTrialActive()) {
+            $server = VpnChrSettings::host();
+            try {
+                $this->notifier->notifyVpnAccount(
+                    $customer,
+                    $name,
+                    $server,
+                    $customer->vpn_trial_ends_at->translatedFormat('d M Y'),
+                );
+            } catch (\Throwable) {
+                // Akun tetap tersimpan meski WhatsApp gagal.
+            }
+        }
 
         if ($customer->vpnTrialActive() && $router->included && ! $enrolled['invoice']) {
             $message = 'Router '.$name.' aktif gratis sampai '.$customer->vpn_trial_ends_at->translatedFormat('d M Y').'.';

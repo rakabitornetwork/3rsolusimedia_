@@ -132,7 +132,9 @@ function UsageAmount({ kind, label, compact = false }) {
     );
 }
 
-export default function Index({ customers = [], filters, routers, stats }) {
+export default function Index({ customers = [], filters, routers, stats, section = 'pppoe' }) {
+    const vpn = section === 'vpn';
+    const base = vpn ? '/admin/customers/vpn' : '/admin/customers/pppoe';
     const { auth } = usePage().props;
     const canWrite = auth?.user?.can_write !== false && auth?.user?.role !== 'agen';
     const [selected, setSelected] = useState([]);
@@ -167,7 +169,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
         setShowBulkDelete(false);
         setPage(1);
         router.get(
-            '/admin/customers/pppoe',
+            base,
             { ...filters, [key]: value, page: 1 },
             { preserveState: true, replace: true },
         );
@@ -177,7 +179,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
         setSelected([]);
         setShowBulkDelete(false);
         router.get(
-            '/admin/customers/pppoe',
+            base,
             {
                 ...filters,
                 sort: column,
@@ -210,7 +212,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
     };
 
     const sync = (id) => {
-        router.post(`/admin/customers/pppoe/${id}/sync`, {}, keepPage);
+        router.post(`${base}/${id}/sync`, {}, keepPage);
     };
 
     const openPrint = () => {
@@ -229,7 +231,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
             params.set('status', printStatus);
         }
 
-        window.open(`/admin/customers/pppoe/print?${params.toString()}`, '_blank');
+        window.open(`${base}/print?${params.toString()}`, '_blank');
     };
 
     const submitBulkDelete = () => {
@@ -237,7 +239,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
         const scope = removeSecret
             ? 'data di aplikasi DAN secret di RouterOS'
-            : 'data di aplikasi saja (secret RouterOS tetap ada)';
+            : `data di aplikasi saja (secret ${vpn ? 'L2TP' : 'PPPoE'} di RouterOS tetap ada)`;
 
         if (
             !window.confirm(
@@ -249,7 +251,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
         setProcessing(true);
         router.post(
-            '/admin/customers/pppoe/bulk-destroy',
+            `${base}/bulk-destroy`,
             {
                 ids: selected,
                 remove_secret: removeSecret,
@@ -268,10 +270,14 @@ export default function Index({ customers = [], filters, routers, stats }) {
 
     return (
         <AdminLayout
-            title="Pelanggan"
-            subtitle="PPPoE dan VPN L2TP pada router yang dipilih"
+            title={vpn ? 'Pelanggan VPN Tunnel' : 'Pelanggan PPPoE'}
+            subtitle={
+                vpn
+                    ? 'Akun L2TP untuk remote router, port forward, dan masa coba'
+                    : 'Secret PPPoE pada router yang dipilih'
+            }
         >
-            <Head title="Pelanggan" />
+            <Head title={vpn ? 'Pelanggan VPN Tunnel' : 'Pelanggan PPPoE'} />
 
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 <StatCard
@@ -348,15 +354,6 @@ export default function Index({ customers = [], filters, routers, stats }) {
                         <option value="grace">Grace</option>
                         <option value="disabled">Nonaktif</option>
                     </select>
-                    <select
-                        value={filters.service || ''}
-                        onChange={(e) => applyFilters('service', e.target.value)}
-                        className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
-                    >
-                        <option value="">Semua jenis</option>
-                        <option value="pppoe">PPPoE</option>
-                        <option value="l2tp">VPN L2TP</option>
-                    </select>
                 </div>
 
                 <div className="admin-toolbar-actions admin-toolbar-actions--dense">
@@ -390,7 +387,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                             onClick={() => {
                                 if (confirm('Jalankan proses isolir sekarang untuk semua pelanggan yang lewat jatuh tempo? Jadwal otomatis tetap jalan setiap hari jam 00:00.')) {
                                     setProcessing(true);
-                                    router.post('/admin/customers/pppoe/sync-overdue', {}, {
+                                    router.post(`${base}/sync-overdue`, {}, {
                                         ...keepPage,
                                         onFinish: () => setProcessing(false),
                                     });
@@ -405,11 +402,11 @@ export default function Index({ customers = [], filters, routers, stats }) {
                         </button>
                     )}
                     <Link
-                        href="/admin/customers/pppoe/create"
+                        href={`${base}/create`}
                         className="btn-action btn-action-sm btn-primary"
                     >
                         <Plus className="mr-1.5 h-4 w-4" />
-                        Tambah Pelanggan
+                        {vpn ? 'Tambah Pelanggan VPN' : 'Tambah Pelanggan'}
                     </Link>
                 </div>
             </div>
@@ -528,8 +525,8 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                     Hanya di aplikasi
                                 </span>
                                 <span className="mt-0.5 block text-xs text-ink-soft">
-                                    Data pelanggan & tagihan di app dihapus. Secret PPPoE di
-                                    RouterOS tetap ada.
+                                    Data pelanggan & tagihan di app dihapus. Secret{' '}
+                                    {vpn ? 'L2TP' : 'PPPoE'} di RouterOS tetap ada.
                                 </span>
                             </span>
                         </label>
@@ -678,6 +675,13 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                     <p className="text-xs text-ink-soft">
                                         {customer.router?.name || '—'}
                                     </p>
+                                    {vpn && customer.vpn_trial_active && (
+                                        <p className="mt-1">
+                                            <span className="inline-flex bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-violet-800 uppercase">
+                                                Coba gratis s/d {customer.vpn_trial_ends_at}
+                                            </span>
+                                        </p>
+                                    )}
                                     {customer.phone && (
                                         <p className="mt-1 text-xs text-ink-soft md:hidden">
                                             <span className="text-ink/45">Telepon / WA:</span>{' '}
@@ -694,17 +698,6 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
                                     <p>{customer.username}</p>
-                                    <p className="mt-1">
-                                        <span
-                                            className={`inline-flex px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
-                                                customer.ppp_service === 'l2tp'
-                                                    ? 'bg-violet-50 text-violet-800'
-                                                    : 'bg-slate-100 text-slate-700'
-                                            }`}
-                                        >
-                                            {customer.ppp_service_label || 'PPPoE'}
-                                        </span>
-                                    </p>
                                     <p className="mt-1 text-xs md:hidden">
                                         <UsageAmount
                                             kind="rx"
@@ -800,7 +793,7 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                             Sync
                                         </button>
                                         <Link
-                                            href={`/admin/customers/pppoe/${customer.id}/edit`}
+                                            href={`${base}/${customer.id}/edit`}
                                             className="btn-action btn-action-xs btn-edit"
                                         >
                                             Edit
@@ -824,7 +817,9 @@ export default function Index({ customers = [], filters, routers, stats }) {
                                 <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
                                         ? 'Tidak ada pelanggan yang cocok dengan pencarian.'
-                                        : 'Belum ada pelanggan PPPoE.'}
+                                        : vpn
+                                          ? 'Belum ada pelanggan VPN Tunnel.'
+                                          : 'Belum ada pelanggan PPPoE.'}
                                 </td>
                             </tr>
                         )}

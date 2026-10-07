@@ -39,6 +39,20 @@ class VpnRouterAccounts
                     ->where('id', '!=', $router->id)
                     ->exists();
 
+                if (! $hasIncluded && $customer->vpn_self_signup && $customer->vpn_trial_ends_at === null) {
+                    $today = now()->startOfDay();
+                    $trialEnds = $today->copy()->addDays(3);
+                    $customer->update([
+                        'start_date' => $today->toDateString(),
+                        'billing_day' => min(28, (int) $trialEnds->day),
+                        'due_date' => $trialEnds->toDateString(),
+                        'vpn_trial_ends_at' => $trialEnds->toDateString(),
+                        'status' => 'active',
+                        'is_active' => true,
+                    ]);
+                    $customer->refresh();
+                }
+
                 if (! $hasIncluded) {
                     $router->update([
                         'included' => true,

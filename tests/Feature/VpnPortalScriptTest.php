@@ -253,7 +253,7 @@ class VpnPortalScriptTest extends TestCase
         $log = MessageLog::query()->where('command', MessageTemplate::VPN_WELCOME)->first();
         $this->assertNotNull($log);
         $this->assertStringContainsString('New Terminal', (string) $log->body);
-        $this->assertStringContainsString('/portal', (string) $log->body);
+        $this->assertStringContainsString('/vpn/masuk', (string) $log->body);
         $this->assertStringNotContainsString('rahasia-vpn', (string) $log->body);
         $this->assertStringNotContainsString('ONU', (string) $log->body);
     }

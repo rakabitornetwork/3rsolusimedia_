@@ -113,6 +113,27 @@ class CustomerNotifier
         $this->send($customer, MessageTemplate::WELCOME, $this->welcomeVars($customer, $invoice));
     }
 
+    public function notifyVpnSignup(PppoeCustomer $customer): void
+    {
+        $this->send($customer, MessageTemplate::VPN_SIGNUP, [
+            ...$this->customerVars($customer),
+            'email' => (string) $customer->email,
+            'portal' => url('/vpn/masuk'),
+        ]);
+    }
+
+    public function notifyVpnAccount(PppoeCustomer $customer, string $vpnUsername, string $server, string $trialEnds): void
+    {
+        $this->send($customer, MessageTemplate::VPN_ACCOUNT, [
+            ...$this->customerVars($customer),
+            'username_vpn' => $vpnUsername,
+            'password' => (string) $customer->password,
+            'server' => $server !== '' ? $server : '—',
+            'masa_gratis' => $trialEnds,
+            'portal' => url('/vpn/masuk'),
+        ]);
+    }
+
     /**
      * Kirim info pelanggan ke Chat ID admin Telegram saat agen menandai Cash / Siap TF.
      *
@@ -410,7 +431,9 @@ class CustomerNotifier
             'username' => (string) $customer->username,
             'perusahaan' => AppSettings::companyName(),
             'phone' => $this->dash((string) ($customer->phone ?? '')),
-            'portal' => url('/portal'),
+            'portal' => $customer->pppService() === PppoeCustomer::SERVICE_L2TP
+                ? url('/vpn/masuk')
+                : url('/portal'),
         ];
     }
 
@@ -438,7 +461,9 @@ class CustomerNotifier
             'tagihan_pertama' => $this->rupiah((int) ($invoice?->total ?? $customer->first_bill_amount ?? 0)),
             'hari_prorata' => $customer->first_bill_days ? (string) $customer->first_bill_days : '—',
             'nomor' => $this->dash((string) ($invoice?->number ?? '')),
-            'portal' => url('/portal'),
+            'portal' => $customer->pppService() === PppoeCustomer::SERVICE_L2TP
+                ? url('/vpn/masuk')
+                : url('/portal'),
             'telepon_kantor' => $this->dash($officePhone),
             'email_kantor' => $this->dash((string) AppSettings::get('email', '')),
         ];

@@ -37,7 +37,7 @@ function CopyButton({ text, label }) {
     );
 }
 
-export default function VpnAccess({ customerId, access }) {
+export default function VpnAccess({ customerId, access, flush = false }) {
     const custom = useForm({ vpn_router_id: '', dst_port: '', note: '' });
     const extra = useForm({ name: '' });
     const [pushing, setPushing] = useState(false);
@@ -60,7 +60,7 @@ export default function VpnAccess({ customerId, access }) {
     };
 
     return (
-        <section className="mt-6 space-y-4 border border-ink/10 bg-white p-6">
+        <section className={`${flush ? '' : 'mt-6'} space-y-4 border border-ink/10 bg-white p-6`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h2 className="text-sm font-semibold text-ink">Akses VPN dan port forward</h2>

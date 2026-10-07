@@ -34,7 +34,7 @@ class PppoeVpnCustomerTest extends TestCase
         $api->shouldReceive('upsertPppSecret')
             ->once()
             ->withArgs(function (...$args) {
-                return ($args[1] ?? null) === 'vpnuser'
+                return ($args[1] ?? null) === 'Siti VPN'
                     && ($args[8] ?? null) === PppoeCustomer::SERVICE_L2TP;
             })
             ->andReturn([
@@ -43,10 +43,11 @@ class PppoeVpnCustomerTest extends TestCase
             ]);
 
         $response = $this->actingAs($admin)
-            ->post('/admin/customers/pppoe', [
+            ->post('/admin/customers/vpn', [
                 'mikrotik_router_id' => $router->id,
                 'subscription_package_id' => $package->id,
                 'name' => 'Siti VPN',
+                'email' => 'siti@example.com',
                 'username' => 'vpnuser',
                 'password' => 'secret',
                 'ppp_service' => 'l2tp',
@@ -59,13 +60,36 @@ class PppoeVpnCustomerTest extends TestCase
             ])
             ->assertRedirect();
 
-        $customer = PppoeCustomer::query()->where('username', 'vpnuser')->first();
+        $customer = PppoeCustomer::query()->where('username', 'Siti VPN')->first();
         $this->assertNotNull($customer);
-        $response->assertRedirect('/admin/customers/pppoe/'.$customer->id.'/edit');
+        $response->assertRedirect('/admin/customers/vpn/'.$customer->id.'/edit');
         $this->assertNull($customer->vpn_remote_address);
         $this->assertSame(0, $customer->vpnRouters()->count());
         $this->assertSame(PppoeCustomer::SERVICE_L2TP, $customer->ppp_service);
         $this->assertSame('VPN L2TP', $customer->pppServiceLabel());
+        $this->assertSame('siti@example.com', $customer->email);
+    }
+
+    #[Test]
+    public function vpn_edit_form_shows_registered_email_and_password(): void
+    {
+        [$admin, $router, $package] = $this->records();
+        $customer = $this->customer($router, $package, 'Siti', 'vpnuser', PppoeCustomer::SERVICE_L2TP, [
+            'email' => 'siti@example.com',
+            'password' => 'Rahasia123',
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/customers/vpn/'.$customer->id.'/edit')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Customers/Pppoe/Form', false)
+                ->where('section', 'vpn')
+                ->where('customer.email', 'siti@example.com')
+                ->where('customer.password', 'Rahasia123')
+                ->has('customer.monthly_usage')
+                ->has('vpn_access')
+            );
     }
 
     #[Test]
@@ -76,7 +100,7 @@ class PppoeVpnCustomerTest extends TestCase
         $this->customer($router, $package, 'Siti', 'vpnuser', PppoeCustomer::SERVICE_L2TP);
 
         $this->actingAs($admin)
-            ->get('/admin/customers/pppoe?service=l2tp')
+            ->get('/admin/customers/vpn')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Admin/Customers/Pppoe/Index', false)
@@ -84,7 +108,17 @@ class PppoeVpnCustomerTest extends TestCase
                 ->where('customers.0.username', 'vpnuser')
                 ->where('customers.0.ppp_service', 'l2tp')
                 ->where('customers.0.ppp_service_label', 'VPN L2TP')
-                ->where('filters.service', 'l2tp')
+                ->where('section', 'vpn')
+            );
+
+        $this->actingAs($admin)
+            ->get('/admin/customers/pppoe')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Customers/Pppoe/Index', false)
+                ->has('customers', 1)
+                ->where('customers.0.username', 'budi01')
+                ->where('section', 'pppoe')
             );
     }
 

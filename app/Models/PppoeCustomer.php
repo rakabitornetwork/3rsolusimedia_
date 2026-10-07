@@ -52,6 +52,7 @@ class PppoeCustomer extends Model
         'is_active',
         'vpn_trial_ends_at',
         'vpn_trial_billed_at',
+        'vpn_self_signup',
     ];
 
     protected function casts(): array
@@ -73,6 +74,7 @@ class PppoeCustomer extends Model
             'vpn_trial_billed_at' => 'datetime',
             'is_active' => 'boolean',
             'agent_pays_commission' => 'boolean',
+            'vpn_self_signup' => 'boolean',
         ];
     }
 
@@ -238,6 +240,7 @@ class PppoeCustomer extends Model
             'agent_pays_commission' => (bool) $this->agent_pays_commission,
             'subscription_package_id' => $this->subscription_package_id,
             'name' => $this->name,
+            'email' => $this->email,
             'phone' => $this->phone,
             'address' => $this->address,
             'latitude' => $this->latitude,
@@ -245,6 +248,8 @@ class PppoeCustomer extends Model
             'username' => $this->username,
             'ppp_service' => $this->pppService(),
             'ppp_service_label' => $this->pppServiceLabel(),
+            'vpn_trial_ends_at' => $this->vpn_trial_ends_at?->format('Y-m-d'),
+            'vpn_trial_active' => $this->vpnTrialActive(),
             'service_profile' => $this->service_profile,
             'start_date' => $this->start_date?->format('Y-m-d'),
             'billing_day' => $this->billing_day,

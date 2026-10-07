@@ -15,6 +15,7 @@ import {
     RefreshCw,
     Router,
     Settings,
+    Shield,
     SlidersHorizontal,
     Ticket,
     Users,
@@ -41,7 +42,7 @@ export const adminNav = [
         title: 'Pelanggan',
         items: [
             {
-                label: 'Pelanggan',
+                label: 'Pelanggan PPPoE',
                 href: '/admin/customers/pppoe',
                 icon: Cable,
                 match: ['/admin/customers/pppoe'],
@@ -110,6 +111,17 @@ export const adminNav = [
                 href: '/admin/network/hotspot/tools',
                 icon: Laptop,
                 match: ['/admin/network/hotspot/tools'],
+            },
+        ],
+    },
+    {
+        title: 'VPN Tunnel',
+        items: [
+            {
+                label: 'Pelanggan VPN',
+                href: '/admin/customers/vpn',
+                icon: Shield,
+                match: ['/admin/customers/vpn'],
             },
         ],
     },

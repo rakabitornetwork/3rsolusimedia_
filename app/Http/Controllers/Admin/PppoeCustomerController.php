@@ -56,10 +56,40 @@ class PppoeCustomerController extends Controller
     ) {
     }
 
+    private function sectionService(Request $request): string
+    {
+        $name = (string) ($request->route()?->getName() ?? '');
+
+        return str_contains($name, 'customers.vpn')
+            ? PppoeCustomer::SERVICE_L2TP
+            : PppoeCustomer::SERVICE_PPPOE;
+    }
+
+    private function listRedirect(?Request $request = null, ?PppoeCustomer $customer = null): RedirectResponse
+    {
+        $service = $customer
+            ? $customer->pppService()
+            : $this->sectionService($request ?? request());
+        $vpn = $service === PppoeCustomer::SERVICE_L2TP;
+
+        return AdminListState::to(
+            $vpn ? 'admin.customers.vpn' : 'admin.customers.pppoe',
+            $vpn ? AdminListState::VPN : AdminListState::PPPOE,
+        );
+    }
+
+    private function editRouteName(PppoeCustomer $customer): string
+    {
+        return $customer->pppService() === PppoeCustomer::SERVICE_L2TP
+            ? 'admin.customers.vpn.edit'
+            : 'admin.customers.pppoe.edit';
+    }
+
     public function index(Request $request): Response
     {
-        AdminListState::apply($request, AdminListState::PPPOE, [
-            'q', 'status', 'router_id', 'service', 'sort', 'direction', 'page',
+        $service = $this->sectionService($request);
+        AdminListState::apply($request, $service === PppoeCustomer::SERVICE_L2TP ? AdminListState::VPN : AdminListState::PPPOE, [
+            'q', 'status', 'router_id', 'sort', 'direction', 'page',
         ]);
 
         $user = $request->user();
@@ -82,6 +112,7 @@ class PppoeCustomerController extends Controller
 
         $query = PppoeCustomer::query()
             ->with(['router', 'package', 'agent', 'usageThisMonth', 'trafficCursor'])
+            ->where('pppoe_customers.ppp_service', $service)
             ->select('pppoe_customers.*');
 
         if ($user->isAgen()) {
@@ -123,11 +154,6 @@ class PppoeCustomerController extends Controller
             $query->where('pppoe_customers.mikrotik_router_id', $routerId);
         }
 
-        $service = PppoeCustomer::normalizePppService((string) $request->get('service', ''));
-        if ($request->filled('service')) {
-            $query->where('pppoe_customers.ppp_service', $service);
-        }
-
         if ($sort === 'usage') {
             $query->orderByRaw(
                 '(COALESCE(monthly_usage_sort.rx_bytes, 0) + COALESCE(monthly_usage_sort.tx_bytes, 0)) '.$direction
@@ -150,11 +176,11 @@ class PppoeCustomerController extends Controller
 
         return Inertia::render('Admin/Customers/Pppoe/Index', [
             'customers' => $customers,
+            'section' => $service === PppoeCustomer::SERVICE_L2TP ? 'vpn' : 'pppoe',
             'filters' => [
                 'q' => $request->get('q', ''),
                 'status' => $request->get('status', ''),
                 'router_id' => $request->get('router_id', ''),
-                'service' => $request->filled('service') ? $service : '',
                 'sort' => $sort,
                 'direction' => $direction,
             ],
@@ -162,7 +188,7 @@ class PppoeCustomerController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'host']),
-            'stats' => $this->customerStats($request->get('router_id'), $user),
+            'stats' => $this->customerStats($request->get('router_id'), $user, $service),
             'is_agen' => $user->isAgen(),
         ]);
     }
@@ -181,6 +207,7 @@ class PppoeCustomerController extends Controller
         $user = $request->user();
 
         $query = PppoeCustomer::query()
+            ->where('pppoe_customers.ppp_service', $this->sectionService($request))
             ->with([
                 'router',
                 'package',
@@ -257,9 +284,12 @@ class PppoeCustomerController extends Controller
         ];
 
         $totalAmount = $customers->sum(fn (array $row) => (int) ($row['amount'] ?? 0));
+        $vpnPrint = $this->sectionService($request) === PppoeCustomer::SERVICE_L2TP;
 
         return response()->view('admin.customers.pppoe-print', [
             'rows' => $customers,
+            'list_title' => $vpnPrint ? 'Daftar Tagihan Pelanggan VPN Tunnel' : 'Daftar Tagihan Pelanggan PPPoE',
+            'page_title' => ($vpnPrint ? 'Cetak Tagihan VPN Tunnel · ' : 'Cetak Tagihan PPPoE · ').$date->translatedFormat('d M Y'),
             'total_amount' => $totalAmount,
             'date' => $date,
             'date_field' => $dateField,
@@ -277,9 +307,9 @@ class PppoeCustomerController extends Controller
         ]);
     }
 
-    private function customerStats(mixed $routerId, ?\App\Models\User $user = null): array
+    private function customerStats(mixed $routerId, ?\App\Models\User $user = null, string $service = PppoeCustomer::SERVICE_PPPOE): array
     {
-        $statsQuery = PppoeCustomer::query();
+        $statsQuery = PppoeCustomer::query()->where('ppp_service', $service);
 
         if ($user?->isAgen()) {
             $statsQuery->where('agent_id', $user->id);
@@ -335,17 +365,22 @@ class PppoeCustomerController extends Controller
     public function create(Request $request): Response|RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
+        }
+
+        if (
+            $this->sectionService($request) !== PppoeCustomer::SERVICE_L2TP
+            && $request->get('service') === PppoeCustomer::SERVICE_L2TP
+        ) {
+            return redirect()->route('admin.customers.vpn.create', $request->query());
         }
 
         $routerId = $request->filled('router_id')
             ? $request->integer('router_id')
             : AdminListState::lastRouterId($request);
         $username = trim((string) $request->get('username', ''));
-        $requestedService = $request->filled('service')
-            ? PppoeCustomer::normalizePppService((string) $request->get('service'))
-            : null;
+        $requestedService = $this->sectionService($request);
 
         if ($routerId && $username !== '') {
             $existing = PppoeCustomer::query()
@@ -355,7 +390,7 @@ class PppoeCustomerController extends Controller
 
             if ($existing) {
                 return redirect()
-                    ->route('admin.customers.pppoe.edit', $existing)
+                    ->route($this->editRouteName($existing), $existing)
                     ->with('success', 'Username sudah terdaftar. Membuka form edit.');
             }
         }
@@ -364,6 +399,7 @@ class PppoeCustomerController extends Controller
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => null,
+            'section' => $requestedService === PppoeCustomer::SERVICE_L2TP ? 'vpn' : 'pppoe',
             'prefill' => $prefill,
             ...$this->formOptions($routerId),
         ]);
@@ -372,11 +408,12 @@ class PppoeCustomerController extends Controller
     public function store(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk membuat pelanggan baru.');
         }
 
         $validated = $this->validateCustomer($request);
+        $validated['ppp_service'] = $this->sectionService($request);
         $package = isset($validated['subscription_package_id'])
             ? SubscriptionPackage::query()->find($validated['subscription_package_id'])
             : null;
@@ -413,19 +450,23 @@ class PppoeCustomerController extends Controller
             $this->vpnPlan->ensure($customer);
 
             return redirect()
-                ->route('admin.customers.pppoe.edit', $customer)
+                ->route('admin.customers.vpn.edit', $customer)
                 ->with('success', $message.' Isi nama router di bawah. Ketiga router memakai nama sendiri, dan router pertama mengikuti tagihan akun.');
         }
 
-        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+        return $this->listRedirect($request, $customer)
             ->with('success', $message);
     }
 
     public function edit(Request $request, PppoeCustomer $pppoe): Response|RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request, $pppoe)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
+        }
+
+        if ($pppoe->pppService() !== $this->sectionService($request)) {
+            return redirect()->route($this->editRouteName($pppoe), $pppoe);
         }
 
         $pppoe->load(['router', 'package', 'usageThisMonth', 'trafficCursor']);
@@ -445,9 +486,13 @@ class PppoeCustomerController extends Controller
         $customer['last_paid_due_date'] = $lastPaidDue
             ? Carbon::parse($lastPaidDue)->toDateString()
             : null;
+        if ($pppoe->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $customer['password'] = $pppoe->password;
+        }
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => $customer,
+            'section' => $pppoe->pppService() === PppoeCustomer::SERVICE_L2TP ? 'vpn' : 'pppoe',
             'vpn_access' => $this->vpnAccessPayload($pppoe),
             ...$this->formOptions($pppoe->mikrotik_router_id, $pppoe->subscription_package_id),
         ]);
@@ -456,11 +501,16 @@ class PppoeCustomerController extends Controller
     public function update(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request, $pppoe)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk mengedit pelanggan.');
         }
 
+        if ($pppoe->pppService() !== $this->sectionService($request)) {
+            return redirect()->route($this->editRouteName($pppoe), $pppoe);
+        }
+
         $validated = $this->validateCustomer($request, $pppoe);
+        $validated['ppp_service'] = $pppoe->pppService();
         $pppoe->loadMissing('package');
         $package = isset($validated['subscription_package_id'])
             ? SubscriptionPackage::query()->find($validated['subscription_package_id'])
@@ -637,15 +687,20 @@ class PppoeCustomerController extends Controller
             $this->vpnPlan->ensure($fresh);
         }
 
-        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+        return $this->listRedirect($request, $fresh)
             ->with('success', $this->customerUpdateMessage($result, $profileChanged || $packageChanged).$vpnNote);
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request, $pppoe)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
+        }
+
+        if ($pppoe->pppService() !== $this->sectionService($request)) {
+            return $this->listRedirect($request, $pppoe)
+                ->with('error', 'Pelanggan ini ada di menu '.($pppoe->pppService() === PppoeCustomer::SERVICE_L2TP ? 'VPN Tunnel' : 'Pelanggan PPPoE').'.');
         }
 
         $removeSecret = $request->boolean('remove_secret');
@@ -667,10 +722,10 @@ class PppoeCustomerController extends Controller
 
         $pppoe->delete();
 
-        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+        return $this->listRedirect($request, $pppoe)
             ->with(
                 'success',
-                'Pelanggan PPPoE berhasil dihapus.'.($removeSecret
+                'Pelanggan '.$pppoe->pppServiceLabel().' berhasil dihapus.'.($removeSecret
                     ? $secretNote
                     : ' Secret di RouterOS dibiarkan.')
             );
@@ -679,7 +734,7 @@ class PppoeCustomerController extends Controller
     public function bulkDestroy(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
-            return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+            return $this->listRedirect($request)
                 ->with('error', 'Akun Agen tidak memiliki akses untuk menghapus pelanggan.');
         }
 
@@ -690,8 +745,10 @@ class PppoeCustomerController extends Controller
         ]);
 
         $removeSecret = $request->boolean('remove_secret');
+        $service = $this->sectionService($request);
         $customers = PppoeCustomer::query()
             ->with('router')
+            ->where('ppp_service', $service)
             ->whereIn('id', $validated['ids'])
             ->get();
 
@@ -713,7 +770,8 @@ class PppoeCustomerController extends Controller
             $deleted++;
         }
 
-        $message = "{$deleted} pelanggan PPPoE dihapus dari aplikasi.";
+        $label = $service === PppoeCustomer::SERVICE_L2TP ? 'VPN Tunnel' : 'PPPoE';
+        $message = "{$deleted} pelanggan {$label} dihapus dari aplikasi.";
         if ($removeSecret) {
             $message .= " Secret RouterOS: {$secretRemoved} berhasil dihapus";
             if ($secretFailed > 0) {
@@ -724,12 +782,16 @@ class PppoeCustomerController extends Controller
             $message .= ' Secret di RouterOS dibiarkan.';
         }
 
-        return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
+        return $this->listRedirect($request)
             ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
-    public function sync(PppoeCustomer $pppoe): RedirectResponse
+    public function sync(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        if ($pppoe->pppService() !== $this->sectionService($request)) {
+            return back()->with('error', 'Pelanggan ini tidak ada di daftar ini.');
+        }
+
         $this->sync->sync($pppoe->load(['router', 'package']));
 
         return back()->with(
@@ -1190,6 +1252,12 @@ class PppoeCustomerController extends Controller
 
     private function validateCustomer(Request $request, ?PppoeCustomer $customer = null): array
     {
+        if (PppoeCustomer::normalizePppService($request->input('ppp_service')) === PppoeCustomer::SERVICE_L2TP) {
+            $request->merge([
+                'username' => trim((string) $request->input('name')),
+            ]);
+        }
+
         $validated = $request->validate(
             [
                 'mikrotik_router_id' => ['required', 'exists:mikrotik_routers,id'],
@@ -1207,6 +1275,17 @@ class PppoeCustomerController extends Controller
                     ),
                 ],
                 'name' => ['required', 'string', 'max:150'],
+                'email' => [
+                    Rule::requiredIf(
+                        fn () => PppoeCustomer::normalizePppService($request->input('ppp_service')) === PppoeCustomer::SERVICE_L2TP
+                    ),
+                    'nullable',
+                    'email',
+                    'max:150',
+                    Rule::unique('pppoe_customers', 'email')
+                        ->where(fn ($query) => $query->where('ppp_service', PppoeCustomer::SERVICE_L2TP))
+                        ->ignore($customer?->id),
+                ],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'address' => ['nullable', 'string', 'max:500'],
                 'latitude' => ['nullable', 'required_with:longitude', 'numeric', 'between:-90,90'],
@@ -1227,7 +1306,10 @@ class PppoeCustomerController extends Controller
                 'billing_day' => ['nullable', 'integer', 'min:1', 'max:28'],
                 'overdue_action' => ['required', Rule::in(['bypass', 'isolir'])],
                 'isolir_profile' => [
-                    Rule::requiredIf(fn () => $request->input('overdue_action') === 'isolir'),
+                    Rule::requiredIf(
+                        fn () => $request->input('overdue_action') === 'isolir'
+                            && PppoeCustomer::normalizePppService($request->input('ppp_service')) !== PppoeCustomer::SERVICE_L2TP
+                    ),
                     'nullable',
                     'string',
                     'max:120',
@@ -1242,8 +1324,21 @@ class PppoeCustomerController extends Controller
             [
                 'subscription_package_id.exists' => 'Paket langganan tidak tersedia untuk router yang dipilih.',
                 'due_date.after' => 'Tanggal jatuh tempo harus setelah tanggal mulai layanan.',
+                'email.required' => 'E-mail wajib diisi.',
+                'email.email' => 'E-mail tidak valid.',
+                'email.unique' => 'E-mail ini sudah dipakai pelanggan VPN lain.',
+                'username.unique' => 'Nama pelanggan ini sudah dipakai sebagai username secret di router yang sama.',
+                'username.max' => 'Nama pelanggan maksimal 100 karakter karena dipakai sebagai username secret.',
             ]
         );
+
+        if (! empty($validated['email'])) {
+            $validated['email'] = strtolower($validated['email']);
+        }
+
+        if (PppoeCustomer::normalizePppService($validated['ppp_service'] ?? null) !== PppoeCustomer::SERVICE_L2TP) {
+            unset($validated['email']);
+        }
 
         $validated['ppp_service'] = PppoeCustomer::normalizePppService($validated['ppp_service'] ?? null);
 

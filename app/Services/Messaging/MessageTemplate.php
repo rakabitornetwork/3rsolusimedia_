@@ -31,6 +31,10 @@ class MessageTemplate
 
     public const VPN_WELCOME = 'vpn_welcome';
 
+    public const VPN_SIGNUP = 'vpn_signup';
+
+    public const VPN_ACCOUNT = 'vpn_account';
+
     /**
      * @return array<string, string>
      */
@@ -244,6 +248,39 @@ class MessageTemplate
                 '• bantuan — daftar perintah',
                 '',
                 '📞 CS: {{telepon_kantor}}',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_SIGNUP => implode("\n", [
+                '🎉 *Pendaftaran VPN Tunnel berhasil*',
+                '',
+                'Halo {{nama}}, akun portal Anda sudah dibuat.',
+                '',
+                '👤 Nama: {{nama}}',
+                '✉️ Email: {{email}}',
+                '',
+                '🌐 *Masuk portal pelanggan VPN*',
+                '{{portal}}',
+                'Login dengan email dan password yang Anda buat.',
+                '',
+                'Setelah masuk, buat akun VPN. Akun itu gratis 3 hari.',
+                'Informasi tagihan dan akun dikirim ke WhatsApp ini.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_ACCOUNT => implode("\n", [
+                '🔐 *Akun VPN sudah dibuat*',
+                '',
+                'Halo {{nama}}, akun VPN berikut aktif di CHR dan gratis sampai {{masa_gratis}}.',
+                '',
+                'Username: {{username_vpn}}',
+                'Password: {{password}}',
+                'Server: {{server}}',
+                '',
+                'Salin skrip pemasangan di portal, lalu jalankan di New Terminal Winbox.',
+                '',
+                'Setelah masa gratis habis, tagihan dikirim ke WhatsApp ini dan dibayar lewat payment gateway.',
+                'Jika tidak dibayar, akun dihapus dari CHR.',
+                '',
                 '— {{perusahaan}}',
             ]),
         ];
@@ -741,7 +778,8 @@ class MessageTemplate
         return [
             '🌐 *'.$title.'*',
             '{{portal}}',
-            'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.',
+            'Login dengan email dan password yang didaftarkan.',
+            'Tagihan dibayar lewat payment gateway di portal.',
             'Di portal ada skrip pemasangan VPN. Salin skrip itu, lalu jalankan hanya di New Terminal Winbox.',
         ];
     }

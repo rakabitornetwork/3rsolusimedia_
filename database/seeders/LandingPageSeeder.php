@@ -106,12 +106,12 @@ class LandingPageSeeder extends Seeder
                     'features' => [
                         'Alihkan trafik Speedtest dari ISP utama ke VPN Tunnel',
                         'Tunnel L2TP langsung ke router MikroTik Anda',
-                        'Masuk portal hanya dengan kode OTP WhatsApp',
+                        'Masuk portal dengan email dan password',
                     ],
                     'steps' => [
-                        ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
-                        ['title' => 'Coba gratis', 'description' => 'Masuk dengan kode OTP WhatsApp dan pakai tunnel selama 3 hari.'],
-                        ['title' => 'Jika cocok', 'description' => 'Silahkan lanjut pembayaran via portal pelanggan.'],
+                        ['title' => 'Daftar', 'description' => 'Isi nama, email, password, dan WhatsApp.'],
+                        ['title' => 'Coba gratis', 'description' => 'Masuk portal dengan email dan password, lalu buat akun VPN. Gratis 3 hari.'],
+                        ['title' => 'Jika cocok', 'description' => 'Bayar tagihan lewat payment gateway. Jika tidak dibayar setelah masa gratis, akun dihapus dari CHR.'],
                     ],
                 ],
                 'image' => '/images/vpn/office.jpg',
