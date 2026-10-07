@@ -1,5 +1,5 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { CreditCard, ImagePlus, Landmark, Megaphone, Plus, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
+import { CreditCard, ImagePlus, Landmark, Megaphone, Plus, Server, Settings2, ShieldAlert, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 
@@ -190,7 +190,7 @@ function initialBankAccounts(settings) {
     return [emptyBankAccount()];
 }
 
-export default function Settings({ settings, branding, timezones }) {
+export default function Settings({ settings, branding, timezones, chr = null }) {
     const { auth, app } = usePage().props;
     const canWrite = auth?.user?.can_write !== false;
     const companyName = app?.company_name || 'Perusahaan';
@@ -220,6 +220,10 @@ export default function Settings({ settings, branding, timezones }) {
         remove_logo_full: false,
         remove_favicon: false,
         ...bannerFormState(settings),
+        vpn_chr_host: chr?.host || '',
+        vpn_chr_port: chr?.port || 2223,
+        vpn_chr_username: chr?.username || '',
+        vpn_chr_password: '',
     });
 
     useEffect(() => {
@@ -814,6 +818,78 @@ export default function Settings({ settings, branding, timezones }) {
                         disabled={!canWrite}
                         onChange={(value) => setData('app_auto_isolir', value)}
                     />
+                </Section>
+
+                <Section
+                    icon={Server}
+                    title="SSH CHR"
+                    description="Dipakai tombol Push ke CHR pada pelanggan VPN"
+                >
+                    <p className="text-sm text-ink-soft">
+                        {chr?.configured
+                            ? 'Kredensial sudah tersimpan. Kosongkan password jika tidak ingin menggantinya.'
+                            : 'Isi host, port, username, dan password supaya tombol Push ke CHR bisa dipakai.'}
+                    </p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-ink">
+                            Host
+                            <input
+                                type="text"
+                                value={data.vpn_chr_host}
+                                onChange={(e) => setData('vpn_chr_host', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                                autoComplete="off"
+                            />
+                            {errors.vpn_chr_host && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.vpn_chr_host}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Port
+                            <input
+                                type="number"
+                                min="1"
+                                max="65535"
+                                value={data.vpn_chr_port}
+                                onChange={(e) => setData('vpn_chr_port', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                            />
+                            {errors.vpn_chr_port && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.vpn_chr_port}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Username
+                            <input
+                                type="text"
+                                value={data.vpn_chr_username}
+                                onChange={(e) => setData('vpn_chr_username', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                                autoComplete="off"
+                            />
+                            {errors.vpn_chr_username && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.vpn_chr_username}</span>
+                            )}
+                        </label>
+                        <label className="block text-sm font-medium text-ink">
+                            Password
+                            <input
+                                type="password"
+                                value={data.vpn_chr_password}
+                                onChange={(e) => setData('vpn_chr_password', e.target.value)}
+                                className={fieldClass}
+                                disabled={!canWrite}
+                                autoComplete="new-password"
+                                placeholder={chr?.configured ? 'Tidak diubah' : ''}
+                            />
+                            {errors.vpn_chr_password && (
+                                <span className="mt-1 block text-xs text-red-600">{errors.vpn_chr_password}</span>
+                            )}
+                        </label>
+                    </div>
                 </Section>
 
                 {canWrite && (

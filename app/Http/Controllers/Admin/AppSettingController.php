@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
+use App\Services\Vpn\VpnChrSettings;
 use App\Support\AppSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,12 @@ class AppSettingController extends Controller
             'settings' => [
                 ...AppSettings::all(),
                 'bank_accounts' => AppSettings::bankAccounts(),
+            ],
+            'chr' => [
+                'host' => VpnChrSettings::host(),
+                'port' => VpnChrSettings::host() === '' ? 2223 : VpnChrSettings::port(),
+                'username' => VpnChrSettings::username(),
+                'configured' => VpnChrSettings::configured(),
             ],
             'branding' => AppSettings::branding(),
             'timezones' => [
@@ -122,10 +129,39 @@ class AppSettingController extends Controller
         }
 
         SiteSetting::setMany($values);
+        $this->saveChrCredentials($request);
 
         return redirect()
             ->route('admin.system.index')
             ->with('success', 'Pengaturan aplikasi berhasil disimpan.');
+    }
+
+    private function saveChrCredentials(Request $request): void
+    {
+        $host = trim((string) $request->input('vpn_chr_host', ''));
+        $username = trim((string) $request->input('vpn_chr_username', ''));
+        $password = (string) $request->input('vpn_chr_password', '');
+        if ($host === '' && $username === '' && $password === '') {
+            return;
+        }
+
+        $rules = [
+            'vpn_chr_host' => ['required', 'string', 'max:255'],
+            'vpn_chr_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'vpn_chr_username' => ['required', 'string', 'max:64'],
+        ];
+        if ($password !== '' || ! VpnChrSettings::configured()) {
+            $rules['vpn_chr_password'] = ['required', 'string', 'max:255'];
+        }
+        $validated = $request->validate($rules);
+        $storedPassword = $password !== '' ? $password : VpnChrSettings::password();
+
+        VpnChrSettings::store(
+            $validated['vpn_chr_host'],
+            (int) $validated['vpn_chr_port'],
+            $validated['vpn_chr_username'],
+            $storedPassword,
+        );
     }
 
     /**
