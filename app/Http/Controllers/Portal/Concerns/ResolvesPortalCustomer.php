@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Portal\Concerns;
 
 use App\Models\PppoeCustomer;
 use App\Support\PhoneNumber;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -36,6 +38,19 @@ trait ResolvesPortalCustomer
     protected function portalTokenCacheKey(string $token): string
     {
         return 'portal_pay:'.$token;
+    }
+
+    protected function redirectExpiredPortal(Request $request): RedirectResponse
+    {
+        $customerId = (int) $request->session()->get('portal_customer_id');
+        $customer = $customerId > 0 ? PppoeCustomer::query()->find($customerId) : null;
+        $route = $customer?->pppService() === PppoeCustomer::SERVICE_L2TP
+            ? 'vpn.login'
+            : 'portal.pay.index';
+
+        return redirect()
+            ->route($route)
+            ->with('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
     }
 
     protected function normalizePortalPhone(string $phone): string

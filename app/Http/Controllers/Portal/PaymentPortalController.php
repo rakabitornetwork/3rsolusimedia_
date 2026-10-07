@@ -83,9 +83,7 @@ class PaymentPortalController extends Controller
     {
         $customer = $this->customerFromPortalToken($token);
         if (! $customer) {
-            return redirect()
-                ->route('portal.pay.index')
-                ->with('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
+            return $this->redirectExpiredPortal($request);
         }
 
         if ((int) $request->session()->get('portal_customer_id') !== (int) $customer->id) {
@@ -127,9 +125,7 @@ class PaymentPortalController extends Controller
     {
         $customer = $this->customerFromPortalToken($token);
         if (! $customer) {
-            return redirect()
-                ->route('portal.pay.index')
-                ->with('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
+            return $this->redirectExpiredPortal($request);
         }
 
         if ((int) $invoice->pppoe_customer_id !== (int) $customer->id) {

@@ -69,6 +69,31 @@ class VpnPortalScriptTest extends TestCase
     }
 
     #[Test]
+    public function expired_vpn_portal_returns_to_the_vpn_login(): void
+    {
+        $customer = $this->customer('203.0.113.10', 'rahasia');
+
+        $this->withSession(['portal_customer_id' => $customer->id])
+            ->get('/portal/'.str_repeat('a', 48))
+            ->assertRedirect('/vpn/masuk')
+            ->assertSessionHas('error', 'Sesi portal kedaluwarsa. Silakan masuk lagi.');
+
+        $this->withSession(['portal_customer_id' => $customer->id])
+            ->get('/portal/'.str_repeat('b', 48).'/tagihan')
+            ->assertRedirect('/vpn/masuk');
+    }
+
+    #[Test]
+    public function expired_pppoe_portal_returns_to_the_customer_portal(): void
+    {
+        $customer = $this->customer('203.0.113.10', 'rahasia', PppoeCustomer::SERVICE_PPPOE);
+
+        $this->withSession(['portal_customer_id' => $customer->id])
+            ->get('/portal/'.str_repeat('c', 48))
+            ->assertRedirect('/portal');
+    }
+
+    #[Test]
     public function pppoe_portal_home_stays_on_the_device_page(): void
     {
         $customer = $this->customer('203.0.113.10', 'rahasia', PppoeCustomer::SERVICE_PPPOE);

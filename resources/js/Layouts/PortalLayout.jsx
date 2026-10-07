@@ -57,7 +57,7 @@ export default function PortalLayout({
                         </div>
                     </div>
                     <Link
-                        href="/portal"
+                        href={isVpn ? '/vpn/masuk' : '/portal'}
                         className="shrink-0 text-sm font-semibold text-signal-deep hover:underline"
                     >
                         Keluar
