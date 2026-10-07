@@ -209,6 +209,45 @@ class VpnAccessPlanTest extends TestCase
         $this->assertSame(0, VpnRouterCredit::query()->count());
     }
 
+    #[Test]
+    public function three_unrenewed_months_remove_every_router_but_keep_the_customer(): void
+    {
+        $fake = $this->bindChr();
+        $lapsed = $this->customer('vpn-macet');
+        $lapsed->update([
+            'subscription_package_id' => $this->package()->id,
+            'due_date' => now()->startOfDay()->subMonthsNoOverflow(3)->toDateString(),
+            'status' => 'isolated',
+        ]);
+        $recent = $this->customer('vpn-baru');
+        $recent->update([
+            'due_date' => now()->startOfDay()->subMonthsNoOverflow(3)->addDay()->toDateString(),
+        ]);
+        $accounts = app(VpnRouterAccounts::class);
+        $accounts->enroll($lapsed, 'kantor');
+        $second = $accounts->enroll($lapsed->fresh(), 'toko');
+        VpnRouterCredit::query()->create([
+            'pppoe_customer_id' => $lapsed->id,
+            'billing_day' => 8,
+            'included' => false,
+            'invoice_ids' => [$second['invoice']->id],
+        ]);
+        $accounts->enroll($recent, 'masih-aktif');
+        $invoiceId = $second['invoice']->id;
+
+        $this->artisan('vpn:purge-lapsed-routers')->assertSuccessful();
+
+        $this->assertSame(0, VpnRouter::query()->where('pppoe_customer_id', $lapsed->id)->count());
+        $this->assertSame(0, VpnRouterCredit::query()->where('pppoe_customer_id', $lapsed->id)->count());
+        $this->assertNotNull(PppoeCustomer::query()->find($lapsed->id));
+        $this->assertSame('unpaid', Invoice::query()->find($invoiceId)?->status);
+        $this->assertNull(Invoice::query()->find($invoiceId)?->vpn_router_id);
+        $script = implode("\n", $fake->commands);
+        $this->assertStringContainsString('name="kantor"', $script);
+        $this->assertStringContainsString('name="toko"', $script);
+        $this->assertNotNull(VpnRouter::query()->where('name', 'masih-aktif')->first());
+    }
+
     private function bindChr(): object
     {
         $fake = new class implements RunsChrCommands

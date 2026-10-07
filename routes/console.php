@@ -22,6 +22,12 @@ Schedule::command('pppoe:sync-overdue')
     ->timezone($appTimezone)
     ->withoutOverlapping(120);
 
+// Akun VPN yang 3 bulan berturut-turut tidak diperpanjang kehilangan semua routernya.
+Schedule::command('vpn:purge-lapsed-routers')
+    ->dailyAt('00:20')
+    ->timezone($appTimezone)
+    ->withoutOverlapping(60);
+
 // Bersihkan voucher hotspot terpakai dari RouterOS & aplikasi
 Schedule::command('hotspot:purge-used')->everyFiveMinutes();
 

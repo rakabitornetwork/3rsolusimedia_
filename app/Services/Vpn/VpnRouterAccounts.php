@@ -129,6 +129,43 @@ class VpnRouterAccounts
         ];
     }
 
+    /**
+     * Hapus semua router akun yang sudah 3 bulan tidak diperpanjang.
+     * Akun pelanggan dan tagihannya tidak dihapus, dan hak router tidak ditahan.
+     *
+     * @return array{removed: int, failed: list<string>, credits: int}
+     */
+    public function purgeLapsedRouters(PppoeCustomer $customer): array
+    {
+        $removed = 0;
+        $failed = [];
+
+        foreach ($customer->vpnRouters()->with(['portForwards', 'invoices'])->get() as $router) {
+            $result = $this->provisioner->removeRouter($router);
+            if (! $result['ok']) {
+                $failed[] = $router->name;
+
+                continue;
+            }
+
+            $router->delete();
+            $removed++;
+        }
+
+        $credits = 0;
+        if ($customer->vpnRouters()->count() === 0) {
+            $credits = VpnRouterCredit::query()
+                ->where('pppoe_customer_id', $customer->id)
+                ->delete();
+        }
+
+        return [
+            'removed' => $removed,
+            'failed' => $failed,
+            'credits' => $credits,
+        ];
+    }
+
     public function spareCount(PppoeCustomer $customer): int
     {
         return VpnRouterCredit::query()->where('pppoe_customer_id', $customer->id)->count();
