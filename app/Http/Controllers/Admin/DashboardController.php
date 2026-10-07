@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
 use App\Services\GitUpdateService;
+use App\Services\PppoeMonthlyUsageService;
 use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +18,10 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __construct(private readonly GitUpdateService $git)
-    {
+    public function __construct(
+        private readonly GitUpdateService $git,
+        private readonly PppoeMonthlyUsageService $usage,
+    ) {
     }
 
     public function index(\Illuminate\Http\Request $request): Response
@@ -113,6 +116,7 @@ class DashboardController extends Controller
             ],
             'revenue_charts' => $this->revenueCharts(),
             'new_customers' => $newCustomers,
+            'usage_top' => $this->usage->topTen($user->isAgen() ? (int) $user->id : null),
             'due_soon' => $dueSoon,
             'attention_invoices' => $attentionInvoices,
             'quick_actions' => collect([

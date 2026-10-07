@@ -109,6 +109,11 @@ class PppoeCustomer extends Model
         return $this->hasMany(PppoeMonthlyUsage::class);
     }
 
+    public function dailyUsages(): HasMany
+    {
+        return $this->hasMany(PppoeDailyUsage::class);
+    }
+
     public function usageThisMonth(): HasOne
     {
         return $this->hasOne(PppoeMonthlyUsage::class)

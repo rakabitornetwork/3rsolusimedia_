@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
+use App\Models\PppoeDailyUsage;
 use App\Models\PppoeMonthlyUsage;
+use App\Services\GitUpdateService;
 use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Services\MikrotikApiService;
@@ -192,6 +194,122 @@ class PppoeMonthlyUsageTest extends TestCase
                 ->where('customers.1.username', $light->username)
                 ->where('customers.2.username', $heavy->username)
             );
+    }
+
+    #[Test]
+    public function samples_are_stored_per_day_for_later_ranking(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $customer = $this->customer();
+        $service = app(PppoeMonthlyUsageService::class);
+
+        $service->applySample($customer, 0, 0, Carbon::parse('2026-10-07 10:00:00', 'Asia/Jakarta'));
+        $service->applySample($customer, 400, 1_500, Carbon::parse('2026-10-07 10:05:00', 'Asia/Jakarta'));
+
+        $daily = PppoeDailyUsage::query()->where('pppoe_customer_id', $customer->id)->first();
+        $this->assertNotNull($daily);
+        $this->assertSame('2026-10-07', $daily->usage_date?->toDateString());
+        $this->assertSame(1_500, (int) $daily->rx_bytes);
+        $this->assertSame(400, (int) $daily->tx_bytes);
+    }
+
+    #[Test]
+    public function top_ten_ranks_daily_weekly_and_monthly_usage(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $at = Carbon::parse('2026-10-07 11:00:00', 'Asia/Jakarta');
+        Carbon::setTestNow($at);
+
+        $router = $this->router();
+        $heavy = $this->customer($router, ['name' => 'Berat', 'username' => 'berat']);
+        $light = $this->customer($router, ['name' => 'Ringan', 'username' => 'ringan']);
+        $yesterday = $this->customer($router, ['name' => 'Kemarin', 'username' => 'kemarin']);
+        $lastMonth = $this->customer($router, ['name' => 'Lalu', 'username' => 'lalu']);
+
+        $this->usageRow($heavy, '2026-10-07', 5_000, 1_000, '2026-10');
+        $this->usageRow($light, '2026-10-07', 100, 50, '2026-10');
+        $this->usageRow($yesterday, '2026-10-06', 9_000, 1_000, '2026-10');
+        PppoeMonthlyUsage::query()->create([
+            'pppoe_customer_id' => $lastMonth->id,
+            'period' => '2026-09',
+            'rx_bytes' => 9_000_000,
+            'tx_bytes' => 9_000_000,
+        ]);
+
+        $top = app(PppoeMonthlyUsageService::class)->topTen(null, $at);
+
+        $this->assertSame(['berat', 'ringan'], array_column($top['daily']['rows'], 'username'));
+        $this->assertSame(['kemarin', 'berat', 'ringan'], array_column($top['weekly']['rows'], 'username'));
+        $this->assertSame(['kemarin', 'berat', 'ringan'], array_column($top['monthly']['rows'], 'username'));
+        $this->assertSame(10_000, $top['weekly']['rows'][0]['total_bytes']);
+        $this->assertSame('7 Oktober 2026', $top['daily']['range_label']);
+        $this->assertSame('5–11 Oktober 2026', $top['weekly']['range_label']);
+        $this->assertSame('Oktober 2026', $top['monthly']['range_label']);
+    }
+
+    #[Test]
+    public function top_ten_keeps_only_ten_customers_and_an_agents_own_customers(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $at = Carbon::parse('2026-10-07 11:00:00', 'Asia/Jakarta');
+        $router = $this->router();
+        $agent = User::factory()->agen()->create();
+
+        for ($i = 1; $i <= 12; $i++) {
+            $customer = $this->customer($router, [
+                'name' => 'Pelanggan '.$i,
+                'username' => 'user'.$i,
+                'agent_id' => $i === 12 ? $agent->id : null,
+            ]);
+            $this->usageRow($customer, '2026-10-07', $i * 1_000, 0, '2026-10');
+        }
+
+        $service = app(PppoeMonthlyUsageService::class);
+        $top = $service->topTen(null, $at);
+        $this->assertCount(10, $top['daily']['rows']);
+        $this->assertSame('user12', $top['daily']['rows'][0]['username']);
+        $this->assertSame('user3', $top['daily']['rows'][9]['username']);
+
+        $agentTop = $service->topTen($agent->id, $at);
+        $this->assertSame(['user12'], array_column($agentTop['daily']['rows'], 'username'));
+        $this->assertSame(['user12'], array_column($agentTop['monthly']['rows'], 'username'));
+
+        $this->mock(GitUpdateService::class, function ($mock) {
+            $mock->shouldReceive('dashboardNotice')->andReturn(null);
+        });
+
+        $this->actingAs($agent)
+            ->get('/admin')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Dashboard', false)
+                ->has('usage_top.daily.rows', 1)
+                ->where('usage_top.daily.rows.0.username', 'user12')
+            );
+    }
+
+    private function usageRow(PppoeCustomer $customer, string $date, int $rx, int $tx, string $period): void
+    {
+        PppoeDailyUsage::query()->create([
+            'pppoe_customer_id' => $customer->id,
+            'usage_date' => $date,
+            'rx_bytes' => $rx,
+            'tx_bytes' => $tx,
+        ]);
+
+        $monthly = PppoeMonthlyUsage::query()->firstOrCreate(
+            [
+                'pppoe_customer_id' => $customer->id,
+                'period' => $period,
+            ],
+            [
+                'rx_bytes' => 0,
+                'tx_bytes' => 0,
+            ],
+        );
+        $monthly->rx_bytes = (int) $monthly->rx_bytes + $rx;
+        $monthly->tx_bytes = (int) $monthly->tx_bytes + $tx;
+        $monthly->save();
     }
 
     private function router(string $name = 'Router 1', string $host = '192.168.88.1'): MikrotikRouter

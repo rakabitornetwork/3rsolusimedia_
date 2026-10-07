@@ -17,6 +17,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import NewCustomersCard from '../../Components/Admin/NewCustomersCard';
+import UsageTopCard from '../../Components/Admin/UsageTopCard';
 import RevenueChartCard from '../../Components/Admin/RevenueChartCard';
 import StatCard from '../../Components/Admin/StatCard';
 import AdminLayout from '../../Layouts/AdminLayout';
@@ -37,6 +38,7 @@ export default function Dashboard({
     update_notice: updateNotice = null,
     revenue_charts: revenueCharts = null,
     new_customers: newCustomers = null,
+    usage_top: usageTop = null,
     due_soon: dueSoon,
     attention_invoices: attentionInvoices,
     quick_actions: quickActions,
@@ -204,6 +206,18 @@ export default function Dashboard({
                         Dihitung saat data pelanggan pertama kali disimpan. Mengubah tanggal mulai layanan tidak membuat pelanggan lama terhitung baru.
                     </p>
                     <NewCustomersCard data={newCustomers} />
+                </section>
+            )}
+
+            {usageTop && (
+                <section className="mb-8">
+                    <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        Pemakaian pelanggan
+                    </h3>
+                    <UsageTopCard data={usageTop} />
+                    <p className="mt-2 text-xs text-ink-soft">
+                        Harian adalah hari ini. Mingguan dihitung Senin–Minggu. Bulanan adalah total bulan berjalan.
+                    </p>
                 </section>
             )}
 

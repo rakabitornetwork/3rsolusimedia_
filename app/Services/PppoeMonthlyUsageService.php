@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
+use App\Models\PppoeDailyUsage;
 use App\Models\PppoeMonthlyUsage;
 use App\Models\PppoeTrafficCursor;
 use App\Support\AppSettings;
@@ -95,9 +96,11 @@ class PppoeMonthlyUsageService
     {
         $download = max(0, $interfaceTx);
         $upload = max(0, $interfaceRx);
-        $period = $at->copy()->timezone($this->timezone())->format('Y-m');
+        $local = $at->copy()->timezone($this->timezone());
+        $period = $local->format('Y-m');
+        $usageDate = $local->toDateString();
 
-        DB::transaction(function () use ($customer, $download, $upload, $at, $period) {
+        DB::transaction(function () use ($customer, $download, $upload, $at, $period, $usageDate) {
             $cursor = PppoeTrafficCursor::query()
                 ->where('pppoe_customer_id', $customer->id)
                 ->lockForUpdate()
@@ -125,6 +128,20 @@ class PppoeMonthlyUsageService
                 $usage->rx_bytes = (int) $usage->rx_bytes + $deltaRx;
                 $usage->tx_bytes = (int) $usage->tx_bytes + $deltaTx;
                 $usage->save();
+
+                $daily = PppoeDailyUsage::query()->firstOrCreate(
+                    [
+                        'pppoe_customer_id' => $customer->id,
+                        'usage_date' => $usageDate,
+                    ],
+                    [
+                        'rx_bytes' => 0,
+                        'tx_bytes' => 0,
+                    ],
+                );
+                $daily->rx_bytes = (int) $daily->rx_bytes + $deltaRx;
+                $daily->tx_bytes = (int) $daily->tx_bytes + $deltaTx;
+                $daily->save();
             }
 
             if (! $cursor) {
@@ -185,6 +202,166 @@ class PppoeMonthlyUsageService
             'sampled_at' => $cursor?->sampled_at?->copy()->timezone($this->timezone())->format('Y-m-d H:i'),
             'reset_label' => 'Reset tiap tanggal 1',
         ];
+    }
+
+    /**
+     * Sepuluh pelanggan dengan total RX+TX terbesar.
+     * Harian dan mingguan dijumlah dari catatan harian. Bulanan memakai total bulan berjalan.
+     * Minggu dihitung Senin–Minggu.
+     *
+     * @return array{
+     *     daily: array{key: string, label: string, range_label: string, rows: list<array<string, mixed>>},
+     *     weekly: array{key: string, label: string, range_label: string, rows: list<array<string, mixed>>},
+     *     monthly: array{key: string, label: string, range_label: string, rows: list<array<string, mixed>>}
+     * }
+     */
+    public function topTen(?int $agentId = null, ?CarbonInterface $at = null): array
+    {
+        $now = ($at ?? now())->copy()->timezone($this->timezone());
+        $today = $now->toDateString();
+        $weekStart = $now->copy()->startOfWeek(CarbonInterface::MONDAY)->startOfDay();
+        $weekEnd = $weekStart->copy()->addDays(6);
+        $period = $now->format('Y-m');
+
+        return [
+            'daily' => [
+                'key' => 'daily',
+                'label' => 'Harian',
+                'range_label' => $this->shortDate($now),
+                'rows' => $this->topFromDaily($agentId, $today, $today),
+            ],
+            'weekly' => [
+                'key' => 'weekly',
+                'label' => 'Mingguan',
+                'range_label' => $this->rangeLabel($weekStart, $weekEnd),
+                'rows' => $this->topFromDaily($agentId, $weekStart->toDateString(), $weekEnd->toDateString()),
+            ],
+            'monthly' => [
+                'key' => 'monthly',
+                'label' => 'Bulanan',
+                'range_label' => $this->periodLabel($period),
+                'rows' => $this->topFromMonthly($agentId, $period),
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function topFromDaily(?int $agentId, string $from, string $to): array
+    {
+        $query = DB::table('pppoe_daily_usages')
+            ->join('pppoe_customers', 'pppoe_customers.id', '=', 'pppoe_daily_usages.pppoe_customer_id')
+            ->where('pppoe_daily_usages.usage_date', '>=', $from)
+            ->where('pppoe_daily_usages.usage_date', '<', \Carbon\Carbon::parse($to)->addDay()->toDateString());
+
+        if ($agentId) {
+            $query->where('pppoe_customers.agent_id', $agentId);
+        }
+
+        $rows = $query
+            ->groupBy('pppoe_customers.id', 'pppoe_customers.name', 'pppoe_customers.username')
+            ->havingRaw('(SUM(pppoe_daily_usages.rx_bytes) + SUM(pppoe_daily_usages.tx_bytes)) > 0')
+            ->orderByRaw('(SUM(pppoe_daily_usages.rx_bytes) + SUM(pppoe_daily_usages.tx_bytes)) desc')
+            ->orderBy('pppoe_customers.id')
+            ->limit(10)
+            ->get([
+                'pppoe_customers.id',
+                'pppoe_customers.name',
+                'pppoe_customers.username',
+                DB::raw('SUM(pppoe_daily_usages.rx_bytes) as rx_bytes'),
+                DB::raw('SUM(pppoe_daily_usages.tx_bytes) as tx_bytes'),
+            ]);
+
+        return $this->mapTopRows($rows);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function topFromMonthly(?int $agentId, string $period): array
+    {
+        $query = DB::table('pppoe_monthly_usages')
+            ->join('pppoe_customers', 'pppoe_customers.id', '=', 'pppoe_monthly_usages.pppoe_customer_id')
+            ->where('pppoe_monthly_usages.period', $period);
+
+        if ($agentId) {
+            $query->where('pppoe_customers.agent_id', $agentId);
+        }
+
+        $rows = $query
+            ->whereRaw('(pppoe_monthly_usages.rx_bytes + pppoe_monthly_usages.tx_bytes) > 0')
+            ->orderByRaw('(pppoe_monthly_usages.rx_bytes + pppoe_monthly_usages.tx_bytes) desc')
+            ->orderBy('pppoe_customers.id')
+            ->limit(10)
+            ->get([
+                'pppoe_customers.id',
+                'pppoe_customers.name',
+                'pppoe_customers.username',
+                'pppoe_monthly_usages.rx_bytes',
+                'pppoe_monthly_usages.tx_bytes',
+            ]);
+
+        return $this->mapTopRows($rows);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, object>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function mapTopRows($rows): array
+    {
+        return $rows->values()->map(function (object $row, int $index) {
+            $rx = (int) $row->rx_bytes;
+            $tx = (int) $row->tx_bytes;
+
+            return [
+                'rank' => $index + 1,
+                'id' => (int) $row->id,
+                'name' => (string) $row->name,
+                'username' => (string) $row->username,
+                'rx_bytes' => $rx,
+                'tx_bytes' => $tx,
+                'total_bytes' => $rx + $tx,
+                'rx_label' => $this->formatBytes($rx),
+                'tx_label' => $this->formatBytes($tx),
+                'total_label' => $this->formatBytes($rx + $tx),
+            ];
+        })->all();
+    }
+
+    private function shortDate(CarbonInterface $date): string
+    {
+        return $date->day.' '.$this->monthName((int) $date->month).' '.$date->year;
+    }
+
+    private function rangeLabel(CarbonInterface $start, CarbonInterface $end): string
+    {
+        if ($start->year === $end->year && $start->month === $end->month) {
+            return $start->day.'–'.$end->day.' '.$this->monthName((int) $end->month).' '.$end->year;
+        }
+
+        return $this->shortDate($start).' – '.$this->shortDate($end);
+    }
+
+    private function monthName(int $month): string
+    {
+        $months = [
+            1 => 'Januari',
+            2 => 'Februari',
+            3 => 'Maret',
+            4 => 'April',
+            5 => 'Mei',
+            6 => 'Juni',
+            7 => 'Juli',
+            8 => 'Agustus',
+            9 => 'September',
+            10 => 'Oktober',
+            11 => 'November',
+            12 => 'Desember',
+        ];
+
+        return $months[$month] ?? (string) $month;
     }
 
     public function formatBytes(int $bytes): string
