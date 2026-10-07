@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import DatePickerField from '../../../../Components/Admin/DatePickerField';
+import VpnAccess from './VpnAccess';
 import GpsMapPicker from '../../../../Components/Admin/GpsMapPicker';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import {
@@ -35,6 +36,7 @@ export default function Form({
     profiles: initialProfiles,
     isolir_profiles: initialIsolirProfiles,
     overdue_actions,
+    vpn_access = null,
 }) {
     const editing = Boolean(customer);
     const fromSession = Boolean(prefill?.from_session) && !editing;
@@ -944,6 +946,9 @@ export default function Form({
                     </Link>
                 </div>
             </form>
+            {editing && customer?.ppp_service === 'l2tp' && (
+                <VpnAccess customerId={customer.id} access={vpn_access} />
+            )}
         </AdminLayout>
     );
 }

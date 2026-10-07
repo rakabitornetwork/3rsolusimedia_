@@ -238,6 +238,9 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::put('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'update'])->whereNumber('pppoe')->name('customers.pppoe.update');
     Route::delete('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'destroy'])->whereNumber('pppoe')->name('customers.pppoe.destroy');
     Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->whereNumber('pppoe')->name('customers.pppoe.sync');
+    Route::post('/customers/pppoe/{pppoe}/vpn/push', [PppoeCustomerController::class, 'pushVpn'])->whereNumber('pppoe')->name('customers.pppoe.vpn.push');
+    Route::post('/customers/pppoe/{pppoe}/vpn/ports', [PppoeCustomerController::class, 'storeVpnPort'])->whereNumber('pppoe')->name('customers.pppoe.vpn.ports.store');
+    Route::delete('/customers/pppoe/{pppoe}/vpn/ports/{port}', [PppoeCustomerController::class, 'destroyVpnPort'])->whereNumber('pppoe')->whereNumber('port')->name('customers.pppoe.vpn.ports.destroy');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');

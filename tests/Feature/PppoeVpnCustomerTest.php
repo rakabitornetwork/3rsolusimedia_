@@ -42,7 +42,7 @@ class PppoeVpnCustomerTest extends TestCase
                 'message' => 'Secret VPN L2TP berhasil ditambahkan di RouterOS.',
             ]);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->post('/admin/customers/pppoe', [
                 'mikrotik_router_id' => $router->id,
                 'subscription_package_id' => $package->id,
@@ -57,10 +57,14 @@ class PppoeVpnCustomerTest extends TestCase
                 'overdue_action' => 'bypass',
                 'is_active' => 1,
             ])
-            ->assertRedirect('/admin/customers/pppoe');
+            ->assertRedirect();
 
         $customer = PppoeCustomer::query()->where('username', 'vpnuser')->first();
         $this->assertNotNull($customer);
+        $response->assertRedirect('/admin/customers/pppoe/'.$customer->id.'/edit');
+        $this->assertNotNull($customer->vpn_remote_address);
+        $this->assertNotNull($customer->vpn_port_series);
+        $this->assertCount(4, $customer->vpnPortForwards);
         $this->assertSame(PppoeCustomer::SERVICE_L2TP, $customer->ppp_service);
         $this->assertSame('VPN L2TP', $customer->pppServiceLabel());
     }

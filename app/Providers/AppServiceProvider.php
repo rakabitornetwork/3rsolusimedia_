@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Vpn\ChrSsh;
+use App\Services\Vpn\RunsChrCommands;
 use App\Support\AppSettings;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -15,7 +17,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(RunsChrCommands::class, ChrSsh::class);
     }
 
     /**

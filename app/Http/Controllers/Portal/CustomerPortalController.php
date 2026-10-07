@@ -11,6 +11,8 @@ use App\Services\MikrotikApiService;
 use App\Services\PppoeMonthlyUsageService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Services\Vpn\L2tpClientScript;
+use App\Services\Vpn\VpnAccessPlan;
+use App\Services\Vpn\VpnChrSettings;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +30,7 @@ class CustomerPortalController extends Controller
         private readonly MikrotikApiService $mikrotik,
         private readonly PppoeMonthlyUsageService $usage,
         private readonly L2tpClientScript $l2tpScript,
+        private readonly VpnAccessPlan $vpnPlan,
     ) {}
 
     public function home(Request $request, string $token): Response|RedirectResponse
@@ -225,8 +228,12 @@ class CustomerPortalController extends Controller
 
     private function vpnHome(string $token, PppoeCustomer $customer): Response
     {
-        $customer->loadMissing('router');
+        $this->vpnPlan->ensure($customer);
+        $customer->refresh()->load(['router', 'vpnPortForwards']);
         $script = $this->l2tpScript->build($customer);
+        $server = VpnChrSettings::host() !== ''
+            ? VpnChrSettings::host()
+            : trim((string) ($customer->router?->host ?? ''));
 
         return Inertia::render('Portal/Vpn/Home', [
             'branding' => AppSettings::branding(),
@@ -237,9 +244,18 @@ class CustomerPortalController extends Controller
             'script' => $script,
             'script_message' => $script === null ? $this->l2tpScript->unavailableReason($customer) : null,
             'vpn' => [
-                'server' => trim((string) ($customer->router?->host ?? '')),
+                'server' => $server,
                 'username' => (string) $customer->username,
                 'interface' => L2tpClientScript::INTERFACE_NAME,
+                'address' => $customer->vpn_remote_address,
+                'ports' => $customer->vpnPortForwards->map(fn ($forward) => [
+                    'public_port' => $forward->public_port,
+                    'dst_port' => $forward->dst_port,
+                    'label' => $forward->label,
+                    'note' => (int) $forward->dst_port === 22
+                        ? 'Port ini boleh Anda teruskan ke perangkat mana pun.'
+                        : null,
+                ])->values()->all(),
             ],
         ]);
     }

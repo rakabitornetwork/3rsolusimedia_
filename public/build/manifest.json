@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-Bhj5nO8j.css",
+    "file": "assets/app-gRpjMne8.css",
     "name": "app",
     "names": [
       "app.css"
@@ -457,7 +457,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Form.jsx": {
-    "file": "assets/Form-Dx5k3sf8.js",
+    "file": "assets/Form-D2myTGb_.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Form.jsx",
     "isDynamicEntry": true,
@@ -467,6 +467,7 @@
       "_vendor-react-Dyo4ernH.js",
       "_AdminLayout-CqHxRXV_.js",
       "_DatePickerField-BZev2Rik.js",
+      "resources/js/Pages/Admin/Customers/Pppoe/VpnAccess.jsx",
       "_leaflet-CEWkvHtl.js"
     ],
     "dynamicImports": [
@@ -504,6 +505,17 @@
       "_keepPage-CqmOlAey.js",
       "_LocalPagination-DCK0Ooak.js",
       "_search-C70jlkfG.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Customers/Pppoe/VpnAccess.jsx": {
+    "file": "assets/VpnAccess-CMBtDyhU.js",
+    "name": "VpnAccess",
+    "src": "resources/js/Pages/Admin/Customers/Pppoe/VpnAccess.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_rolldown-runtime-hePW80VL.js",
+      "_vendor-ui-CgIVSgzB.js",
+      "_vendor-react-Dyo4ernH.js"
     ]
   },
   "resources/js/Pages/Admin/Customers/ServiceProfiles/Form.jsx": {
@@ -650,7 +662,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx": {
-    "file": "assets/Index-BjgR0vtU2.js",
+    "file": "assets/Index-BjgR0vtU.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx",
     "isDynamicEntry": true,
@@ -662,7 +674,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Report.jsx": {
-    "file": "assets/Report-zG-XPoZI2.js",
+    "file": "assets/Report-zG-XPoZI.js",
     "name": "Report",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Report.jsx",
     "isDynamicEntry": true,
@@ -724,7 +736,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Form.jsx": {
-    "file": "assets/Form-GMtr1BZM.js",
+    "file": "assets/Form-GMtr1BZM2.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Form.jsx",
     "isDynamicEntry": true,
@@ -735,7 +747,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Index.jsx": {
-    "file": "assets/Index-Cixu50Q7.js",
+    "file": "assets/Index-Cixu50Q72.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Index.jsx",
     "isDynamicEntry": true,
@@ -946,7 +958,7 @@
     ]
   },
   "resources/js/Pages/Portal/Vpn/Home.jsx": {
-    "file": "assets/Home-DAERzPU6.js",
+    "file": "assets/Home-B4HNFcs5.js",
     "name": "Home",
     "src": "resources/js/Pages/Portal/Vpn/Home.jsx",
     "isDynamicEntry": true,
@@ -1055,7 +1067,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DHtYQRjv.js",
+    "file": "assets/app-wN5wOp-4.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1079,6 +1091,7 @@
       "resources/js/Pages/Admin/Customers/Pppoe/Form.jsx",
       "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx",
       "resources/js/Pages/Admin/Customers/Pppoe/Sessions.jsx",
+      "resources/js/Pages/Admin/Customers/Pppoe/VpnAccess.jsx",
       "resources/js/Pages/Admin/Customers/ServiceProfiles/Form.jsx",
       "resources/js/Pages/Admin/Customers/ServiceProfiles/Index.jsx",
       "resources/js/Pages/Admin/Dashboard.jsx",
@@ -1115,7 +1128,7 @@
       "resources/js/Pages/Portal/Vpn/Home.jsx"
     ],
     "css": [
-      "assets/app-Bhj5nO8j.css"
+      "assets/app-gRpjMne8.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

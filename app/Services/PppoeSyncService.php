@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Models\PppoeCustomer;
 use App\Services\Messaging\CustomerNotifier;
+use App\Services\Vpn\VpnProvisioner;
 
 class PppoeSyncService
 {
     public function __construct(
         private readonly MikrotikApiService $api,
         private readonly CustomerNotifier $notifier,
+        private readonly VpnProvisioner $vpn,
     ) {
     }
 
@@ -96,6 +98,10 @@ class PppoeSyncService
             $this->notifier->notifyIsolir($customer->fresh() ?? $customer);
         } elseif ($result['ok'] && $wasIsolated && $status === 'active') {
             $this->notifier->notifyRestore($customer->fresh() ?? $customer);
+        }
+
+        if ($result['ok'] && $customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $this->vpn->syncSecretState($customer->fresh() ?? $customer);
         }
     }
 }

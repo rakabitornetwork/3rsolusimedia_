@@ -9,6 +9,7 @@ use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
 use App\Models\User;
+use App\Models\VpnPortForward;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
@@ -16,6 +17,11 @@ use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeMonthlyUsageService;
 use App\Services\PppoeSyncService;
+use App\Services\Vpn\L2tpClientScript;
+use App\Services\Vpn\VpnAccessPlan;
+use App\Services\Vpn\VpnChrSettings;
+use App\Services\Vpn\VpnProvisioner;
+use App\Services\Vpn\VpnServerScript;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
 use Carbon\Carbon;
@@ -39,6 +45,10 @@ class PppoeCustomerController extends Controller
         private readonly PppoeMonthlyUsageService $usage,
         private readonly CustomerNotifier $notifier,
         private readonly WhatsAppIdentityBinder $whatsappBinder,
+        private readonly VpnAccessPlan $vpnPlan,
+        private readonly VpnProvisioner $vpn,
+        private readonly VpnServerScript $vpnServerScript,
+        private readonly L2tpClientScript $vpnClientScript,
     ) {
     }
 
@@ -395,6 +405,14 @@ class PppoeCustomerController extends Controller
             $message .= ' Invoice: '.$invoice->number.'.';
         }
 
+        if ($customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $this->vpnPlan->ensure($customer);
+
+            return redirect()
+                ->route('admin.customers.pppoe.edit', $customer)
+                ->with('success', $message.' Skrip server dan klien sudah dibuat. Tekan Push ke CHR untuk mengisi RouterOS.');
+        }
+
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
             ->with('success', $message);
     }
@@ -426,6 +444,7 @@ class PppoeCustomerController extends Controller
 
         return Inertia::render('Admin/Customers/Pppoe/Form', [
             'customer' => $customer,
+            'vpn_access' => $this->vpnAccessPayload($pppoe),
             ...$this->formOptions($pppoe->mikrotik_router_id, $pppoe->subscription_package_id),
         ]);
     }
@@ -600,8 +619,20 @@ class PppoeCustomerController extends Controller
             forceDisconnect: $profileChanged || $packageChanged || $reactivating || $serviceChanged,
         );
 
+        $vpnNote = '';
+        if ($oldService === PppoeCustomer::SERVICE_L2TP && $fresh->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            $removed = $this->vpn->removeCustomer($fresh);
+            if ($removed['ok']) {
+                $fresh->vpnPortForwards()->delete();
+            } else {
+                $vpnNote = ' Aturan CHR belum terhapus: '.$removed['message'];
+            }
+        } elseif ($fresh->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $this->vpnPlan->ensure($fresh);
+        }
+
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
-            ->with('success', $this->customerUpdateMessage($result, $profileChanged || $packageChanged));
+            ->with('success', $this->customerUpdateMessage($result, $profileChanged || $packageChanged).$vpnNote);
     }
 
     public function destroy(Request $request, PppoeCustomer $pppoe): RedirectResponse
@@ -619,6 +650,13 @@ class PppoeCustomerController extends Controller
             $secretNote = ($result['ok'] ?? false)
                 ? ' Secret RouterOS juga dihapus.'
                 : ' Data app terhapus, tetapi secret RouterOS gagal dihapus: '.($result['message'] ?? 'unknown');
+        }
+
+        if ($removeSecret && $pppoe->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $removed = $this->vpn->removeCustomer($pppoe);
+            $secretNote .= ($removed['ok'] ?? false)
+                ? ' Aturan CHR ikut dihapus.'
+                : ' Aturan CHR gagal dihapus: '.($removed['message'] ?? 'unknown');
         }
 
         $pppoe->delete();
@@ -692,6 +730,98 @@ class PppoeCustomerController extends Controller
             $pppoe->fresh()->sync_status === 'synced' ? 'success' : 'error',
             $pppoe->fresh()->sync_message ?: 'Sinkronisasi selesai.'
         );
+    }
+
+    public function pushVpn(Request $request, PppoeCustomer $pppoe): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk mengisi CHR.');
+        }
+
+        $result = $this->vpn->push($pppoe);
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    public function storeVpnPort(Request $request, PppoeCustomer $pppoe): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk menambah port.');
+        }
+
+        $validated = $request->validate([
+            'dst_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'note' => ['nullable', 'string', 'max:80'],
+        ]);
+
+        try {
+            $forward = $this->vpnPlan->addCustom(
+                $pppoe,
+                (int) $validated['dst_port'],
+                $validated['note'] ?? null,
+            );
+        } catch (InvalidArgumentException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        $pushed = $this->vpn->pushForward($pppoe->fresh(), $forward);
+        if (! $pushed['ok']) {
+            return back()->with('error', 'Port khusus tersimpan, tetapi belum masuk ke CHR: '.$pushed['message']);
+        }
+
+        return back()->with('success', $pushed['message']);
+    }
+
+    public function destroyVpnPort(Request $request, PppoeCustomer $pppoe, int $port): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk menghapus port.');
+        }
+
+        $forward = $pppoe->vpnPortForwards()->whereKey($port)->first();
+        if (! $forward || $forward->kind !== VpnPortForward::KIND_CUSTOM) {
+            return back()->with('error', 'Hanya port khusus yang bisa dihapus.');
+        }
+
+        $result = $this->vpn->removeForward($pppoe, $forward);
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function vpnAccessPayload(PppoeCustomer $customer): ?array
+    {
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            return null;
+        }
+
+        $this->vpnPlan->ensure($customer);
+        $customer->refresh()->load('vpnPortForwards');
+        $server = VpnChrSettings::host() !== ''
+            ? VpnChrSettings::host()
+            : (string) ($customer->router?->host ?? '');
+
+        return [
+            'address' => $customer->vpn_remote_address,
+            'series' => $customer->vpn_port_series,
+            'server' => $server,
+            'chr_ready' => VpnChrSettings::configured(),
+            'server_script' => $this->vpnServerScript->text($customer),
+            'client_script' => $this->vpnClientScript->build($customer),
+            'ports' => $customer->vpnPortForwards->map(fn ($forward) => [
+                'id' => $forward->id,
+                'public_port' => $forward->public_port,
+                'dst_port' => $forward->dst_port,
+                'label' => $forward->label,
+                'kind' => $forward->kind,
+                'pushed_at' => $forward->pushed_at?->toIso8601String(),
+                'note' => (int) $forward->dst_port === 22
+                    ? 'Di router pelanggan, port 22 boleh diteruskan ke perangkat mana pun.'
+                    : null,
+            ])->values()->all(),
+        ];
     }
 
     public function syncOverdue(): RedirectResponse

@@ -146,6 +146,41 @@ export default function Home({
                             <Terminal className="h-5 w-5 shrink-0 text-signal-deep" />
                         </div>
 
+                        {(vpn?.ports || []).length > 0 && (
+                            <div className="mt-4 overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="text-xs tracking-wide text-ink-soft uppercase">
+                                        <tr>
+                                            <th className="py-2 pr-3">Dari internet</th>
+                                            <th className="py-2 pr-3">Ke router Anda</th>
+                                            <th className="py-2">Kegunaan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {vpn.ports.map((port) => (
+                                            <tr key={port.public_port} className="border-t border-ink/10">
+                                                <td className="py-2 pr-3 font-mono">
+                                                    {vpn.server}:{port.public_port}
+                                                </td>
+                                                <td className="py-2 pr-3 font-mono">{port.dst_port}</td>
+                                                <td className="py-2">
+                                                    {port.label}
+                                                    {port.note ? (
+                                                        <span className="mt-0.5 block text-xs text-ink-soft">
+                                                            {port.note}
+                                                        </span>
+                                                    ) : null}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                <p className="mt-2 text-xs text-ink-soft">
+                                    Port selain 8291, 8728, 80, dan 22 harus diminta ke admin.
+                                </p>
+                            </div>
+                        )}
+
                         <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink">
                             {steps.map((step) => (
                                 <li key={step}>{step}</li>

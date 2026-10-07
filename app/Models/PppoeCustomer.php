@@ -27,6 +27,8 @@ class PppoeCustomer extends Model
         'longitude',
         'username',
         'ppp_service',
+        'vpn_remote_address',
+        'vpn_port_series',
         'password',
         'service_profile',
         'start_date',
@@ -104,6 +106,11 @@ class PppoeCustomer extends Model
     public function pppServiceLabel(): string
     {
         return $this->pppService() === self::SERVICE_L2TP ? 'VPN L2TP' : 'PPPoE';
+    }
+
+    public function vpnPortForwards(): HasMany
+    {
+        return $this->hasMany(VpnPortForward::class)->orderBy('public_port');
     }
 
     public function router(): BelongsTo
