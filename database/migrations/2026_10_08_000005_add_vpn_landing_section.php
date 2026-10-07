@@ -14,9 +14,9 @@ return new class extends Migration
         PageSection::query()->create([
             'key' => 'vpn',
             'label' => 'Layanan VPN Tunnel',
-            'title' => 'VPN Tunnel untuk mengalihkan trafik Speedtest',
+            'title' => 'VPN Tunnel untuk Remote perangkat RouterOS, remote perangkat dibelakangnya dan mengalihkan trafik Speedtest',
             'subtitle' => 'Layanan VPN Tunnel',
-            'body' => 'Layanan VPN Tunnel dipakai untuk mengalihkan trafik Speedtest dari ISP utama ke tunnel kami. Internet utama tetap jalan. Tes kecepatan yang Anda arahkan keluar lewat VPN Tunnel, bukan lewat ISP yang sedang diukur.',
+            'body' => 'VPN Tunnel dipakai untuk me-remote perangkat RouterOS, me-remote perangkat di belakangnya, dan mengalihkan trafik Speedtest dari ISP utama ke tunnel kami. Internet utama tetap jalan.',
             'content' => [
                 'steps' => [
                     ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
