@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-B5MqqeUw.css",
+    "file": "assets/app-DMl1zZe9.css",
     "name": "app",
     "names": [
       "app.css"
@@ -870,7 +870,7 @@
     ]
   },
   "resources/js/Pages/Landing.jsx": {
-    "file": "assets/Landing-BiqF5avX.js",
+    "file": "assets/Landing-DZS87htP.js",
     "name": "Landing",
     "src": "resources/js/Pages/Landing.jsx",
     "isDynamicEntry": true,
@@ -883,6 +883,7 @@
     ],
     "dynamicImports": [
       "resources/js/Sections/ServicesSection.jsx",
+      "resources/js/Sections/VpnSection.jsx",
       "resources/js/Sections/AboutSection.jsx",
       "resources/js/Sections/BenefitsSection.jsx",
       "resources/js/Sections/ProcessSection.jsx",
@@ -968,6 +969,17 @@
       "_vendor-react-Dyo4ernH.js",
       "_PortalLayout-CXsI_tmX.js",
       "_PortalBanner-BytI898c.js"
+    ]
+  },
+  "resources/js/Pages/Vpn/Signup.jsx": {
+    "file": "assets/Signup-B2etPtzP.js",
+    "name": "Signup",
+    "src": "resources/js/Pages/Vpn/Signup.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vendor-ui-CgIVSgzB.js",
+      "_vendor-react-Dyo4ernH.js",
+      "_Logo-Db7-EAZd.js"
     ]
   },
   "resources/js/Sections/AboutSection.jsx": {
@@ -1066,8 +1078,19 @@
       "_Reveal-CxsP4Ar6.js"
     ]
   },
+  "resources/js/Sections/VpnSection.jsx": {
+    "file": "assets/VpnSection-CMD97Nru.js",
+    "name": "VpnSection",
+    "src": "resources/js/Sections/VpnSection.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_vendor-ui-CgIVSgzB.js",
+      "_vendor-react-Dyo4ernH.js",
+      "_Reveal-CxsP4Ar6.js"
+    ]
+  },
   "resources/js/app.jsx": {
-    "file": "assets/app-KmuEUqDM.js",
+    "file": "assets/app-BeMa5cc1.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1125,10 +1148,11 @@
       "resources/js/Pages/Portal/Home.jsx",
       "resources/js/Pages/Portal/Pay/Index.jsx",
       "resources/js/Pages/Portal/Pay/Show.jsx",
-      "resources/js/Pages/Portal/Vpn/Home.jsx"
+      "resources/js/Pages/Portal/Vpn/Home.jsx",
+      "resources/js/Pages/Vpn/Signup.jsx"
     ],
     "css": [
-      "assets/app-B5MqqeUw.css"
+      "assets/app-DMl1zZe9.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

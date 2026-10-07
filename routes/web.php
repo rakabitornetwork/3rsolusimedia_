@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WebsiteSectionController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\VpnSignupController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\PaymentPortalController;
@@ -39,6 +40,10 @@ use App\Http\Controllers\Webhook\TelegramWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingController::class)->name('home');
+Route::get('/vpn/daftar', [VpnSignupController::class, 'create'])->name('vpn.signup');
+Route::post('/vpn/daftar', [VpnSignupController::class, 'store'])
+    ->middleware('throttle:8,1')
+    ->name('vpn.signup.store');
 Route::get('/terms-of-service', [LegalPageController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 Route::get('/robots.txt', RobotsController::class)->name('robots');

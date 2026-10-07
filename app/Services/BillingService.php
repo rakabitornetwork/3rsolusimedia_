@@ -809,6 +809,21 @@ class BillingService
                 } catch (\Throwable) {
                     // Pembayaran tetap sah meski sync RouterOS gagal.
                 }
+
+                $paidCustomer = $customer->fresh(['vpnRouters.portForwards']);
+                if ($paidCustomer?->pppService() === PppoeCustomer::SERVICE_L2TP && $paidCustomer->status === 'active') {
+                    foreach ($paidCustomer->vpnRouters as $vpnRouter) {
+                        if (! $vpnRouter->included || ! $vpnRouter->isUsable()) {
+                            continue;
+                        }
+
+                        try {
+                            $this->vpnRouters->pushRouter($vpnRouter);
+                        } catch (\Throwable) {
+                            // Pelunasan tetap sah meski CHR belum terisi.
+                        }
+                    }
+                }
             }
 
             return [

@@ -16,6 +16,7 @@ export default function Navbar({ settings, whatsappUrl }) {
 
     const links = [
         { href: '#layanan', label: 'Layanan' },
+        { href: '#vpn', label: 'VPN' },
         { href: '#harga', label: 'Harga' },
         { href: '#tentang', label: 'Tentang' },
         { href: '#keunggulan', label: 'Keunggulan' },

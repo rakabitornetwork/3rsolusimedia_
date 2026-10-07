@@ -4,6 +4,7 @@ import Navbar from '../Components/Navbar';
 import HeroSection from '../Sections/HeroSection';
 
 const ServicesSection = lazy(() => import('../Sections/ServicesSection'));
+const VpnSection = lazy(() => import('../Sections/VpnSection'));
 const AboutSection = lazy(() => import('../Sections/AboutSection'));
 const BenefitsSection = lazy(() => import('../Sections/BenefitsSection'));
 const ProcessSection = lazy(() => import('../Sections/ProcessSection'));
@@ -35,6 +36,7 @@ export default function Landing({ sections, settings }) {
 
                 <Suspense fallback={<SectionFallback />}>
                     <ServicesSection section={sections.services} />
+                    <VpnSection section={sections.vpn} />
                     <AboutSection section={sections.about} />
                     <BenefitsSection section={sections.benefits} />
                     <ProcessSection section={sections.process} />
