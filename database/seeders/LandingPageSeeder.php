@@ -110,10 +110,9 @@ class LandingPageSeeder extends Seeder
                         'Masuk portal hanya dengan kode OTP WhatsApp',
                     ],
                     'steps' => [
-                        ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung jadi tanpa memilih paket di formulir.'],
-                        ['title' => 'Masuk dengan OTP', 'description' => 'Kode dikirim ke WhatsApp yang didaftarkan. Username dan password tidak dipakai untuk masuk portal.'],
-                        ['title' => 'Router gratis 3 hari', 'description' => 'Buat router pertama di portal. Tunnel langsung bisa dipakai. Setelah 3 hari, tagihan dikirim ke WhatsApp.'],
-                        ['title' => 'Bayar atau berakhir', 'description' => 'Jika sebulan tidak ada pembayaran, router gratis itu dihapus dari server VPN secara otomatis.'],
+                        ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
+                        ['title' => 'Coba gratis 3 hari', 'description' => 'Masuk dengan kode OTP WhatsApp, buat router pertama, dan pakai tunnel selama 3 hari.'],
+                        ['title' => 'Setelah masa coba', 'description' => 'Tagihan dikirim ke WhatsApp. Jika sebulan tidak ada pembayaran, router dihapus dari server.'],
                     ],
                 ],
                 'image' => '/images/vpn/office.jpg',

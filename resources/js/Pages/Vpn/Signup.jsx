@@ -41,7 +41,7 @@ export default function Signup({ settings, open }) {
                     </Link>
                     <h2 className="font-display mt-8 text-3xl font-bold text-ink">Pendaftaran VPN Tunnel</h2>
                     <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-                        Setelah daftar, masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang terdaftar. Router pertama bisa dibuat gratis selama 3 hari.
+                        Setelah daftar, masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang terdaftar. Bisa dibuat gratis selama 3 hari.
                     </p>
 
                     {flash?.error && (

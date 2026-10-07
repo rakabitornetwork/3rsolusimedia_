@@ -19,9 +19,9 @@ return new class extends Migration
             'body' => 'Satu akun untuk paling banyak tiga router. Anda mengisi nama router pertama, membayar tagihan lewat pembayaran online, lalu skrip Winbox langsung siap dipakai.',
             'content' => [
                 'steps' => [
-                    ['title' => 'Daftar', 'description' => 'Isi nama, nomor WhatsApp, dan paket. Akun VPN langsung terbuat.'],
-                    ['title' => 'Nama router', 'description' => 'Tentukan nama router pertama. Nama itu menjadi username terowongan VPN.'],
-                    ['title' => 'Bayar', 'description' => 'Tagihan pertama dibuka di payment gateway. Setelah lunas, secret di server aktif.'],
+                    ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
+                    ['title' => 'Coba gratis 3 hari', 'description' => 'Masuk dengan kode OTP WhatsApp, buat router pertama, dan pakai tunnel selama 3 hari.'],
+                    ['title' => 'Setelah masa coba', 'description' => 'Tagihan dikirim ke WhatsApp. Jika sebulan tidak ada pembayaran, router dihapus dari server.'],
                 ],
             ],
             'image' => '/images/vpn/office.jpg',

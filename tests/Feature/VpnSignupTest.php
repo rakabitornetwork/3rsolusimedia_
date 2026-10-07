@@ -30,6 +30,9 @@ class VpnSignupTest extends TestCase
                 ->where('sections.vpn.title', 'VPN Tunnel untuk mengalihkan trafik Speedtest')
                 ->where('sections.vpn.cta_url', '/vpn/daftar')
                 ->where('sections.vpn.content.features.0', 'Alihkan trafik Speedtest dari ISP utama ke VPN Tunnel')
+                ->where('sections.vpn.content.steps.0.title', 'Daftar')
+                ->where('sections.vpn.content.steps.1.title', 'Coba gratis 3 hari')
+                ->where('sections.vpn.content.steps.2.title', 'Setelah masa coba')
             );
 
         $this->assertNotNull(PageSection::query()->where('key', 'vpn')->first());
