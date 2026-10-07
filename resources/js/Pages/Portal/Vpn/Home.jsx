@@ -1,0 +1,194 @@
+import { Link, router } from '@inertiajs/react';
+import { Check, Copy, CreditCard, Terminal } from 'lucide-react';
+import { useState } from 'react';
+import PortalBanner from '../../../Components/Portal/PortalBanner';
+import PortalLayout from '../../../Layouts/PortalLayout';
+
+const steps = [
+    'Siapkan komputer yang bisa membuka Winbox, lalu login ke router MikroTik milik Anda. Bukan router pusat layanan.',
+    'Router itu harus sudah punya internet, karena terowongan VPN dibuat lewat koneksi yang ada.',
+    'Di Winbox, klik New Terminal.',
+    'Salin seluruh skrip di halaman ini. Klik di dalam terminal, tempel (klik kanan lalu Paste), kemudian tekan Enter.',
+    'Jangan simpan skrip sebagai file .rsc dan jangan pakai menu Import. Skrip ini hanya dijalankan di terminal Winbox.',
+    'Buka menu Interfaces. Interface l2tp-vpn harus berstatus R (running).',
+];
+
+export default function Home({
+    branding,
+    token,
+    customer,
+    billing,
+    banners,
+    script,
+    script_message,
+    vpn,
+}) {
+    const [paying, setPaying] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const unpaidCount = Number(billing?.unpaid_count || 0);
+    const gatewayReady = Boolean(billing?.gateway_ready);
+    const oldestUnpaidId = billing?.oldest_unpaid_id;
+    const invoicesHref = `/portal/${token}/tagihan`;
+
+    const payOnline = () => {
+        if (paying) return;
+
+        if (!oldestUnpaidId || unpaidCount > 1 || !gatewayReady) {
+            router.visit(invoicesHref);
+            return;
+        }
+
+        if (!window.confirm('Lanjut ke halaman pembayaran online?')) return;
+
+        setPaying(true);
+        router.post(
+            `/portal/${token}/pay/${oldestUnpaidId}`,
+            {},
+            {
+                onFinish: () => setPaying(false),
+            },
+        );
+    };
+
+    const copyScript = async () => {
+        if (!script) return;
+
+        try {
+            await navigator.clipboard.writeText(script);
+        } catch {
+            const area = document.createElement('textarea');
+            area.value = script;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.left = '-9999px';
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand('copy');
+            document.body.removeChild(area);
+        }
+
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <PortalLayout
+            branding={branding}
+            customer={customer}
+            token={token}
+            title="Skrip VPN"
+            active="home"
+        >
+            <div className="space-y-4">
+                <PortalBanner banners={banners} />
+
+                <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+                    <div className="h-1 bg-gradient-to-r from-signal-deep via-signal to-signal-bright" />
+                    <div className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs tracking-wide text-ink-soft uppercase">Tagihan</p>
+                                <h2 className="mt-1 text-base font-semibold text-ink">
+                                    {unpaidCount
+                                        ? `${unpaidCount} tagihan belum bayar`
+                                        : 'Tidak ada tagihan aktif'}
+                                </h2>
+                                <p className="mt-1 text-sm text-ink-soft">
+                                    {unpaidCount
+                                        ? `Total ${billing.unpaid_total_label}`
+                                        : 'Semua tagihan sudah lunas.'}
+                                </p>
+                            </div>
+                            <CreditCard className="h-5 w-5 shrink-0 text-signal-deep" />
+                        </div>
+                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                            {unpaidCount > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={payOnline}
+                                    disabled={paying}
+                                    className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-signal px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep disabled:cursor-wait disabled:opacity-60"
+                                >
+                                    {paying ? 'Menyiapkan pembayaran...' : 'Bayar online'}
+                                </button>
+                            )}
+                            <Link
+                                href={invoicesHref}
+                                className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold ${
+                                    unpaidCount > 0
+                                        ? 'border border-ink/15 text-ink hover:bg-mist'
+                                        : 'bg-signal text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep'
+                                }`}
+                            >
+                                Lihat tagihan
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_16px_40px_-28px_rgba(16,24,32,0.55)]">
+                    <div className="h-1 bg-gradient-to-r from-amber-line via-signal-bright to-signal" />
+                    <div className="p-4 sm:p-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs tracking-wide text-ink-soft uppercase">
+                                    Pemasangan VPN
+                                </p>
+                                <h2 className="mt-1 text-base font-semibold text-ink">
+                                    Jalankan skrip di terminal Winbox
+                                </h2>
+                                <p className="mt-1 text-sm text-ink-soft">
+                                    Skrip ini membuat klien L2TP{' '}
+                                    <span className="font-mono text-ink">{vpn?.interface || 'l2tp-vpn'}</span>{' '}
+                                    ke server layanan. Menjalankan ulang akan mengganti klien dengan nama yang sama.
+                                </p>
+                            </div>
+                            <Terminal className="h-5 w-5 shrink-0 text-signal-deep" />
+                        </div>
+
+                        <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink">
+                            {steps.map((step) => (
+                                <li key={step}>{step}</li>
+                            ))}
+                        </ol>
+
+                        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                            Skrip tidak mengganti route internet yang sudah ada. Ia hanya membuat terowongan dan NAT
+                            untuk lalu lintas yang keluar lewat {vpn?.interface || 'l2tp-vpn'}. Skrip berisi password
+                            VPN Anda — jangan diteruskan ke orang lain.
+                        </div>
+
+                        {script ? (
+                            <div className="mt-4">
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
+                                    <p>
+                                        Server {vpn?.server || '—'} · username {vpn?.username || '—'}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={copyScript}
+                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-mist"
+                                    >
+                                        {copied ? (
+                                            <Check className="h-3.5 w-3.5" />
+                                        ) : (
+                                            <Copy className="h-3.5 w-3.5" />
+                                        )}
+                                        {copied ? 'Tersalin' : 'Salin skrip'}
+                                    </button>
+                                </div>
+                                <pre className="overflow-x-auto rounded-xl bg-ink px-3 py-3 font-mono text-xs leading-relaxed text-white">
+                                    {script}
+                                </pre>
+                            </div>
+                        ) : (
+                            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+                                {script_message || 'Skrip VPN belum bisa dibuat. Hubungi admin.'}
+                            </p>
+                        )}
+                    </div>
+                </section>
+            </div>
+        </PortalLayout>
+    );
+}

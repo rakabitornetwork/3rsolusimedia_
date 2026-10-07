@@ -134,6 +134,12 @@ export default function Index({
         msg_tpl_isolir: config?.templates?.isolir || '',
         msg_tpl_restore: config?.templates?.restore || '',
         msg_tpl_welcome: config?.templates?.welcome || '',
+        msg_tpl_vpn_invoice: config?.templates?.vpn_invoice || '',
+        msg_tpl_vpn_reminder: config?.templates?.vpn_reminder || '',
+        msg_tpl_vpn_paid: config?.templates?.vpn_paid || '',
+        msg_tpl_vpn_isolir: config?.templates?.vpn_isolir || '',
+        msg_tpl_vpn_restore: config?.templates?.vpn_restore || '',
+        msg_tpl_vpn_welcome: config?.templates?.vpn_welcome || '',
     });
 
     useEffect(() => {
@@ -643,6 +649,7 @@ export default function Index({
                         <h2 className="text-sm font-semibold text-ink">Pengiriman otomatis</h2>
                         <p className="mt-1 text-sm text-ink-soft">
                             Variabel: {'{{nama}} {{username}} {{password}} {{phone}} {{alamat}} {{paket}} {{harga_paket}} {{tanggal_mulai}} {{hari_tagihan}} {{jatuh_tempo}} {{tagihan_pertama}} {{nomor}} {{total}} {{portal}} {{telepon_kantor}} {{perusahaan}} {{rekening}} {{nama_bank}} {{atas_nama}} {{nomor_rekening}} {{catatan_bank}}'}.
+                            Template PPPoE dan VPN terpisah. Pelanggan VPN otomatis memakai template VPN.
                             {'{{perusahaan}}'} memakai Nama Perusahaan dari{' '}
                             <Link href="/admin/settings" className="font-semibold text-signal-deep hover:underline">
                                 Pengaturan Situs
@@ -889,23 +896,49 @@ export default function Index({
                     </div>
 
                     {[
-                        ['msg_tpl_welcome', '🎉 Selamat datang pelanggan baru'],
-                        ['msg_tpl_invoice', '🧾 Tagihan baru'],
-                        ['msg_tpl_reminder', '⏰ Pengingat jatuh tempo'],
-                        ['msg_tpl_paid', '✅ Pembayaran diterima (lunas)'],
-                        ['msg_tpl_isolir', '⛔ Isolir'],
-                        ['msg_tpl_restore', '✅ Layanan aktif kembali'],
-                    ].map(([name, label]) => (
-                        <label key={name} className="block border border-ink/10 bg-white p-6 text-sm font-medium text-ink">
-                            {label}
-                            <textarea
-                                rows={name === 'msg_tpl_welcome' ? 18 : name === 'msg_tpl_invoice' || name === 'msg_tpl_reminder' || name === 'msg_tpl_isolir' ? 14 : 7}
-                                value={templates.data[name] || ''}
-                                onChange={(e) => templates.setData(name, e.target.value)}
-                                disabled={!canWrite}
-                                className={fieldClass}
-                            />
-                        </label>
+                        {
+                            title: 'Template PPPoE',
+                            hint: 'Tagihan, isolir, dan sambutan untuk pelanggan internet. Portal mereka menampilkan ONU dan WiFi.',
+                            fields: [
+                                ['msg_tpl_welcome', '🎉 Selamat datang pelanggan baru'],
+                                ['msg_tpl_invoice', '🧾 Tagihan baru'],
+                                ['msg_tpl_reminder', '⏰ Pengingat jatuh tempo'],
+                                ['msg_tpl_paid', '✅ Pembayaran diterima (lunas)'],
+                                ['msg_tpl_isolir', '⛔ Isolir'],
+                                ['msg_tpl_restore', '✅ Layanan aktif kembali'],
+                            ],
+                        },
+                        {
+                            title: 'Template VPN L2TP',
+                            hint: 'Dipakai otomatis untuk pelanggan VPN. Arahkan ke portal untuk menyalin skrip dan menjalankannya di New Terminal Winbox. Jangan menaruh password atau isi skrip di pesan ini.',
+                            fields: [
+                                ['msg_tpl_vpn_welcome', '🎉 Selamat datang pelanggan VPN'],
+                                ['msg_tpl_vpn_invoice', '🧾 Tagihan VPN'],
+                                ['msg_tpl_vpn_reminder', '⏰ Pengingat tagihan VPN'],
+                                ['msg_tpl_vpn_paid', '✅ Pembayaran VPN diterima'],
+                                ['msg_tpl_vpn_isolir', '⛔ VPN dinonaktifkan'],
+                                ['msg_tpl_vpn_restore', '✅ VPN aktif kembali'],
+                            ],
+                        },
+                    ].map((group) => (
+                        <div key={group.title} className="space-y-5">
+                            <div>
+                                <h2 className="text-sm font-semibold text-ink">{group.title}</h2>
+                                <p className="mt-1 text-sm text-ink-soft">{group.hint}</p>
+                            </div>
+                            {group.fields.map(([name, label]) => (
+                                <label key={name} className="block border border-ink/10 bg-white p-6 text-sm font-medium text-ink">
+                                    {label}
+                                    <textarea
+                                        rows={name.endsWith('welcome') || name.endsWith('invoice') || name.endsWith('reminder') || name.endsWith('isolir') ? 14 : 7}
+                                        value={templates.data[name] || ''}
+                                        onChange={(e) => templates.setData(name, e.target.value)}
+                                        disabled={!canWrite}
+                                        className={fieldClass}
+                                    />
+                                </label>
+                            ))}
+                        </div>
                     ))}
 
                     {canWrite && (

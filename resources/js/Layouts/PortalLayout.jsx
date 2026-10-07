@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { CreditCard, Router, Wifi } from 'lucide-react';
+import { CreditCard, Router, Terminal, Wifi } from 'lucide-react';
 
 export default function PortalLayout({
     branding,
@@ -11,12 +11,18 @@ export default function PortalLayout({
 }) {
     const { flash } = usePage().props;
     const company = branding?.company_name || 'Portal Pelanggan';
+    const isVpn = customer?.ppp_service === 'l2tp';
 
-    const nav = [
-        { key: 'home', label: 'Beranda', href: `/portal/${token}`, icon: Wifi },
-        { key: 'billing', label: 'Tagihan', href: `/portal/${token}/tagihan`, icon: CreditCard },
-        { key: 'device', label: 'Perangkat', href: `/portal/${token}/perangkat`, icon: Router },
-    ];
+    const nav = isVpn
+        ? [
+              { key: 'home', label: 'Skrip VPN', href: `/portal/${token}`, icon: Terminal },
+              { key: 'billing', label: 'Tagihan', href: `/portal/${token}/tagihan`, icon: CreditCard },
+          ]
+        : [
+              { key: 'home', label: 'Beranda', href: `/portal/${token}`, icon: Wifi },
+              { key: 'billing', label: 'Tagihan', href: `/portal/${token}/tagihan`, icon: CreditCard },
+              { key: 'device', label: 'Perangkat', href: `/portal/${token}/perangkat`, icon: Router },
+          ];
 
     return (
         <div className="min-h-screen bg-paper text-ink">
@@ -45,7 +51,7 @@ export default function PortalLayout({
                                 {customer?.name || 'Pelanggan'}
                             </h1>
                             <p className="truncate text-xs text-ink-soft">
-                                {customer?.username}
+                                {isVpn ? customer?.ppp_service_label || 'VPN L2TP' : customer?.username}
                                 {customer?.phone ? ` · ${customer.phone}` : ''}
                             </p>
                         </div>

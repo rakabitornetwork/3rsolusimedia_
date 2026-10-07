@@ -133,6 +133,12 @@ class MessagingController extends Controller
             'msg_tpl_isolir' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_restore' => ['nullable', 'string', 'max:4000'],
             'msg_tpl_welcome' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_invoice' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_reminder' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_paid' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_isolir' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_restore' => ['nullable', 'string', 'max:4000'],
+            'msg_tpl_vpn_welcome' => ['nullable', 'string', 'max:4000'],
         ]);
 
         $hasSplit = $request->exists('messaging_notify_invoice')

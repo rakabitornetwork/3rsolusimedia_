@@ -10,6 +10,7 @@ use App\Services\GenieAcsService;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeMonthlyUsageService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
+use App\Services\Vpn\L2tpClientScript;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,7 @@ class CustomerPortalController extends Controller
         private readonly PaymentGatewayManager $gateways,
         private readonly MikrotikApiService $mikrotik,
         private readonly PppoeMonthlyUsageService $usage,
+        private readonly L2tpClientScript $l2tpScript,
     ) {}
 
     public function home(Request $request, string $token): Response|RedirectResponse
@@ -35,13 +37,9 @@ class CustomerPortalController extends Controller
             return $customer;
         }
 
-        $unpaidQuery = Invoice::query()
-            ->where('pppoe_customer_id', $customer->id)
-            ->where('status', 'unpaid');
-
-        $unpaidCount = (clone $unpaidQuery)->count();
-        $unpaidTotal = (int) (clone $unpaidQuery)->sum('total');
-        $oldestUnpaidId = (clone $unpaidQuery)->orderBy('due_date')->orderBy('id')->value('id');
+        if ($customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            return $this->vpnHome($token, $customer);
+        }
 
         $deviceSummary = $this->resolvePortalDevice($customer);
         $customer->load(['usageThisMonth', 'trafficCursor']);
@@ -50,13 +48,7 @@ class CustomerPortalController extends Controller
             'branding' => AppSettings::branding(),
             'token' => $token,
             'customer' => $this->portalCustomerPayload($customer),
-            'billing' => [
-                'unpaid_count' => $unpaidCount,
-                'unpaid_total' => $unpaidTotal,
-                'unpaid_total_label' => 'Rp '.number_format($unpaidTotal, 0, ',', '.'),
-                'oldest_unpaid_id' => $oldestUnpaidId ? (int) $oldestUnpaidId : null,
-                'gateway_ready' => $this->gateways->hasEnabledGateway(),
-            ],
+            'billing' => $this->billingPayload($customer),
             'usage' => $this->usage->present($customer->usageThisMonth, $customer->trafficCursor),
             'device' => $deviceSummary['device'],
             'device_available' => $deviceSummary['available'],
@@ -71,6 +63,10 @@ class CustomerPortalController extends Controller
         $customer = $this->requireCustomer($request, $token);
         if ($customer instanceof RedirectResponse) {
             return $customer;
+        }
+
+        if ($denied = $this->denyVpnDevice($customer, $token)) {
+            return $denied;
         }
 
         $deviceSummary = $this->resolvePortalDevice($customer);
@@ -91,6 +87,10 @@ class CustomerPortalController extends Controller
         $customer = $this->requireCustomer($request, $token);
         if ($customer instanceof RedirectResponse) {
             return $customer;
+        }
+
+        if ($denied = $this->denyVpnDevice($customer, $token)) {
+            return $denied;
         }
 
         $validated = $request->validate([
@@ -129,6 +129,10 @@ class CustomerPortalController extends Controller
             return $customer;
         }
 
+        if ($denied = $this->denyVpnDevice($customer, $token)) {
+            return $denied;
+        }
+
         $owned = $this->ownedDevice($customer);
         if (! ($owned['ok'] ?? false)) {
             return back()->with('error', $owned['message'] ?? 'Perangkat tidak ditemukan.');
@@ -147,6 +151,10 @@ class CustomerPortalController extends Controller
         $customer = $this->requireCustomer($request, $token);
         if ($customer instanceof RedirectResponse) {
             return $customer;
+        }
+
+        if ($denied = $this->denyVpnDevice($customer, $token)) {
+            return $denied;
         }
 
         $owned = $this->ownedDevice($customer);
@@ -177,6 +185,14 @@ class CustomerPortalController extends Controller
             $request->session()->put('portal_customer_id', $customer->id);
         }
 
+        if ($customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            return response()->json([
+                'ok' => false,
+                'online' => false,
+                'message' => 'Trafik perangkat hanya untuk pelanggan PPPoE.',
+            ], 404);
+        }
+
         $router = $customer->router;
         if (! $router) {
             return response()->json([
@@ -205,6 +221,60 @@ class CustomerPortalController extends Controller
         }
 
         return $customer;
+    }
+
+    private function vpnHome(string $token, PppoeCustomer $customer): Response
+    {
+        $customer->loadMissing('router');
+        $script = $this->l2tpScript->build($customer);
+
+        return Inertia::render('Portal/Vpn/Home', [
+            'branding' => AppSettings::branding(),
+            'token' => $token,
+            'customer' => $this->portalCustomerPayload($customer),
+            'billing' => $this->billingPayload($customer),
+            'banners' => AppSettings::portalBanners($token),
+            'script' => $script,
+            'script_message' => $script === null ? $this->l2tpScript->unavailableReason($customer) : null,
+            'vpn' => [
+                'server' => trim((string) ($customer->router?->host ?? '')),
+                'username' => (string) $customer->username,
+                'interface' => L2tpClientScript::INTERFACE_NAME,
+            ],
+        ]);
+    }
+
+    /**
+     * @return array{unpaid_count: int, unpaid_total: int, unpaid_total_label: string, oldest_unpaid_id: ?int, gateway_ready: bool}
+     */
+    private function billingPayload(PppoeCustomer $customer): array
+    {
+        $unpaidQuery = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid');
+
+        $unpaidCount = (clone $unpaidQuery)->count();
+        $unpaidTotal = (int) (clone $unpaidQuery)->sum('total');
+        $oldestUnpaidId = (clone $unpaidQuery)->orderBy('due_date')->orderBy('id')->value('id');
+
+        return [
+            'unpaid_count' => $unpaidCount,
+            'unpaid_total' => $unpaidTotal,
+            'unpaid_total_label' => 'Rp '.number_format($unpaidTotal, 0, ',', '.'),
+            'oldest_unpaid_id' => $oldestUnpaidId ? (int) $oldestUnpaidId : null,
+            'gateway_ready' => $this->gateways->hasEnabledGateway(),
+        ];
+    }
+
+    private function denyVpnDevice(PppoeCustomer $customer, string $token): ?RedirectResponse
+    {
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            return null;
+        }
+
+        return redirect()
+            ->route('portal.home', ['token' => $token])
+            ->with('error', 'Halaman perangkat hanya untuk pelanggan PPPoE. Skrip VPN ada di beranda.');
     }
 
     /**

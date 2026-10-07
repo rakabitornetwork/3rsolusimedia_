@@ -82,7 +82,7 @@ class BotCommandRouter
             $this->reply(
                 $message,
                 trim($message->text) === ''
-                    ? $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message))
+                    ? $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message), $identity?->customer)
                     : 'Perintah tidak dikenali. Ketik /bantuan atau bantuan.',
                 $identity,
             );
@@ -95,7 +95,7 @@ class BotCommandRouter
         }
 
         match ($command) {
-            'start', 'bantuan', 'help', 'menu' => $this->reply($message, $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message)), $identity),
+            'start', 'bantuan', 'help', 'menu' => $this->reply($message, $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message), $identity?->customer), $identity),
             'daftar' => $this->daftar($message, $args, $identity),
             'batal' => $this->batal($message, $identity),
             'lepas' => $this->lepas($message, $identity),
@@ -130,7 +130,7 @@ class BotCommandRouter
 
         if ($username === '') {
             $this->rememberPending($message, ['username' => null, 'customer_id' => null]);
-            $this->reply($message, "Ketik username PPPoE Anda, contoh:\n/daftar budi01\n\nSetelah itu kirim nomor HP yang terdaftar di tagihan.");
+            $this->reply($message, "Ketik username PPPoE atau VPN Anda, contoh:\n/daftar budi01\n\nSetelah itu kirim nomor HP yang terdaftar di tagihan.");
 
             return;
         }
@@ -586,7 +586,7 @@ class BotCommandRouter
         );
     }
 
-    private function helpText(bool $bound, string $channel = 'telegram', bool $admin = false): string
+    private function helpText(bool $bound, string $channel = 'telegram', bool $admin = false, ?PppoeCustomer $customer = null): string
     {
         $company = AppSettings::companyName();
         $bot = ltrim((string) AppSettings::get('telegram_bot_username', ''), '@');
@@ -595,19 +595,26 @@ class BotCommandRouter
             : $company;
 
         $slash = $channel === 'whatsapp' ? '' : '/';
+        $vpn = $customer?->pppService() === PppoeCustomer::SERVICE_L2TP;
+        $account = $vpn ? 'VPN' : ($bound ? 'PPPoE' : 'PPPoE atau VPN');
+        $portalHint = $vpn
+            ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lalu salin skrip VPN dan jalankan di New Terminal Winbox.'
+            : ($bound
+                ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.'
+                : 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Pelanggan PPPoE mengelola ONU dan WiFi di portal. Pelanggan VPN mendapat skrip pemasangan untuk terminal Winbox.');
 
         $lines = [
             $header,
             'Bot pelanggan — ketik salah satu perintah:',
             '',
-            $slash.'daftar — hubungkan chat ke akun PPPoE (username + nomor HP terdaftar)',
+            $slash.'daftar — hubungkan chat ke akun '.$account.' (username + nomor HP terdaftar)',
             $slash.'tagihan — cek tagihan belum lunas',
             $slash.'bayar — tautan bayar tagihan tertua',
             $slash.'lepas — putuskan ikatan chat ini',
             $slash.'bantuan — tampilkan pesan ini',
             '',
             'Portal pelanggan: '.url('/portal'),
-            'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.',
+            $portalHint,
         ];
 
         if ($admin && $channel === 'telegram') {

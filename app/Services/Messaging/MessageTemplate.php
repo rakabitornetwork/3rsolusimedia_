@@ -2,6 +2,7 @@
 
 namespace App\Services\Messaging;
 
+use App\Models\PppoeCustomer;
 use App\Support\AppSettings;
 
 class MessageTemplate
@@ -17,6 +18,18 @@ class MessageTemplate
     public const RESTORE = 'restore';
 
     public const WELCOME = 'welcome';
+
+    public const VPN_INVOICE = 'vpn_invoice';
+
+    public const VPN_REMINDER = 'vpn_reminder';
+
+    public const VPN_PAID = 'vpn_paid';
+
+    public const VPN_ISOLIR = 'vpn_isolir';
+
+    public const VPN_RESTORE = 'vpn_restore';
+
+    public const VPN_WELCOME = 'vpn_welcome';
 
     /**
      * @return array<string, string>
@@ -118,6 +131,118 @@ class MessageTemplate
                 'Nomor invoice: {{nomor}}',
                 'Jatuh tempo: {{jatuh_tempo}}',
                 'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+                '',
+                '💬 *Bot WhatsApp* (ketik di chat ini)',
+                '• tagihan — cek tagihan belum lunas',
+                '• bayar — tautan pembayaran',
+                '• bantuan — daftar perintah',
+                '',
+                '{{rekening}}',
+                '',
+                '📞 CS: {{telepon_kantor}}',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_INVOICE => implode("\n", [
+                '🧾 *Tagihan baru*',
+                '',
+                'Halo {{nama}}, tagihan layanan VPN Anda sudah terbit.',
+                '',
+                '🧾 Invoice: {{nomor}}',
+                '💰 Total: {{total}}',
+                '📅 Jatuh tempo: {{jatuh_tempo}}',
+                '📦 Paket: {{paket}}',
+                '',
+                ...self::vpnPortalLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *tagihan* / *bayar* di chat ini.',
+                '',
+                '{{rekening}}',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_REMINDER => implode("\n", [
+                '⏰ *Pengingat tagihan*',
+                '',
+                'Halo {{nama}}, tagihan VPN berikut belum lunas.',
+                '',
+                '🧾 Invoice: {{nomor}}',
+                '💰 Total: {{total}}',
+                '📅 Jatuh tempo: {{jatuh_tempo}}',
+                '',
+                ...self::vpnPortalLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *bayar* di chat ini.',
+                '',
+                '{{rekening}}',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_PAID => implode("\n", [
+                '✅ *Pembayaran diterima*',
+                '',
+                'Halo {{nama}}, terima kasih. Tagihan VPN *{{nomor}}* sebesar {{total}} sudah lunas.',
+                '',
+                '📦 Paket: {{paket}}',
+                '📅 Jatuh tempo berikutnya: {{jatuh_tempo}}',
+                '',
+                'Skrip pemasangan di portal tidak berubah. Jika VPN masih putus, cek interface l2tp-vpn di Winbox.',
+                '',
+                '💬 Ketik *tagihan* jika ingin cek tagihan.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_ISOLIR => implode("\n", [
+                '⛔ *VPN dinonaktifkan*',
+                '',
+                'Halo {{nama}}, layanan VPN Anda dinonaktifkan karena tagihan belum lunas. Login VPN ditolak sampai tagihan dibayar. Skrip di router tidak perlu dihapus.',
+                '',
+                ...self::vpnPortalLines('Bayar di portal pelanggan'),
+                '',
+                '💬 Atau ketik *bayar* di chat ini.',
+                '',
+                '{{rekening}}',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_RESTORE => implode("\n", [
+                '✅ *VPN aktif kembali*',
+                '',
+                'Halo {{nama}}, layanan VPN Anda sudah diaktifkan kembali. Jika sambungan masih putus, buka Winbox → Interfaces, lalu pastikan l2tp-vpn tidak disabled.',
+                '',
+                '💬 Ketik *tagihan* jika ingin cek tagihan.',
+                '',
+                '— {{perusahaan}}',
+            ]),
+            self::VPN_WELCOME => implode("\n", [
+                '🎉 *Selamat datang di {{perusahaan}}!*',
+                '',
+                'Pendaftaran layanan VPN Anda sudah berhasil. Simpan pesan ini sebagai acuan.',
+                '',
+                ...self::vpnPortalLines(),
+                '',
+                '👤 *Data pelanggan*',
+                'Nama: {{nama}}',
+                'HP: {{phone}}',
+                '📍 Alamat:',
+                '{{alamat}}',
+                '',
+                '📦 *Layanan*',
+                'Jenis: VPN L2TP',
+                'Paket: {{paket}}',
+                'Harga/bulan: {{harga_paket}}',
+                'Mulai aktif: {{tanggal_mulai}}',
+                '',
+                '🧾 *Tagihan*',
+                'Tagihan pertama: {{tagihan_pertama}}',
+                'Nomor invoice: {{nomor}}',
+                'Jatuh tempo: {{jatuh_tempo}}',
+                'Hari tagihan: setiap tanggal {{hari_tagihan}}',
+                '',
+                '🛠 *Pemasangan di router Anda*',
+                '1. Buka portal, lalu salin skrip VPN.',
+                '2. Di Winbox, login ke router MikroTik Anda.',
+                '3. Klik New Terminal, tempel seluruh skrip, lalu tekan Enter.',
+                '4. Jangan impor file .rsc. Skrip hanya dijalankan di terminal Winbox.',
                 '',
                 '💬 *Bot WhatsApp* (ketik di chat ini)',
                 '• tagihan — cek tagihan belum lunas',
@@ -515,6 +640,22 @@ class MessageTemplate
     }
 
     /**
+     * Pelanggan VPN memakai salinan template sendiri. Kunci PPPoE tidak berubah.
+     */
+    public static function forCustomer(string $template, PppoeCustomer $customer): string
+    {
+        $base = str_starts_with($template, 'vpn_') ? substr($template, 4) : $template;
+
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            return $base;
+        }
+
+        $vpn = 'vpn_'.$base;
+
+        return array_key_exists($vpn, self::defaults()) ? $vpn : $base;
+    }
+
+    /**
      * Template tersimpan yang masih memakai login username PPPoE
      * dinaikkan ke cara masuk portal yang sama dengan selamat datang.
      */
@@ -597,6 +738,19 @@ class MessageTemplate
             '{{portal}}',
             'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.',
             'Di portal: cek & bayar tagihan, lihat status ONU (RX & suhu), ubah WiFi, pantau perangkat terhubung.',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function vpnPortalLines(string $title = 'Portal pelanggan'): array
+    {
+        return [
+            '🌐 *'.$title.'*',
+            '{{portal}}',
+            'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.',
+            'Di portal ada skrip pemasangan VPN. Salin skrip itu, lalu jalankan hanya di New Terminal Winbox.',
         ];
     }
 

@@ -211,6 +211,7 @@ class CustomerNotifier
         bool $paceWhatsapp = false,
         ?int $invoiceId = null,
     ): void {
+        $template = MessageTemplate::forCustomer($template, $customer);
         $body = MessageTemplate::render($template, $vars);
         if ($body === '') {
             return;
@@ -308,12 +309,15 @@ class CustomerNotifier
             return ['ok' => false, 'message' => 'Tagihan tidak memiliki pelanggan.'];
         }
 
-        $vars = match ($template) {
+        $template = MessageTemplate::forCustomer($template, $customer);
+        $base = str_starts_with($template, 'vpn_') ? substr($template, 4) : $template;
+
+        $vars = match ($base) {
             MessageTemplate::INVOICE, MessageTemplate::REMINDER, MessageTemplate::PAID => $this->invoiceVars($invoice, $customer),
             default => $this->customerVars($customer),
         };
 
-        if ($template === MessageTemplate::PAID) {
+        if ($base === MessageTemplate::PAID) {
             $nextDue = $customer->due_date?->format('d/m/Y');
             if ($nextDue) {
                 $vars['jatuh_tempo'] = $nextDue;

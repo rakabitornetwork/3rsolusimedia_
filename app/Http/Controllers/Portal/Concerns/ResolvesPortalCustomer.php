@@ -44,7 +44,7 @@ trait ResolvesPortalCustomer
     }
 
     /**
-     * @return array{name: string, username: string, phone: ?string, due_date: ?string, status: ?string}
+     * @return array{name: string, username: string, phone: ?string, due_date: ?string, status: ?string, ppp_service: string, ppp_service_label: string}
      */
     protected function portalCustomerPayload(PppoeCustomer $customer): array
     {
@@ -54,6 +54,8 @@ trait ResolvesPortalCustomer
             'phone' => $customer->phone,
             'due_date' => $customer->due_date?->format('Y-m-d'),
             'status' => $customer->status,
+            'ppp_service' => $customer->pppService(),
+            'ppp_service_label' => $customer->pppServiceLabel(),
         ];
     }
 }
