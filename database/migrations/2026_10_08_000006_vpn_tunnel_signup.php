@@ -29,8 +29,8 @@ return new class extends Migration
                 ],
                 'steps' => [
                     ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
-                    ['title' => 'Coba gratis 3 hari', 'description' => 'Masuk dengan kode OTP WhatsApp, buat router pertama, dan pakai tunnel selama 3 hari.'],
-                    ['title' => 'Setelah masa coba', 'description' => 'Tagihan dikirim ke WhatsApp. Jika sebulan tidak ada pembayaran, router dihapus dari server.'],
+                    ['title' => 'Coba gratis', 'description' => 'Masuk dengan kode OTP WhatsApp dan pakai tunnel selama 3 hari.'],
+                    ['title' => 'Jika cocok', 'description' => 'Silahkan lanjut pembayaran via portal pelanggan.'],
                 ],
             ]),
             'cta_label' => 'Daftar VPN Tunnel',

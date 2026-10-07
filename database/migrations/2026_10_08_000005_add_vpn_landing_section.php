@@ -13,15 +13,15 @@ return new class extends Migration
 
         PageSection::query()->create([
             'key' => 'vpn',
-            'label' => 'Layanan VPN',
-            'title' => 'VPN untuk RouterOS Anda, daftar sendiri',
-            'subtitle' => 'Layanan VPN',
-            'body' => 'Satu akun untuk paling banyak tiga router. Anda mengisi nama router pertama, membayar tagihan lewat pembayaran online, lalu skrip Winbox langsung siap dipakai.',
+            'label' => 'Layanan VPN Tunnel',
+            'title' => 'VPN Tunnel untuk mengalihkan trafik Speedtest',
+            'subtitle' => 'Layanan VPN Tunnel',
+            'body' => 'Layanan VPN Tunnel dipakai untuk mengalihkan trafik Speedtest dari ISP utama ke tunnel kami. Internet utama tetap jalan. Tes kecepatan yang Anda arahkan keluar lewat VPN Tunnel, bukan lewat ISP yang sedang diukur.',
             'content' => [
                 'steps' => [
                     ['title' => 'Daftar', 'description' => 'Isi nama, email, dan WhatsApp. Akun langsung terbuat, tanpa memilih paket.'],
-                    ['title' => 'Coba gratis 3 hari', 'description' => 'Masuk dengan kode OTP WhatsApp, buat router pertama, dan pakai tunnel selama 3 hari.'],
-                    ['title' => 'Setelah masa coba', 'description' => 'Tagihan dikirim ke WhatsApp. Jika sebulan tidak ada pembayaran, router dihapus dari server.'],
+                    ['title' => 'Coba gratis', 'description' => 'Masuk dengan kode OTP WhatsApp dan pakai tunnel selama 3 hari.'],
+                    ['title' => 'Jika cocok', 'description' => 'Silahkan lanjut pembayaran via portal pelanggan.'],
                 ],
             ],
             'image' => '/images/vpn/office.jpg',
