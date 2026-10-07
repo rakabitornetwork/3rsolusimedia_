@@ -24,10 +24,10 @@ export default function Index({ routers, selected_router_id, profiles, error }) 
 
     return (
         <AdminLayout
-            title="Profile PPPoE"
-            subtitle="Kelola PPP Profile langsung di RouterOS"
+            title="Profile PPP"
+            subtitle="Kelola profile PPPoE dan VPN L2TP langsung di RouterOS"
         >
-            <Head title="Profile PPPoE" />
+            <Head title="Profile PPP" />
             {error && (
                 <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {error}

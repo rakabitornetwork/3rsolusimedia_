@@ -112,10 +112,10 @@ export default function Form({
 
     return (
         <AdminLayout
-            title={editing ? 'Edit Profile PPPoE' : 'Tambah Profile PPPoE'}
-            subtitle="Konfigurasi PPP Profile di RouterOS"
+            title={editing ? 'Edit Profile PPP' : 'Tambah Profile PPP'}
+            subtitle="Konfigurasi profile PPPoE dan VPN L2TP di RouterOS"
         >
-            <Head title={editing ? 'Edit Profile PPPoE' : 'Tambah Profile PPPoE'} />
+            <Head title={editing ? 'Edit Profile PPP' : 'Tambah Profile PPP'} />
 
             <form
                 onSubmit={submit}

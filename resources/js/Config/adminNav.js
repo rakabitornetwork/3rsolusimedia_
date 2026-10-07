@@ -64,7 +64,7 @@ export const adminNav = [
                 match: ['/admin/customers/pppoe/service-profiles'],
             },
             {
-                label: 'Profile PPPoE',
+                label: 'Profile PPP',
                 href: '/admin/customers/pppoe/mikrotik-profiles',
                 icon: SlidersHorizontal,
                 match: ['/admin/customers/pppoe/mikrotik-profiles'],
