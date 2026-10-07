@@ -27,7 +27,7 @@ class VpnSignupTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Landing', false)
                 ->where('sections.vpn.key', 'vpn')
-                ->where('sections.vpn.title', 'VPN Tunnel untuk Remote perangkat RouterOS, remote perangkat dibelakangnya dan mengalihkan trafik Speedtest')
+                ->where('sections.vpn.title', 'VPN Tunnel: remote RouterOS dan Speedtest')
                 ->where('sections.vpn.cta_url', '/vpn/daftar')
                 ->where('sections.vpn.content.features.0', 'Alihkan trafik Speedtest dari ISP utama ke VPN Tunnel')
                 ->where('sections.vpn.content.steps.0.title', 'Daftar')

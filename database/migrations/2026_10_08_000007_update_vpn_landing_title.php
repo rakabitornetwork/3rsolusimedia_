@@ -8,7 +8,7 @@ return new class extends Migration
     public function up(): void
     {
         PageSection::query()->where('key', 'vpn')->update([
-            'title' => 'VPN Tunnel untuk Remote perangkat RouterOS, remote perangkat dibelakangnya dan mengalihkan trafik Speedtest',
+            'title' => 'VPN Tunnel: remote RouterOS dan Speedtest',
             'body' => 'VPN Tunnel dipakai untuk me-remote perangkat RouterOS, me-remote perangkat di belakangnya, dan mengalihkan trafik Speedtest dari ISP utama ke tunnel kami. Internet utama tetap jalan.',
         ]);
     }

@@ -99,7 +99,7 @@ class LandingPageSeeder extends Seeder
             [
                 'key' => 'vpn',
                 'label' => 'Layanan VPN Tunnel',
-                'title' => 'VPN Tunnel untuk Remote perangkat RouterOS, remote perangkat dibelakangnya dan mengalihkan trafik Speedtest',
+                'title' => 'VPN Tunnel: remote RouterOS dan Speedtest',
                 'subtitle' => 'Layanan VPN Tunnel',
                 'body' => 'VPN Tunnel dipakai untuk me-remote perangkat RouterOS, me-remote perangkat di belakangnya, dan mengalihkan trafik Speedtest dari ISP utama ke tunnel kami. Internet utama tetap jalan.',
                 'content' => [
