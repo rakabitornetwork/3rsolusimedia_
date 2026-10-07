@@ -35,15 +35,6 @@
       "_vendor-react-Dyo4ernH.js"
     ]
   },
-  "_LiveTrafficCard-UW-ePnCN.js": {
-    "file": "assets/LiveTrafficCard-UW-ePnCN.js",
-    "name": "LiveTrafficCard",
-    "imports": [
-      "_rolldown-runtime-hePW80VL.js",
-      "_vendor-ui-BYzk_kuJ.js",
-      "_vendor-react-Dyo4ernH.js"
-    ]
-  },
   "_LocalPagination-DCK0Ooak.js": {
     "file": "assets/LocalPagination-DCK0Ooak.js",
     "name": "LocalPagination",
@@ -274,7 +265,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-BkZggqCF.css",
+    "file": "assets/app-B84cowyC.css",
     "name": "app",
     "names": [
       "app.css"
@@ -457,7 +448,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Form.jsx": {
-    "file": "assets/Form-DgxQtyNE.js",
+    "file": "assets/Form-CSgKVpbD.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Form.jsx",
     "isDynamicEntry": true,
@@ -474,7 +465,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx": {
-    "file": "assets/Index-DNzA_GXQ.js",
+    "file": "assets/Index-BcZYRKj8.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx",
     "isDynamicEntry": true,
@@ -531,7 +522,7 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard.jsx": {
-    "file": "assets/Dashboard-DPTdynzT.js",
+    "file": "assets/Dashboard-CJX7idmb.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -650,7 +641,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx": {
-    "file": "assets/Index-C2H-y04h.js",
+    "file": "assets/Index-C2H-y04h2.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Profiles/Index.jsx",
     "isDynamicEntry": true,
@@ -662,7 +653,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Report.jsx": {
-    "file": "assets/Report-Bv_l7IsT.js",
+    "file": "assets/Report-Bv_l7IsT2.js",
     "name": "Report",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Report.jsx",
     "isDynamicEntry": true,
@@ -724,7 +715,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Form.jsx": {
-    "file": "assets/Form-DC6eeV-x2.js",
+    "file": "assets/Form-DC6eeV-x.js",
     "name": "Form",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Form.jsx",
     "isDynamicEntry": true,
@@ -735,7 +726,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Index.jsx": {
-    "file": "assets/Index-CaZb3kWh2.js",
+    "file": "assets/Index-CaZb3kWh.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Index.jsx",
     "isDynamicEntry": true,
@@ -747,16 +738,16 @@
     ]
   },
   "resources/js/Pages/Admin/Network/RouterOs/Show.jsx": {
-    "file": "assets/Show-DBjE1dpk.js",
+    "file": "assets/Show-Djo8WUne.js",
     "name": "Show",
     "src": "resources/js/Pages/Admin/Network/RouterOs/Show.jsx",
     "isDynamicEntry": true,
     "imports": [
+      "_rolldown-runtime-hePW80VL.js",
       "_vendor-ui-BYzk_kuJ.js",
       "_vendor-react-Dyo4ernH.js",
       "_StatCard-esDNe6Oo.js",
-      "_AdminLayout-BpIittgU.js",
-      "_LiveTrafficCard-UW-ePnCN.js"
+      "_AdminLayout-BpIittgU.js"
     ]
   },
   "resources/js/Pages/Admin/SectionEdit.jsx": {
@@ -908,7 +899,7 @@
     ]
   },
   "resources/js/Pages/Portal/Home.jsx": {
-    "file": "assets/Home-BOgm03gw.js",
+    "file": "assets/Home-FCYDm26l.js",
     "name": "Home",
     "src": "resources/js/Pages/Portal/Home.jsx",
     "isDynamicEntry": true,
@@ -1041,7 +1032,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-CxYQJImd.js",
+    "file": "assets/app-DERMKkId.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1100,7 +1091,7 @@
       "resources/js/Pages/Portal/Pay/Show.jsx"
     ],
     "css": [
-      "assets/app-BkZggqCF.css"
+      "assets/app-B84cowyC.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
