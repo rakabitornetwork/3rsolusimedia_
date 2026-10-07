@@ -35,6 +35,11 @@ class VpnPortForward extends Model
         return $this->belongsTo(PppoeCustomer::class, 'pppoe_customer_id');
     }
 
+    public function router(): BelongsTo
+    {
+        return $this->belongsTo(VpnRouter::class, 'vpn_router_id');
+    }
+
     public function comment(): string
     {
         return 'vpn-pf-'.$this->pppoe_customer_id.'-'.$this->public_port;

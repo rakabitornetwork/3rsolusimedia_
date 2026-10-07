@@ -33,6 +33,26 @@ class VpnRouterAccounts
                 ->first();
 
             if (! $credit) {
+                $hasIncluded = VpnRouter::query()
+                    ->where('pppoe_customer_id', $customer->id)
+                    ->where('included', true)
+                    ->where('id', '!=', $router->id)
+                    ->exists();
+
+                if (! $hasIncluded) {
+                    $router->update([
+                        'included' => true,
+                        'billing_day' => (int) ($customer->billing_day ?: now()->day),
+                        'service_until' => $customer->due_date?->toDateString(),
+                    ]);
+
+                    return [
+                        'router' => $router->fresh('portForwards') ?? $router,
+                        'invoice' => null,
+                        'reused' => false,
+                    ];
+                }
+
                 $invoice = $this->billing->createVpnRouterOpeningInvoice($customer->fresh() ?? $customer, $router);
 
                 return [
@@ -43,8 +63,11 @@ class VpnRouterAccounts
             }
 
             $router->update([
+                'included' => (bool) $credit->included,
                 'billing_day' => $credit->billing_day,
-                'service_until' => $credit->service_until?->toDateString(),
+                'service_until' => $credit->included
+                    ? ($customer->due_date?->toDateString() ?? $credit->service_until?->toDateString())
+                    : $credit->service_until?->toDateString(),
             ]);
 
             $ids = array_values(array_filter(array_map('intval', $credit->invoice_ids ?? [])));
@@ -87,10 +110,11 @@ class VpnRouterAccounts
                 ->values()
                 ->all();
 
-            if ($invoiceIds !== []) {
+            if ($invoiceIds !== [] || $router->included) {
                 VpnRouterCredit::query()->create([
                     'pppoe_customer_id' => $router->pppoe_customer_id,
                     'billing_day' => $router->billing_day,
+                    'included' => (bool) $router->included,
                     'service_until' => $router->service_until?->toDateString(),
                     'invoice_ids' => $invoiceIds,
                 ]);
@@ -108,5 +132,23 @@ class VpnRouterAccounts
     public function spareCount(PppoeCustomer $customer): int
     {
         return VpnRouterCredit::query()->where('pppoe_customer_id', $customer->id)->count();
+    }
+
+    public function nextWithoutInvoice(PppoeCustomer $customer): bool
+    {
+        if ($this->spareCount($customer) > 0) {
+            return true;
+        }
+
+        $includedRouter = VpnRouter::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('included', true)
+            ->exists();
+        $includedCredit = VpnRouterCredit::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('included', true)
+            ->exists();
+
+        return ! $includedRouter && ! $includedCredit;
     }
 }

@@ -38,7 +38,7 @@ function CopyButton({ text, label }) {
 }
 
 export default function VpnAccess({ customerId, access }) {
-    const custom = useForm({ dst_port: '', note: '' });
+    const custom = useForm({ vpn_router_id: '', dst_port: '', note: '' });
     const extra = useForm({ name: '' });
     const [pushing, setPushing] = useState(false);
 
@@ -65,21 +65,22 @@ export default function VpnAccess({ customerId, access }) {
                 <div>
                     <h2 className="text-sm font-semibold text-ink">Akses VPN dan port forward</h2>
                     <p className="mt-1 text-sm text-ink-soft">
-                        Alamat VPN {access.address || '—'} · seri port {access.series || '—'} · server{' '}
-                        {access.server || '—'}. Port bawaan 8291, 8728, 80, dan 22. Port 22 di sisi
-                        pelanggan boleh diteruskan ke perangkat mana pun. Port lain hanya lewat admin.
-                        Satu akun paling banyak 3 router. Router kedua dan ketiga punya nama sendiri,
-                        tagihannya muncul pada tanggal router dibuat, dan baru bisa dipakai setelah lunas.
+                        Server {access.server || '—'}. Satu akun paling banyak 3 router. Semua nama diisi
+                        sendiri dan semuanya bisa dihapus. Router pertama mengikuti tagihan akun. Router
+                        berikutnya ditagih pada tanggal dibuat dan baru aktif setelah lunas, kecuali
+                        tagihan router yang dihapus masih berlaku.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={push}
-                    disabled={pushing || !access.chr_ready}
-                    className="btn-action btn-action-sm btn-primary"
-                >
-                    {pushing ? 'Mengirim...' : 'Push ke CHR'}
-                </button>
+                {access.address && (
+                    <button
+                        type="button"
+                        onClick={push}
+                        disabled={pushing || !access.chr_ready}
+                        className="btn-action btn-action-sm btn-primary"
+                    >
+                        {pushing ? 'Mengirim...' : 'Push ke CHR'}
+                    </button>
+                )}
             </div>
             {!access.chr_ready && (
                 <p className="text-sm text-amber-800">
@@ -87,6 +88,7 @@ export default function VpnAccess({ customerId, access }) {
                 </p>
             )}
 
+            {access.address && (
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="text-xs tracking-wide text-ink-soft uppercase">
@@ -126,9 +128,11 @@ export default function VpnAccess({ customerId, access }) {
                     </tbody>
                 </table>
             </div>
+            )}
 
+            {(access.extra_routers || []).length > 0 && (
             <form
-                className="grid gap-3 border border-ink/10 bg-mist/40 p-4 sm:grid-cols-[8rem_1fr_auto] sm:items-end"
+                className="grid gap-3 border border-ink/10 bg-mist/40 p-4 sm:grid-cols-[1fr_8rem_1fr_auto] sm:items-end"
                 onSubmit={(event) => {
                     event.preventDefault();
                     custom.post(`/admin/customers/pppoe/${customerId}/vpn/ports`, {
@@ -137,6 +141,22 @@ export default function VpnAccess({ customerId, access }) {
                     });
                 }}
             >
+                <label className="block text-sm font-medium text-ink">
+                    Router
+                    <select
+                        value={custom.data.vpn_router_id}
+                        onChange={(event) => custom.setData('vpn_router_id', event.target.value)}
+                        className={fieldClass}
+                        required
+                    >
+                        <option value="">Pilih router</option>
+                        {(access.extra_routers || []).map((item) => (
+                            <option key={item.id} value={item.id}>
+                                {item.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
                 <label className="block text-sm font-medium text-ink">
                     Port tujuan
                     <input
@@ -167,9 +187,10 @@ export default function VpnAccess({ customerId, access }) {
                     {custom.processing ? 'Menyimpan...' : 'Buat & push'}
                 </button>
                 {custom.errors.dst_port && (
-                    <p className="text-xs text-red-600 sm:col-span-3">{custom.errors.dst_port}</p>
+                    <p className="text-xs text-red-600 sm:col-span-4">{custom.errors.dst_port}</p>
                 )}
             </form>
+            )}
 
             {(access.extra_routers || []).map((item) => (
                 <div key={item.id} className="space-y-3 border border-ink/10 p-4">
@@ -179,9 +200,13 @@ export default function VpnAccess({ customerId, access }) {
                             <p className="mt-1 text-sm text-ink-soft">
                                 Alamat {item.address || '—'} · seri {item.series || '—'} · tagihan tiap tanggal{' '}
                                 {item.billing_day}.{' '}
-                                {item.usable
-                                    ? `Aktif sampai ${item.service_until}.`
-                                    : 'Menunggu pembayaran. Secret di CHR tetap mati.'}
+                                {item.included
+                                    ? item.usable
+                                        ? `Mengikuti tagihan akun${item.service_until ? ` sampai ${item.service_until}` : ''}.`
+                                        : 'Akun VPN belum aktif. Secret di CHR tetap mati.'
+                                    : item.usable
+                                      ? `Aktif sampai ${item.service_until}.`
+                                      : 'Menunggu pembayaran. Secret di CHR tetap mati.'}
                                 {item.invoice_number ? ` Tagihan ${item.invoice_number}.` : ''}
                             </p>
                         </div>
@@ -259,7 +284,7 @@ export default function VpnAccess({ customerId, access }) {
                 </div>
             ))}
 
-            {(access.router_count || 1) < (access.router_limit || 3) && (
+            {Number(access.router_count || 0) < Number(access.router_limit || 3) && (
                 <form
                     className="grid gap-3 border border-ink/10 bg-mist/40 p-4 sm:grid-cols-[1fr_auto] sm:items-end"
                     onSubmit={(event) => {
@@ -271,7 +296,7 @@ export default function VpnAccess({ customerId, access }) {
                     }}
                 >
                     <label className="block text-sm font-medium text-ink">
-                        Nama router tambahan
+                        Nama router
                         <input
                             type="text"
                             value={extra.data.name}
@@ -288,7 +313,7 @@ export default function VpnAccess({ customerId, access }) {
                     >
                         {extra.processing
                             ? 'Menyimpan...'
-                            : Number(access.spare_routers || 0) > 0
+                            : access.next_without_invoice
                               ? 'Tambah router tanpa tagihan baru'
                               : 'Tambah router & buat tagihan'}
                     </button>
@@ -298,6 +323,7 @@ export default function VpnAccess({ customerId, access }) {
                 </form>
             )}
 
+            {access.address && (
             <div className="grid gap-4 lg:grid-cols-2">
                 <div>
                     <div className="mb-2 flex items-center justify-between gap-2">
@@ -318,6 +344,7 @@ export default function VpnAccess({ customerId, access }) {
                     </pre>
                 </div>
             </div>
+            )}
         </section>
     );
 }

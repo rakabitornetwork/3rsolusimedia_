@@ -107,7 +107,12 @@ class VpnServerScript
      */
     public function forwardCommands(PppoeCustomer $customer, VpnPortForward $forward): array
     {
-        return $this->forwardLines((string) $customer->vpn_remote_address, $forward);
+        $forward->loadMissing('router');
+        $address = $forward->vpn_router_id
+            ? (string) $forward->router?->vpn_remote_address
+            : (string) $customer->vpn_remote_address;
+
+        return $this->forwardLines($address, $forward);
     }
 
     /**

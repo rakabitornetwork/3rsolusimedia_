@@ -10,6 +10,7 @@ class VpnRouterCredit extends Model
     protected $fillable = [
         'pppoe_customer_id',
         'billing_day',
+        'included',
         'service_until',
         'invoice_ids',
     ];
@@ -18,6 +19,7 @@ class VpnRouterCredit extends Model
     {
         return [
             'billing_day' => 'integer',
+            'included' => 'boolean',
             'service_until' => 'date',
             'invoice_ids' => 'array',
         ];

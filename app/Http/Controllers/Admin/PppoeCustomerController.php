@@ -11,6 +11,7 @@ use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Models\VpnPortForward;
 use App\Models\VpnRouter;
+use App\Models\VpnRouterCredit;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
@@ -413,7 +414,7 @@ class PppoeCustomerController extends Controller
 
             return redirect()
                 ->route('admin.customers.pppoe.edit', $customer)
-                ->with('success', $message.' Skrip server dan klien sudah dibuat. Tekan Push ke CHR untuk mengisi RouterOS.');
+                ->with('success', $message.' Isi nama router di bawah. Ketiga router memakai nama sendiri, dan router pertama mengikuti tagihan akun.');
         }
 
         return AdminListState::to('admin.customers.pppoe', AdminListState::PPPOE)
@@ -626,7 +627,9 @@ class PppoeCustomerController extends Controller
         if ($oldService === PppoeCustomer::SERVICE_L2TP && $fresh->pppService() !== PppoeCustomer::SERVICE_L2TP) {
             $removed = $this->vpn->removeCustomer($fresh);
             if ($removed['ok']) {
+                $fresh->vpnRouters()->delete();
                 $fresh->vpnPortForwards()->delete();
+                VpnRouterCredit::query()->where('pppoe_customer_id', $fresh->id)->delete();
             } else {
                 $vpnNote = ' Aturan CHR belum terhapus: '.$removed['message'];
             }
@@ -819,15 +822,25 @@ class PppoeCustomerController extends Controller
         }
 
         $validated = $request->validate([
+            'vpn_router_id' => ['required', 'integer'],
             'dst_port' => ['required', 'integer', 'min:1', 'max:65535'],
             'note' => ['nullable', 'string', 'max:80'],
         ]);
+
+        $vpnRouter = VpnRouter::query()
+            ->where('pppoe_customer_id', $pppoe->id)
+            ->whereKey($validated['vpn_router_id'])
+            ->first();
+        if (! $vpnRouter) {
+            return back()->with('error', 'Pilih router yang akan menerima port ini.');
+        }
 
         try {
             $forward = $this->vpnPlan->addCustom(
                 $pppoe,
                 (int) $validated['dst_port'],
                 $validated['note'] ?? null,
+                $vpnRouter,
             );
         } catch (InvalidArgumentException $exception) {
             return back()->with('error', $exception->getMessage());
@@ -847,7 +860,10 @@ class PppoeCustomerController extends Controller
             return back()->with('error', 'Akun Agen tidak memiliki akses untuk menghapus port.');
         }
 
-        $forward = $pppoe->vpnPortForwards()->whereKey($port)->first();
+        $forward = VpnPortForward::query()
+            ->where('pppoe_customer_id', $pppoe->id)
+            ->whereKey($port)
+            ->first();
         if (! $forward || $forward->kind !== VpnPortForward::KIND_CUSTOM) {
             return back()->with('error', 'Hanya port khusus yang bisa dihapus.');
         }
@@ -878,15 +894,19 @@ class PppoeCustomerController extends Controller
             'server' => $server,
             'chr_ready' => VpnChrSettings::configured(),
             'router_limit' => 3,
-            'router_count' => 1 + $customer->vpnRouters->count(),
+            'router_count' => $customer->vpnRouters->count(),
             'spare_routers' => $this->vpnAccounts->spareCount($customer),
+            'next_without_invoice' => $this->vpnAccounts->nextWithoutInvoice($customer),
             'extra_routers' => $customer->vpnRouters->map(fn (VpnRouter $router) => [
                 'id' => $router->id,
                 'name' => $router->name,
                 'address' => $router->vpn_remote_address,
                 'series' => $router->vpn_port_series,
+                'included' => (bool) $router->included,
                 'usable' => $router->isUsable(),
-                'service_until' => $router->service_until?->toDateString(),
+                'service_until' => $router->included
+                    ? $customer->due_date?->toDateString()
+                    : $router->service_until?->toDateString(),
                 'billing_day' => $router->billing_day,
                 'invoice_number' => $router->invoices->sortByDesc('id')->first()?->number,
                 'invoice_status' => $router->invoices->sortByDesc('id')->first()?->status,

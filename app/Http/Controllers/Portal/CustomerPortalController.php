@@ -237,8 +237,8 @@ class CustomerPortalController extends Controller
     private function vpnHome(string $token, PppoeCustomer $customer): Response
     {
         $this->vpnPlan->ensure($customer);
-        $customer->refresh()->load(['router', 'vpnPortForwards', 'vpnRouters.portForwards']);
-        $script = $this->l2tpScript->build($customer);
+        $customer->refresh()->load(['router', 'vpnPortForwards', 'vpnRouters.portForwards', 'vpnRouters.customer']);
+        $script = $customer->vpn_remote_address ? $this->l2tpScript->build($customer) : null;
         $server = VpnChrSettings::host() !== ''
             ? VpnChrSettings::host()
             : trim((string) ($customer->router?->host ?? ''));
@@ -265,13 +265,17 @@ class CustomerPortalController extends Controller
                         : null,
                 ])->values()->all(),
                 'router_limit' => 3,
-                'router_count' => 1 + $customer->vpnRouters->count(),
+                'router_count' => $customer->vpnRouters->count(),
                 'spare_routers' => $this->vpnAccounts->spareCount($customer),
+                'next_without_invoice' => $this->vpnAccounts->nextWithoutInvoice($customer),
                 'extra_routers' => $customer->vpnRouters->map(fn ($router) => [
                     'id' => $router->id,
                     'name' => $router->name,
+                    'included' => (bool) $router->included,
                     'usable' => $router->isUsable(),
-                    'service_until' => $router->service_until?->toDateString(),
+                    'service_until' => $router->included
+                        ? $customer->due_date?->toDateString()
+                        : $router->service_until?->toDateString(),
                     'script' => $router->isUsable() ? $this->l2tpScript->buildForRouter($router) : null,
                     'ports' => $router->isUsable()
                         ? $router->portForwards->map(fn ($forward) => [

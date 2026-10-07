@@ -62,9 +62,8 @@ class PppoeVpnCustomerTest extends TestCase
         $customer = PppoeCustomer::query()->where('username', 'vpnuser')->first();
         $this->assertNotNull($customer);
         $response->assertRedirect('/admin/customers/pppoe/'.$customer->id.'/edit');
-        $this->assertNotNull($customer->vpn_remote_address);
-        $this->assertNotNull($customer->vpn_port_series);
-        $this->assertCount(4, $customer->vpnPortForwards);
+        $this->assertNull($customer->vpn_remote_address);
+        $this->assertSame(0, $customer->vpnRouters()->count());
         $this->assertSame(PppoeCustomer::SERVICE_L2TP, $customer->ppp_service);
         $this->assertSame('VPN L2TP', $customer->pppServiceLabel());
     }

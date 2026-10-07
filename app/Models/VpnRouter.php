@@ -14,6 +14,7 @@ class VpnRouter extends Model
         'vpn_remote_address',
         'vpn_port_series',
         'billing_day',
+        'included',
         'service_until',
     ];
 
@@ -22,6 +23,7 @@ class VpnRouter extends Model
         return [
             'vpn_port_series' => 'integer',
             'billing_day' => 'integer',
+            'included' => 'boolean',
             'service_until' => 'date',
         ];
     }
@@ -43,6 +45,14 @@ class VpnRouter extends Model
 
     public function isUsable(): bool
     {
+        if ($this->included) {
+            $customer = $this->relationLoaded('customer') ? $this->customer : $this->customer()->first();
+
+            return $customer !== null
+                && $customer->is_active
+                && $customer->status !== 'isolated';
+        }
+
         return $this->service_until !== null
             && $this->service_until->copy()->startOfDay()->greaterThanOrEqualTo(now()->startOfDay());
     }

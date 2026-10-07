@@ -67,13 +67,15 @@ class VpnProvisioner
             return $result;
         }
 
-        $active = $router->isUsable() && $customer->is_active && $customer->status !== 'isolated';
+        $active = $router->isUsable();
 
         return [
             'ok' => true,
             'message' => $active
                 ? 'Router '.$router->name.' terkirim ke CHR dan secret-nya aktif.'
-                : 'Router '.$router->name.' terkirim ke CHR. Secret tetap mati sampai tagihannya lunas.',
+                : ($router->included
+                    ? 'Router '.$router->name.' terkirim ke CHR. Secret tetap mati karena akun VPN belum aktif.'
+                    : 'Router '.$router->name.' terkirim ke CHR. Secret tetap mati sampai tagihannya lunas.'),
         ];
     }
 
@@ -133,12 +135,20 @@ class VpnProvisioner
      */
     public function removeCustomer(PppoeCustomer $customer): array
     {
-        $customer->load('vpnPortForwards');
-        if ($customer->vpnPortForwards->isEmpty() && trim((string) $customer->username) === '') {
+        $customer->load(['vpnPortForwards', 'vpnRouters.portForwards']);
+        $commands = [];
+        if ($customer->vpnPortForwards->isNotEmpty() || trim((string) $customer->username) !== '') {
+            $commands = $this->script->removeCommands($customer);
+        }
+        foreach ($customer->vpnRouters as $router) {
+            array_push($commands, ...$this->script->removeRouterCommands($router));
+        }
+
+        if ($commands === []) {
             return ['ok' => true, 'message' => 'Tidak ada aturan CHR.'];
         }
 
-        return $this->runAll($this->script->removeCommands($customer), []);
+        return $this->runAll($commands, []);
     }
 
     /**
@@ -170,7 +180,12 @@ class VpnProvisioner
      */
     public function syncSecretState(PppoeCustomer $customer): array
     {
-        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP || ! $customer->vpn_remote_address) {
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            return ['ok' => true, 'message' => 'Status CHR tidak diubah.'];
+        }
+
+        $customer->loadMissing('vpnRouters');
+        if (! $customer->vpn_remote_address && $customer->vpnRouters->isEmpty()) {
             return ['ok' => true, 'message' => 'Status CHR tidak diubah.'];
         }
 
@@ -178,20 +193,27 @@ class VpnProvisioner
             return ['ok' => false, 'message' => 'Kredensial SSH CHR belum diisi.'];
         }
 
-        $commands = $this->script->commands($customer);
-        $secret = $commands[0] ?? '';
-        if ($secret === '') {
-            return ['ok' => true, 'message' => 'Tidak ada secret untuk diselaraskan.'];
+        if ($customer->vpn_remote_address) {
+            $secret = $this->script->commands($customer)[0] ?? '';
+            if ($secret !== '') {
+                $result = $this->chr->run($secret);
+                if (! $result['ok']) {
+                    return [
+                        'ok' => false,
+                        'message' => $this->safeMessage($result['message'], $customer),
+                    ];
+                }
+            }
         }
 
-        $result = $this->chr->run($secret);
+        foreach ($customer->vpnRouters as $router) {
+            $synced = $this->syncRouterSecret($router);
+            if (! $synced['ok']) {
+                return $synced;
+            }
+        }
 
-        return [
-            'ok' => $result['ok'],
-            'message' => $result['ok']
-                ? 'Status secret VPN di CHR diselaraskan.'
-                : $this->safeMessage($result['message'], $customer),
-        ];
+        return ['ok' => true, 'message' => 'Status secret VPN di CHR diselaraskan.'];
     }
 
     /**

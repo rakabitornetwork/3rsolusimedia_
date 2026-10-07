@@ -32,22 +32,20 @@ class VpnAccessPlanTest extends TestCase
         $first = $this->customer('vpn-a');
         $second = $this->customer('vpn-b');
 
-        $plan->ensure($first);
-        $plan->ensure($second);
-        $first->refresh();
-        $second->refresh();
+        $firstRouter = $plan->addRouter($first, 'router-a');
+        $secondRouter = $plan->addRouter($second, 'router-b');
 
-        $this->assertSame($first->vpn_port_series + 1, $second->vpn_port_series);
-        $this->assertNotSame($first->vpn_remote_address, $second->vpn_remote_address);
+        $this->assertSame($firstRouter->vpn_port_series + 1, $secondRouter->vpn_port_series);
+        $this->assertNotSame($firstRouter->vpn_remote_address, $secondRouter->vpn_remote_address);
 
-        $ports = $second->vpnPortForwards->keyBy('dst_port');
-        $series = (int) $second->vpn_port_series;
+        $ports = $secondRouter->portForwards->keyBy('dst_port');
+        $series = (int) $secondRouter->vpn_port_series;
         $this->assertSame($series * 100 + 22, $ports[22]->public_port);
         $this->assertSame($series * 100 + 80, $ports[80]->public_port);
         $this->assertSame($series * 100 + 91, $ports[8291]->public_port);
         $this->assertSame($series * 100 + 28, $ports[8728]->public_port);
 
-        $custom = $plan->addCustom($second, 3389, 'RDP');
+        $custom = $plan->addCustom($second, 3389, 'RDP', $secondRouter);
         $this->assertSame($series * 100 + 1, $custom->public_port);
         $this->assertSame(VpnPortForward::KIND_CUSTOM, $custom->kind);
     }
@@ -72,16 +70,16 @@ class VpnAccessPlanTest extends TestCase
 
         $admin = User::factory()->superadmin()->create();
         $customer = $this->customer('vpn-push');
-        app(VpnAccessPlan::class)->ensure($customer);
-        $customer->refresh();
+        $router = app(VpnAccessPlan::class)->addRouter($customer, 'toko-push');
 
         $this->actingAs($admin)
-            ->post('/admin/customers/pppoe/'.$customer->id.'/vpn/push')
+            ->post('/admin/customers/pppoe/'.$customer->id.'/vpn/routers/'.$router->id.'/push')
             ->assertRedirect()
             ->assertSessionHas('success');
 
         $script = implode("\n", $fake->commands);
-        $this->assertStringContainsString('remote-address='.$customer->vpn_remote_address, $script);
+        $this->assertStringContainsString('name="toko-push"', $script);
+        $this->assertStringContainsString('remote-address='.$router->vpn_remote_address, $script);
         $this->assertStringContainsString('local-address=192.168.172.254', $script);
         $this->assertStringContainsString('profile="default-encryption"', $script);
         $this->assertStringContainsString('dst-address=31.57.178.91', $script);
@@ -89,10 +87,11 @@ class VpnAccessPlanTest extends TestCase
         $this->assertStringContainsString('to-ports=8291', $script);
         $this->assertStringNotContainsString('test-only', $script);
 
-        $this->assertNotNull($customer->vpnPortForwards()->first()?->fresh()->pushed_at);
+        $this->assertNotNull($router->portForwards()->first()?->fresh()->pushed_at);
 
-        $shown = app(VpnServerScript::class)->text($customer->fresh('vpnPortForwards'));
+        $shown = app(VpnServerScript::class)->textForRouter($router->fresh('portForwards'));
         $this->assertStringContainsString('/ppp secret add', $shown);
+        $this->assertStringContainsString('name="toko-push"', $shown);
     }
 
     #[Test]
@@ -109,15 +108,18 @@ class VpnAccessPlanTest extends TestCase
         $customer->update(['subscription_package_id' => $package->id]);
         $dueBefore = $customer->fresh()->due_date?->toDateString();
 
-        $plan->ensure($customer);
-        $customer->refresh();
-        $router = $plan->addRouter($customer, 'toko-pusat');
+        $accounts = app(VpnRouterAccounts::class);
+        $included = $accounts->enroll($customer, 'kantor');
+        $this->assertNull($included['invoice']);
+        $this->assertTrue($included['router']->included);
+        $this->assertTrue($included['router']->isUsable());
 
-        $this->assertSame($customer->vpn_port_series + 1, $router->vpn_port_series);
+        $router = $accounts->enroll($customer->fresh(), 'toko-pusat')['router'];
+        $this->assertFalse($router->included);
         $this->assertCount(4, $router->portForwards);
-        $this->assertCount(4, $customer->vpnPortForwards()->get());
 
-        $invoice = app(BillingService::class)->createVpnRouterOpeningInvoice($customer->fresh(), $router);
+        $invoice = Invoice::query()->where('vpn_router_id', $router->id)->first();
+        $this->assertNotNull($invoice);
         $this->assertSame('vpn_router', $invoice->type);
         $this->assertSame(now()->toDateString(), $invoice->due_date->toDateString());
         $this->assertSame(150000, (int) $invoice->total);
@@ -145,7 +147,8 @@ class VpnAccessPlanTest extends TestCase
         $customer->update(['subscription_package_id' => $this->package()->id]);
         $accounts = app(VpnRouterAccounts::class);
 
-        $first = $accounts->enroll($customer, 'toko-lama');
+        $accounts->enroll($customer, 'kantor');
+        $first = $accounts->enroll($customer->fresh(), 'toko-lama');
         $invoice = $first['invoice'];
         $this->assertNotNull($invoice);
         app(BillingService::class)->markPaid($invoice);
@@ -192,7 +195,8 @@ class VpnAccessPlanTest extends TestCase
         $customer = $this->customer('vpn-gagal');
         $customer->update(['subscription_package_id' => $this->package()->id]);
         $accounts = app(VpnRouterAccounts::class);
-        $first = $accounts->enroll($customer, 'toko-gagal');
+        $included = $accounts->enroll($customer, 'kantor');
+        $first = $accounts->enroll($customer->fresh(), 'toko-gagal');
 
         $released = $accounts->release($first['router']);
 
@@ -200,6 +204,8 @@ class VpnAccessPlanTest extends TestCase
         $this->assertNotNull(VpnRouter::query()->find($first['router']->id));
         $this->assertSame('unpaid', $first['invoice']?->fresh()->status);
         $this->assertSame($first['router']->id, (int) $first['invoice']?->fresh()->vpn_router_id);
+        $this->assertFalse($accounts->release($included['router'])['ok']);
+        $this->assertNotNull(VpnRouter::query()->find($included['router']->id));
         $this->assertSame(0, VpnRouterCredit::query()->count());
     }
 

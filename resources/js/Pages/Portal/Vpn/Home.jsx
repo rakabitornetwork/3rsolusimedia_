@@ -28,7 +28,7 @@ export default function Home({
     const extra = useForm({ name: '' });
     const routerCount = Number(vpn?.router_count || 1);
     const routerLimit = Number(vpn?.router_limit || 3);
-    const spareRouters = Number(vpn?.spare_routers || 0);
+    const nextWithoutInvoice = Boolean(vpn?.next_without_invoice);
     const unpaidCount = Number(billing?.unpaid_count || 0);
     const gatewayReady = Boolean(billing?.gateway_ready);
     const oldestUnpaidId = billing?.oldest_unpaid_id;
@@ -220,16 +220,19 @@ export default function Home({
                                     {script}
                                 </pre>
                             </div>
-                        ) : (
-                            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
-                                {script_message || 'Skrip VPN belum bisa dibuat. Hubungi admin.'}
+                        ) : (vpn?.extra_routers || []).length === 0 ? (
+                            <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                                Belum ada router. Isi nama di bawah. Nama bebas, paling banyak 3, dan semuanya bisa dihapus. Router pertama mengikuti tagihan akun.
                             </p>
-                        )}
+                        ) : null}
 
                         {(vpn?.extra_routers || []).map((item) => (
                             <div key={item.id || item.name} className="mt-4 border-t border-ink/10 pt-4">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <h3 className="text-sm font-semibold text-ink">Router {item.name}</h3>
+                                    <h3 className="text-sm font-semibold text-ink">
+                                        Router {item.name}
+                                        {item.included ? ' · tagihan akun' : ''}
+                                    </h3>
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -288,8 +291,8 @@ export default function Home({
                             >
                                 <h3 className="text-sm font-semibold text-ink">RouterOS baru</h3>
                                 <p className="mt-1 text-sm text-ink-soft">
-                                    {spareRouters > 0
-                                        ? 'Tagihan router yang dihapus masih berlaku. Nama baru ini tidak membuat tagihan baru.'
+                                    {nextWithoutInvoice
+                                        ? 'Nama ini bebas. Router ini tidak membuat tagihan baru.'
                                         : 'Nama ini menjadi username VPN router tersebut. Tagihan muncul hari ini dan harus lunas dulu.'}
                                 </p>
                                 <label className="mt-3 block text-sm font-medium text-ink">
@@ -313,7 +316,7 @@ export default function Home({
                                 >
                                     {extra.processing
                                         ? 'Menyimpan...'
-                                        : spareRouters > 0
+                                        : nextWithoutInvoice
                                           ? 'Buat router tanpa tagihan baru'
                                           : 'Buat router'}
                                 </button>

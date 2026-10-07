@@ -8,6 +8,7 @@ use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
+use App\Models\User;
 use App\Models\VpnRouter;
 use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
@@ -57,10 +58,8 @@ class VpnPortalScriptTest extends TestCase
                 ->where('customer.ppp_service', 'l2tp')
                 ->where('vpn.server', '203.0.113.10')
                 ->where('vpn.username', 'vpnuser')
-                ->where('script', fn ($script) => is_string($script)
-                    && str_contains($script, 'connect-to=203.0.113.10')
-                    && str_contains($script, 'password="rahasia"')
-                    && ! str_contains($script, 'secret-api'))
+                ->where('vpn.router_count', 0)
+                ->where('script', null)
                 ->missing('device')
             );
 
@@ -166,7 +165,10 @@ class VpnPortalScriptTest extends TestCase
         ]);
         $customer = $this->customer('203.0.113.10', 'rahasia');
         $customer->update(['subscription_package_id' => $package->id]);
-        $enrolled = app(VpnRouterAccounts::class)->enroll($customer, 'toko-lama');
+        $accounts = app(VpnRouterAccounts::class);
+        $included = $accounts->enroll($customer, 'kantor');
+        $enrolled = $accounts->enroll($customer->fresh(), 'toko-lama');
+        $this->assertNotNull($enrolled['invoice']);
         app(BillingService::class)->markPaid($enrolled['invoice']);
         $invoiceId = $enrolled['invoice']->id;
         $token = $this->portalToken($customer);
@@ -213,11 +215,19 @@ class VpnPortalScriptTest extends TestCase
         $this->assertTrue($replacement->isUsable());
         $this->assertSame($replacement->id, (int) Invoice::query()->find($invoiceId)?->vpn_router_id);
 
+        $admin = User::factory()->superadmin()->create();
+        $this->actingAs($admin)
+            ->delete('/admin/customers/pppoe/'.$customer->id.'/vpn/routers/'.$included['router']->id)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->assertNull(VpnRouter::query()->find($included['router']->id));
+        $this->assertSame('paid', Invoice::query()->find($invoiceId)?->status);
+
         $this->get('/portal/'.$token)
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Portal/Vpn/Home', false)
-                ->where('vpn.spare_routers', 0)
+                ->where('vpn.spare_routers', 1)
                 ->where('vpn.extra_routers.0.name', 'toko-baru')
             );
     }

@@ -49,33 +49,52 @@ class VpnAccessPlan
                 return;
             }
 
-            if (! $locked->vpn_remote_address) {
-                $locked->vpn_remote_address = $this->nextAddress();
+            $legacy = VpnPortForward::query()
+                ->where('pppoe_customer_id', $locked->id)
+                ->whereNull('vpn_router_id')
+                ->get();
+
+            if (! $locked->vpn_remote_address && $legacy->isEmpty()) {
+                return;
             }
 
-            if (! $locked->vpn_port_series) {
-                $locked->vpn_port_series = $this->nextSeries();
+            $router = VpnRouter::query()
+                ->where('pppoe_customer_id', $locked->id)
+                ->where('included', true)
+                ->first();
+
+            if (! $router) {
+                $address = $locked->vpn_remote_address ?: $this->nextAddress();
+                $series = $locked->vpn_port_series ?: $this->nextSeries();
+                $locked->vpn_remote_address = null;
+                $locked->vpn_port_series = null;
+                $locked->save();
+
+                $router = VpnRouter::query()->create([
+                    'pppoe_customer_id' => $locked->id,
+                    'name' => $this->legacyRouterName($locked),
+                    'vpn_remote_address' => $address,
+                    'vpn_port_series' => $series,
+                    'billing_day' => (int) ($locked->billing_day ?: now()->day),
+                    'included' => true,
+                    'service_until' => $locked->due_date?->toDateString(),
+                ]);
+            } else {
+                $locked->vpn_remote_address = null;
+                $locked->vpn_port_series = null;
+                $locked->save();
             }
 
-            $locked->save();
-
-            foreach (self::STANDARD as $dst => $meta) {
-                VpnPortForward::query()->firstOrCreate(
-                    [
-                        'pppoe_customer_id' => $locked->id,
-                        'dst_port' => $dst,
-                    ],
-                    [
-                        'public_port' => $this->publicPort((int) $locked->vpn_port_series, $dst),
-                        'kind' => VpnPortForward::KIND_STANDARD,
-                        'label' => $meta['label'],
-                    ],
-                );
+            if ($legacy->isNotEmpty()) {
+                VpnPortForward::query()
+                    ->where('pppoe_customer_id', $locked->id)
+                    ->whereNull('vpn_router_id')
+                    ->update(['vpn_router_id' => $router->id]);
             }
         });
     }
 
-    public function addCustom(PppoeCustomer $customer, int $dstPort, ?string $note = null): VpnPortForward
+    public function addCustom(PppoeCustomer $customer, int $dstPort, ?string $note = null, ?VpnRouter $router = null): VpnPortForward
     {
         if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
             throw new InvalidArgumentException('Port khusus hanya untuk pelanggan VPN.');
@@ -94,10 +113,15 @@ class VpnAccessPlan
 
         $exists = VpnPortForward::query()
             ->where('pppoe_customer_id', $customer->id)
+            ->when(
+                $router,
+                fn ($query) => $query->where('vpn_router_id', $router->id),
+                fn ($query) => $query->whereNull('vpn_router_id'),
+            )
             ->where('dst_port', $dstPort)
             ->exists();
         if ($exists) {
-            throw new InvalidArgumentException('Port tujuan '.$dstPort.' sudah ada untuk pelanggan ini.');
+            throw new InvalidArgumentException('Port tujuan '.$dstPort.' sudah ada untuk router ini.');
         }
 
         $label = trim((string) $note);
@@ -105,9 +129,15 @@ class VpnAccessPlan
             $label = 'Custom '.$dstPort;
         }
 
+        $series = $router ? (int) $router->vpn_port_series : (int) $customer->vpn_port_series;
+        if ($series < 1) {
+            throw new InvalidArgumentException('Router ini belum punya seri port.');
+        }
+
         return VpnPortForward::query()->create([
             'pppoe_customer_id' => $customer->id,
-            'public_port' => $this->nextCustomPublicPort((int) $customer->vpn_port_series),
+            'vpn_router_id' => $router?->id,
+            'public_port' => $this->nextCustomPublicPort($series),
             'dst_port' => $dstPort,
             'kind' => VpnPortForward::KIND_CUSTOM,
             'label' => mb_substr($label, 0, 80),
@@ -125,10 +155,6 @@ class VpnAccessPlan
             throw new InvalidArgumentException('Nama router hanya huruf, angka, titik, garis bawah, atau strip, 2–32 karakter.');
         }
 
-        if (strcasecmp($name, (string) $customer->username) === 0) {
-            throw new InvalidArgumentException('Nama router tambahan tidak boleh sama dengan username akun.');
-        }
-
         return DB::transaction(function () use ($customer, $name) {
             $this->ensure($customer);
             $locked = PppoeCustomer::query()->whereKey($customer->id)->lockForUpdate()->first();
@@ -136,13 +162,16 @@ class VpnAccessPlan
                 throw new RuntimeException('Pelanggan tidak ditemukan.');
             }
 
-            $extra = VpnRouter::query()->where('pppoe_customer_id', $locked->id)->lockForUpdate()->count();
-            if (1 + $extra >= 3) {
+            $count = VpnRouter::query()->where('pppoe_customer_id', $locked->id)->lockForUpdate()->count();
+            if ($count >= 3) {
                 throw new InvalidArgumentException('Satu akun paling banyak 3 router.');
             }
 
             $taken = VpnRouter::query()->whereRaw('LOWER(name) = ?', [strtolower($name)])->exists()
-                || PppoeCustomer::query()->whereRaw('LOWER(username) = ?', [strtolower($name)])->exists();
+                || PppoeCustomer::query()
+                    ->where('id', '!=', $locked->id)
+                    ->whereRaw('LOWER(username) = ?', [strtolower($name)])
+                    ->exists();
             if ($taken) {
                 throw new InvalidArgumentException('Nama router '.$name.' sudah dipakai.');
             }
@@ -247,5 +276,23 @@ class VpnAccessPlan
         }
 
         throw new RuntimeException('Alamat IP VPN sudah habis.');
+    }
+
+    private function legacyRouterName(PppoeCustomer $customer): string
+    {
+        $name = trim((string) $customer->username);
+        $free = preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$/', $name) === 1
+            && ! VpnRouter::query()->whereRaw('LOWER(name) = ?', [strtolower($name)])->exists();
+
+        if ($free) {
+            return $name;
+        }
+
+        $fallback = 'router-'.$customer->id;
+        if (! VpnRouter::query()->whereRaw('LOWER(name) = ?', [strtolower($fallback)])->exists()) {
+            return $fallback;
+        }
+
+        return 'router-'.$customer->id.'-'.now()->format('His');
     }
 }
