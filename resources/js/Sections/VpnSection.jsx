@@ -5,6 +5,7 @@ export default function VpnSection({ section }) {
     if (!section) return null;
 
     const steps = section.content?.steps || [];
+    const features = section.content?.features || [];
     const image = section.image || '/images/vpn/office.jpg';
     const detail = section.image_secondary || '/images/vpn/router.jpg';
 
@@ -35,6 +36,17 @@ export default function VpnSection({ section }) {
                         {section.title}
                     </h2>
                     <p className="mt-4 text-base leading-relaxed text-white/75">{section.body}</p>
+
+                    {features.length > 0 && (
+                        <ul className="mt-6 space-y-2 text-sm leading-relaxed text-white/80">
+                            {features.map((feature) => (
+                                <li key={feature} className="flex gap-2">
+                                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-signal-bright" />
+                                    <span>{feature}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
 
                     <ol className="mt-8 space-y-4">
                         {steps.map((step, index) => (

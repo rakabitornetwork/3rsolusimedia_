@@ -116,7 +116,7 @@ class PortalWhatsappLoginTest extends TestCase
         $this->get('/portal')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Portal/Pay/Index')
+                ->component('Portal/Pay/Index', false)
                 ->where('whatsapp_login.pending', true)
                 ->where('whatsapp_login.phone', '6281234567890')
                 ->where('whatsapp_login.phone_mask', '6281******890')
@@ -138,7 +138,7 @@ class PortalWhatsappLoginTest extends TestCase
 
         $this->get($response->headers->get('Location'))
             ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Portal/Home'));
+            ->assertInertia(fn ($page) => $page->component('Portal/Home', false));
     }
 
     #[Test]
@@ -164,7 +164,7 @@ class PortalWhatsappLoginTest extends TestCase
 
         $this->post('/portal/otp', ['phone' => '081234567890'])
             ->assertSessionHasErrors([
-                'whatsapp' => 'Nomor ini terdaftar pada lebih dari satu akun. Masuk dengan username PPPoE.',
+                'whatsapp' => 'Nomor ini terdaftar pada lebih dari satu akun. Hubungi admin untuk merapikan nomornya.',
             ]);
 
         Http::assertNothingSent();

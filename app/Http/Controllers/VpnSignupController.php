@@ -2,145 +2,86 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
+use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
-use App\Services\BillingCycleService;
-use App\Services\BillingService;
-use App\Services\Messaging\CustomerNotifier;
-use App\Services\PaymentGateway\PaymentGatewayManager;
-use App\Services\Vpn\VpnRouterAccounts;
+use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Support\AppSettings;
+use App\Support\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
-use Symfony\Component\HttpFoundation\Response as HttpResponse;
-use InvalidArgumentException;
-use RuntimeException;
-use Throwable;
 
 class VpnSignupController extends Controller
 {
-    use ResolvesPortalCustomer;
-
     public function __construct(
-        private readonly BillingCycleService $cycle,
-        private readonly BillingService $billing,
-        private readonly VpnRouterAccounts $accounts,
-        private readonly PaymentGatewayManager $gateways,
-        private readonly CustomerNotifier $notifier,
+        private readonly WhatsAppIdentityBinder $binder,
     ) {}
 
     public function create(): Response
     {
-        $packages = $this->packages();
-
         return Inertia::render('Vpn/Signup', [
             'settings' => [
                 'company_name' => AppSettings::get('company_name', 'Tesla Tech'),
             ],
-            'packages' => $packages->map(fn (SubscriptionPackage $package) => [
-                'id' => $package->id,
-                'name' => $package->name,
-                'price' => (int) $package->price,
-                'price_label' => 'Rp '.number_format((int) $package->price, 0, ',', '.'),
-                'description' => $package->description,
-            ])->values()->all(),
-            'open' => $packages->isNotEmpty(),
+            'open' => $this->packages()->isNotEmpty(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse|HttpResponse
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
+            'email' => ['required', 'email', 'max:150'],
             'phone' => ['required', 'string', 'max:40'],
-            'username' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$/', 'unique:pppoe_customers,username'],
-            'password' => ['required', 'string', 'min:6', 'max:64'],
-            'router_name' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$/'],
-            'subscription_package_id' => ['required', 'integer'],
-        ], [
-            'username.regex' => 'Username akun hanya huruf, angka, titik, garis bawah, atau strip, 2–32 karakter.',
-            'username.unique' => 'Username akun sudah dipakai.',
-            'router_name.regex' => 'Nama router hanya huruf, angka, titik, garis bawah, atau strip, 2–32 karakter.',
         ]);
 
-        $package = $this->packages()->firstWhere('id', (int) $validated['subscription_package_id']);
+        $package = $this->packages()->first();
         if (! $package) {
-            return back()->withErrors(['subscription_package_id' => 'Paket VPN tidak tersedia.'])->withInput();
+            return back()->withErrors(['phone' => 'Pendaftaran VPN Tunnel belum dibuka.'])->withInput();
         }
 
-        try {
-            [$customer, $invoice] = DB::transaction(function () use ($validated, $package) {
-                $quote = $this->cycle->calculateProrata(now(), (int) now()->day, (int) $package->price);
-                if ($quote['amount'] <= 0) {
-                    throw new InvalidArgumentException('Tagihan pertama tidak bisa dihitung untuk paket ini.');
-                }
-
-                $customer = \App\Models\PppoeCustomer::query()->create([
-                    'mikrotik_router_id' => $package->mikrotik_router_id,
-                    'subscription_package_id' => $package->id,
-                    'name' => $validated['name'],
-                    'phone' => $validated['phone'],
-                    'username' => $validated['username'],
-                    'password' => $validated['password'],
-                    'ppp_service' => \App\Models\PppoeCustomer::SERVICE_L2TP,
-                    'service_profile' => $package->mikrotik_profile,
-                    'start_date' => $quote['start_date'],
-                    'billing_day' => $quote['billing_day'],
-                    'due_date' => $quote['due_date'],
-                    'first_bill_amount' => $quote['amount'],
-                    'first_bill_days' => $quote['days'],
-                    'overdue_action' => 'isolir',
-                    'status' => 'isolated',
-                    'sync_status' => 'pending',
-                    'is_active' => true,
-                    'notes' => 'Daftar sendiri dari halaman VPN.',
-                ]);
-
-                $invoice = $this->billing->createProrataInvoice($customer->fresh('package'));
-                if (! $invoice) {
-                    throw new InvalidArgumentException('Tagihan pertama tidak terbentuk.');
-                }
-
-                $this->accounts->enroll($customer, $validated['router_name']);
-
-                return [$customer, $invoice];
-            });
-        } catch (InvalidArgumentException $exception) {
-            return back()->withErrors(['router_name' => $exception->getMessage()])->withInput();
+        $phone = PhoneNumber::toInternational($validated['phone']);
+        if ($phone === '' || strlen($phone) < 10) {
+            return back()->withErrors(['phone' => 'Nomor WhatsApp tidak valid.'])->withInput();
         }
 
-        try {
-            $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
-        } catch (Throwable) {
-            // Akun tetap jadi meski pesan tagihan gagal.
+        if ($this->binder->customersForNumber($phone)->isNotEmpty()) {
+            return back()->withErrors([
+                'phone' => 'Nomor WhatsApp ini sudah terdaftar. Masuk portal dengan kode OTP.',
+            ])->withInput();
         }
 
-        $token = $this->makePortalToken($customer->id);
-        $request->session()->put('portal_customer_id', $customer->id);
+        $today = now()->startOfDay();
+        $trialEnds = $today->copy()->addDays(3);
 
-        if ($this->gateways->hasEnabledGateway()) {
-            try {
-                $result = $this->gateways->createPayment(
-                    $invoice,
-                    URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'success']),
-                    URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'failed']),
-                );
-
-                return Inertia::location($result['checkout_url']);
-            } catch (InvalidArgumentException|RuntimeException|Throwable $exception) {
-                return redirect()
-                    ->route('portal.pay.invoices', ['token' => $token])
-                    ->with('error', 'Router dibuat, tetapi link pembayaran gagal: '.$exception->getMessage());
-            }
-        }
+        PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $package->mikrotik_router_id,
+            'subscription_package_id' => $package->id,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $phone,
+            'username' => $this->uniqueUsername($phone),
+            'password' => Str::password(16, symbols: false),
+            'ppp_service' => PppoeCustomer::SERVICE_L2TP,
+            'service_profile' => $package->mikrotik_profile,
+            'start_date' => $today->toDateString(),
+            'billing_day' => min(28, (int) $trialEnds->day),
+            'due_date' => $trialEnds->toDateString(),
+            'vpn_trial_ends_at' => $trialEnds->toDateString(),
+            'first_bill_amount' => (int) $package->price,
+            'first_bill_days' => 3,
+            'overdue_action' => 'isolir',
+            'status' => 'active',
+            'sync_status' => 'pending',
+            'is_active' => true,
+            'notes' => 'Daftar sendiri dari halaman VPN Tunnel.',
+        ]);
 
         return redirect()
-            ->route('portal.pay.invoices', ['token' => $token])
-            ->with('success', 'Router '.$validated['router_name'].' sudah dibuat. Bayar tagihan '.$invoice->number.' supaya layanan aktif.');
+            ->route('portal.pay.index')
+            ->with('success', 'Akun VPN Tunnel sudah dibuat. Masuk portal dengan nomor WhatsApp ini. Kode OTP dikirim ke WhatsApp yang didaftarkan. Router pertama gratis sampai '.$trialEnds->translatedFormat('d M Y').'.');
     }
 
     /**
@@ -155,5 +96,20 @@ class VpnSignupController extends Controller
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+    }
+
+    private function uniqueUsername(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?: 'user';
+        $base = 'vt'.substr($digits, -8);
+        $candidate = $base;
+
+        for ($attempt = 1; PppoeCustomer::query()->where('username', $candidate)->exists(); $attempt++) {
+            $candidate = $attempt > 20
+                ? 'vt'.Str::lower(Str::random(8))
+                : substr($base, 0, 24).$attempt;
+        }
+
+        return $candidate;
     }
 }

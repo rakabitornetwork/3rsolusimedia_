@@ -268,6 +268,10 @@ class CustomerPortalController extends Controller
                 'router_count' => $customer->vpnRouters->count(),
                 'spare_routers' => $this->vpnAccounts->spareCount($customer),
                 'next_without_invoice' => $this->vpnAccounts->nextWithoutInvoice($customer),
+                'trial' => [
+                    'active' => $customer->vpnTrialActive(),
+                    'ends_at' => $customer->vpn_trial_ends_at?->toDateString(),
+                ],
                 'extra_routers' => $customer->vpnRouters->map(fn ($router) => [
                     'id' => $router->id,
                     'name' => $router->name,
@@ -310,7 +314,9 @@ class CustomerPortalController extends Controller
         $push = $this->vpn->pushRouter($router);
         $name = $validated['name'];
 
-        if ($enrolled['reused']) {
+        if ($customer->vpnTrialActive() && $router->included && ! $enrolled['invoice']) {
+            $message = 'Router '.$name.' aktif gratis sampai '.$customer->vpn_trial_ends_at->translatedFormat('d M Y').'.';
+        } elseif ($enrolled['reused']) {
             $message = 'Router '.$name.' dibuat tanpa tagihan baru. Tagihan sebelumnya tetap berlaku.';
         } else {
             $number = $enrolled['invoice']?->number;
@@ -324,7 +330,7 @@ class CustomerPortalController extends Controller
             }
         }
 
-        if (! $push['ok']) {
+        if (! $push['ok'] || ! ($push['pushed'] ?? false)) {
             $message .= ' '.$push['message'];
         } else {
             $message .= ' Aturan CHR sudah diisi.';

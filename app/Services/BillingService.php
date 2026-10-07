@@ -566,6 +566,10 @@ class BillingService
             return ['invoice' => null, 'created' => false];
         }
 
+        if ($customer->vpn_trial_ends_at && $customer->vpn_trial_billed_at === null) {
+            return ['invoice' => null, 'created' => false];
+        }
+
         $unpaid = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'unpaid')
@@ -632,6 +636,71 @@ class BillingService
         }
 
         return compact('created', 'skipped');
+    }
+
+    /**
+     * Setelah 3 hari gratis, kirim tagihan WhatsApp dan matikan secret sampai lunas.
+     */
+    public function billEndedVpnTrials(): int
+    {
+        $today = now()->startOfDay();
+        $customers = PppoeCustomer::query()
+            ->with(['package', 'vpnRouters.portForwards'])
+            ->where('ppp_service', PppoeCustomer::SERVICE_L2TP)
+            ->whereNotNull('vpn_trial_ends_at')
+            ->whereNull('vpn_trial_billed_at')
+            ->whereDate('vpn_trial_ends_at', '<', $today->toDateString())
+            ->get();
+
+        $count = 0;
+
+        foreach ($customers as $customer) {
+            $amount = (int) ($customer->package?->price ?: $customer->first_bill_amount ?: 0);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $start = $today->toDateString();
+            $end = $today->copy()->addMonthNoOverflow()->toDateString();
+            $invoice = $this->createInvoice(
+                $customer,
+                'monthly',
+                $start,
+                $end,
+                $start,
+                $amount,
+                'Tagihan setelah masa gratis 3 hari VPN Tunnel',
+                notify: false,
+            );
+
+            $customer->update([
+                'vpn_trial_billed_at' => now(),
+                'status' => 'isolated',
+                'due_date' => $start,
+            ]);
+
+            foreach ($customer->vpnRouters as $router) {
+                try {
+                    $this->vpnRouters->pushRouter($router->fresh(['customer', 'portForwards']) ?? $router);
+                } catch (\Throwable) {
+                    // Tagihan tetap terkirim meski CHR tidak terjangkau.
+                }
+            }
+
+            try {
+                $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+            } catch (\Throwable) {
+                // Tagihan sudah tersimpan meski WhatsApp gagal.
+            }
+
+            $count++;
+        }
+
+        if ($count > 0) {
+            $this->notifier->dispatchWhatsappOutbox();
+        }
+
+        return $count;
     }
 
     public function createVpnRouterOpeningInvoice(PppoeCustomer $customer, VpnRouter $router, bool $notify = false): Invoice
@@ -774,7 +843,7 @@ class BillingService
                         : now()->startOfDay()->addMonthNoOverflow()->toDateString();
                     $router->update(['service_until' => $until]);
                     try {
-                        $this->vpnRouters->syncRouterSecret($router->fresh() ?? $router);
+                        $this->vpnRouters->pushRouter($router->fresh(['customer', 'portForwards']) ?? $router);
                     } catch (\Throwable) {
                         // Pelunasan tetap sah meski CHR tidak terjangkau.
                     }

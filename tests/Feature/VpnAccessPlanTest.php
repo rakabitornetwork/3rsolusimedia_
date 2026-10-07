@@ -71,6 +71,7 @@ class VpnAccessPlanTest extends TestCase
         $admin = User::factory()->superadmin()->create();
         $customer = $this->customer('vpn-push');
         $router = app(VpnAccessPlan::class)->addRouter($customer, 'toko-push');
+        $router->update(['included' => true]);
 
         $this->actingAs($admin)
             ->post('/admin/customers/pppoe/'.$customer->id.'/vpn/routers/'.$router->id.'/push')
@@ -92,6 +93,17 @@ class VpnAccessPlanTest extends TestCase
         $shown = app(VpnServerScript::class)->textForRouter($router->fresh('portForwards'));
         $this->assertStringContainsString('/ppp secret add', $shown);
         $this->assertStringContainsString('name="toko-push"', $shown);
+
+        $unpaid = app(VpnAccessPlan::class)->addRouter($customer->fresh(), 'toko-nunggu');
+        $before = count($fake->commands);
+
+        $this->actingAs($admin)
+            ->post('/admin/customers/pppoe/'.$customer->id.'/vpn/routers/'.$unpaid->id.'/push')
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertCount($before, $fake->commands);
+        $this->assertNull($unpaid->portForwards()->first()?->fresh()->pushed_at);
     }
 
     #[Test]

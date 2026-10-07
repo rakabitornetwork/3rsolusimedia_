@@ -870,7 +870,7 @@
     ]
   },
   "resources/js/Pages/Landing.jsx": {
-    "file": "assets/Landing-DZS87htP.js",
+    "file": "assets/Landing-BM_NwQel.js",
     "name": "Landing",
     "src": "resources/js/Pages/Landing.jsx",
     "isDynamicEntry": true,
@@ -936,7 +936,7 @@
     ]
   },
   "resources/js/Pages/Portal/Pay/Index.jsx": {
-    "file": "assets/Index-DJ6P19-R.js",
+    "file": "assets/Index-DmAa3r1c.js",
     "name": "Index",
     "src": "resources/js/Pages/Portal/Pay/Index.jsx",
     "isDynamicEntry": true,
@@ -959,7 +959,7 @@
     ]
   },
   "resources/js/Pages/Portal/Vpn/Home.jsx": {
-    "file": "assets/Home-nXHKcWvC.js",
+    "file": "assets/Home-B4euSg9Z.js",
     "name": "Home",
     "src": "resources/js/Pages/Portal/Vpn/Home.jsx",
     "isDynamicEntry": true,
@@ -972,7 +972,7 @@
     ]
   },
   "resources/js/Pages/Vpn/Signup.jsx": {
-    "file": "assets/Signup-B2etPtzP.js",
+    "file": "assets/Signup-DEqlE_7O.js",
     "name": "Signup",
     "src": "resources/js/Pages/Vpn/Signup.jsx",
     "isDynamicEntry": true,
@@ -1079,7 +1079,7 @@
     ]
   },
   "resources/js/Sections/VpnSection.jsx": {
-    "file": "assets/VpnSection-CMD97Nru.js",
+    "file": "assets/VpnSection-CBfU-f6y.js",
     "name": "VpnSection",
     "src": "resources/js/Sections/VpnSection.jsx",
     "isDynamicEntry": true,
@@ -1090,7 +1090,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-BeMa5cc1.js",
+    "file": "assets/app-BWNXQpTa.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

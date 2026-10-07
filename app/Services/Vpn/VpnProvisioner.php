@@ -62,20 +62,33 @@ class VpnProvisioner
             return ['ok' => false, 'message' => 'Skrip server router ini belum lengkap.'];
         }
 
+        if (! $router->isUsable()) {
+            $everPushed = $router->portForwards->contains(fn ($forward) => $forward->pushed_at !== null);
+            if (! $everPushed) {
+                return [
+                    'ok' => true,
+                    'pushed' => false,
+                    'message' => 'Router '.$router->name.' disimpan. Aturan CHR baru diisi setelah layanannya aktif.',
+                ];
+            }
+
+            $synced = $this->syncRouterSecret($router);
+            $synced['pushed'] = false;
+
+            return $synced;
+        }
+
         $result = $this->runAll($this->script->commandsForRouter($router), $router->portForwards->all());
         if (! $result['ok']) {
+            $result['pushed'] = false;
+
             return $result;
         }
 
-        $active = $router->isUsable();
-
         return [
             'ok' => true,
-            'message' => $active
-                ? 'Router '.$router->name.' terkirim ke CHR dan secret-nya aktif.'
-                : ($router->included
-                    ? 'Router '.$router->name.' terkirim ke CHR. Secret tetap mati karena akun VPN belum aktif.'
-                    : 'Router '.$router->name.' terkirim ke CHR. Secret tetap mati sampai tagihannya lunas.'),
+            'pushed' => true,
+            'message' => 'Router '.$router->name.' terkirim ke CHR dan secret-nya aktif.',
         ];
     }
 

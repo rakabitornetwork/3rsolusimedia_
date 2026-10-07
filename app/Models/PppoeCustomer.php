@@ -22,6 +22,7 @@ class PppoeCustomer extends Model
         'subscription_package_id',
         'name',
         'phone',
+        'email',
         'address',
         'latitude',
         'longitude',
@@ -49,6 +50,8 @@ class PppoeCustomer extends Model
         'last_synced_at',
         'notes',
         'is_active',
+        'vpn_trial_ends_at',
+        'vpn_trial_billed_at',
     ];
 
     protected function casts(): array
@@ -66,6 +69,8 @@ class PppoeCustomer extends Model
             'latitude' => 'float',
             'longitude' => 'float',
             'last_synced_at' => 'datetime',
+            'vpn_trial_ends_at' => 'date',
+            'vpn_trial_billed_at' => 'datetime',
             'is_active' => 'boolean',
             'agent_pays_commission' => 'boolean',
         ];
@@ -181,8 +186,33 @@ class PppoeCustomer extends Model
     /**
      * Apakah pelanggan harus diisolir saat sync (menghormati grace + pengaturan auto isolir).
      */
+    public function vpnTrialActive(): bool
+    {
+        if (! $this->vpn_trial_ends_at || $this->vpn_trial_billed_at) {
+            return false;
+        }
+
+        return $this->vpn_trial_ends_at->copy()->startOfDay()->greaterThan(now()->startOfDay());
+    }
+
+    public function vpnTrialAwaitingPayment(): bool
+    {
+        if ($this->pppService() !== self::SERVICE_L2TP || ! $this->vpn_trial_billed_at) {
+            return false;
+        }
+
+        return ! $this->invoices()
+            ->where('status', 'paid')
+            ->where('type', '!=', 'vpn_router')
+            ->exists();
+    }
+
     public function shouldIsolir(): bool
     {
+        if ($this->vpnTrialAwaitingPayment()) {
+            return true;
+        }
+
         if (! \App\Support\AppSettings::bool('app_auto_isolir', true)) {
             return false;
         }

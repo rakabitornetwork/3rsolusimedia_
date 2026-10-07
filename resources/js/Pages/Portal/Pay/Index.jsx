@@ -1,6 +1,6 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { CreditCard, Router, Wifi } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 const fieldClass =
     'mt-1.5 w-full rounded-lg border border-ink/10 bg-mist/40 px-3 py-2 text-sm outline-none transition focus:border-signal focus:bg-white focus:ring-4 focus:ring-signal/10 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-3.5 sm:py-3';
@@ -14,12 +14,7 @@ const quietButton =
 export default function Index({ branding, gateway_ready, whatsapp_login }) {
     const { flash, errors } = usePage().props;
     const login = whatsapp_login || { enabled: false, pending: false, phone: '', phone_mask: '' };
-    const [mode, setMode] = useState(errors?.username || errors?.phone ? 'username' : 'whatsapp');
 
-    const lookup = useForm({
-        username: '',
-        phone: '',
-    });
     const otp = useForm({
         phone: login.phone || '',
         code: '',
@@ -30,11 +25,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
             otp.setData('phone', login.phone);
         }
     }, [login.phone]);
-
-    const submitLookup = (e) => {
-        e.preventDefault();
-        lookup.post('/portal/lookup');
-    };
 
     const submitOtpRequest = (e) => {
         e.preventDefault();
@@ -100,7 +90,7 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                 Portal Pelanggan
                             </h1>
                             <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-ink-soft sm:mt-3 sm:text-sm">
-                                Cek tagihan, bayar online, kelola WiFi, dan pantau perangkat dari satu tempat.
+                                Masuk dengan nomor WhatsApp yang terdaftar. Kode OTP dikirim ke WhatsApp itu.
                             </p>
                         </div>
 
@@ -138,49 +128,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                             </div>
                         )}
 
-                    {mode === 'username' ? (
-                        <form onSubmit={submitLookup}>
-                            <label className="mt-5 block text-sm font-medium text-ink">
-                                Username PPPoE
-                                <input
-                                    type="text"
-                                    value={lookup.data.username}
-                                    onChange={(e) => lookup.setData('username', e.target.value)}
-                                    className={fieldClass}
-                                    placeholder="contoh: user01"
-                                    autoComplete="username"
-                                    required
-                                />
-                                {errors.username && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.username}</p>
-                                )}
-                            </label>
-
-                            <label className="mt-4 block text-sm font-medium text-ink">
-                                Nomor telepon
-                                <input
-                                    type="tel"
-                                    value={lookup.data.phone}
-                                    onChange={(e) => lookup.setData('phone', e.target.value)}
-                                    className={fieldClass}
-                                    placeholder="08xxxxxxxxxx"
-                                    autoComplete="tel"
-                                    required
-                                />
-                                {errors.phone && (
-                                    <p className="mt-1 text-xs text-red-600">{errors.phone}</p>
-                                )}
-                            </label>
-
-                            <button
-                                type="submit"
-                                disabled={lookup.processing}
-                                className={primaryButton}
-                            >
-                                {lookup.processing ? 'Memeriksa...' : 'Masuk portal'}
-                            </button>
-                        </form>
-                    ) : (
                         <div>
                             {!login.enabled && (
                                 <p className="mt-5 text-sm text-ink-soft">
@@ -271,15 +218,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                 </form>
                             )}
                         </div>
-                    )}
-
-                        <button
-                            type="button"
-                            onClick={() => setMode(mode === 'whatsapp' ? 'username' : 'whatsapp')}
-                            className="mt-5 w-full cursor-pointer text-center text-sm font-semibold text-signal-deep hover:underline"
-                        >
-                            {mode === 'whatsapp' ? 'Masuk dengan username' : 'Masuk dengan WhatsApp'}
-                        </button>
                     </div>
                 </div>
             </div>

@@ -222,7 +222,9 @@ export default function Home({
                             </div>
                         ) : (vpn?.extra_routers || []).length === 0 ? (
                             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
-                                Belum ada router. Isi nama di bawah. Nama bebas, paling banyak 3, dan semuanya bisa dihapus. Router pertama mengikuti tagihan akun.
+                                {vpn?.trial?.active
+                                    ? `Belum ada router. Isi nama di bawah. Router pertama gratis sampai ${vpn.trial.ends_at}.`
+                                    : 'Belum ada router. Isi nama di bawah. Nama bebas, paling banyak 3, dan semuanya bisa dihapus. Router pertama mengikuti tagihan akun.'}
                             </p>
                         ) : null}
 
@@ -291,9 +293,11 @@ export default function Home({
                             >
                                 <h3 className="text-sm font-semibold text-ink">RouterOS baru</h3>
                                 <p className="mt-1 text-sm text-ink-soft">
-                                    {nextWithoutInvoice
-                                        ? 'Nama ini bebas. Router ini tidak membuat tagihan baru.'
-                                        : 'Nama ini menjadi username VPN router tersebut. Tagihan muncul hari ini dan harus lunas dulu.'}
+                                    {vpn?.trial?.active && nextWithoutInvoice
+                                        ? `Nama ini bebas. Router pertama gratis sampai ${vpn.trial.ends_at}. Setelah itu tagihan dikirim ke WhatsApp.`
+                                        : nextWithoutInvoice
+                                          ? 'Nama ini bebas. Router ini tidak membuat tagihan baru.'
+                                          : 'Nama ini menjadi username VPN router tersebut. Tagihan muncul hari ini dan harus lunas dulu. Skrip baru muncul setelah lunas.'}
                                 </p>
                                 <label className="mt-3 block text-sm font-medium text-ink">
                                     Nama router

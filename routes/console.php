@@ -28,6 +28,12 @@ Schedule::command('vpn:purge-lapsed-routers')
     ->timezone($appTimezone)
     ->withoutOverlapping(60);
 
+// Masa gratis 3 hari selesai: kirim tagihan WhatsApp. Sebulan tanpa bayar: hapus dari CHR.
+Schedule::command('vpn:close-trials')
+    ->dailyAt('00:25')
+    ->timezone($appTimezone)
+    ->withoutOverlapping(60);
+
 // Bersihkan voucher hotspot terpakai dari RouterOS & aplikasi
 Schedule::command('hotspot:purge-used')->everyFiveMinutes();
 

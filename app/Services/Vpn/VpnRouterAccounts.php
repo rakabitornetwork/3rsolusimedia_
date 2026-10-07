@@ -166,6 +166,58 @@ class VpnRouterAccounts
         ];
     }
 
+    /**
+     * Akun daftar mandiri yang sebulan tidak punya pembayaran kehilangan router di CHR.
+     *
+     * @return array{customers: int, removed: int, failed: int}
+     */
+    public function purgeUnpaidTrials(): array
+    {
+        $cutoff = now()->startOfDay()->subMonthNoOverflow()->toDateString();
+        $customers = PppoeCustomer::query()
+            ->where('ppp_service', PppoeCustomer::SERVICE_L2TP)
+            ->whereNotNull('vpn_trial_ends_at')
+            ->whereDate('start_date', '<=', $cutoff)
+            ->whereDoesntHave('invoices', fn ($query) => $query->where('status', 'paid'))
+            ->get();
+
+        $removed = 0;
+        $failed = 0;
+
+        foreach ($customers as $customer) {
+            $result = $this->purgeLapsedRouters($customer);
+            $removed += $result['removed'];
+            $failed += count($result['failed']);
+
+            if ($result['failed'] !== []) {
+                continue;
+            }
+
+            if (VpnChrSettings::configured() || $customer->vpn_remote_address) {
+                $cleared = $this->provisioner->removeCustomer($customer->fresh(['vpnPortForwards', 'vpnRouters.portForwards']));
+                if (! $cleared['ok']) {
+                    $failed++;
+
+                    continue;
+                }
+            }
+
+            $note = 'Akun gratis dihapus dari CHR karena sebulan tidak ada pembayaran.';
+            if (! str_contains((string) $customer->notes, $note)) {
+                $customer->update([
+                    'status' => 'isolated',
+                    'notes' => trim((string) $customer->notes."\n".$note),
+                ]);
+            }
+        }
+
+        return [
+            'customers' => $customers->count(),
+            'removed' => $removed,
+            'failed' => $failed,
+        ];
+    }
+
     public function spareCount(PppoeCustomer $customer): int
     {
         return VpnRouterCredit::query()->where('pppoe_customer_id', $customer->id)->count();

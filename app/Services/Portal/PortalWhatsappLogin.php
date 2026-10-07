@@ -61,7 +61,7 @@ class PortalWhatsappLogin
                 'unavailable',
                 false,
                 '',
-                'Login WhatsApp belum aktif. Masuk dengan username PPPoE dan nomor telepon.',
+                'Login WhatsApp belum aktif. Coba lagi nanti.',
             );
         }
 
@@ -75,7 +75,7 @@ class PortalWhatsappLogin
                 'limited',
                 false,
                 $intl,
-                'Terlalu banyak permintaan kode untuk nomor ini. Coba lagi nanti, atau masuk dengan username PPPoE.',
+                'Terlalu banyak permintaan kode untuk nomor ini. Coba lagi nanti.',
             );
         }
 
@@ -85,7 +85,7 @@ class PortalWhatsappLogin
                 'ambiguous',
                 false,
                 '',
-                'Nomor ini terdaftar pada lebih dari satu akun. Masuk dengan username PPPoE.',
+                'Nomor ini terdaftar pada lebih dari satu akun. Hubungi admin untuk merapikan nomornya.',
             );
         }
 
@@ -114,7 +114,7 @@ class PortalWhatsappLogin
                 'unavailable',
                 false,
                 '',
-                'WhatsApp belum bisa mengirim kode saat ini. Masuk dengan username PPPoE dan nomor telepon.',
+                'WhatsApp belum bisa mengirim kode saat ini. Coba lagi nanti.',
             );
         }
 
