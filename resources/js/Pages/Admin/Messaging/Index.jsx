@@ -910,7 +910,7 @@ export default function Index({
                         },
                         {
                             title: 'Template VPN L2TP',
-                            hint: 'Dipakai otomatis untuk pelanggan VPN. Arahkan ke portal untuk menyalin skrip dan menjalankannya di New Terminal Winbox. Jangan menaruh password atau isi skrip di pesan ini.',
+                            hint: 'Dipakai otomatis untuk pelanggan VPN. Arahkan ke portal untuk menyalin skrip dan menjalankannya di New Terminal Winbox. Jangan menaruh password, isi skrip, atau informasi DANA dan rekening bank.',
                             fields: [
                                 ['msg_tpl_vpn_welcome', '🎉 Selamat datang pelanggan VPN'],
                                 ['msg_tpl_vpn_invoice', '🧾 Tagihan VPN'],

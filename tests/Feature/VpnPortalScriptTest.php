@@ -78,6 +78,42 @@ class VpnPortalScriptTest extends TestCase
     }
 
     #[Test]
+    public function vpn_templates_leave_out_dana_and_bank_details(): void
+    {
+        foreach ([
+            MessageTemplate::VPN_INVOICE,
+            MessageTemplate::VPN_REMINDER,
+            MessageTemplate::VPN_PAID,
+            MessageTemplate::VPN_ISOLIR,
+            MessageTemplate::VPN_RESTORE,
+            MessageTemplate::VPN_WELCOME,
+        ] as $template) {
+            $body = MessageTemplate::get($template);
+
+            $this->assertStringNotContainsString('{{rekening}}', $body, $template);
+            $this->assertStringNotContainsString('{{nama_bank}}', $body, $template);
+            $this->assertStringNotContainsString('{{nomor_rekening}}', $body, $template);
+            $this->assertStringNotContainsString('Dana', $body, $template);
+            $this->assertStringNotContainsString('Transfer ke', $body, $template);
+        }
+
+        $rendered = MessageTemplate::render(MessageTemplate::VPN_INVOICE, [
+            'nama' => 'Siti',
+            'nomor' => 'INV-1',
+            'total' => 'Rp 100.000',
+            'jatuh_tempo' => '01/11/2026',
+            'paket' => 'VPN 10 Mbps',
+            'rekening' => "Transfer ke:\nBCA\n123\n\nDana\n0812",
+            'nama_bank' => 'BCA',
+            'nomor_rekening' => '123',
+        ]);
+
+        $this->assertStringNotContainsString('Dana', $rendered);
+        $this->assertStringNotContainsString('BCA', $rendered);
+        $this->assertStringNotContainsString('Transfer ke', $rendered);
+    }
+
+    #[Test]
     public function vpn_isolir_notice_uses_the_vpn_template(): void
     {
         SiteSetting::setMany([

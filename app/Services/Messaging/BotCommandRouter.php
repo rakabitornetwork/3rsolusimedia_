@@ -552,10 +552,12 @@ class BotCommandRouter
                 'Pembayaran online belum aktif. Cek tagihan di portal:',
                 $invoicesUrl,
             ];
-            $rekening = MessageTemplate::sharedVars()['rekening'];
-            if ($rekening !== '') {
-                $lines[] = '';
-                $lines[] = $rekening;
+            if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+                $rekening = MessageTemplate::sharedVars()['rekening'];
+                if ($rekening !== '') {
+                    $lines[] = '';
+                    $lines[] = $rekening;
+                }
             }
 
             $this->reply($message, implode("\n", $lines), $identity);
