@@ -110,7 +110,14 @@ class PppoeCustomer extends Model
 
     public function vpnPortForwards(): HasMany
     {
-        return $this->hasMany(VpnPortForward::class)->orderBy('public_port');
+        return $this->hasMany(VpnPortForward::class)
+            ->whereNull('vpn_router_id')
+            ->orderBy('public_port');
+    }
+
+    public function vpnRouters(): HasMany
+    {
+        return $this->hasMany(VpnRouter::class)->orderBy('id');
     }
 
     public function router(): BelongsTo

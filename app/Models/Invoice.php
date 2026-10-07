@@ -11,6 +11,7 @@ class Invoice extends Model
     protected $fillable = [
         'number',
         'pppoe_customer_id',
+        'vpn_router_id',
         'subscription_package_id',
         'type',
         'billing_months',
@@ -92,6 +93,7 @@ class Invoice extends Model
                 'monthly' => 'Bulanan',
                 'multi_month' => 'Gabungan '.((int) ($this->billing_months ?: 2)).' bulan',
                 'adjustment' => 'Penyesuaian',
+                'vpn_router' => 'Router VPN',
                 default => $this->type,
             },
             'period_start' => $this->period_start?->format('Y-m-d'),

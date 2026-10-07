@@ -13,6 +13,7 @@ class VpnPortForward extends Model
 
     protected $fillable = [
         'pppoe_customer_id',
+        'vpn_router_id',
         'public_port',
         'dst_port',
         'kind',

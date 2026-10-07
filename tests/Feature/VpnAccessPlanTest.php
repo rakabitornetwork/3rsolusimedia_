@@ -4,13 +4,16 @@ namespace Tests\Feature;
 
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
+use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Models\VpnPortForward;
+use App\Services\BillingService;
 use App\Services\Vpn\RunsChrCommands;
 use App\Services\Vpn\VpnAccessPlan;
 use App\Services\Vpn\VpnChrSettings;
 use App\Services\Vpn\VpnServerScript;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -86,6 +89,48 @@ class VpnAccessPlanTest extends TestCase
 
         $shown = app(VpnServerScript::class)->text($customer->fresh('vpnPortForwards'));
         $this->assertStringContainsString('/ppp secret add', $shown);
+    }
+
+    #[Test]
+    public function extra_routers_are_limited_to_three_and_stay_off_until_paid(): void
+    {
+        $plan = app(VpnAccessPlan::class);
+        $customer = $this->customer('vpn-utama');
+        $package = SubscriptionPackage::query()->create([
+            'name' => 'VPN',
+            'price' => 150000,
+            'mikrotik_profile' => 'default',
+            'is_active' => true,
+        ]);
+        $customer->update(['subscription_package_id' => $package->id]);
+        $dueBefore = $customer->fresh()->due_date?->toDateString();
+
+        $plan->ensure($customer);
+        $customer->refresh();
+        $router = $plan->addRouter($customer, 'toko-pusat');
+
+        $this->assertSame($customer->vpn_port_series + 1, $router->vpn_port_series);
+        $this->assertCount(4, $router->portForwards);
+        $this->assertCount(4, $customer->vpnPortForwards()->get());
+
+        $invoice = app(BillingService::class)->createVpnRouterOpeningInvoice($customer->fresh(), $router);
+        $this->assertSame('vpn_router', $invoice->type);
+        $this->assertSame(now()->toDateString(), $invoice->due_date->toDateString());
+        $this->assertSame(150000, (int) $invoice->total);
+        $this->assertFalse($router->fresh()->isUsable());
+        $this->assertStringContainsString('disabled=yes', app(VpnServerScript::class)->textForRouter($router->fresh()));
+        $this->assertStringContainsString('name="toko-pusat"', app(VpnServerScript::class)->textForRouter($router->fresh()));
+
+        app(BillingService::class)->markPaid($invoice);
+        $router->refresh();
+        $this->assertTrue($router->isUsable());
+        $this->assertSame($dueBefore, $customer->fresh()->due_date?->toDateString());
+        $this->assertStringContainsString('disabled=no', app(VpnServerScript::class)->textForRouter($router->fresh()));
+
+        $plan->addRouter($customer->fresh(), 'gudang');
+
+        $this->expectException(InvalidArgumentException::class);
+        $plan->addRouter($customer->fresh(), 'rumah');
     }
 
     private function customer(string $username): PppoeCustomer

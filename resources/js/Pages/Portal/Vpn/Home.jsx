@@ -221,6 +221,35 @@ export default function Home({
                                 {script_message || 'Skrip VPN belum bisa dibuat. Hubungi admin.'}
                             </p>
                         )}
+
+                        {(vpn?.extra_routers || []).map((item) => (
+                            <div key={item.name} className="mt-4 border-t border-ink/10 pt-4">
+                                <h3 className="text-sm font-semibold text-ink">Router {item.name}</h3>
+                                {item.usable ? (
+                                    <>
+                                        <p className="mt-1 text-sm text-ink-soft">
+                                            Aktif sampai {item.service_until}. Tempel skrip ini di Winbox router tersebut.
+                                        </p>
+                                        <ul className="mt-2 space-y-1 text-sm text-ink">
+                                            {(item.ports || []).map((port) => (
+                                                <li key={port.public_port} className="font-mono text-xs">
+                                                    {vpn.server}:{port.public_port} → {port.dst_port} {port.label}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        {item.script && (
+                                            <pre className="mt-3 overflow-x-auto rounded-xl bg-ink px-3 py-3 font-mono text-xs leading-relaxed text-white">
+                                                {item.script}
+                                            </pre>
+                                        )}
+                                    </>
+                                ) : (
+                                    <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+                                        Router ini belum bisa dipakai. Bayar tagihannya dulu, lalu skrip akan muncul di halaman ini.
+                                    </p>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 </section>
             </div>

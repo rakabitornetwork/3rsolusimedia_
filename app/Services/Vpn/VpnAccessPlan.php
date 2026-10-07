@@ -4,6 +4,7 @@ namespace App\Services\Vpn;
 
 use App\Models\PppoeCustomer;
 use App\Models\VpnPortForward;
+use App\Models\VpnRouter;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
@@ -113,6 +114,62 @@ class VpnAccessPlan
         ]);
     }
 
+    public function addRouter(PppoeCustomer $customer, string $name): VpnRouter
+    {
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            throw new InvalidArgumentException('Router tambahan hanya untuk pelanggan VPN.');
+        }
+
+        $name = trim($name);
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{1,31}$/', $name) !== 1) {
+            throw new InvalidArgumentException('Nama router hanya huruf, angka, titik, garis bawah, atau strip, 2–32 karakter.');
+        }
+
+        if (strcasecmp($name, (string) $customer->username) === 0) {
+            throw new InvalidArgumentException('Nama router tambahan tidak boleh sama dengan username akun.');
+        }
+
+        return DB::transaction(function () use ($customer, $name) {
+            $this->ensure($customer);
+            $locked = PppoeCustomer::query()->whereKey($customer->id)->lockForUpdate()->first();
+            if (! $locked) {
+                throw new RuntimeException('Pelanggan tidak ditemukan.');
+            }
+
+            $extra = VpnRouter::query()->where('pppoe_customer_id', $locked->id)->lockForUpdate()->count();
+            if (1 + $extra >= 3) {
+                throw new InvalidArgumentException('Satu akun paling banyak 3 router.');
+            }
+
+            $taken = VpnRouter::query()->whereRaw('LOWER(name) = ?', [strtolower($name)])->exists()
+                || PppoeCustomer::query()->whereRaw('LOWER(username) = ?', [strtolower($name)])->exists();
+            if ($taken) {
+                throw new InvalidArgumentException('Nama router '.$name.' sudah dipakai.');
+            }
+
+            $router = VpnRouter::query()->create([
+                'pppoe_customer_id' => $locked->id,
+                'name' => $name,
+                'vpn_remote_address' => $this->nextAddress(),
+                'vpn_port_series' => $this->nextSeries(),
+                'billing_day' => (int) now()->day,
+            ]);
+
+            foreach (self::STANDARD as $dst => $meta) {
+                VpnPortForward::query()->create([
+                    'pppoe_customer_id' => $locked->id,
+                    'vpn_router_id' => $router->id,
+                    'public_port' => $this->publicPort((int) $router->vpn_port_series, $dst),
+                    'dst_port' => $dst,
+                    'kind' => VpnPortForward::KIND_STANDARD,
+                    'label' => $meta['label'],
+                ]);
+            }
+
+            return $router->fresh('portForwards');
+        });
+    }
+
     public function publicPort(int $series, int $dstPort): int
     {
         $suffix = self::STANDARD[$dstPort]['suffix'] ?? null;
@@ -125,14 +182,19 @@ class VpnAccessPlan
 
     public function nextSeries(): int
     {
-        $last = PppoeCustomer::query()->whereNotNull('vpn_port_series')->max('vpn_port_series');
-        $series = $last === null
+        $lastCustomer = PppoeCustomer::query()->whereNotNull('vpn_port_series')->max('vpn_port_series');
+        $lastRouter = VpnRouter::query()->whereNotNull('vpn_port_series')->max('vpn_port_series');
+        $last = max($lastCustomer === null ? 0 : (int) $lastCustomer, $lastRouter === null ? 0 : (int) $lastRouter);
+        $series = $last === 0
             ? random_int(self::SERIES_MIN, self::SERIES_MAX)
-            : ((int) $last) + 1;
+            : $last + 1;
 
         while (
             $series <= self::SERIES_MAX
-            && PppoeCustomer::query()->where('vpn_port_series', $series)->exists()
+            && (
+                PppoeCustomer::query()->where('vpn_port_series', $series)->exists()
+                || VpnRouter::query()->where('vpn_port_series', $series)->exists()
+            )
         ) {
             $series++;
         }
@@ -170,10 +232,10 @@ class VpnAccessPlan
 
     private function nextAddress(): string
     {
-        $used = PppoeCustomer::query()
-            ->whereNotNull('vpn_remote_address')
-            ->pluck('vpn_remote_address')
-            ->all();
+        $used = array_merge(
+            PppoeCustomer::query()->whereNotNull('vpn_remote_address')->pluck('vpn_remote_address')->all(),
+            VpnRouter::query()->whereNotNull('vpn_remote_address')->pluck('vpn_remote_address')->all(),
+        );
         $taken = array_fill_keys($used, true);
         $base = ip2long(self::POOL_NETWORK);
 

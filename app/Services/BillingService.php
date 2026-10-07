@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PppoeCustomer;
+use App\Models\VpnRouter;
 use App\Services\Messaging\CustomerNotifier;
+use App\Services\Vpn\VpnProvisioner;
 use App\Support\AppSettings;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,7 @@ class BillingService
         private readonly BillingCycleService $cycle,
         private readonly PppoeSyncService $sync,
         private readonly CustomerNotifier $notifier,
+        private readonly VpnProvisioner $vpnRouters,
     ) {}
 
     public function createProrataInvoice(PppoeCustomer $customer): ?Invoice
@@ -179,6 +182,7 @@ class BillingService
         return Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'paid')
+            ->where('type', '!=', 'vpn_router')
             ->exists();
     }
 
@@ -565,6 +569,7 @@ class BillingService
         $unpaid = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'unpaid')
+            ->where('type', '!=', 'vpn_router')
             ->latest('id')
             ->first();
 
@@ -582,6 +587,7 @@ class BillingService
         $existsForDue = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->whereDate('due_date', $customer->due_date->toDateString())
+            ->where('type', '!=', 'vpn_router')
             ->whereIn('status', ['unpaid', 'paid'])
             ->exists();
 
@@ -619,11 +625,92 @@ class BillingService
             }
         }
 
+        $created += $this->generateVpnRouterRenewals();
+
         if ($created > 0) {
             $this->notifier->dispatchWhatsappOutbox();
         }
 
         return compact('created', 'skipped');
+    }
+
+    public function createVpnRouterOpeningInvoice(PppoeCustomer $customer, VpnRouter $router, bool $notify = false): Invoice
+    {
+        $customer->loadMissing('package');
+        $amount = (int) ($customer->package?->price ?? 0);
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Paket pelanggan belum punya harga, jadi tagihan router tidak bisa dibuat.');
+        }
+
+        $start = now()->startOfDay();
+        $end = $start->copy()->addMonthNoOverflow();
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: 'vpn_router',
+            periodStart: $start->toDateString(),
+            periodEnd: $end->toDateString(),
+            dueDate: $start->toDateString(),
+            amount: $amount,
+            notes: 'Router '.$router->name.' — bayar dulu baru bisa dipakai',
+            notify: $notify,
+            vpnRouterId: $router->id,
+        );
+    }
+
+    private function generateVpnRouterRenewals(): int
+    {
+        $created = 0;
+        $routers = VpnRouter::query()->with('customer.package')->get();
+
+        foreach ($routers as $router) {
+            $customer = $router->customer;
+            if (! $customer || ! $customer->is_active || ! $router->service_until) {
+                continue;
+            }
+
+            if ($router->service_until->copy()->startOfDay()->lessThan(now()->startOfDay())) {
+                try {
+                    $this->vpnRouters->syncRouterSecret($router);
+                } catch (\Throwable) {
+                    // Generate tagihan tetap jalan meski CHR tidak terjangkau.
+                }
+            }
+
+            if (! $this->isWithinUpcomingWindow($router->service_until)) {
+                continue;
+            }
+
+            $open = Invoice::query()
+                ->where('vpn_router_id', $router->id)
+                ->where('status', 'unpaid')
+                ->exists();
+            if ($open) {
+                continue;
+            }
+
+            $amount = (int) ($customer->package?->price ?? 0);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $start = $router->service_until->copy()->startOfDay();
+            $end = $start->copy()->addMonthNoOverflow();
+            $this->createInvoice(
+                customer: $customer,
+                type: 'vpn_router',
+                periodStart: $start->toDateString(),
+                periodEnd: $end->toDateString(),
+                dueDate: $start->toDateString(),
+                amount: $amount,
+                notes: 'Perpanjangan router '.$router->name,
+                notify: true,
+                vpnRouterId: $router->id,
+            );
+            $created++;
+        }
+
+        return $created;
     }
 
     /**
@@ -677,6 +764,28 @@ class BillingService
 
             $customer = $invoice->customer;
             $nextDueDate = null;
+
+            if ($customer && $invoice->type === 'vpn_router' && $invoice->vpn_router_id) {
+                $router = VpnRouter::query()->find($invoice->vpn_router_id);
+                if ($router) {
+                    $end = $invoice->period_end?->copy()->startOfDay();
+                    $until = $end && $end->greaterThanOrEqualTo(now()->startOfDay())
+                        ? $end->toDateString()
+                        : now()->startOfDay()->addMonthNoOverflow()->toDateString();
+                    $router->update(['service_until' => $until]);
+                    try {
+                        $this->vpnRouters->syncRouterSecret($router->fresh() ?? $router);
+                    } catch (\Throwable) {
+                        // Pelunasan tetap sah meski CHR tidak terjangkau.
+                    }
+                }
+
+                return [
+                    'invoice' => $invoice->fresh(['customer', 'payments.receiver', 'package']),
+                    'payment' => $payment->load('receiver'),
+                    'next_due_date' => $router?->service_until?->toDateString(),
+                ];
+            }
 
             if ($customer) {
                 $months = max(1, (int) ($invoice->billing_months ?: 1));
@@ -1083,6 +1192,7 @@ class BillingService
         bool $notify = true,
         int $discount = 0,
         bool $applyCredit = false,
+        ?int $vpnRouterId = null,
     ): Invoice {
         $package = $customer->relationLoaded('package')
             ? $customer->package
@@ -1097,6 +1207,7 @@ class BillingService
         $invoice = Invoice::query()->create([
             'number' => $this->nextNumber(),
             'pppoe_customer_id' => $customer->id,
+            'vpn_router_id' => $vpnRouterId,
             'subscription_package_id' => $customer->subscription_package_id,
             'type' => $type,
             'billing_months' => max(1, $billingMonths),

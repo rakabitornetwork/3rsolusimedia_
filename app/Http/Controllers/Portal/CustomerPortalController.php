@@ -229,7 +229,7 @@ class CustomerPortalController extends Controller
     private function vpnHome(string $token, PppoeCustomer $customer): Response
     {
         $this->vpnPlan->ensure($customer);
-        $customer->refresh()->load(['router', 'vpnPortForwards']);
+        $customer->refresh()->load(['router', 'vpnPortForwards', 'vpnRouters.portForwards']);
         $script = $this->l2tpScript->build($customer);
         $server = VpnChrSettings::host() !== ''
             ? VpnChrSettings::host()
@@ -255,6 +255,19 @@ class CustomerPortalController extends Controller
                     'note' => (int) $forward->dst_port === 22
                         ? 'Port ini boleh Anda teruskan ke perangkat mana pun.'
                         : null,
+                ])->values()->all(),
+                'extra_routers' => $customer->vpnRouters->map(fn ($router) => [
+                    'name' => $router->name,
+                    'usable' => $router->isUsable(),
+                    'service_until' => $router->service_until?->toDateString(),
+                    'script' => $router->isUsable() ? $this->l2tpScript->buildForRouter($router) : null,
+                    'ports' => $router->isUsable()
+                        ? $router->portForwards->map(fn ($forward) => [
+                            'public_port' => $forward->public_port,
+                            'dst_port' => $forward->dst_port,
+                            'label' => $forward->label,
+                        ])->values()->all()
+                        : [],
                 ])->values()->all(),
             ],
         ]);

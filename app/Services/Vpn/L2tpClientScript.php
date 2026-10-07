@@ -3,6 +3,7 @@
 namespace App\Services\Vpn;
 
 use App\Models\PppoeCustomer;
+use App\Models\VpnRouter;
 
 class L2tpClientScript
 {
@@ -48,6 +49,50 @@ class L2tpClientScript
             $lines[] = '# Port 22 di router ini boleh diteruskan ke perangkat mana pun.';
             $lines[] = '# Contoh, ubah IP dan port tujuan lalu jalankan di terminal yang sama:';
             $lines[] = '# /ip firewall nat add chain=dstnat in-interface='.$interface.' protocol=tcp dst-port=22 action=dst-nat to-addresses=192.168.88.2 to-ports=80 comment="remote-perangkat"';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    public function buildForRouter(VpnRouter $router): ?string
+    {
+        $router->loadMissing(['customer.router', 'portForwards']);
+        $customer = $router->customer;
+        if (! $customer) {
+            return null;
+        }
+
+        $server = VpnChrSettings::host() !== ''
+            ? VpnChrSettings::host()
+            : trim((string) ($customer->router?->host ?? ''));
+        $user = trim($router->name);
+        $password = str_replace(["\r", "\n"], '', (string) $customer->password);
+
+        if ($server === '' || $user === '' || $password === '') {
+            return null;
+        }
+
+        $interface = self::quote(self::INTERFACE_NAME);
+        $serverArg = $this->token($server);
+        $userArg = self::quote($user);
+        $passArg = self::quote($password);
+        $comment = self::quote('VPN '.$user);
+
+        $lines = [
+            '# Skrip klien untuk router '.$user.'. Jalankan hanya di New Terminal Winbox router ini.',
+            '# Secret ini baru bisa tersambung setelah tagihannya lunas.',
+            ':do { /interface l2tp-client remove [find where name='.$interface.'] } on-error={}',
+            '/interface l2tp-client add name='.$interface.' connect-to='.$serverArg.' user='.$userArg.' password='.$passArg.' profile=default-encryption add-default-route=no use-ipsec=no disabled=no comment='.$comment,
+            ':do { /ip firewall nat remove [find where comment="nat-l2tp-vpn"] } on-error={}',
+            '/ip firewall nat add chain=srcnat action=masquerade out-interface='.$interface.' comment="nat-l2tp-vpn"',
+        ];
+
+        if ($router->portForwards->isNotEmpty()) {
+            $lines[] = '# Port publik yang diteruskan ke router ini:';
+            foreach ($router->portForwards as $forward) {
+                $lines[] = '# '.$server.':'.$forward->public_port.' → port '.$forward->dst_port.' ('.$forward->label.')';
+            }
+            $lines[] = '# Port 22 di router ini boleh diteruskan ke perangkat mana pun.';
         }
 
         return implode("\n", $lines);

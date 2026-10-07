@@ -39,6 +39,7 @@ function CopyButton({ text, label }) {
 
 export default function VpnAccess({ customerId, access }) {
     const custom = useForm({ dst_port: '', note: '' });
+    const extra = useForm({ name: '' });
     const [pushing, setPushing] = useState(false);
 
     if (!access) return null;
@@ -67,6 +68,8 @@ export default function VpnAccess({ customerId, access }) {
                         Alamat VPN {access.address || '—'} · seri port {access.series || '—'} · server{' '}
                         {access.server || '—'}. Port bawaan 8291, 8728, 80, dan 22. Port 22 di sisi
                         pelanggan boleh diteruskan ke perangkat mana pun. Port lain hanya lewat admin.
+                        Satu akun paling banyak 3 router. Router kedua dan ketiga punya nama sendiri,
+                        tagihannya muncul pada tanggal router dibuat, dan baru bisa dipakai setelah lunas.
                     </p>
                 </div>
                 <button
@@ -167,6 +170,108 @@ export default function VpnAccess({ customerId, access }) {
                     <p className="text-xs text-red-600 sm:col-span-3">{custom.errors.dst_port}</p>
                 )}
             </form>
+
+            {(access.extra_routers || []).map((item) => (
+                <div key={item.id} className="space-y-3 border border-ink/10 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-semibold text-ink">Router {item.name}</h3>
+                            <p className="mt-1 text-sm text-ink-soft">
+                                Alamat {item.address || '—'} · seri {item.series || '—'} · tagihan tiap tanggal{' '}
+                                {item.billing_day}.{' '}
+                                {item.usable
+                                    ? `Aktif sampai ${item.service_until}.`
+                                    : 'Menunggu pembayaran. Secret di CHR tetap mati.'}
+                                {item.invoice_number ? ` Tagihan ${item.invoice_number}.` : ''}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                router.post(
+                                    `/admin/customers/pppoe/${customerId}/vpn/routers/${item.id}/push`,
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                            disabled={!access.chr_ready}
+                            className="btn-action btn-action-sm btn-primary"
+                        >
+                            Push router ini
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <tbody>
+                                {(item.ports || []).map((port) => (
+                                    <tr key={port.id} className="border-t border-ink/10">
+                                        <td className="py-2 pr-3 font-mono">
+                                            {access.server}:{port.public_port}
+                                        </td>
+                                        <td className="py-2 pr-3 font-mono">{port.dst_port}</td>
+                                        <td className="py-2">{port.label}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <div>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h4 className="text-sm font-semibold text-ink">Skrip server</h4>
+                                <CopyButton text={item.server_script} label="Salin skrip server" />
+                            </div>
+                            <pre className="max-h-64 overflow-auto bg-ink p-3 font-mono text-xs leading-relaxed text-white">
+                                {item.server_script}
+                            </pre>
+                        </div>
+                        <div>
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                                <h4 className="text-sm font-semibold text-ink">Skrip klien</h4>
+                                <CopyButton text={item.client_script} label="Salin skrip klien" />
+                            </div>
+                            <pre className="max-h-64 overflow-auto bg-ink p-3 font-mono text-xs leading-relaxed text-white">
+                                {item.client_script}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            ))}
+
+            {(access.router_count || 1) < (access.router_limit || 3) && (
+                <form
+                    className="grid gap-3 border border-ink/10 bg-mist/40 p-4 sm:grid-cols-[1fr_auto] sm:items-end"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        extra.post(`/admin/customers/pppoe/${customerId}/vpn/routers`, {
+                            preserveScroll: true,
+                            onSuccess: () => extra.reset(),
+                        });
+                    }}
+                >
+                    <label className="block text-sm font-medium text-ink">
+                        Nama router tambahan
+                        <input
+                            type="text"
+                            value={extra.data.name}
+                            onChange={(event) => extra.setData('name', event.target.value)}
+                            className={fieldClass}
+                            placeholder="Misalnya toko-pusat"
+                            required
+                        />
+                    </label>
+                    <button
+                        type="submit"
+                        disabled={extra.processing}
+                        className="btn-action btn-action-sm btn-secondary"
+                    >
+                        {extra.processing ? 'Menyimpan...' : 'Tambah router & buat tagihan'}
+                    </button>
+                    {extra.errors.name && (
+                        <p className="text-xs text-red-600 sm:col-span-2">{extra.errors.name}</p>
+                    )}
+                </form>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <div>

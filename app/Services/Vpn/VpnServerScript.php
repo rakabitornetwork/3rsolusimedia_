@@ -4,6 +4,7 @@ namespace App\Services\Vpn;
 
 use App\Models\PppoeCustomer;
 use App\Models\VpnPortForward;
+use App\Models\VpnRouter;
 
 class VpnServerScript
 {
@@ -18,7 +19,7 @@ class VpnServerScript
         $commands = [$this->secretCommand($customer, disabled: $this->secretDisabled($customer))];
 
         foreach ($customer->vpnPortForwards as $forward) {
-            array_push($commands, ...$this->forwardCommands($customer, $forward));
+            array_push($commands, ...$this->forwardLines((string) $customer->vpn_remote_address, $forward));
         }
 
         return $commands;
@@ -56,10 +57,46 @@ class VpnServerScript
     /**
      * @return list<string>
      */
+    public function commandsForRouter(VpnRouter $router): array
+    {
+        $router->loadMissing(['customer', 'portForwards']);
+        $customer = $router->customer;
+        if (! $customer) {
+            return [];
+        }
+
+        $commands = [$this->routerSecretCommand($router, $customer)];
+        foreach ($router->portForwards as $forward) {
+            array_push($commands, ...$this->forwardLines((string) $router->vpn_remote_address, $forward));
+        }
+
+        return $commands;
+    }
+
+    public function textForRouter(VpnRouter $router): string
+    {
+        $lines = [
+            '# Skrip server untuk router '.$router->name.'. Secret baru aktif setelah tagihan router ini lunas.',
+            ...$this->commandsForRouter($router),
+        ];
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<string>
+     */
     public function forwardCommands(PppoeCustomer $customer, VpnPortForward $forward): array
     {
+        return $this->forwardLines((string) $customer->vpn_remote_address, $forward);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function forwardLines(string $address, VpnPortForward $forward): array
+    {
         $comment = L2tpClientScript::quote($forward->comment());
-        $address = (string) $customer->vpn_remote_address;
         $publicHost = VpnChrSettings::host();
         $dstAddress = $publicHost !== '' && filter_var($publicHost, FILTER_VALIDATE_IP)
             ? ' dst-address='.$publicHost
@@ -103,5 +140,22 @@ class VpnServerScript
     private function secretDisabled(PppoeCustomer $customer): bool
     {
         return ! $customer->is_active || $customer->status === 'isolated';
+    }
+
+    private function routerSecretCommand(VpnRouter $router, PppoeCustomer $customer): string
+    {
+        $name = L2tpClientScript::quote($router->name);
+        $password = L2tpClientScript::quote(str_replace(["\r", "\n"], '', (string) $customer->password));
+        $comment = L2tpClientScript::quote('VPN '.$customer->username.' / '.$router->name);
+        $address = (string) $router->vpn_remote_address;
+        $local = VpnAccessPlan::LOCAL_ADDRESS;
+        $profile = L2tpClientScript::quote(VpnAccessPlan::CHR_PROFILE);
+        $disabled = $this->secretDisabled($customer) || ! $router->isUsable();
+        $flag = $disabled ? 'yes' : 'no';
+
+        $add = '/ppp secret add name='.$name.' password='.$password.' service=l2tp profile='.$profile.' local-address='.$local.' remote-address='.$address.' comment='.$comment.' disabled='.$flag;
+        $set = '/ppp secret set [find where name='.$name.'] password='.$password.' service=l2tp profile='.$profile.' local-address='.$local.' remote-address='.$address.' disabled='.$flag;
+
+        return ':if ([:len [/ppp secret find where name='.$name.']] = 0) do={ '.$add.' } else={ '.$set.' }';
     }
 }

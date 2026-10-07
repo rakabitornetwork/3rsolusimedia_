@@ -10,6 +10,7 @@ use App\Models\SiteSetting;
 use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Models\VpnPortForward;
+use App\Models\VpnRouter;
 use App\Services\BillingCycleService;
 use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
@@ -743,6 +744,53 @@ class PppoeCustomerController extends Controller
         return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
+    public function storeVpnRouter(Request $request, PppoeCustomer $pppoe): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk menambah router.');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:32'],
+        ]);
+
+        try {
+            $invoice = DB::transaction(function () use ($pppoe, $validated) {
+                $router = $this->vpnPlan->addRouter($pppoe, $validated['name']);
+
+                return $this->billingService->createVpnRouterOpeningInvoice($pppoe->fresh() ?? $pppoe, $router);
+            });
+        } catch (InvalidArgumentException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        try {
+            $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+        } catch (\Throwable) {
+            // Router dan tagihan tetap tersimpan meski WhatsApp gagal.
+        }
+
+        return back()->with(
+            'success',
+            'Router '.$validated['name'].' dibuat. Tagihan '.$invoice->number.' muncul hari ini. Secret baru aktif setelah lunas.',
+        );
+    }
+
+    public function pushVpnRouter(Request $request, PppoeCustomer $pppoe, VpnRouter $vpnRouter): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk mengisi CHR.');
+        }
+
+        if ((int) $vpnRouter->pppoe_customer_id !== (int) $pppoe->id) {
+            return back()->with('error', 'Router ini bukan milik pelanggan tersebut.');
+        }
+
+        $result = $this->vpn->pushRouter($vpnRouter);
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
     public function storeVpnPort(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
@@ -798,7 +846,7 @@ class PppoeCustomerController extends Controller
         }
 
         $this->vpnPlan->ensure($customer);
-        $customer->refresh()->load('vpnPortForwards');
+        $customer->refresh()->load(['vpnPortForwards', 'vpnRouters.portForwards', 'vpnRouters.invoices']);
         $server = VpnChrSettings::host() !== ''
             ? VpnChrSettings::host()
             : (string) ($customer->router?->host ?? '');
@@ -808,6 +856,27 @@ class PppoeCustomerController extends Controller
             'series' => $customer->vpn_port_series,
             'server' => $server,
             'chr_ready' => VpnChrSettings::configured(),
+            'router_limit' => 3,
+            'router_count' => 1 + $customer->vpnRouters->count(),
+            'extra_routers' => $customer->vpnRouters->map(fn (VpnRouter $router) => [
+                'id' => $router->id,
+                'name' => $router->name,
+                'address' => $router->vpn_remote_address,
+                'series' => $router->vpn_port_series,
+                'usable' => $router->isUsable(),
+                'service_until' => $router->service_until?->toDateString(),
+                'billing_day' => $router->billing_day,
+                'invoice_number' => $router->invoices->sortByDesc('id')->first()?->number,
+                'invoice_status' => $router->invoices->sortByDesc('id')->first()?->status,
+                'server_script' => $this->vpnServerScript->textForRouter($router),
+                'client_script' => $this->vpnClientScript->buildForRouter($router),
+                'ports' => $router->portForwards->map(fn ($forward) => [
+                    'id' => $forward->id,
+                    'public_port' => $forward->public_port,
+                    'dst_port' => $forward->dst_port,
+                    'label' => $forward->label,
+                ])->values()->all(),
+            ])->values()->all(),
             'server_script' => $this->vpnServerScript->text($customer),
             'client_script' => $this->vpnClientScript->build($customer),
             'ports' => $customer->vpnPortForwards->map(fn ($forward) => [
