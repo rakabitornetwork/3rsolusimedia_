@@ -99,6 +99,13 @@ Route::middleware('throttle:60,1')->group(function () {
         ->middleware('throttle:10,1')
         ->name('portal.device.refresh')
         ->where('token', '[A-Za-z0-9]+');
+    Route::post('/portal/{token}/vpn/routers', [CustomerPortalController::class, 'storeVpnRouter'])
+        ->name('portal.vpn.routers.store')
+        ->where('token', '[A-Za-z0-9]+');
+    Route::delete('/portal/{token}/vpn/routers/{vpnRouter}', [CustomerPortalController::class, 'destroyVpnRouter'])
+        ->name('portal.vpn.routers.destroy')
+        ->where('token', '[A-Za-z0-9]+')
+        ->whereNumber('vpnRouter');
 });
 
 Route::post('/webhooks/xendit', [PaymentGatewayWebhookController::class, 'xendit'])->name('webhooks.xendit');
@@ -241,6 +248,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/customers/pppoe/{pppoe}/vpn/push', [PppoeCustomerController::class, 'pushVpn'])->whereNumber('pppoe')->name('customers.pppoe.vpn.push');
     Route::post('/customers/pppoe/{pppoe}/vpn/routers', [PppoeCustomerController::class, 'storeVpnRouter'])->whereNumber('pppoe')->name('customers.pppoe.vpn.routers.store');
     Route::post('/customers/pppoe/{pppoe}/vpn/routers/{vpnRouter}/push', [PppoeCustomerController::class, 'pushVpnRouter'])->whereNumber('pppoe')->whereNumber('vpnRouter')->name('customers.pppoe.vpn.routers.push');
+    Route::delete('/customers/pppoe/{pppoe}/vpn/routers/{vpnRouter}', [PppoeCustomerController::class, 'destroyVpnRouter'])->whereNumber('pppoe')->whereNumber('vpnRouter')->name('customers.pppoe.vpn.routers.destroy');
     Route::post('/customers/pppoe/{pppoe}/vpn/ports', [PppoeCustomerController::class, 'storeVpnPort'])->whereNumber('pppoe')->name('customers.pppoe.vpn.ports.store');
     Route::delete('/customers/pppoe/{pppoe}/vpn/ports/{port}', [PppoeCustomerController::class, 'destroyVpnPort'])->whereNumber('pppoe')->whereNumber('port')->name('customers.pppoe.vpn.ports.destroy');
 

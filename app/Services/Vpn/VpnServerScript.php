@@ -57,6 +57,25 @@ class VpnServerScript
     /**
      * @return list<string>
      */
+    public function removeRouterCommands(VpnRouter $router): array
+    {
+        $router->loadMissing('portForwards');
+        $commands = [];
+        foreach ($router->portForwards as $forward) {
+            $comment = L2tpClientScript::quote($forward->comment());
+            $commands[] = ':do { /ip firewall nat remove [find where comment='.$comment.'] } on-error={}';
+            $commands[] = ':do { /ip firewall filter remove [find where comment='.$comment.'] } on-error={}';
+        }
+
+        $name = L2tpClientScript::quote((string) $router->name);
+        $commands[] = ':do { /ppp secret remove [find where name='.$name.'] } on-error={}';
+
+        return $commands;
+    }
+
+    /**
+     * @return list<string>
+     */
     public function commandsForRouter(VpnRouter $router): array
     {
         $router->loadMissing(['customer', 'portForwards']);

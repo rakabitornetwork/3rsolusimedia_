@@ -22,6 +22,7 @@ use App\Services\Vpn\L2tpClientScript;
 use App\Services\Vpn\VpnAccessPlan;
 use App\Services\Vpn\VpnChrSettings;
 use App\Services\Vpn\VpnProvisioner;
+use App\Services\Vpn\VpnRouterAccounts;
 use App\Services\Vpn\VpnServerScript;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
@@ -48,6 +49,7 @@ class PppoeCustomerController extends Controller
         private readonly WhatsAppIdentityBinder $whatsappBinder,
         private readonly VpnAccessPlan $vpnPlan,
         private readonly VpnProvisioner $vpn,
+        private readonly VpnRouterAccounts $vpnAccounts,
         private readonly VpnServerScript $vpnServerScript,
         private readonly L2tpClientScript $vpnClientScript,
     ) {
@@ -755,25 +757,44 @@ class PppoeCustomerController extends Controller
         ]);
 
         try {
-            $invoice = DB::transaction(function () use ($pppoe, $validated) {
-                $router = $this->vpnPlan->addRouter($pppoe, $validated['name']);
-
-                return $this->billingService->createVpnRouterOpeningInvoice($pppoe->fresh() ?? $pppoe, $router);
-            });
+            $enrolled = $this->vpnAccounts->enroll($pppoe, $validated['name']);
         } catch (InvalidArgumentException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
-        try {
-            $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
-        } catch (\Throwable) {
-            // Router dan tagihan tetap tersimpan meski WhatsApp gagal.
+        $invoice = $enrolled['invoice'];
+        if ($invoice) {
+            try {
+                $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+            } catch (\Throwable) {
+                // Router dan tagihan tetap tersimpan meski WhatsApp gagal.
+            }
+
+            return back()->with(
+                'success',
+                'Router '.$validated['name'].' dibuat. Tagihan '.$invoice->number.' muncul hari ini. Secret baru aktif setelah lunas.',
+            );
         }
 
         return back()->with(
             'success',
-            'Router '.$validated['name'].' dibuat. Tagihan '.$invoice->number.' muncul hari ini. Secret baru aktif setelah lunas.',
+            'Router '.$validated['name'].' dibuat tanpa tagihan baru. Tagihan sebelumnya tetap berlaku.',
         );
+    }
+
+    public function destroyVpnRouter(Request $request, PppoeCustomer $pppoe, VpnRouter $vpnRouter): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk menghapus router.');
+        }
+
+        if ((int) $vpnRouter->pppoe_customer_id !== (int) $pppoe->id) {
+            return back()->with('error', 'Router ini bukan milik pelanggan tersebut.');
+        }
+
+        $result = $this->vpnAccounts->release($vpnRouter);
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
     public function pushVpnRouter(Request $request, PppoeCustomer $pppoe, VpnRouter $vpnRouter): RedirectResponse
@@ -858,6 +879,7 @@ class PppoeCustomerController extends Controller
             'chr_ready' => VpnChrSettings::configured(),
             'router_limit' => 3,
             'router_count' => 1 + $customer->vpnRouters->count(),
+            'spare_routers' => $this->vpnAccounts->spareCount($customer),
             'extra_routers' => $customer->vpnRouters->map(fn (VpnRouter $router) => [
                 'id' => $router->id,
                 'name' => $router->name,

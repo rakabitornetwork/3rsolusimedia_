@@ -2,13 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\MessageLog;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
+use App\Models\SubscriptionPackage;
+use App\Models\VpnRouter;
+use App\Services\BillingService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\MessageTemplate;
 use App\Services\Vpn\L2tpClientScript;
+use App\Services\Vpn\RunsChrCommands;
+use App\Services\Vpn\VpnChrSettings;
+use App\Services\Vpn\VpnRouterAccounts;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -137,6 +144,82 @@ class VpnPortalScriptTest extends TestCase
         $this->assertStringContainsString('Winbox', (string) $log->body);
         $this->assertStringNotContainsString('ONU', (string) $log->body);
         $this->assertStringNotContainsString('rahasia', (string) $log->body);
+    }
+
+    #[Test]
+    public function the_customer_can_replace_a_router_without_a_new_invoice(): void
+    {
+        $this->app->instance(RunsChrCommands::class, new class implements RunsChrCommands
+        {
+            public function run(string $command): array
+            {
+                return ['ok' => true, 'output' => '', 'message' => 'ok'];
+            }
+        });
+        VpnChrSettings::store('31.57.178.91', 2223, 'agenapp', 'test-only');
+
+        $package = SubscriptionPackage::query()->create([
+            'name' => 'VPN',
+            'price' => 150000,
+            'mikrotik_profile' => 'default',
+            'is_active' => true,
+        ]);
+        $customer = $this->customer('203.0.113.10', 'rahasia');
+        $customer->update(['subscription_package_id' => $package->id]);
+        $enrolled = app(VpnRouterAccounts::class)->enroll($customer, 'toko-lama');
+        app(BillingService::class)->markPaid($enrolled['invoice']);
+        $invoiceId = $enrolled['invoice']->id;
+        $token = $this->portalToken($customer);
+        $otherRouter = MikrotikRouter::query()->create([
+            'name' => 'Router lain',
+            'host' => '203.0.113.11',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret-api',
+            'is_active' => true,
+        ]);
+        $other = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $otherRouter->id,
+            'name' => 'Pelanggan lain',
+            'phone' => '081234567891',
+            'username' => 'vpn-lain',
+            'ppp_service' => PppoeCustomer::SERVICE_L2TP,
+            'password' => 'rahasia-lain',
+            'due_date' => now()->addDays(5)->toDateString(),
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+        $otherToken = $this->portalToken($other);
+
+        $this->delete('/portal/'.$otherToken.'/vpn/routers/'.$enrolled['router']->id)
+            ->assertNotFound();
+        $this->assertNotNull(VpnRouter::query()->find($enrolled['router']->id));
+
+        $this->delete('/portal/'.$token.'/vpn/routers/'.$enrolled['router']->id)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNull(VpnRouter::query()->find($enrolled['router']->id));
+        $this->assertSame('paid', Invoice::query()->find($invoiceId)?->status);
+
+        $this->post('/portal/'.$token.'/vpn/routers', ['name' => 'toko-baru'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(1, Invoice::query()->where('pppoe_customer_id', $customer->id)->where('type', 'vpn_router')->count());
+        $replacement = VpnRouter::query()->where('name', 'toko-baru')->first();
+        $this->assertNotNull($replacement);
+        $this->assertTrue($replacement->isUsable());
+        $this->assertSame($replacement->id, (int) Invoice::query()->find($invoiceId)?->vpn_router_id);
+
+        $this->get('/portal/'.$token)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Portal/Vpn/Home', false)
+                ->where('vpn.spare_routers', 0)
+                ->where('vpn.extra_routers.0.name', 'toko-baru')
+            );
     }
 
     #[Test]

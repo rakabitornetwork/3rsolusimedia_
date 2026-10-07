@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { Check, Copy, CreditCard, Terminal } from 'lucide-react';
 import { useState } from 'react';
 import PortalBanner from '../../../Components/Portal/PortalBanner';
@@ -25,6 +25,10 @@ export default function Home({
 }) {
     const [paying, setPaying] = useState(false);
     const [copied, setCopied] = useState(false);
+    const extra = useForm({ name: '' });
+    const routerCount = Number(vpn?.router_count || 1);
+    const routerLimit = Number(vpn?.router_limit || 3);
+    const spareRouters = Number(vpn?.spare_routers || 0);
     const unpaidCount = Number(billing?.unpaid_count || 0);
     const gatewayReady = Boolean(billing?.gateway_ready);
     const oldestUnpaidId = billing?.oldest_unpaid_id;
@@ -223,8 +227,28 @@ export default function Home({
                         )}
 
                         {(vpn?.extra_routers || []).map((item) => (
-                            <div key={item.name} className="mt-4 border-t border-ink/10 pt-4">
-                                <h3 className="text-sm font-semibold text-ink">Router {item.name}</h3>
+                            <div key={item.id || item.name} className="mt-4 border-t border-ink/10 pt-4">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-ink">Router {item.name}</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (
+                                                !window.confirm(
+                                                    `Hapus router ${item.name}? Secret dan port di CHR ikut dihapus. Tagihan tidak dibatalkan, jadi router pengganti tidak ditagih lagi.`,
+                                                )
+                                            ) {
+                                                return;
+                                            }
+                                            router.delete(`/portal/${token}/vpn/routers/${item.id}`, {
+                                                preserveScroll: true,
+                                            });
+                                        }}
+                                        className="cursor-pointer rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                                    >
+                                        Hapus router ini
+                                    </button>
+                                </div>
                                 {item.usable ? (
                                     <>
                                         <p className="mt-1 text-sm text-ink-soft">
@@ -250,6 +274,51 @@ export default function Home({
                                 )}
                             </div>
                         ))}
+
+                        {routerCount < routerLimit && (
+                            <form
+                                className="mt-4 border-t border-ink/10 pt-4"
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    extra.post(`/portal/${token}/vpn/routers`, {
+                                        preserveScroll: true,
+                                        onSuccess: () => extra.reset(),
+                                    });
+                                }}
+                            >
+                                <h3 className="text-sm font-semibold text-ink">RouterOS baru</h3>
+                                <p className="mt-1 text-sm text-ink-soft">
+                                    {spareRouters > 0
+                                        ? 'Tagihan router yang dihapus masih berlaku. Nama baru ini tidak membuat tagihan baru.'
+                                        : 'Nama ini menjadi username VPN router tersebut. Tagihan muncul hari ini dan harus lunas dulu.'}
+                                </p>
+                                <label className="mt-3 block text-sm font-medium text-ink">
+                                    Nama router
+                                    <input
+                                        type="text"
+                                        value={extra.data.name}
+                                        onChange={(event) => extra.setData('name', event.target.value)}
+                                        className="mt-1.5 w-full rounded-xl border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-signal"
+                                        placeholder="Misalnya toko-pusat"
+                                        required
+                                    />
+                                </label>
+                                {extra.errors.name && (
+                                    <p className="mt-2 text-xs text-red-600">{extra.errors.name}</p>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={extra.processing}
+                                    className="mt-3 cursor-pointer rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                                >
+                                    {extra.processing
+                                        ? 'Menyimpan...'
+                                        : spareRouters > 0
+                                          ? 'Buat router tanpa tagihan baru'
+                                          : 'Buat router'}
+                                </button>
+                            </form>
+                        )}
                     </div>
                 </section>
             </div>

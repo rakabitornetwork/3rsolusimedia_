@@ -142,6 +142,30 @@ class VpnProvisioner
     }
 
     /**
+     * Hapus secret dan NAT/filter milik satu router tambahan. Baris database tidak dihapus di sini.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public function removeRouter(VpnRouter $router): array
+    {
+        $router->loadMissing('portForwards');
+        $everPushed = $router->portForwards->contains(fn ($forward) => $forward->pushed_at !== null);
+        if (! VpnChrSettings::configured()) {
+            if ($everPushed) {
+                return ['ok' => false, 'message' => 'Kredensial SSH CHR belum diisi, jadi router tidak dihapus.'];
+            }
+
+            return ['ok' => true, 'message' => 'Router belum pernah diisi ke CHR.'];
+        }
+
+        $result = $this->runAll($this->script->removeRouterCommands($router), []);
+
+        return $result['ok']
+            ? ['ok' => true, 'message' => 'Secret dan port '.$router->name.' dihapus dari CHR.']
+            : $result;
+    }
+
+    /**
      * @return array{ok: bool, message: string}
      */
     public function syncSecretState(PppoeCustomer $customer): array

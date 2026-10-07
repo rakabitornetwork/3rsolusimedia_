@@ -6,19 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
+use App\Models\VpnRouter;
 use App\Services\GenieAcsService;
+use App\Services\Messaging\CustomerNotifier;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeMonthlyUsageService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Services\Vpn\L2tpClientScript;
 use App\Services\Vpn\VpnAccessPlan;
 use App\Services\Vpn\VpnChrSettings;
+use App\Services\Vpn\VpnProvisioner;
+use App\Services\Vpn\VpnRouterAccounts;
 use App\Support\AppSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 class CustomerPortalController extends Controller
 {
@@ -31,6 +36,9 @@ class CustomerPortalController extends Controller
         private readonly PppoeMonthlyUsageService $usage,
         private readonly L2tpClientScript $l2tpScript,
         private readonly VpnAccessPlan $vpnPlan,
+        private readonly VpnRouterAccounts $vpnAccounts,
+        private readonly VpnProvisioner $vpn,
+        private readonly CustomerNotifier $notifier,
     ) {}
 
     public function home(Request $request, string $token): Response|RedirectResponse
@@ -256,7 +264,11 @@ class CustomerPortalController extends Controller
                         ? 'Port ini boleh Anda teruskan ke perangkat mana pun.'
                         : null,
                 ])->values()->all(),
+                'router_limit' => 3,
+                'router_count' => 1 + $customer->vpnRouters->count(),
+                'spare_routers' => $this->vpnAccounts->spareCount($customer),
                 'extra_routers' => $customer->vpnRouters->map(fn ($router) => [
+                    'id' => $router->id,
                     'name' => $router->name,
                     'usable' => $router->isUsable(),
                     'service_until' => $router->service_until?->toDateString(),
@@ -271,6 +283,80 @@ class CustomerPortalController extends Controller
                 ])->values()->all(),
             ],
         ]);
+    }
+
+    public function storeVpnRouter(Request $request, string $token): RedirectResponse
+    {
+        $customer = $this->requireVpnCustomer($request, $token);
+        if ($customer instanceof RedirectResponse) {
+            return $customer;
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:32'],
+        ]);
+
+        try {
+            $enrolled = $this->vpnAccounts->enroll($customer, $validated['name']);
+        } catch (InvalidArgumentException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        $router = $enrolled['router'];
+        $push = $this->vpn->pushRouter($router);
+        $name = $validated['name'];
+
+        if ($enrolled['reused']) {
+            $message = 'Router '.$name.' dibuat tanpa tagihan baru. Tagihan sebelumnya tetap berlaku.';
+        } else {
+            $number = $enrolled['invoice']?->number;
+            $message = 'Router '.$name.' dibuat. Tagihan '.($number ?: 'baru').' muncul hari ini. Secret baru aktif setelah lunas.';
+            if ($enrolled['invoice']) {
+                try {
+                    $this->notifier->notifyInvoice($enrolled['invoice']->loadMissing('customer'));
+                } catch (\Throwable) {
+                    // Router tetap tersimpan meski WhatsApp gagal.
+                }
+            }
+        }
+
+        if (! $push['ok']) {
+            $message .= ' '.$push['message'];
+        } else {
+            $message .= ' Aturan CHR sudah diisi.';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    public function destroyVpnRouter(Request $request, string $token, VpnRouter $vpnRouter): RedirectResponse
+    {
+        $customer = $this->requireVpnCustomer($request, $token);
+        if ($customer instanceof RedirectResponse) {
+            return $customer;
+        }
+
+        if ((int) $vpnRouter->pppoe_customer_id !== (int) $customer->id) {
+            abort(404);
+        }
+
+        $result = $this->vpnAccounts->release($vpnRouter);
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
+    private function requireVpnCustomer(Request $request, string $token): PppoeCustomer|RedirectResponse
+    {
+        $customer = $this->requireCustomer($request, $token);
+        if ($customer instanceof RedirectResponse) {
+            return $customer;
+        }
+
+        if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+            return back()->with('error', 'Router tambahan hanya untuk pelanggan VPN.');
+        }
+
+        return $customer;
     }
 
     /**

@@ -185,20 +185,41 @@ export default function VpnAccess({ customerId, access }) {
                                 {item.invoice_number ? ` Tagihan ${item.invoice_number}.` : ''}
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() =>
-                                router.post(
-                                    `/admin/customers/pppoe/${customerId}/vpn/routers/${item.id}/push`,
-                                    {},
-                                    { preserveScroll: true },
-                                )
-                            }
-                            disabled={!access.chr_ready}
-                            className="btn-action btn-action-sm btn-primary"
-                        >
-                            Push router ini
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    router.post(
+                                        `/admin/customers/pppoe/${customerId}/vpn/routers/${item.id}/push`,
+                                        {},
+                                        { preserveScroll: true },
+                                    )
+                                }
+                                disabled={!access.chr_ready}
+                                className="btn-action btn-action-sm btn-primary"
+                            >
+                                Push router ini
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (
+                                        !window.confirm(
+                                            `Hapus router ${item.name} dari CHR? Tagihan tidak dibatalkan dan bisa dipakai untuk router berikutnya.`,
+                                        )
+                                    ) {
+                                        return;
+                                    }
+                                    router.delete(
+                                        `/admin/customers/pppoe/${customerId}/vpn/routers/${item.id}`,
+                                        { preserveScroll: true },
+                                    );
+                                }}
+                                className="btn-action btn-action-sm btn-danger"
+                            >
+                                Hapus dari CHR
+                            </button>
+                        </div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
@@ -265,7 +286,11 @@ export default function VpnAccess({ customerId, access }) {
                         disabled={extra.processing}
                         className="btn-action btn-action-sm btn-secondary"
                     >
-                        {extra.processing ? 'Menyimpan...' : 'Tambah router & buat tagihan'}
+                        {extra.processing
+                            ? 'Menyimpan...'
+                            : Number(access.spare_routers || 0) > 0
+                              ? 'Tambah router tanpa tagihan baru'
+                              : 'Tambah router & buat tagihan'}
                     </button>
                     {extra.errors.name && (
                         <p className="text-xs text-red-600 sm:col-span-2">{extra.errors.name}</p>

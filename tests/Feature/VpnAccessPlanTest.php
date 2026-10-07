@@ -2,15 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Models\Invoice;
 use App\Models\MikrotikRouter;
 use App\Models\PppoeCustomer;
 use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Models\VpnPortForward;
+use App\Models\VpnRouter;
+use App\Models\VpnRouterCredit;
 use App\Services\BillingService;
 use App\Services\Vpn\RunsChrCommands;
 use App\Services\Vpn\VpnAccessPlan;
 use App\Services\Vpn\VpnChrSettings;
+use App\Services\Vpn\VpnRouterAccounts;
 use App\Services\Vpn\VpnServerScript;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use InvalidArgumentException;
@@ -131,6 +135,102 @@ class VpnAccessPlanTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $plan->addRouter($customer->fresh(), 'rumah');
+    }
+
+    #[Test]
+    public function releasing_a_paid_router_reuses_that_invoice_for_the_next_name(): void
+    {
+        $fake = $this->bindChr();
+        $customer = $this->customer('vpn-ganti');
+        $customer->update(['subscription_package_id' => $this->package()->id]);
+        $accounts = app(VpnRouterAccounts::class);
+
+        $first = $accounts->enroll($customer, 'toko-lama');
+        $invoice = $first['invoice'];
+        $this->assertNotNull($invoice);
+        app(BillingService::class)->markPaid($invoice);
+        $until = $first['router']->fresh()->service_until?->toDateString();
+        $billingDay = (int) $first['router']->billing_day;
+
+        $released = $accounts->release($first['router']->fresh());
+
+        $this->assertTrue($released['ok']);
+        $script = implode("\n", $fake->commands);
+        $this->assertStringContainsString('name="toko-lama"', $script);
+        $this->assertStringContainsString('/ip firewall nat remove', $script);
+        $this->assertNull(VpnRouter::query()->find($first['router']->id));
+        $invoice->refresh();
+        $this->assertSame('paid', $invoice->status);
+        $this->assertNull($invoice->vpn_router_id);
+        $this->assertSame(1, VpnRouterCredit::query()->count());
+
+        $second = $accounts->enroll($customer->fresh(), 'toko-baru');
+
+        $this->assertTrue($second['reused']);
+        $this->assertNull($second['invoice']);
+        $this->assertSame(1, Invoice::query()->where('type', 'vpn_router')->count());
+        $invoice->refresh();
+        $this->assertSame($second['router']->id, (int) $invoice->vpn_router_id);
+        $this->assertSame('paid', $invoice->status);
+        $this->assertSame($until, $second['router']->service_until?->toDateString());
+        $this->assertSame($billingDay, (int) $second['router']->billing_day);
+        $this->assertTrue($second['router']->isUsable());
+        $this->assertSame(0, VpnRouterCredit::query()->count());
+    }
+
+    #[Test]
+    public function a_failed_chr_delete_keeps_the_router_and_its_invoice(): void
+    {
+        $this->app->instance(RunsChrCommands::class, new class implements RunsChrCommands
+        {
+            public function run(string $command): array
+            {
+                return ['ok' => false, 'output' => '', 'message' => 'denied'];
+            }
+        });
+        VpnChrSettings::store('31.57.178.91', 2223, 'agenapp', 'test-only');
+        $customer = $this->customer('vpn-gagal');
+        $customer->update(['subscription_package_id' => $this->package()->id]);
+        $accounts = app(VpnRouterAccounts::class);
+        $first = $accounts->enroll($customer, 'toko-gagal');
+
+        $released = $accounts->release($first['router']);
+
+        $this->assertFalse($released['ok']);
+        $this->assertNotNull(VpnRouter::query()->find($first['router']->id));
+        $this->assertSame('unpaid', $first['invoice']?->fresh()->status);
+        $this->assertSame($first['router']->id, (int) $first['invoice']?->fresh()->vpn_router_id);
+        $this->assertSame(0, VpnRouterCredit::query()->count());
+    }
+
+    private function bindChr(): object
+    {
+        $fake = new class implements RunsChrCommands
+        {
+            /** @var list<string> */
+            public array $commands = [];
+
+            public function run(string $command): array
+            {
+                $this->commands[] = $command;
+
+                return ['ok' => true, 'output' => '', 'message' => 'ok'];
+            }
+        };
+        $this->app->instance(RunsChrCommands::class, $fake);
+        VpnChrSettings::store('31.57.178.91', 2223, 'agenapp', 'test-only');
+
+        return $fake;
+    }
+
+    private function package(): SubscriptionPackage
+    {
+        return SubscriptionPackage::query()->create([
+            'name' => 'VPN',
+            'price' => 150000,
+            'mikrotik_profile' => 'default',
+            'is_active' => true,
+        ]);
     }
 
     private function customer(string $username): PppoeCustomer
