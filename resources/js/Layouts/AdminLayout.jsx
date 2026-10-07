@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { ChevronDown, Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronDown, ChevronsLeft, ChevronsRight, Menu, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import FlashToast from '../Components/FlashToast';
 import UserAvatar from '../Components/UserAvatar';
@@ -275,18 +275,6 @@ export default function AdminLayout({ children, title, subtitle }) {
                     showLabels={showLabels}
                     onNavigate={closeMobile}
                 />
-                <button
-                    type="button"
-                    onClick={() => setCollapsed((v) => !v)}
-                    className="absolute top-20 -right-3 flex h-6 w-6 items-center justify-center rounded-full border border-ink/10 bg-white text-ink shadow-sm"
-                    aria-label={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
-                >
-                    {collapsed ? (
-                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                    ) : (
-                        <PanelLeftClose className="h-3.5 w-3.5" />
-                    )}
-                </button>
             </aside>
 
             {mobileVisible && (
@@ -339,6 +327,19 @@ export default function AdminLayout({ children, title, subtitle }) {
                                 aria-expanded={mobileOpen}
                             >
                                 <Menu className="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                className="hidden rounded-md border border-ink/10 p-2 text-ink hover:bg-mist lg:inline-flex"
+                                onClick={() => setCollapsed((value) => !value)}
+                                aria-label={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+                                title={collapsed ? 'Perluas sidebar' : 'Ciutkan sidebar'}
+                            >
+                                {collapsed ? (
+                                    <ChevronsRight className="h-4 w-4" />
+                                ) : (
+                                    <ChevronsLeft className="h-4 w-4" />
+                                )}
                             </button>
                             <div className="min-w-0">
                                 {title && (
