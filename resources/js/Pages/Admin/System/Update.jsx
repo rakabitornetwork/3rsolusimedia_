@@ -40,6 +40,13 @@ function InfoRow({ label, value, mono = false }) {
 
 const TERMINAL_SESSION_KEY = 'update-terminal-session';
 const SUPPRESS_TOAST_KEY = 'update-suppress-toast';
+const AUTO_CHECK_KEY = 'update-auto-check';
+
+function syncTone(status) {
+    if (status === 'behind') return 'amber';
+    if (status === 'diverged') return 'rose';
+    return 'teal';
+}
 
 function flashResultFromFlash(flash) {
     if (flash?.success) {
@@ -121,15 +128,45 @@ export default function Update({ repo }) {
         setTerminalOpen(true);
     }, [flash?.success, flash?.error]);
 
-    const checkUpdate = () => {
+    const checkUpdate = (auto = false) => {
         if (checking || busy) return;
         setChecking(true);
 
-        router.post('/admin/system/update/check', {}, {
-            preserveScroll: true,
-            onFinish: () => setChecking(false),
-        });
+        router.post(
+            '/admin/system/update/check',
+            { auto: auto ? 1 : 0 },
+            {
+                preserveScroll: true,
+                onFinish: () => setChecking(false),
+                onError: () => {
+                    if (!auto) return;
+                    try {
+                        sessionStorage.removeItem(AUTO_CHECK_KEY);
+                    } catch {
+                        // ignore
+                    }
+                },
+            },
+        );
     };
+
+    useEffect(() => {
+        if (!canWrite) return;
+
+        try {
+            if (sessionStorage.getItem(AUTO_CHECK_KEY) === '1') {
+                sessionStorage.removeItem(AUTO_CHECK_KEY);
+                return;
+            }
+            sessionStorage.setItem(AUTO_CHECK_KEY, '1');
+        } catch {
+            return;
+        }
+
+        checkUpdate(true);
+        // Sekali saat halaman dibuka. Pengecekan berikutnya lewat tombol.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canWrite]);
 
     const pullUpdate = () => {
         if (!canPull || busy) return;
@@ -253,9 +290,9 @@ export default function Update({ repo }) {
             <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <StatCard
                     label="Status sync"
-                    tone="teal"
+                    tone={syncTone(repo?.sync_status)}
                     icon={RefreshCw}
-                    hint={repo?.message}
+                    hint={checking ? 'Sedang mengecek GitHub…' : repo?.message}
                 >
                     <StatusBadge status={repo?.sync_status} label={repo?.sync_label || '—'} />
                 </StatCard>

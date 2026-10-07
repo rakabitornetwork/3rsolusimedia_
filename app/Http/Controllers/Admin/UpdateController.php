@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Services\GitUpdateService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,16 +22,26 @@ class UpdateController extends Controller
         ]);
     }
 
-    public function check(): RedirectResponse
+    public function check(Request $request): RedirectResponse
     {
         $status = $this->git->gatherStatus(fetch: true);
+        $redirect = redirect()->route('admin.system.update.index');
 
-        return redirect()
-            ->route('admin.system.update.index')
-            ->with(
-                ($status['fetch_ok'] ?? false) ? 'success' : 'error',
-                $status['message'] ?? 'Status repositori diperbarui.'
+        if (! ($status['fetch_ok'] ?? false)) {
+            return $redirect->with(
+                'error',
+                $status['message'] ?? 'Gagal mengecek update dari GitHub.',
             );
+        }
+
+        if ($request->boolean('auto')) {
+            return $redirect;
+        }
+
+        return $redirect->with(
+            'success',
+            $status['message'] ?? 'Status repositori diperbarui.',
+        );
     }
 
     public function pull(): RedirectResponse
