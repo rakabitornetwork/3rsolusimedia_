@@ -44,7 +44,7 @@ class L2tpClientScript
         if ($customer->vpnPortForwards->isNotEmpty()) {
             $lines[] = '# Port publik yang diteruskan ke router Anda:';
             foreach ($customer->vpnPortForwards as $forward) {
-                $lines[] = '# '.$server.':'.$forward->public_port.' → port '.$forward->dst_port.' ('.$forward->label.')';
+                $lines[] = '# '.$server.':'.$forward->publicPortSpec().' → port '.$forward->dstPortSpec().' ('.$forward->label.')';
             }
             $lines[] = '# Port 22 di router ini boleh diteruskan ke perangkat mana pun.';
             $lines[] = '# Contoh, ubah IP dan port tujuan lalu jalankan di terminal yang sama:';
@@ -90,7 +90,7 @@ class L2tpClientScript
         if ($router->portForwards->isNotEmpty()) {
             $lines[] = '# Port publik yang diteruskan ke router ini:';
             foreach ($router->portForwards as $forward) {
-                $lines[] = '# '.$server.':'.$forward->public_port.' → port '.$forward->dst_port.' ('.$forward->label.')';
+                $lines[] = '# '.$server.':'.$forward->publicPortSpec().' → port '.$forward->dstPortSpec().' ('.$forward->label.')';
             }
             $lines[] = '# Port 22 di router ini boleh diteruskan ke perangkat mana pun.';
         }

@@ -262,6 +262,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::delete('/customers/pppoe/{pppoe}/vpn/ports/{port}', [PppoeCustomerController::class, 'destroyVpnPort'])->whereNumber('pppoe')->whereNumber('port')->name('customers.pppoe.vpn.ports.destroy');
 
     Route::get('/customers/vpn', [PppoeCustomerController::class, 'index'])->name('customers.vpn');
+    Route::post('/customers/vpn/import-chr', [PppoeCustomerController::class, 'importVpnFromChr'])->name('customers.vpn.import-chr');
     Route::get('/customers/vpn/create', [PppoeCustomerController::class, 'create'])->name('customers.vpn.create');
     Route::get('/customers/vpn/print', [PppoeCustomerController::class, 'print'])->name('customers.vpn.print');
     Route::post('/customers/vpn/bulk-destroy', [PppoeCustomerController::class, 'bulkDestroy'])->name('customers.vpn.bulk-destroy');

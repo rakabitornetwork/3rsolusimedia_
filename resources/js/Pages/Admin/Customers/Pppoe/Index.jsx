@@ -378,6 +378,30 @@ export default function Index({ customers = [], filters, routers, stats, section
                         <Printer className="mr-1.5 h-4 w-4" />
                         Cetak
                     </button>
+                    {canWrite && vpn && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (
+                                    !confirm(
+                                        'Ambil secret L2TP dan NAT yang sudah ada di CHR ke halaman ini? Aturan di CHR tidak diubah.',
+                                    )
+                                ) {
+                                    return;
+                                }
+                                setProcessing(true);
+                                router.post(`${base}/import-chr`, {}, {
+                                    ...keepPage,
+                                    onFinish: () => setProcessing(false),
+                                });
+                            }}
+                            disabled={processing}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            <RefreshCw className={`mr-1.5 h-4 w-4 ${processing ? 'animate-spin' : ''}`} />
+                            Ambil dari CHR
+                        </button>
+                    )}
                     {canWrite && (
                         <button
                             type="button"

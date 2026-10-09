@@ -126,19 +126,22 @@ class VpnServerScript
             ? ' dst-address='.$publicHost
             : '';
 
+        $publicPort = $forward->publicPortSpec();
+        $dstPort = $forward->dstPortSpec();
         $nat = '/ip firewall nat add chain=dstnat action=dst-nat protocol=tcp'
             .$dstAddress
-            .' dst-port='.$forward->public_port
+            .' dst-port='.$publicPort
             .' to-addresses='.$address
-            .' to-ports='.$forward->dst_port
+            .' to-ports='.$dstPort
             .' comment='.$comment;
 
         $accept = '/ip firewall filter add chain=forward action=accept protocol=tcp dst-address='.$address
-            .' dst-port='.$forward->dst_port
+            .' dst-port='.$dstPort
             .' comment='.$comment;
 
         return [
             ':do { /ip firewall nat remove [find where comment='.$comment.'] } on-error={}',
+            ':do { /ip firewall nat remove [find where chain=dstnat protocol=tcp dst-port='.$publicPort.' to-addresses='.$address.' to-ports='.$dstPort.'] } on-error={}',
             ':do { /ip firewall filter remove [find where comment='.$comment.'] } on-error={}',
             $nat,
             ':if ([:len [/ip firewall filter find]] > 0) do={ '.$accept.' place-before=0 } else={ '.$accept.' }',

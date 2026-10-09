@@ -19,6 +19,7 @@ use App\Services\Messaging\WhatsAppIdentityBinder;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeMonthlyUsageService;
 use App\Services\PppoeSyncService;
+use App\Services\Vpn\ChrVpnImporter;
 use App\Services\Vpn\L2tpClientScript;
 use App\Services\Vpn\VpnAccessPlan;
 use App\Services\Vpn\VpnChrSettings;
@@ -53,6 +54,7 @@ class PppoeCustomerController extends Controller
         private readonly VpnRouterAccounts $vpnAccounts,
         private readonly VpnServerScript $vpnServerScript,
         private readonly L2tpClientScript $vpnClientScript,
+        private readonly ChrVpnImporter $chrVpnImporter,
     ) {
     }
 
@@ -786,6 +788,21 @@ class PppoeCustomerController extends Controller
             ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
+    public function importVpnFromChr(Request $request): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return back()->with('error', 'Akun Agen tidak memiliki akses untuk mengambil data CHR.');
+        }
+
+        try {
+            $result = $this->chrVpnImporter->import();
+        } catch (\Throwable $exception) {
+            return back()->with('error', 'Data CHR gagal diambil: '.$exception->getMessage());
+        }
+
+        return back()->with($result['ok'] ? 'success' : 'error', $result['message']);
+    }
+
     public function pushVpn(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {
@@ -962,8 +979,8 @@ class PppoeCustomerController extends Controller
                 'client_script' => $this->vpnClientScript->buildForRouter($router),
                 'ports' => $router->portForwards->map(fn ($forward) => [
                     'id' => $forward->id,
-                    'public_port' => $forward->public_port,
-                    'dst_port' => $forward->dst_port,
+                    'public_port' => $forward->publicPortSpec(),
+                    'dst_port' => $forward->dstPortSpec(),
                     'label' => $forward->label,
                 ])->values()->all(),
             ])->values()->all(),
@@ -971,8 +988,8 @@ class PppoeCustomerController extends Controller
             'client_script' => $this->vpnClientScript->build($customer),
             'ports' => $customer->vpnPortForwards->map(fn ($forward) => [
                 'id' => $forward->id,
-                'public_port' => $forward->public_port,
-                'dst_port' => $forward->dst_port,
+                'public_port' => $forward->publicPortSpec(),
+                'dst_port' => $forward->dstPortSpec(),
                 'label' => $forward->label,
                 'kind' => $forward->kind,
                 'pushed_at' => $forward->pushed_at?->toIso8601String(),

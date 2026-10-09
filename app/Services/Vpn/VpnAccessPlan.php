@@ -216,7 +216,7 @@ class VpnAccessPlan
         $last = max($lastCustomer === null ? 0 : (int) $lastCustomer, $lastRouter === null ? 0 : (int) $lastRouter);
         $series = $last === 0
             ? random_int(self::SERIES_MIN, self::SERIES_MAX)
-            : $last + 1;
+            : max($last + 1, self::SERIES_MIN);
 
         while (
             $series <= self::SERIES_MAX
