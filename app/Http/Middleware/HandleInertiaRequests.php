@@ -42,6 +42,8 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'generated_vouchers' => fn () => $request->session()->get('generated_vouchers'),
                 'online_checkout_url' => fn () => $request->session()->get('online_checkout_url'),
+                'early_query' => fn () => $request->session()->get('early_query'),
+                'early_customers' => fn () => $request->session()->get('early_customers'),
             ],
         ];
     }

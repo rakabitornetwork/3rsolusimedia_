@@ -14,6 +14,7 @@ use App\Services\Messaging\MessageTemplate;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AdminListState;
 use App\Support\AppSettings;
+use App\Support\PhoneNumber;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -538,65 +539,38 @@ class BillingController extends Controller
     public function prepare(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'username' => ['required', 'string', 'max:120'],
+            'username' => ['nullable', 'string', 'max:120', 'required_without:customer_id'],
+            'customer_id' => ['nullable', 'integer', 'required_without:username'],
         ]);
 
-        $term = trim($validated['username']);
-        $user = $request->user();
-        $customers = PppoeCustomer::query()->with('package');
+        $term = trim((string) ($validated['username'] ?? ''));
+        $scoped = $this->earlyPaymentCustomers($request);
 
-        if ($user?->isAgen()) {
-            $customers->where('agent_id', $user->id);
-        }
-
-        $byUsername = (clone $customers)->where('username', $term)->first();
-        if ($byUsername) {
-            $customer = $byUsername;
-        } else {
-            $byName = (clone $customers)->where('name', $term)->limit(2)->get();
-            if ($byName->count() > 1) {
-                return back()->with('error', 'Nama itu dipakai lebih dari satu pelanggan. Masukkan username.');
-            }
-            $customer = $byName->first();
-        }
-
-        if (! $customer) {
-            return back()->with('error', 'Pelanggan tidak ditemukan. Gunakan username yang tepat.');
-        }
-
-        if (! $customer->is_active) {
-            return back()->with('error', 'Pelanggan nonaktif. Tagihan tidak dibuat.');
-        }
-
-        $result = $this->billing->ensurePayableInvoice($customer);
-        $invoice = $result['invoice'];
-
-        if (! $invoice) {
-            $due = $customer->due_date?->format('d/m/Y');
-            $windowDays = AppSettings::billingGenerateDays();
-
-            if (! $this->billing->currentCycleHasStarted($customer)) {
-                $when = $due ? "Jatuh tempo {$due} " : 'Tagihan ';
-
-                return back()->with(
-                    'error',
-                    "{$when}belum masuk periode berjalan, jadi tagihan belum bisa dibuat. Tagihan otomatis muncul {$windowDays} hari sebelum jatuh tempo."
-                );
+        if (! empty($validated['customer_id'])) {
+            $customer = (clone $scoped)->whereKey($validated['customer_id'])->first();
+            if (! $customer) {
+                return back()->with('error', 'Pelanggan tidak ditemukan.');
             }
 
-            return back()->with(
-                'error',
-                'Tagihan periode ini tidak bisa dibuat. Cek harga paket, atau tagihan jatuh tempo yang sama sudah lunas.'
-            );
+            return $this->prepareEarlyInvoice($customer);
         }
 
-        $message = $result['created']
-            ? 'Tagihan '.$invoice->number.' disiapkan. Pelanggan bisa membayar lebih awal.'
-            : 'Tagihan '.$invoice->number.' sudah ada.';
+        $matches = $this->matchEarlyCustomers($scoped, $term);
 
-        return redirect()
-            ->route('admin.billing.show', $invoice)
-            ->with('success', $message);
+        if ($matches->isEmpty()) {
+            return back()->with('error', 'Pelanggan tidak ditemukan. Gunakan username, nama lengkap, atau nomor telepon.');
+        }
+
+        if ($matches->count() > 1) {
+            return back()
+                ->with('early_query', $term)
+                ->with('early_customers', $matches
+                    ->map(fn (PppoeCustomer $customer) => $this->earlyCustomerChoice($customer))
+                    ->values()
+                    ->all());
+        }
+
+        return $this->prepareEarlyInvoice($matches->first());
     }
 
     public function destroy(Invoice $invoice): RedirectResponse
@@ -777,6 +751,103 @@ class BillingController extends Controller
         }
 
         return back()->with('success', $message);
+    }
+
+    private function earlyPaymentCustomers(Request $request): Builder
+    {
+        $customers = PppoeCustomer::query()->with(['package', 'router']);
+
+        if ($request->user()?->isAgen()) {
+            $customers->where('agent_id', $request->user()->id);
+        }
+
+        return $customers;
+    }
+
+    /**
+     * Username, nama lengkap, dan telepon digabung. Lebih dari satu hasil
+     * tidak langsung ditagih — admin memilih pelanggan yang tepat.
+     */
+    private function matchEarlyCustomers(Builder $scoped, string $term): \Illuminate\Support\Collection
+    {
+        $needle = mb_strtolower($term);
+        $usernameHits = (clone $scoped)->whereRaw('LOWER(username) = ?', [$needle])->get();
+        $nameHits = (clone $scoped)->whereRaw('LOWER(name) = ?', [$needle])->get();
+
+        $phoneHits = collect();
+        $digits = PhoneNumber::normalize($term);
+        if (strlen($digits) >= 8) {
+            $phoneHits = (clone $scoped)
+                ->whereNotNull('phone')
+                ->where('phone', '!=', '')
+                ->get()
+                ->filter(fn (PppoeCustomer $customer) => PhoneNumber::normalize((string) $customer->phone) === $digits);
+        }
+
+        return $usernameHits
+            ->concat($nameHits)
+            ->concat($phoneHits)
+            ->unique('id')
+            ->sortBy(fn (PppoeCustomer $customer) => mb_strtolower($customer->username))
+            ->values();
+    }
+
+    /**
+     * @return array{id: int, name: string, username: string, phone: ?string, address: ?string, router: ?string, package: ?string, due_date: ?string, status: ?string, is_active: bool}
+     */
+    private function earlyCustomerChoice(PppoeCustomer $customer): array
+    {
+        return [
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'username' => $customer->username,
+            'phone' => $customer->phone,
+            'address' => $customer->address,
+            'router' => $customer->router?->name,
+            'package' => $customer->package?->name,
+            'due_date' => $customer->due_date?->format('d/m/Y'),
+            'status' => $customer->status,
+            'is_active' => (bool) $customer->is_active,
+        ];
+    }
+
+    private function prepareEarlyInvoice(PppoeCustomer $customer): RedirectResponse
+    {
+        if (! $customer->is_active) {
+            return back()->with('error', 'Pelanggan '.$customer->name.' ('.$customer->username.') nonaktif. Tagihan tidak dibuat.');
+        }
+
+        $result = $this->billing->ensurePayableInvoice($customer);
+        $invoice = $result['invoice'];
+
+        if (! $invoice) {
+            $due = $customer->due_date?->format('d/m/Y');
+            $windowDays = AppSettings::billingGenerateDays();
+            $who = $customer->name.' ('.$customer->username.')';
+
+            if (! $this->billing->currentCycleHasStarted($customer)) {
+                $when = $due ? "Jatuh tempo {$due} " : 'Tagihan ';
+
+                return back()->with(
+                    'error',
+                    "{$when}untuk {$who} belum masuk periode berjalan, jadi tagihan belum bisa dibuat. Tagihan otomatis muncul {$windowDays} hari sebelum jatuh tempo."
+                );
+            }
+
+            return back()->with(
+                'error',
+                'Tagihan periode ini untuk '.$who.' tidak bisa dibuat. Cek harga paket, atau tagihan jatuh tempo yang sama sudah lunas.'
+            );
+        }
+
+        $who = $customer->name.' ('.$customer->username.')';
+        $message = $result['created']
+            ? 'Tagihan '.$invoice->number.' disiapkan untuk '.$who.'.'
+            : 'Tagihan '.$invoice->number.' untuk '.$who.' sudah ada.';
+
+        return redirect()
+            ->route('admin.billing.show', $invoice)
+            ->with('success', $message);
     }
 
     private function invoiceListQuery(Request $request): Builder

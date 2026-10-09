@@ -17,7 +17,7 @@ import {
     Trash2,
     WalletCards,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import GraceUntilForm from '../../../Components/Admin/GraceUntilForm';
 import LocalPagination from '../../../Components/Admin/LocalPagination';
 import OverflowMenu from '../../../Components/Admin/OverflowMenu';
@@ -226,7 +226,8 @@ export default function Index({
     whatsapp = { enabled: false, templates: [] },
     billing_generate_days: billingGenerateDays = 7,
 }) {
-    const { auth } = usePage().props;
+    const { auth, flash } = usePage().props;
+    const earlyCustomers = Array.isArray(flash?.early_customers) ? flash.early_customers : [];
     const canPay = auth?.user?.can_record_payment !== false;
     const canGrantGrace = auth?.user?.can_grant_grace !== false;
     const isAgen = auth?.user?.role === 'agen';
@@ -241,8 +242,14 @@ export default function Index({
     const [bulkProcessing, setBulkProcessing] = useState(false);
     const [bulkWaProcessing, setBulkWaProcessing] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
-    const [earlyUsername, setEarlyUsername] = useState('');
+    const [earlyUsername, setEarlyUsername] = useState(flash?.early_query || '');
     const [preparingEarly, setPreparingEarly] = useState(false);
+
+    useEffect(() => {
+        if (flash?.early_query) {
+            setEarlyUsername(flash.early_query);
+        }
+    }, [flash?.early_query]);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -423,6 +430,27 @@ export default function Index({
             '/admin/billing/prepare',
             { username },
             {
+                preserveScroll: true,
+                onFinish: () => setPreparingEarly(false),
+            },
+        );
+    };
+
+    const chooseEarlyCustomer = (customer) => {
+        if (preparingEarly) return;
+        const detail = [customer.username, customer.phone, customer.address].filter(Boolean).join(' · ');
+        if (
+            !window.confirm(
+                `Siapkan tagihan untuk ${customer.name}${detail ? ` (${detail})` : ''}?`,
+            )
+        ) {
+            return;
+        }
+        setPreparingEarly(true);
+        router.post(
+            '/admin/billing/prepare',
+            { customer_id: customer.id, username: earlyUsername.trim() },
+            {
                 onFinish: () => setPreparingEarly(false),
             },
         );
@@ -556,15 +584,15 @@ export default function Index({
                 <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-ink">Bayar lebih awal</p>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Jika pelanggan membayar sebelum tagihan otomatis muncul, siapkan tagihan
-                        periode yang sudah berjalan.
+                        Cari dengan username, nama lengkap, atau nomor telepon. Jika namanya sama,
+                        pilih pelanggan dari daftar sebelum tagihan dibuat.
                     </p>
                     <input
                         type="text"
                         value={earlyUsername}
                         onChange={(e) => setEarlyUsername(e.target.value)}
-                        placeholder="Username pelanggan"
-                        className="mt-3 w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-xs"
+                        placeholder="Username, nama lengkap, atau telepon"
+                        className="mt-3 w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-md"
                     />
                 </div>
                 <button
@@ -576,6 +604,56 @@ export default function Index({
                     {preparingEarly ? 'Menyiapkan...' : 'Siapkan tagihan'}
                 </button>
             </form>
+
+            {earlyCustomers.length > 1 && (
+                <div className="mb-5 border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-ink">
+                        {earlyCustomers.length} pelanggan cocok. Pilih yang akan membayar.
+                    </p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                        Tagihan belum dibuat. Cocokkan username, telepon, alamat, dan jatuh tempo.
+                    </p>
+                    <ul className="mt-3 divide-y divide-amber-200/80 border border-amber-200 bg-white">
+                        {earlyCustomers.map((customer) => (
+                            <li
+                                key={customer.id}
+                                className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <div className="min-w-0">
+                                    <p className="font-medium text-ink">
+                                        {customer.name}{' '}
+                                        <span className="font-normal text-ink-soft">
+                                            · {customer.username}
+                                        </span>
+                                    </p>
+                                    <p className="mt-1 text-xs text-ink-soft">
+                                        {[
+                                            customer.phone,
+                                            customer.address,
+                                            customer.router,
+                                            customer.package,
+                                            customer.due_date
+                                                ? `Jatuh tempo ${customer.due_date}`
+                                                : null,
+                                            customer.is_active ? null : 'Nonaktif',
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ') || 'Tidak ada telepon atau alamat'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => chooseEarlyCustomer(customer)}
+                                    disabled={preparingEarly || !customer.is_active}
+                                    className="btn-action btn-action-sm btn-primary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    Pilih
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
