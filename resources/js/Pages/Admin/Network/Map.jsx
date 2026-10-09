@@ -749,6 +749,7 @@ function DetailPanel({ customer, paymentMethods, onClose }) {
                     ontTone={ontTone}
                     poll={poll}
                     canWrite={canWrite}
+                    canGrantGrace={canGrantGrace}
                     paymentMethods={paymentMethods}
                     rebooting={rebooting}
                     onClose={onClose}
@@ -767,6 +768,7 @@ function DetailPanel({ customer, paymentMethods, onClose }) {
                     ontTone={ontTone}
                     poll={poll}
                     canWrite={canWrite}
+                    canGrantGrace={canGrantGrace}
                     paymentMethods={paymentMethods}
                     rebooting={rebooting}
                     onClose={onClose}
@@ -786,6 +788,7 @@ function DetailPanelBody({
     ontTone,
     poll,
     canWrite,
+    canGrantGrace,
     paymentMethods = [],
     rebooting,
     onClose,
