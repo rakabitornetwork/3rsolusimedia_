@@ -22,6 +22,12 @@ Schedule::command('pppoe:sync-overdue')
     ->timezone($appTimezone)
     ->withoutOverlapping(120);
 
+// Ulangi sync yang gagal tanpa tombol di daftar pelanggan.
+Schedule::command('pppoe:sync-errors')
+    ->everyFifteenMinutes()
+    ->timezone($appTimezone)
+    ->withoutOverlapping(10);
+
 // Akun VPN yang 3 bulan berturut-turut tidak diperpanjang kehilangan semua routernya.
 Schedule::command('vpn:purge-lapsed-routers')
     ->dailyAt('00:20')

@@ -104,6 +104,44 @@ class SyncOverduePppoeCustomersTest extends TestCase
     }
 
     #[Test]
+    public function failed_sync_is_retried_without_the_manual_button(): void
+    {
+        $customer = $this->customer([
+            'sync_status' => 'error',
+            'sync_message' => 'Tidak bisa terhubung ke router.',
+            'due_date' => '2026-10-20',
+            'status' => 'active',
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')->once()->andReturn([
+            'ok' => true,
+            'message' => 'Secret PPPoE berhasil diperbarui di RouterOS.',
+        ]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $this->artisan('pppoe:sync-errors')
+            ->expectsOutputToContain('OK [budi01]')
+            ->assertSuccessful();
+
+        $customer->refresh();
+        $this->assertSame('synced', $customer->sync_status);
+        $this->assertSame('active', $customer->status);
+    }
+
+    #[Test]
+    public function failed_sync_retry_is_scheduled_every_fifteen_minutes(): void
+    {
+        $events = collect(app(Schedule::class)->events());
+        $event = $events->first(
+            fn ($scheduled) => str_contains((string) $scheduled->command, 'pppoe:sync-errors')
+        );
+
+        $this->assertNotNull($event);
+        $this->assertSame('*/15 * * * *', $event->expression);
+    }
+
+    #[Test]
     public function overdue_sync_is_scheduled_daily_at_midnight(): void
     {
         $events = collect(app(Schedule::class)->events());
