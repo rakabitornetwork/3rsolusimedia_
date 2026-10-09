@@ -93,7 +93,8 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (Invoice $invoice) => $invoice->toAdminArray());
 
-        $newCustomers = $this->newCustomers($customerQuery);
+        $isAgen = $user->isAgen();
+        $newCustomers = $isAgen ? null : $this->newCustomers($customerQuery);
 
         return Inertia::render('Admin/Dashboard', [
             'company' => AppSettings::companyName(),
@@ -114,12 +115,12 @@ class DashboardController extends Controller
                 'routers_active' => $routersActive,
                 'packages_active' => $packagesActive,
             ],
-            'revenue_charts' => $this->revenueCharts(),
+            'revenue_charts' => $isAgen ? null : $this->revenueCharts(),
             'new_customers' => $newCustomers,
-            'usage_top' => $this->usage->topTen($user->isAgen() ? (int) $user->id : null),
+            'usage_top' => $this->usage->topTen($isAgen ? (int) $user->id : null),
             'due_soon' => $dueSoon,
             'attention_invoices' => $attentionInvoices,
-            'quick_actions' => collect([
+            'quick_actions' => $isAgen ? [] : collect([
                 [
                     'label' => 'Tambah Pelanggan',
                     'description' => 'Daftarkan secret PPPoE baru',

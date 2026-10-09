@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Support\AdminListState;
 use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -14,13 +15,19 @@ use Inertia\Response;
 
 class AgentCommissionReportController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
+        $actor = $request->user();
+
+        if ($actor->isAgen()) {
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('error', 'Akun Agen tidak memiliki akses ke halaman Komisi Agen.');
+        }
+
         AdminListState::apply($request, AdminListState::AGENT_COMMISSIONS, [
             'preset', 'from', 'to', 'agent_id',
         ]);
-
-        $actor = $request->user();
         $preset = (string) $request->get('preset', 'this_month');
         [$from, $to, $preset] = $this->resolvePeriod(
             $preset,

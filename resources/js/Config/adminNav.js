@@ -268,10 +268,8 @@ export function filterNavForUser(nav, user) {
 
     const allowedHrefs = [
         '/admin',
-        '/admin/customers/pppoe',
         '/admin/customers/pppoe/sessions',
         '/admin/billing',
-        '/admin/billing/agent-commissions',
     ];
 
     return nav

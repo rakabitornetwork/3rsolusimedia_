@@ -46,16 +46,18 @@ export default function Dashboard({
     const { auth } = usePage().props;
     const userName = auth?.user?.name || 'Admin';
     const canPay = auth?.user?.can_record_payment !== false;
+    const isAgen = auth?.user?.role === 'agen';
+    const customerHref = (href) => (isAgen ? undefined : href);
 
     const alerts = [
         stats.customers_isolated > 0 && {
             label: `${stats.customers_isolated} pelanggan isolir`,
-            href: '/admin/customers/pppoe?status=isolated',
+            href: customerHref('/admin/customers/pppoe?status=isolated'),
             tone: 'danger',
         },
         stats.customers_overdue > 0 && {
             label: `${stats.customers_overdue} pelanggan lewat jatuh tempo`,
-            href: '/admin/customers/pppoe',
+            href: customerHref('/admin/customers/pppoe'),
             tone: 'warn',
         },
         stats.invoices_overdue > 0 && {
@@ -65,7 +67,7 @@ export default function Dashboard({
         },
         stats.sync_errors > 0 && {
             label: `${stats.sync_errors} gagal sync MikroTik`,
-            href: '/admin/customers/pppoe',
+            href: customerHref('/admin/customers/pppoe'),
             tone: 'danger',
         },
     ].filter(Boolean);
@@ -140,20 +142,29 @@ export default function Dashboard({
 
             {alerts.length > 0 && (
                 <div className="mb-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    {alerts.map((alert) => (
-                        <Link
-                            key={alert.label}
-                            href={alert.href}
-                            className={`inline-flex items-center gap-2 border px-3 py-2.5 text-sm font-medium ${
-                                alert.tone === 'danger'
-                                    ? 'border-red-200 bg-red-50 text-red-700'
-                                    : 'border-amber-200 bg-amber-50 text-amber-800'
-                            }`}
-                        >
-                            <AlertTriangle className="h-4 w-4 shrink-0" />
-                            {alert.label}
-                        </Link>
-                    ))}
+                    {alerts.map((alert) => {
+                        const className = `inline-flex items-center gap-2 border px-3 py-2.5 text-sm font-medium ${
+                            alert.tone === 'danger'
+                                ? 'border-red-200 bg-red-50 text-red-700'
+                                : 'border-amber-200 bg-amber-50 text-amber-800'
+                        }`;
+                        const body = (
+                            <>
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                {alert.label}
+                            </>
+                        );
+
+                        return alert.href ? (
+                            <Link key={alert.label} href={alert.href} className={className}>
+                                {body}
+                            </Link>
+                        ) : (
+                            <div key={alert.label} className={className}>
+                                {body}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
@@ -166,7 +177,7 @@ export default function Dashboard({
                         label="Total pelanggan"
                         value={stats.customers_total}
                         hint={`${stats.customers_disabled} nonaktif`}
-                        href="/admin/customers/pppoe"
+                        href={customerHref('/admin/customers/pppoe')}
                         tone="cyan"
                         icon={Coins}
                     />
@@ -174,7 +185,7 @@ export default function Dashboard({
                         label="Aktif"
                         value={stats.customers_active}
                         hint="Koneksi berjalan normal"
-                        href="/admin/customers/pppoe?status=active"
+                        href={customerHref('/admin/customers/pppoe?status=active')}
                         tone="emerald"
                         icon={ShieldCheck}
                     />
@@ -182,7 +193,7 @@ export default function Dashboard({
                         label="Isolir"
                         value={stats.customers_isolated}
                         hint="Perlu pembayaran / restore"
-                        href="/admin/customers/pppoe?status=isolated"
+                        href={customerHref('/admin/customers/pppoe?status=isolated')}
                         tone="rose"
                         icon={WalletCards}
                     />
@@ -190,7 +201,7 @@ export default function Dashboard({
                         label="Lewat tempo"
                         value={stats.customers_overdue}
                         hint="Melewati jatuh tempo"
-                        href="/admin/customers/pppoe"
+                        href={customerHref('/admin/customers/pppoe')}
                         tone="amber"
                         icon={Hourglass}
                     />
@@ -230,43 +241,45 @@ export default function Dashboard({
                 </section>
             )}
 
-            <section className="mb-8">
-                <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
-                    Aksi cepat
-                </h3>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {quickActions.map((action) => {
-                        const Icon = actionIcon(action.label);
-                        return (
-                            <Link
-                                key={action.href}
-                                href={action.href}
-                                className={`group flex items-start gap-3 border p-4 transition hover:border-signal/40 ${
-                                    action.tone === 'primary'
-                                        ? 'border-signal/30 bg-signal/10'
-                                        : 'border-ink/10 bg-white hover:bg-mist/40'
-                                }`}
-                            >
-                                <span
-                                    className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center ${
+            {quickActions?.length > 0 && (
+                <section className="mb-8">
+                    <h3 className="mb-3 text-xs font-semibold tracking-wide text-ink-soft uppercase">
+                        Aksi cepat
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {quickActions.map((action) => {
+                            const Icon = actionIcon(action.label);
+                            return (
+                                <Link
+                                    key={action.href}
+                                    href={action.href}
+                                    className={`group flex items-start gap-3 border p-4 transition hover:border-signal/40 ${
                                         action.tone === 'primary'
-                                            ? 'bg-signal-deep text-white'
-                                            : 'bg-mist text-signal-deep'
+                                            ? 'border-signal/30 bg-signal/10'
+                                            : 'border-ink/10 bg-white hover:bg-mist/40'
                                     }`}
                                 >
-                                    <Icon className="h-4 w-4" />
-                                </span>
-                                <span>
-                                    <span className="block font-medium text-ink">{action.label}</span>
-                                    <span className="mt-0.5 block text-xs text-ink-soft">
-                                        {action.description}
+                                    <span
+                                        className={`mt-0.5 inline-flex h-9 w-9 items-center justify-center ${
+                                            action.tone === 'primary'
+                                                ? 'bg-signal-deep text-white'
+                                                : 'bg-mist text-signal-deep'
+                                        }`}
+                                    >
+                                        <Icon className="h-4 w-4" />
                                     </span>
-                                </span>
-                            </Link>
-                        );
-                    })}
-                </div>
-            </section>
+                                    <span>
+                                        <span className="block font-medium text-ink">{action.label}</span>
+                                        <span className="mt-0.5 block text-xs text-ink-soft">
+                                            {action.description}
+                                        </span>
+                                    </span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
 
             <div className="grid gap-5 xl:grid-cols-2">
                 <section className="border border-ink/10 bg-white">
@@ -299,12 +312,14 @@ export default function Dashboard({
                                 </div>
                                 <div className="text-right">
                                     <p className="text-sm font-semibold text-ink">{item.due_date}</p>
-                                    <Link
-                                        href={`/admin/customers/pppoe/${item.id}/edit`}
-                                        className="text-xs font-semibold text-signal-deep hover:underline"
-                                    >
-                                        Detail
-                                    </Link>
+                                    {!isAgen && (
+                                        <Link
+                                            href={`/admin/customers/pppoe/${item.id}/edit`}
+                                            className="text-xs font-semibold text-signal-deep hover:underline"
+                                        >
+                                            Detail
+                                        </Link>
+                                    )}
                                 </div>
                             </li>
                         ))}

@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Activity, ChevronDown, RefreshCw, Search, Unplug, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import LocalPagination from '../../../../Components/Admin/LocalPagination';
@@ -117,6 +117,9 @@ export default function Sessions({
     const refresh = () => {
         browse({});
     };
+
+    const { auth } = usePage().props;
+    const canOpenCustomer = auth?.user?.role !== 'agen';
 
     const disconnect = (session) => {
         if (!selected_router_id) return;
@@ -586,12 +589,16 @@ export default function Sessions({
                                 <td className="px-3 py-2.5 align-middle">
                                     {session.customer_id ? (
                                         <div>
-                                            <Link
-                                                href={`/admin/customers/pppoe/${session.customer_id}/edit`}
-                                                className="font-medium text-signal-deep hover:underline"
-                                            >
-                                                {session.customer_name}
-                                            </Link>
+                                            {canOpenCustomer ? (
+                                                <Link
+                                                    href={`/admin/customers/pppoe/${session.customer_id}/edit`}
+                                                    className="font-medium text-signal-deep hover:underline"
+                                                >
+                                                    {session.customer_name}
+                                                </Link>
+                                            ) : (
+                                                <p className="font-medium text-ink">{session.customer_name}</p>
+                                            )}
                                             <p className="text-xs text-ink-soft">
                                                 {session.customer_status}
                                             </p>

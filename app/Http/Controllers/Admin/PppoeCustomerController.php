@@ -87,9 +87,16 @@ class PppoeCustomerController extends Controller
             : 'admin.customers.pppoe.edit';
     }
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $service = $this->sectionService($request);
+
+        if ($request->user()?->isAgen() && $service === PppoeCustomer::SERVICE_PPPOE) {
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('error', 'Akun Agen tidak memiliki akses ke halaman Pelanggan PPPoE.');
+        }
+
         AdminListState::apply($request, $service === PppoeCustomer::SERVICE_L2TP ? AdminListState::VPN : AdminListState::PPPOE, [
             'q', 'status', 'router_id', 'sort', 'direction', 'page',
         ]);
@@ -195,8 +202,14 @@ class PppoeCustomerController extends Controller
         ]);
     }
 
-    public function print(Request $request): HttpResponse
+    public function print(Request $request): HttpResponse|RedirectResponse
     {
+        if ($request->user()?->isAgen() && $this->sectionService($request) === PppoeCustomer::SERVICE_PPPOE) {
+            return redirect()
+                ->route('admin.dashboard')
+                ->with('error', 'Akun Agen tidak memiliki akses ke halaman Pelanggan PPPoE.');
+        }
+
         $validated = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
             'date_field' => ['nullable', Rule::in(['due_date', 'start_date', 'billing_day'])],
