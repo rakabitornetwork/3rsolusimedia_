@@ -10,6 +10,7 @@ import {
     Hourglass,
     MoreHorizontal,
     Printer,
+    Receipt,
     Search,
     Send,
     ShieldAlert,
@@ -536,7 +537,7 @@ export default function Index({
         >
             <Head title="Tagihan & Pembayaran" />
 
-            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="mb-5 grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 <StatCard
                     label="Belum bayar"
                     value={stats.unpaid}
@@ -574,6 +575,13 @@ export default function Index({
                     value={stats.collected_this_month_label}
                     tone="indigo"
                     icon={Coins}
+                />
+                <StatCard
+                    label="Belum tertagih"
+                    value={stats.unpaid_total_label}
+                    hint={`${stats.unpaid} tagihan sudah muncul`}
+                    tone="sky"
+                    icon={Receipt}
                 />
             </div>
 

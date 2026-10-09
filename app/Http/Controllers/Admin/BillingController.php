@@ -123,6 +123,7 @@ class BillingController extends Controller
             : true;
 
         $collectedAmount = (int) $paymentMonthQuery->sum('amount');
+        $unpaidTotal = (int) (clone $unpaidQuery)->sum('total');
 
         return Inertia::render('Admin/Billing/Index', [
             'invoices' => $invoices,
@@ -144,6 +145,8 @@ class BillingController extends Controller
                 ->get(['id', 'name', 'host']),
             'stats' => [
                 'unpaid' => $unpaidQuery->count(),
+                'unpaid_total' => $unpaidTotal,
+                'unpaid_total_label' => 'Rp '.number_format($unpaidTotal, 0, ',', '.'),
                 'overdue' => $overdueQuery->count(),
                 'paid_this_month' => $paidMonthQuery->count(),
                 'collected_this_month' => $collectedAmount,

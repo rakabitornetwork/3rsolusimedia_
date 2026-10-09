@@ -107,6 +107,37 @@ class BillingManualWhatsappTest extends TestCase
     }
 
     #[Test]
+    public function billing_index_sums_rupiah_of_invoices_already_on_the_page(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $customer = $this->customer();
+        $this->invoice($customer, ['number' => 'INV-OPEN-1', 'total' => 150000, 'amount' => 150000]);
+        $this->invoice($customer, [
+            'number' => 'INV-OPEN-2',
+            'total' => 250000,
+            'amount' => 250000,
+            'due_date' => now()->addDays(3)->toDateString(),
+        ]);
+        $this->invoice($customer, [
+            'number' => 'INV-PAID',
+            'status' => 'paid',
+            'paid_at' => now(),
+            'total' => 90000,
+            'amount' => 90000,
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/admin/billing')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Billing/Index', false)
+                ->where('stats.unpaid', 2)
+                ->where('stats.unpaid_total', 400000)
+                ->where('stats.unpaid_total_label', 'Rp 400.000')
+            );
+    }
+
+    #[Test]
     public function billing_index_hides_previous_month_paid_invoices_by_default(): void
     {
         $admin = User::factory()->superadmin()->create();
