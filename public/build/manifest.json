@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-Dsvl_fNX.css",
+    "file": "assets/app-Bkh7QBv1.css",
     "name": "app",
     "names": [
       "app.css"
@@ -543,7 +543,7 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard.jsx": {
-    "file": "assets/Dashboard-DAw1g12F.js",
+    "file": "assets/Dashboard-FkLQlzec.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -1101,7 +1101,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-9J9aKLpa.js",
+    "file": "assets/app-B4C8i39F.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1164,7 +1164,7 @@
       "resources/js/Pages/Vpn/Signup.jsx"
     ],
     "css": [
-      "assets/app-Dsvl_fNX.css"
+      "assets/app-Bkh7QBv1.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
