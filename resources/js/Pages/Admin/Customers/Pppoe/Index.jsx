@@ -211,10 +211,6 @@ export default function Index({ customers = [], filters, routers, stats, section
         setShowBulkDelete(true);
     };
 
-    const sync = (id) => {
-        router.post(`${base}/${id}/sync`, {}, keepPage);
-    };
-
     const openPrint = () => {
         if (!printDate) return;
 
@@ -784,14 +780,6 @@ export default function Index({ customers = [], filters, routers, stats, section
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
-                                        <button
-                                            type="button"
-                                            onClick={() => sync(customer.id)}
-                                            className="btn-action btn-action-xs btn-sync"
-                                        >
-                                            <RefreshCw className="h-3.5 w-3.5" />
-                                            Sync
-                                        </button>
                                         <Link
                                             href={`${base}/${customer.id}/edit`}
                                             className="btn-action btn-action-xs btn-edit"

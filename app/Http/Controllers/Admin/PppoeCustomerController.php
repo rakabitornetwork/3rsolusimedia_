@@ -786,20 +786,6 @@ class PppoeCustomerController extends Controller
             ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
-    public function sync(Request $request, PppoeCustomer $pppoe): RedirectResponse
-    {
-        if ($pppoe->pppService() !== $this->sectionService($request)) {
-            return back()->with('error', 'Pelanggan ini tidak ada di daftar ini.');
-        }
-
-        $this->sync->sync($pppoe->load(['router', 'package']));
-
-        return back()->with(
-            $pppoe->fresh()->sync_status === 'synced' ? 'success' : 'error',
-            $pppoe->fresh()->sync_message ?: 'Sinkronisasi selesai.'
-        );
-    }
-
     public function pushVpn(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
         if ($request->user()?->isAgen()) {

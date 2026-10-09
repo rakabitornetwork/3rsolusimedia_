@@ -254,7 +254,6 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/customers/pppoe/{pppoe}/edit', [PppoeCustomerController::class, 'edit'])->whereNumber('pppoe')->name('customers.pppoe.edit');
     Route::put('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'update'])->whereNumber('pppoe')->name('customers.pppoe.update');
     Route::delete('/customers/pppoe/{pppoe}', [PppoeCustomerController::class, 'destroy'])->whereNumber('pppoe')->name('customers.pppoe.destroy');
-    Route::post('/customers/pppoe/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->whereNumber('pppoe')->name('customers.pppoe.sync');
     Route::post('/customers/pppoe/{pppoe}/vpn/push', [PppoeCustomerController::class, 'pushVpn'])->whereNumber('pppoe')->name('customers.pppoe.vpn.push');
     Route::post('/customers/pppoe/{pppoe}/vpn/routers', [PppoeCustomerController::class, 'storeVpnRouter'])->whereNumber('pppoe')->name('customers.pppoe.vpn.routers.store');
     Route::post('/customers/pppoe/{pppoe}/vpn/routers/{vpnRouter}/push', [PppoeCustomerController::class, 'pushVpnRouter'])->whereNumber('pppoe')->whereNumber('vpnRouter')->name('customers.pppoe.vpn.routers.push');
@@ -271,7 +270,6 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::get('/customers/vpn/{pppoe}/edit', [PppoeCustomerController::class, 'edit'])->whereNumber('pppoe')->name('customers.vpn.edit');
     Route::put('/customers/vpn/{pppoe}', [PppoeCustomerController::class, 'update'])->whereNumber('pppoe')->name('customers.vpn.update');
     Route::delete('/customers/vpn/{pppoe}', [PppoeCustomerController::class, 'destroy'])->whereNumber('pppoe')->name('customers.vpn.destroy');
-    Route::post('/customers/vpn/{pppoe}/sync', [PppoeCustomerController::class, 'sync'])->whereNumber('pppoe')->name('customers.vpn.sync');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/reports', [FinancialReportController::class, 'index'])->name('billing.reports');
