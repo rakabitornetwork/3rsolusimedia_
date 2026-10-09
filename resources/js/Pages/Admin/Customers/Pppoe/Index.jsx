@@ -84,8 +84,9 @@ function SortableHeader({
 function StatusBadge({ status, overdue, graceUntil }) {
     if (graceUntil) {
         return (
-            <span className="bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">
-                Grace s/d {graceUntil}
+            <span className="inline-flex flex-col bg-sky-50 px-2 py-1 text-xs font-semibold leading-tight text-sky-700">
+                <span>Grace s/d</span>
+                <span>{graceUntil}</span>
             </span>
         );
     }
