@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\MessageLog;
 use App\Models\MessagingIdentity;
 use App\Models\PppoeCustomer;
+use App\Services\BillingService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 use App\Support\PhoneNumber;
@@ -22,6 +23,7 @@ class BotCommandRouter
 {
     public function __construct(
         private readonly MessagingManager $channels,
+        private readonly BillingService $billing,
         private readonly PaymentGatewayManager $gateways,
         private readonly AdminCustomerLookup $adminLookup,
         private readonly WhatsAppIdentityBinder $whatsappBinder,
@@ -492,6 +494,8 @@ class BotCommandRouter
             return;
         }
 
+        $this->billing->ensurePayableInvoice($customer);
+
         $unpaid = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'unpaid')
@@ -530,6 +534,8 @@ class BotCommandRouter
 
             return;
         }
+
+        $this->billing->ensurePayableInvoice($customer);
 
         $invoice = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)

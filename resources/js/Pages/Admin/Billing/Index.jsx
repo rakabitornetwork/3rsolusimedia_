@@ -224,6 +224,7 @@ export default function Index({
     payment_methods,
     routers = [],
     whatsapp = { enabled: false, templates: [] },
+    billing_generate_days: billingGenerateDays = 7,
 }) {
     const { auth } = usePage().props;
     const canPay = auth?.user?.can_record_payment !== false;
@@ -240,6 +241,8 @@ export default function Index({
     const [bulkProcessing, setBulkProcessing] = useState(false);
     const [bulkWaProcessing, setBulkWaProcessing] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
+    const [earlyUsername, setEarlyUsername] = useState('');
+    const [preparingEarly, setPreparingEarly] = useState(false);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -401,12 +404,28 @@ export default function Index({
     const generate = () => {
         if (
             !window.confirm(
-                'Buat tagihan untuk pelanggan aktif yang jatuh tempo dalam 7 hari (atau sudah lewat) dan belum punya tagihan?',
+                `Buat tagihan untuk pelanggan aktif yang jatuh tempo dalam ${billingGenerateDays} hari (atau sudah lewat) dan belum punya tagihan?`,
             )
         ) {
             return;
         }
         router.post('/admin/billing/generate', {}, keepPage);
+    };
+
+    const prepareEarly = (event) => {
+        event.preventDefault();
+        const username = earlyUsername.trim();
+        if (!username || preparingEarly) {
+            return;
+        }
+        setPreparingEarly(true);
+        router.post(
+            '/admin/billing/prepare',
+            { username },
+            {
+                onFinish: () => setPreparingEarly(false),
+            },
+        );
     };
 
     const openPrint = () => {
@@ -485,7 +504,7 @@ export default function Index({
     return (
         <AdminLayout
             title="Tagihan & Pembayaran"
-            subtitle="Tagihan bulanan muncul otomatis 7 hari sebelum jatuh tempo"
+            subtitle={`Tagihan bulanan muncul otomatis ${billingGenerateDays} hari sebelum jatuh tempo. Periode yang sudah berjalan bisa disiapkan lebih awal.`}
         >
             <Head title="Tagihan & Pembayaran" />
 
@@ -529,6 +548,34 @@ export default function Index({
                     icon={Coins}
                 />
             </div>
+
+            <form
+                onSubmit={prepareEarly}
+                className="mb-5 flex flex-col gap-3 border border-ink/10 bg-white p-4 sm:flex-row sm:items-end"
+            >
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-ink">Bayar lebih awal</p>
+                    <p className="mt-1 text-xs text-ink-soft">
+                        Jika pelanggan membayar sebelum tagihan otomatis muncul, siapkan tagihan
+                        periode yang sudah berjalan.
+                    </p>
+                    <input
+                        type="text"
+                        value={earlyUsername}
+                        onChange={(e) => setEarlyUsername(e.target.value)}
+                        placeholder="Username pelanggan"
+                        className="mt-3 w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-xs"
+                    />
+                </div>
+                <button
+                    type="submit"
+                    disabled={preparingEarly || earlyUsername.trim() === ''}
+                    className="btn-action btn-action-sm btn-primary disabled:cursor-wait disabled:opacity-60"
+                >
+                    <FilePlus2 className="mr-1.5 h-4 w-4" />
+                    {preparingEarly ? 'Menyiapkan...' : 'Siapkan tagihan'}
+                </button>
+            </form>
 
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -955,7 +1002,7 @@ export default function Index({
                             <tr>
                                 <td colSpan={isAgen ? 10 : 8} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
-                                        ? 'Tidak ada tagihan yang cocok dengan pencarian.'
+                                        ? 'Tidak ada tagihan yang cocok. Jika pelanggan bayar lebih awal, siapkan tagihannya dengan username di atas.'
                                         : filters.hide_old_paid !== false &&
                                             filters.hide_old_paid !== 0 &&
                                             filters.hide_old_paid !== '0'

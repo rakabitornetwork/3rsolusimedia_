@@ -154,6 +154,7 @@ class BillingController extends Controller
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
             ],
+            'billing_generate_days' => AppSettings::billingGenerateDays(),
         ]);
     }
 
@@ -532,6 +533,70 @@ class BillingController extends Controller
             'success',
             "Generate selesai: {$result['created']} tagihan dibuat (hanya yang jatuh tempo ≤ {$windowDays} hari), {$result['skipped']} dilewati."
         );
+    }
+
+    public function prepare(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'username' => ['required', 'string', 'max:120'],
+        ]);
+
+        $term = trim($validated['username']);
+        $user = $request->user();
+        $customers = PppoeCustomer::query()->with('package');
+
+        if ($user?->isAgen()) {
+            $customers->where('agent_id', $user->id);
+        }
+
+        $byUsername = (clone $customers)->where('username', $term)->first();
+        if ($byUsername) {
+            $customer = $byUsername;
+        } else {
+            $byName = (clone $customers)->where('name', $term)->limit(2)->get();
+            if ($byName->count() > 1) {
+                return back()->with('error', 'Nama itu dipakai lebih dari satu pelanggan. Masukkan username.');
+            }
+            $customer = $byName->first();
+        }
+
+        if (! $customer) {
+            return back()->with('error', 'Pelanggan tidak ditemukan. Gunakan username yang tepat.');
+        }
+
+        if (! $customer->is_active) {
+            return back()->with('error', 'Pelanggan nonaktif. Tagihan tidak dibuat.');
+        }
+
+        $result = $this->billing->ensurePayableInvoice($customer);
+        $invoice = $result['invoice'];
+
+        if (! $invoice) {
+            $due = $customer->due_date?->format('d/m/Y');
+            $windowDays = AppSettings::billingGenerateDays();
+
+            if (! $this->billing->currentCycleHasStarted($customer)) {
+                $when = $due ? "Jatuh tempo {$due} " : 'Tagihan ';
+
+                return back()->with(
+                    'error',
+                    "{$when}belum masuk periode berjalan, jadi tagihan belum bisa dibuat. Tagihan otomatis muncul {$windowDays} hari sebelum jatuh tempo."
+                );
+            }
+
+            return back()->with(
+                'error',
+                'Tagihan periode ini tidak bisa dibuat. Cek harga paket, atau tagihan jatuh tempo yang sama sudah lunas.'
+            );
+        }
+
+        $message = $result['created']
+            ? 'Tagihan '.$invoice->number.' disiapkan. Pelanggan bisa membayar lebih awal.'
+            : 'Tagihan '.$invoice->number.' sudah ada.';
+
+        return redirect()
+            ->route('admin.billing.show', $invoice)
+            ->with('success', $message);
     }
 
     public function destroy(Invoice $invoice): RedirectResponse

@@ -128,6 +128,13 @@ export default function Show({
             ) : (
                 <div className="border border-ink/10 bg-white p-6 text-sm text-ink-soft">
                     Tidak ada tagihan yang belum dibayar.
+                    {customer?.due_date ? (
+                        <p className="mt-2">
+                            Jatuh tempo berikutnya {customer.due_date}. Tagihan periode yang sudah
+                            berjalan muncul di halaman ini, termasuk sebelum jadwal generate
+                            otomatis.
+                        </p>
+                    ) : null}
                 </div>
             )}
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
+use App\Services\BillingService;
 use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Services\Portal\PortalWhatsappLogin;
 use App\Support\AppSettings;
@@ -24,7 +25,10 @@ class PaymentPortalController extends Controller
 {
     use ResolvesPortalCustomer;
 
-    public function __construct(private readonly PaymentGatewayManager $gateways) {}
+    public function __construct(
+        private readonly PaymentGatewayManager $gateways,
+        private readonly BillingService $billing,
+    ) {}
 
     public function index(PortalWhatsappLogin $whatsappLogin): Response
     {
@@ -89,6 +93,8 @@ class PaymentPortalController extends Controller
         if ((int) $request->session()->get('portal_customer_id') !== (int) $customer->id) {
             $request->session()->put('portal_customer_id', $customer->id);
         }
+
+        $this->billing->ensurePayableInvoice($customer);
 
         $unpaid = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)

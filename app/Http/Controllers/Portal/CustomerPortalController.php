@@ -7,6 +7,7 @@ use App\Http\Controllers\Portal\Concerns\ResolvesPortalCustomer;
 use App\Models\Invoice;
 use App\Models\PppoeCustomer;
 use App\Models\VpnRouter;
+use App\Services\BillingService;
 use App\Services\GenieAcsService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\MikrotikApiService;
@@ -30,6 +31,7 @@ class CustomerPortalController extends Controller
     use ResolvesPortalCustomer;
 
     public function __construct(
+        private readonly BillingService $billing,
         private readonly GenieAcsService $genie,
         private readonly PaymentGatewayManager $gateways,
         private readonly MikrotikApiService $mikrotik,
@@ -399,6 +401,8 @@ class CustomerPortalController extends Controller
      */
     private function billingPayload(PppoeCustomer $customer): array
     {
+        $this->billing->ensurePayableInvoice($customer);
+
         $unpaidQuery = Invoice::query()
             ->where('pppoe_customer_id', $customer->id)
             ->where('status', 'unpaid');

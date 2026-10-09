@@ -292,6 +292,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/messaging/whatsapp/bind', [MessagingController::class, 'bindWhatsapp'])->name('messaging.whatsapp.bind');
     Route::delete('/messaging/identities/{identity}', [MessagingController::class, 'unbind'])->name('messaging.unbind');
     Route::post('/billing/generate', [BillingController::class, 'generate'])->name('billing.generate');
+    Route::post('/billing/prepare', [BillingController::class, 'prepare'])->name('billing.prepare');
     Route::post('/billing/bulk-pay', [BillingController::class, 'bulkPay'])->name('billing.bulk-pay');
     Route::post('/billing/bulk-whatsapp', [BillingController::class, 'bulkSendWhatsapp'])->name('billing.bulk-whatsapp');
     Route::post('/billing/customers/{pppoe}/grace', [BillingController::class, 'grantGrace'])->name('billing.grace');

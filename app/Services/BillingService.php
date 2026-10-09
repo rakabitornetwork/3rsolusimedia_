@@ -556,9 +556,13 @@ class BillingService
      * Samakan / buat tagihan terbuka agar cocok dengan due_date pelanggan.
      * Dipakai saat admin mengubah siklus tagihan, dan saat generate otomatis.
      *
+     * Generate massal tetap menunggu jendela hari. Pembayaran lebih awal
+     * memakai ensurePayableInvoice(), yang boleh melewati jendela itu
+     * setelah periode berjalan sudah mulai.
+     *
      * @return array{invoice: ?Invoice, created: bool}
      */
-    public function ensureOpenInvoice(PppoeCustomer $customer, bool $notify = false): array
+    public function ensureOpenInvoice(PppoeCustomer $customer, bool $notify = false, bool $ignoreWindow = false): array
     {
         $customer->loadMissing('package');
 
@@ -584,7 +588,7 @@ class BillingService
             ];
         }
 
-        if (! $this->isWithinUpcomingWindow($customer->due_date)) {
+        if (! $ignoreWindow && ! $this->isWithinUpcomingWindow($customer->due_date)) {
             return ['invoice' => null, 'created' => false];
         }
 
@@ -602,6 +606,60 @@ class BillingService
         $invoice = $this->createInvoiceForCurrentDue($customer, $notify);
 
         return ['invoice' => $invoice, 'created' => $invoice !== null];
+    }
+
+    /**
+     * Siapkan tagihan periode berjalan supaya bisa dibayar,
+     * termasuk saat jatuh tempo masih di luar jendela generate otomatis.
+     *
+     * Tidak membuat tagihan bulan berikutnya: setelah lunas, due_date maju
+     * dan periode baru belum mulai, jadi pemanggilan ulang tidak menumpuk.
+     *
+     * @return array{invoice: ?Invoice, created: bool}
+     */
+    public function ensurePayableInvoice(PppoeCustomer $customer): array
+    {
+        $customer->loadMissing('package');
+
+        $withinWindow = $customer->due_date
+            && $this->isWithinUpcomingWindow($customer->due_date);
+
+        if (! $withinWindow && ! $this->currentCycleHasStarted($customer)) {
+            return ['invoice' => null, 'created' => false];
+        }
+
+        return $this->ensureOpenInvoice(
+            $customer,
+            notify: $withinWindow,
+            ignoreWindow: true,
+        );
+    }
+
+    /**
+     * Periode yang berakhir di due_date sudah berjalan (hari ini berada di dalamnya,
+     * atau jatuh tempo sudah lewat). Dipakai agar bayar lebih awal hanya
+     * mencakup siklus yang sedang dipakai, bukan bulan yang belum mulai.
+     */
+    public function currentCycleHasStarted(PppoeCustomer $customer): bool
+    {
+        if (! $customer->due_date) {
+            return false;
+        }
+
+        $today = now()->startOfDay();
+        $due = $customer->due_date->copy()->startOfDay();
+
+        if ($due->lessThanOrEqualTo($today)) {
+            return true;
+        }
+
+        if (! $this->hasCompletedFirstBillingCycle($customer) && $customer->start_date) {
+            return $today->greaterThanOrEqualTo($customer->start_date->copy()->startOfDay());
+        }
+
+        $periodStart = $this->cycle->periodStart($due, (int) $customer->billing_day);
+
+        return $today->greaterThanOrEqualTo($periodStart);
     }
 
     /**
