@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-DpYeqrVA.css",
+    "file": "assets/app-Bzcf6EI2.css",
     "name": "app",
     "names": [
       "app.css"
@@ -1101,7 +1101,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-D1rypgQx.js",
+    "file": "assets/app-DkZgDboZ.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1164,7 +1164,7 @@
       "resources/js/Pages/Vpn/Signup.jsx"
     ],
     "css": [
-      "assets/app-DpYeqrVA.css"
+      "assets/app-Bzcf6EI2.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
