@@ -151,6 +151,47 @@ class BillingAdvancePaymentTest extends TestCase
     }
 
     #[Test]
+    public function pay_action_can_settle_several_months_from_the_open_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-10 09:00:00', 'Asia/Jakarta'));
+
+        [$admin, $customer, $package] = $this->customerDueOn('2026-10-20');
+        $monthly = Invoice::query()->create([
+            'number' => 'INV/2026/10/0011',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-09-20',
+            'period_end' => '2026-10-20',
+            'due_date' => '2026-10-20',
+            'amount' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 150000,
+        ]);
+
+        $this->actingAs($admin)
+            ->from('/admin/billing')
+            ->post('/admin/billing/invoices/'.$monthly->id.'/pay', [
+                'method' => 'cash',
+                'months' => 3,
+            ])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('success');
+
+        $this->assertSame('void', $monthly->fresh()->status);
+
+        $paid = Invoice::query()->where('status', 'paid')->where('type', 'multi_month')->first();
+        $this->assertNotNull($paid);
+        $this->assertSame(3, $paid->billing_months);
+        $this->assertSame(450000, $paid->total);
+        $this->assertSame('2027-01-20', $customer->fresh()->due_date?->toDateString());
+    }
+
+    #[Test]
     public function portal_can_open_an_advance_invoice_before_checkout_exists(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', 'Asia/Jakarta'));

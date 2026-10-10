@@ -600,30 +600,27 @@ export default function Index({
                 />
             </div>
 
-            <form
-                onSubmit={prepareEarly}
-                className="mb-5 flex flex-col gap-3 border border-ink/10 bg-white p-4 sm:flex-row sm:items-end"
-            >
-                <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink">Bayar lebih awal</p>
-                    <p className="mt-1 text-xs text-ink-soft">
+            <form onSubmit={prepareEarly} className="early-pay-card mb-5">
+                <div className="early-pay-card-body">
+                    <p className="early-pay-reveal text-sm font-semibold text-ink">Bayar lebih awal</p>
+                    <p className="early-pay-reveal text-xs text-ink-soft">
                         Cari dengan username, nama lengkap, atau nomor telepon. Pilih 2–6 bulan
                         bila pelanggan membayar beberapa bulan ke depan sekaligus. Tagihan layanan
                         yang belum lunas diganti; tagihan router VPN tidak ikut.
                     </p>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <div className="early-pay-reveal flex flex-col gap-2 sm:flex-row sm:items-center">
                         <input
                             type="text"
                             value={earlyUsername}
                             onChange={(e) => setEarlyUsername(e.target.value)}
                             placeholder="Username, nama lengkap, atau telepon"
-                            className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-md"
+                            className="w-full border border-sky-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 sm:max-w-md"
                         />
                         <select
                             value={earlyMonths}
                             onChange={(e) => setEarlyMonths(Number(e.target.value))}
                             aria-label="Jumlah bulan"
-                            className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                            className="border border-sky-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500"
                         >
                             <option value={1}>1 bulan · periode berjalan</option>
                             {[2, 3, 4, 5, 6].map((months) => (
@@ -633,19 +630,19 @@ export default function Index({
                             ))}
                         </select>
                     </div>
+                    <button
+                        type="submit"
+                        disabled={preparingEarly || earlyUsername.trim() === ''}
+                        className="early-pay-reveal btn-action btn-action-sm btn-primary disabled:cursor-wait disabled:opacity-60"
+                    >
+                        <FilePlus2 className="mr-1.5 h-4 w-4" />
+                        {preparingEarly
+                            ? 'Menyiapkan...'
+                            : Number(earlyMonths) > 1
+                              ? `Siapkan ${earlyMonths} bulan`
+                              : 'Siapkan tagihan'}
+                    </button>
                 </div>
-                <button
-                    type="submit"
-                    disabled={preparingEarly || earlyUsername.trim() === ''}
-                    className="btn-action btn-action-sm btn-primary disabled:cursor-wait disabled:opacity-60"
-                >
-                    <FilePlus2 className="mr-1.5 h-4 w-4" />
-                    {preparingEarly
-                        ? 'Menyiapkan...'
-                        : Number(earlyMonths) > 1
-                          ? `Siapkan ${earlyMonths} bulan`
-                          : 'Siapkan tagihan'}
-                </button>
             </form>
 
             {earlyCustomers.length > 1 && (

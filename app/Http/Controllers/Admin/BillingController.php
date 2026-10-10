@@ -334,11 +334,27 @@ class BillingController extends Controller
             'method' => ['required', Rule::in(['cash', 'transfer'])],
             'reference' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'months' => ['nullable', 'integer', 'min:1', 'max:6'],
         ]);
 
+        $months = (int) ($validated['months'] ?? 1);
+        $target = $invoice;
+
         try {
+            if (
+                $months >= 2
+                && $invoice->customer
+                && $invoice->type !== 'vpn_router'
+                && ! $invoice->vpn_router_id
+            ) {
+                $target = $this->billing->createAdvanceInvoice(
+                    $invoice->customer->loadMissing('package'),
+                    $months,
+                );
+            }
+
             $result = $this->billing->markPaid(
-                invoice: $invoice,
+                invoice: $target,
                 method: $validated['method'],
                 reference: $validated['reference'] ?? null,
                 notes: $validated['notes'] ?? null,
@@ -349,7 +365,12 @@ class BillingController extends Controller
         }
 
         $windowDays = AppSettings::billingGenerateDays();
-        $message = 'Pembayaran berhasil. Tagihan '.$result['invoice']->number.' lunas.';
+        $paidMonths = max(1, (int) ($result['invoice']->billing_months ?: 1));
+        $message = 'Pembayaran berhasil. Tagihan '.$result['invoice']->number.' lunas';
+        if ($paidMonths > 1) {
+            $message .= ' untuk '.$paidMonths.' bulan';
+        }
+        $message .= '.';
         if ($result['next_due_date']) {
             $message .= ' Jatuh tempo berikutnya: '.$result['next_due_date'].
                 ". Tagihan baru akan muncul {$windowDays} hari sebelum tanggal tersebut.";
