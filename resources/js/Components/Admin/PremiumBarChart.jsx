@@ -45,7 +45,7 @@ function pointsAttr(pairs) {
     return pairs.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
 }
 
-function Column3D({ bar, depth, lift, tone, ids }) {
+function Column3D({ bar, depth, lift, tone, ids, delay = 0 }) {
     const height = Math.max(bar.height, bar.total > 0 ? 2.4 : 0);
     if (height <= 0) return null;
 
@@ -64,7 +64,7 @@ function Column3D({ bar, depth, lift, tone, ids }) {
     ];
 
     return (
-        <g className="premium-bar">
+        <g className="premium-bar" style={{ animationDelay: `${delay}s` }}>
             <title>{`${bar.label}: ${bar.total_label}`}</title>
             <ellipse
                 cx={x + width / 2 + depth * 0.35}
@@ -236,9 +236,17 @@ export default function PremiumBarChart({
                     strokeWidth="1.25"
                 />
 
+                <g key={points.map((point) => point.key).join('|')}>
                 {bars.map((bar, index) => (
                     <g key={bar.key}>
-                        <Column3D bar={bar} depth={depth} lift={lift} tone={palette} ids={ids} />
+                        <Column3D
+                            bar={bar}
+                            depth={depth}
+                            lift={lift}
+                            tone={palette}
+                            ids={ids}
+                            delay={Math.min(index, 14) * 0.045}
+                        />
                         {indexShowsLabel(index, labelEvery, bars.length) && (
                             <text
                                 x={bar.x + bar.barW / 2}
@@ -251,6 +259,7 @@ export default function PremiumBarChart({
                         )}
                     </g>
                 ))}
+                </g>
             </svg>
         </div>
     );
