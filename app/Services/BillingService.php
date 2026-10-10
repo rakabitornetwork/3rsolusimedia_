@@ -1269,61 +1269,127 @@ class BillingService
     }
 
     /**
-     * Buat tagihan gabungan N bulan (default 2).
-     * Invoice unpaid bulanan/prorata untuk due yang sama diganti (void) agar tidak dobel.
+     * Jatuh tempo pelanggan setelah tagihan ini lunas.
      */
-    public function createCombinedMonthlyInvoice(PppoeCustomer $customer, int $months = 2): Invoice
+    public function projectedDueAfterPayment(Invoice $invoice): ?string
     {
-        $months = max(2, min(6, $months));
-        $customer->loadMissing('package');
-
-        $price = (int) ($customer->package?->price ?? 0);
-        if ($price <= 0) {
-            throw new InvalidArgumentException('Pelanggan belum punya paket berharga valid.');
+        $customer = $invoice->customer;
+        if (! $customer || ! $invoice->due_date || $invoice->type === 'vpn_router' || $invoice->vpn_router_id) {
+            return null;
         }
 
-        if (! $customer->due_date) {
-            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        return $this->cycle->dueDateAfterPayment(
+            $invoice->due_date,
+            (int) $customer->billing_day,
+            max(1, (int) ($invoice->billing_months ?: 1)),
+        )->toDateString();
+    }
+
+    /**
+     * Pilihan bayar 2–6 bulan sekaligus. Tidak menulis tagihan.
+     *
+     * @return array{blocked: ?string, options: list<array<string, mixed>>}
+     */
+    public function advancePaymentChoices(PppoeCustomer $customer): array
+    {
+        $open = $this->openServiceMultiMonthInvoice($customer);
+        if ($open) {
+            return [
+                'blocked' => 'Sudah ada tagihan '.$open->billing_months.' bulan ('.$open->number.') yang belum dibayar. Lunasi atau batalkan dulu.',
+                'options' => [],
+            ];
         }
 
-        $unpaid = Invoice::query()
-            ->where('pppoe_customer_id', $customer->id)
-            ->where('status', 'unpaid')
-            ->get();
-
-        foreach ($unpaid as $existing) {
-            if ((int) ($existing->billing_months ?: 1) > 1 || $existing->type === 'multi_month') {
-                throw new InvalidArgumentException(
-                    'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu.'
-                );
+        $options = [];
+        foreach ([2, 3, 4, 5, 6] as $months) {
+            try {
+                $options[] = $this->quoteAdvancePayment($customer, $months);
+            } catch (InvalidArgumentException $e) {
+                return [
+                    'blocked' => $e->getMessage(),
+                    'options' => [],
+                ];
             }
         }
 
-        foreach ($unpaid as $existing) {
-            $this->voidInvoice(
-                $existing,
-                'Diganti tagihan gabungan '.$months.' bulan.'
+        return [
+            'blocked' => null,
+            'options' => $options,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function quoteAdvancePayment(PppoeCustomer $customer, int $months): array
+    {
+        return $this->buildAdvancePlan($customer, $months);
+    }
+
+    /**
+     * Tagihan satu kali untuk N bulan ke depan, termasuk saat periode berikutnya belum mulai.
+     * Tagihan layanan yang belum lunas diganti. Tagihan router VPN tidak disentuh.
+     */
+    public function createAdvanceInvoice(PppoeCustomer $customer, int $months): Invoice
+    {
+        $months = max(2, min(6, $months));
+        $existing = $this->openServiceMultiMonthInvoice($customer);
+        if ($existing && (int) $existing->billing_months === $months) {
+            return $existing;
+        }
+
+        return $this->createCombinedMonthlyInvoice($customer, $months);
+    }
+
+    /**
+     * Buat tagihan gabungan N bulan (default 2).
+     * Invoice unpaid layanan untuk due yang sama diganti (void) agar tidak dobel.
+     */
+    public function createCombinedMonthlyInvoice(PppoeCustomer $customer, int $months = 2): Invoice
+    {
+        $plan = $this->buildAdvancePlan($customer, $months);
+        $months = (int) $plan['months'];
+
+        $invoice = DB::transaction(function () use ($customer, $plan, $months) {
+            $unpaid = $this->replaceableServiceInvoices($customer);
+            $credit = (int) $customer->billing_credit;
+
+            foreach ($unpaid as $existing) {
+                $credit += (int) $existing->discount;
+                $this->voidInvoice(
+                    $existing,
+                    'Diganti tagihan gabungan '.$months.' bulan.'
+                );
+            }
+
+            if ($credit !== (int) $customer->billing_credit) {
+                $customer->update(['billing_credit' => $credit]);
+                $customer->billing_credit = $credit;
+            }
+
+            $notes = $plan['prorata_first']
+                ? 'Tagihan '.$months.' bulan sekaligus. Bulan pertama prorata, sisanya harga paket penuh. Setelah lunas, jatuh tempo menjadi '.$plan['next_due_label'].'.'
+                : 'Tagihan '.$months.' bulan sekaligus ('.$customer->package?->name.'). Setelah lunas, jatuh tempo menjadi '.$plan['next_due_label'].'.';
+
+            return $this->createInvoice(
+                customer: $customer,
+                type: 'multi_month',
+                periodStart: $plan['period_start'],
+                periodEnd: $plan['period_end'],
+                dueDate: $plan['due_date'],
+                amount: (int) $plan['amount'],
+                notes: $notes,
+                billingMonths: $months,
+                notify: false,
+                applyCredit: true,
             );
+        });
+
+        try {
+            $this->notifier->notifyInvoice($invoice->loadMissing('customer'));
+        } catch (\Throwable) {
+            // Tagihan tetap tersimpan meski WhatsApp gagal.
         }
-
-        $due = $customer->due_date->copy()->startOfDay();
-        $periodEnd = $due->copy();
-        for ($i = 1; $i < $months; $i++) {
-            $periodEnd = $this->cycle->advanceDueDate($periodEnd, (int) $customer->billing_day);
-        }
-
-        $amount = $price * $months;
-
-        $invoice = $this->createInvoice(
-            customer: $customer,
-            type: 'multi_month',
-            periodStart: $this->periodStartBeforeDue($customer),
-            periodEnd: $periodEnd->toDateString(),
-            dueDate: $due->toDateString(),
-            amount: $amount,
-            notes: 'Tagihan gabungan '.$months.' bulan ('.$customer->package?->name.')',
-            billingMonths: $months,
-        );
 
         // Gabung N bulan untuk pelanggan terisolir/nunggak = tempo N bulan
         // tanpa perlu lunas dulu: cabut isolir, pulihkan profil, putus sesi.
@@ -1336,6 +1402,98 @@ class BillingService
         }
 
         return $invoice;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildAdvancePlan(PppoeCustomer $customer, int $months): array
+    {
+        $months = max(2, min(6, $months));
+        $customer->loadMissing('package');
+
+        if (! $customer->is_active) {
+            throw new InvalidArgumentException('Pelanggan nonaktif. Tagihan tidak dibuat.');
+        }
+
+        $price = (int) ($customer->package?->price ?? 0);
+        if ($price <= 0) {
+            throw new InvalidArgumentException('Pelanggan belum punya paket berharga valid.');
+        }
+
+        if (! $customer->due_date) {
+            throw new InvalidArgumentException('Pelanggan belum punya tanggal jatuh tempo.');
+        }
+
+        $openMulti = $this->openServiceMultiMonthInvoice($customer);
+        if ($openMulti) {
+            throw new InvalidArgumentException(
+                'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu.'
+            );
+        }
+
+        $replaceable = $this->replaceableServiceInvoices($customer);
+        $openProrata = $replaceable->first(
+            fn (Invoice $invoice) => $invoice->type === 'prorata' && ! $this->hasCompletedFirstBillingCycle($customer)
+        );
+        $opening = $openProrata
+            ? (int) $openProrata->amount
+            : (int) ($customer->first_bill_amount ?? 0);
+        $prorataFirst = $openProrata !== null
+            || (! $this->hasCompletedFirstBillingCycle($customer) && $opening > 0);
+        $amount = $prorataFirst
+            ? $opening + ($price * ($months - 1))
+            : $price * $months;
+
+        $due = $customer->due_date->copy()->startOfDay();
+        $billingDay = (int) $customer->billing_day;
+        $periodEnd = $due->copy();
+        for ($i = 1; $i < $months; $i++) {
+            $periodEnd = $this->cycle->advanceDueDate($periodEnd, $billingDay);
+        }
+
+        $periodStart = $prorataFirst && $customer->start_date
+            ? $customer->start_date->copy()->startOfDay()->toDateString()
+            : $this->periodStartBeforeDue($customer);
+
+        $nextDue = $this->cycle->dueDateAfterPayment($due, $billingDay, $months);
+        $credit = (int) $customer->billing_credit + (int) $replaceable->sum('discount');
+        $discount = min($credit, $amount);
+        $total = max(0, $amount - $discount);
+
+        return [
+            'months' => $months,
+            'amount' => $amount,
+            'discount' => $discount,
+            'total' => $total,
+            'total_label' => 'Rp '.number_format($total, 0, ',', '.'),
+            'monthly_price' => $price,
+            'prorata_first' => $prorataFirst,
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd->toDateString(),
+            'due_date' => $due->toDateString(),
+            'next_due_date' => $nextDue->toDateString(),
+            'next_due_label' => $nextDue->format('d/m/Y'),
+            'replaces' => $replaceable->pluck('number')->filter()->values()->all(),
+            'ahead' => ! $this->currentCycleHasStarted($customer),
+        ];
+    }
+
+    private function openServiceMultiMonthInvoice(PppoeCustomer $customer): ?Invoice
+    {
+        return $this->replaceableServiceInvoices($customer)
+            ->first(fn (Invoice $invoice) => (int) ($invoice->billing_months ?: 1) > 1 || $invoice->type === 'multi_month');
+    }
+
+    private function replaceableServiceInvoices(PppoeCustomer $customer): \Illuminate\Support\Collection
+    {
+        return Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->where('type', '!=', 'vpn_router')
+            ->whereNull('vpn_router_id')
+            ->orderBy('id')
+            ->get();
     }
 
     private function createInvoice(

@@ -102,7 +102,7 @@ class BotCommandRouter
             'batal' => $this->batal($message, $identity),
             'lepas' => $this->lepas($message, $identity),
             'tagihan' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->tagihan($message, $bound)),
-            'bayar' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->bayar($message, $bound)),
+            'bayar' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->bayar($message, $bound, $args)),
             'cari' => $this->cari($message, $args, $identity),
             default => $this->reply($message, 'Perintah '.$command.' belum tersedia. Ketik bantuan.', $identity),
         };
@@ -502,8 +502,16 @@ class BotCommandRouter
             ->orderBy('due_date')
             ->get();
 
+        $slash = $message->channel === 'whatsapp' ? '' : '/';
+
         if ($unpaid->isEmpty()) {
-            $this->reply($message, 'Tidak ada tagihan yang belum lunas untuk '.$customer->username.'.', $identity);
+            $due = $customer->due_date?->format('d/m/Y');
+            $lines = ['Tidak ada tagihan yang belum lunas untuk '.$customer->username.'.'];
+            if ($due) {
+                $lines[] = 'Jatuh tempo berikutnya '.$due.'.';
+            }
+            $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+            $this->reply($message, implode("\n", $lines), $identity);
 
             return;
         }
@@ -521,12 +529,27 @@ class BotCommandRouter
         }
         $lines[] = '';
         $lines[] = 'Total: '.$this->rupiah($total);
-        $lines[] = 'Ketik /bayar untuk tautan pembayaran tagihan tertua.';
+        $lines[] = 'Ketik '.$slash.'bayar untuk tautan pembayaran tagihan tertua.';
+        $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
 
         $this->reply($message, implode("\n", $lines), $identity);
     }
 
-    private function bayar(IncomingMessage $message, MessagingIdentity $identity): void
+    private function advanceMonthsArgument(string $args): ?int
+    {
+        $arg = trim($args);
+        if ($arg === '') {
+            return null;
+        }
+
+        if (! preg_match('/^[2-6]$/', $arg)) {
+            return 0;
+        }
+
+        return (int) $arg;
+    }
+
+    private function bayar(IncomingMessage $message, MessagingIdentity $identity, string $args = ''): void
     {
         $customer = $identity->customer;
         if (! $customer) {
@@ -535,16 +558,51 @@ class BotCommandRouter
             return;
         }
 
-        $this->billing->ensurePayableInvoice($customer);
+        $slash = $message->channel === 'whatsapp' ? '' : '/';
+        $months = $this->advanceMonthsArgument($args);
+        if ($months === 0) {
+            $this->reply(
+                $message,
+                'Jumlah bulan tidak valid. Ketik '.$slash.'bayar untuk tagihan saat ini, atau '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk bayar beberapa bulan sekaligus.',
+                $identity,
+            );
 
-        $invoice = Invoice::query()
-            ->where('pppoe_customer_id', $customer->id)
-            ->where('status', 'unpaid')
-            ->orderBy('due_date')
-            ->first();
+            return;
+        }
+
+        if ($months !== null) {
+            try {
+                $invoice = $this->billing->createAdvanceInvoice($customer->loadMissing('package'), $months);
+            } catch (InvalidArgumentException $e) {
+                $this->reply($message, $e->getMessage(), $identity);
+
+                return;
+            }
+        } else {
+            $this->billing->ensurePayableInvoice($customer);
+
+            $invoice = Invoice::query()
+                ->where('pppoe_customer_id', $customer->id)
+                ->where('status', 'unpaid')
+                ->where('type', '!=', 'vpn_router')
+                ->orderBy('due_date')
+                ->first();
+
+            if (! $invoice) {
+                $invoice = Invoice::query()
+                    ->where('pppoe_customer_id', $customer->id)
+                    ->where('status', 'unpaid')
+                    ->orderBy('due_date')
+                    ->first();
+            }
+        }
 
         if (! $invoice) {
-            $this->reply($message, 'Tidak ada tagihan yang belum lunas.', $identity);
+            $this->reply(
+                $message,
+                'Tidak ada tagihan yang belum lunas. Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.',
+                $identity,
+            );
 
             return;
         }
@@ -617,7 +675,8 @@ class BotCommandRouter
             '',
             $slash.'daftar — hubungkan chat ke akun '.$account.' (username + nomor HP terdaftar)',
             $slash.'tagihan — cek tagihan belum lunas',
-            $slash.'bayar — tautan bayar tagihan tertua',
+            $slash.'bayar — tautan bayar tagihan saat ini',
+            $slash.'bayar 3 — bayar 3 bulan sekaligus (2–6)',
             $slash.'lepas — putuskan ikatan chat ini',
             $slash.'bantuan — tampilkan pesan ini',
             '',

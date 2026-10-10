@@ -411,12 +411,18 @@ class CustomerNotifier
      */
     public function invoiceVars(Invoice $invoice, PppoeCustomer $customer): array
     {
+        $months = max(1, (int) ($invoice->billing_months ?: 1));
+        $package = (string) ($invoice->package_name ?: $customer->package?->name ?: '—');
+        if ($months > 1) {
+            $package .= ' · '.$months.' bulan';
+        }
+
         return [
             ...$this->customerVars($customer),
             'nomor' => (string) $invoice->number,
             'total' => 'Rp '.number_format((int) $invoice->total, 0, ',', '.'),
             'jatuh_tempo' => $invoice->due_date?->format('d/m/Y') ?? '—',
-            'paket' => (string) ($invoice->package_name ?: $customer->package?->name ?: '—'),
+            'paket' => $package,
         ];
     }
 

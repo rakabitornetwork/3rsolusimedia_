@@ -15,10 +15,13 @@ export default function Show({
     payment_methods,
     online_pay,
     whatsapp = { enabled: false, templates: [] },
+    advance = null,
 }) {
     const { flash, auth } = usePage().props;
     const canPay = auth?.user?.can_record_payment !== false;
     const canGrantGrace = auth?.user?.can_grant_grace !== false;
+    const [advanceMonths, setAdvanceMonths] = useState(advance?.options?.[0]?.months || 2);
+    const [creatingAdvance, setCreatingAdvance] = useState(false);
     const { data, setData, post, processing, errors } = useForm({
         method: 'cash',
         reference: '',
@@ -32,6 +35,33 @@ export default function Show({
             setCheckoutUrl(flash.online_checkout_url);
         }
     }, [flash?.online_checkout_url]);
+
+    const selectedAdvance = (advance?.options || []).find(
+        (option) => Number(option.months) === Number(advanceMonths),
+    );
+
+    const createAdvance = (event) => {
+        event.preventDefault();
+        if (!invoice.customer?.id || creatingAdvance || !selectedAdvance) return;
+        const replaceNote = selectedAdvance.replaces?.length
+            ? ` Tagihan ${selectedAdvance.replaces.join(', ')} diganti.`
+            : '';
+        if (
+            !window.confirm(
+                `Buat tagihan ${selectedAdvance.months} bulan (${selectedAdvance.total_label})?${replaceNote} Setelah lunas, jatuh tempo menjadi ${selectedAdvance.next_due_label}.`,
+            )
+        ) {
+            return;
+        }
+        setCreatingAdvance(true);
+        router.post(
+            `/admin/billing/customers/${invoice.customer.id}/combine-billing`,
+            { months: selectedAdvance.months },
+            {
+                onFinish: () => setCreatingAdvance(false),
+            },
+        );
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -197,7 +227,14 @@ export default function Show({
                             </div>
                             <div>
                                 <dt className="text-xs text-ink-soft uppercase">Jatuh tempo</dt>
-                                <dd className="mt-1 text-sm text-ink">{invoice.due_date}</dd>
+                                <dd className="mt-1 text-sm text-ink">
+                                    {invoice.due_date}
+                                    {advance?.next_due_date ? (
+                                        <span className="mt-1 block text-xs text-ink-soft">
+                                            Setelah lunas, jatuh tempo menjadi {advance.next_due_date}
+                                        </span>
+                                    ) : null}
+                                </dd>
                             </div>
                             <div>
                                 <dt className="text-xs text-ink-soft uppercase">Tipe</dt>
@@ -349,6 +386,54 @@ export default function Show({
 
                         </div>
                     )}
+
+                    {canPay && invoice.status === 'unpaid' && advance?.options?.length > 0 && (
+                        <div className="border border-ink/10 bg-white p-6">
+                            <h3 className="text-sm font-semibold text-ink">Bayar beberapa bulan sekaligus</h3>
+                            <p className="mt-1 text-sm text-ink-soft">
+                                Satu tagihan untuk 2–6 bulan ke depan, termasuk bulan yang belum
+                                mulai. Tagihan layanan yang belum lunas diganti. Tagihan router VPN
+                                tidak ikut.
+                            </p>
+                            <form onSubmit={createAdvance} className="mt-4 space-y-3">
+                                <label className="block text-sm font-medium text-ink">
+                                    Jumlah bulan
+                                    <select
+                                        value={advanceMonths}
+                                        onChange={(e) => setAdvanceMonths(Number(e.target.value))}
+                                        className={fieldClass}
+                                    >
+                                        {advance.options.map((option) => (
+                                            <option key={option.months} value={option.months}>
+                                                {option.months} bulan · {option.total_label} · jatuh
+                                                tempo {option.next_due_label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                {selectedAdvance?.ahead ? (
+                                    <p className="text-xs text-ink-soft">
+                                        Periode berikutnya belum mulai. Ini pembayaran di muka.
+                                    </p>
+                                ) : null}
+                                <button
+                                    type="submit"
+                                    disabled={creatingAdvance}
+                                    className="w-full btn-action btn-action-sm btn-secondary"
+                                >
+                                    {creatingAdvance
+                                        ? 'Membuat tagihan...'
+                                        : `Buat tagihan ${advanceMonths} bulan`}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {canPay && invoice.status === 'unpaid' && advance?.blocked ? (
+                        <div className="border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
+                            {advance.blocked}
+                        </div>
+                    ) : null}
 
                     {canPay && invoice.status === 'unpaid' && (
                         <div className="border border-ink/10 bg-white p-6">

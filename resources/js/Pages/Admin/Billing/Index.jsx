@@ -244,13 +244,17 @@ export default function Index({
     const [bulkWaProcessing, setBulkWaProcessing] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
     const [earlyUsername, setEarlyUsername] = useState(flash?.early_query || '');
+    const [earlyMonths, setEarlyMonths] = useState(Number(flash?.early_months) || 1);
     const [preparingEarly, setPreparingEarly] = useState(false);
 
     useEffect(() => {
         if (flash?.early_query) {
             setEarlyUsername(flash.early_query);
         }
-    }, [flash?.early_query]);
+        if (flash?.early_months) {
+            setEarlyMonths(Number(flash.early_months) || 1);
+        }
+    }, [flash?.early_query, flash?.early_months]);
 
     const allInvoices = Array.isArray(invoices) ? invoices : invoices?.data || [];
     const filtered = useMemo(
@@ -423,13 +427,22 @@ export default function Index({
     const prepareEarly = (event) => {
         event.preventDefault();
         const username = earlyUsername.trim();
+        const months = Number(earlyMonths) || 1;
         if (!username || preparingEarly) {
+            return;
+        }
+        if (
+            months > 1 &&
+            !window.confirm(
+                `Buat satu tagihan ${months} bulan untuk “${username}”? Tagihan layanan yang belum lunas diganti. Setelah dibayar, jatuh tempo maju ${months} bulan.`,
+            )
+        ) {
             return;
         }
         setPreparingEarly(true);
         router.post(
             '/admin/billing/prepare',
-            { username },
+            { username, months },
             {
                 preserveScroll: true,
                 onFinish: () => setPreparingEarly(false),
@@ -439,18 +452,20 @@ export default function Index({
 
     const chooseEarlyCustomer = (customer) => {
         if (preparingEarly) return;
+        const months = Number(earlyMonths) || 1;
         const detail = [customer.username, customer.phone, customer.address].filter(Boolean).join(' · ');
-        if (
-            !window.confirm(
-                `Siapkan tagihan untuk ${customer.name}${detail ? ` (${detail})` : ''}?`,
-            )
-        ) {
+        const who = `${customer.name}${detail ? ` (${detail})` : ''}`;
+        const prompt =
+            months > 1
+                ? `Buat tagihan ${months} bulan sekaligus untuk ${who}? Tagihan layanan yang belum lunas diganti.`
+                : `Siapkan tagihan untuk ${who}?`;
+        if (!window.confirm(prompt)) {
             return;
         }
         setPreparingEarly(true);
         router.post(
             '/admin/billing/prepare',
-            { customer_id: customer.id, username: earlyUsername.trim() },
+            { customer_id: customer.id, username: earlyUsername.trim(), months },
             {
                 onFinish: () => setPreparingEarly(false),
             },
@@ -533,7 +548,7 @@ export default function Index({
     return (
         <AdminLayout
             title="Tagihan & Pembayaran"
-            subtitle={`Tagihan bulanan muncul otomatis ${billingGenerateDays} hari sebelum jatuh tempo. Periode yang sudah berjalan bisa disiapkan lebih awal.`}
+            subtitle={`Tagihan bulanan muncul otomatis ${billingGenerateDays} hari sebelum jatuh tempo. Periode berjalan bisa disiapkan lebih awal, atau beberapa bulan dibayar sekaligus.`}
         >
             <Head title="Tagihan & Pembayaran" />
 
@@ -592,16 +607,32 @@ export default function Index({
                 <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-ink">Bayar lebih awal</p>
                     <p className="mt-1 text-xs text-ink-soft">
-                        Cari dengan username, nama lengkap, atau nomor telepon. Jika namanya sama,
-                        pilih pelanggan dari daftar sebelum tagihan dibuat.
+                        Cari dengan username, nama lengkap, atau nomor telepon. Pilih 2–6 bulan
+                        bila pelanggan membayar beberapa bulan ke depan sekaligus. Tagihan layanan
+                        yang belum lunas diganti; tagihan router VPN tidak ikut.
                     </p>
-                    <input
-                        type="text"
-                        value={earlyUsername}
-                        onChange={(e) => setEarlyUsername(e.target.value)}
-                        placeholder="Username, nama lengkap, atau telepon"
-                        className="mt-3 w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-md"
-                    />
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <input
+                            type="text"
+                            value={earlyUsername}
+                            onChange={(e) => setEarlyUsername(e.target.value)}
+                            placeholder="Username, nama lengkap, atau telepon"
+                            className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:max-w-md"
+                        />
+                        <select
+                            value={earlyMonths}
+                            onChange={(e) => setEarlyMonths(Number(e.target.value))}
+                            aria-label="Jumlah bulan"
+                            className="border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal"
+                        >
+                            <option value={1}>1 bulan · periode berjalan</option>
+                            {[2, 3, 4, 5, 6].map((months) => (
+                                <option key={months} value={months}>
+                                    {months} bulan sekaligus
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <button
                     type="submit"
@@ -609,7 +640,11 @@ export default function Index({
                     className="btn-action btn-action-sm btn-primary disabled:cursor-wait disabled:opacity-60"
                 >
                     <FilePlus2 className="mr-1.5 h-4 w-4" />
-                    {preparingEarly ? 'Menyiapkan...' : 'Siapkan tagihan'}
+                    {preparingEarly
+                        ? 'Menyiapkan...'
+                        : Number(earlyMonths) > 1
+                          ? `Siapkan ${earlyMonths} bulan`
+                          : 'Siapkan tagihan'}
                 </button>
             </form>
 

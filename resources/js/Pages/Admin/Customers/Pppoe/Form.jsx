@@ -934,7 +934,7 @@ export default function Form({
                     <div className="border border-sky-100 bg-sky-50/60 px-4 py-3 text-xs text-sky-800">
                         Grace aktif s/d {customer.grace_until}
                         {customer.grace_note ? ` — ${customer.grace_note}` : ''}. Aksi toleransi &amp;
-                        gabung 2 bulan ada di Tagihan &amp; Pembayaran.
+                        bayar beberapa bulan sekaligus ada di Tagihan &amp; Pembayaran.
                     </div>
                 )}
 

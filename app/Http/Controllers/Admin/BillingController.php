@@ -185,6 +185,7 @@ class BillingController extends Controller
         return Inertia::render('Admin/Billing/Show', [
             'invoice' => $invoice->toAdminArray(),
             'replacement_invoice' => $replacementInvoice?->toAdminArray(),
+            'advance' => $this->advanceUi($invoice),
             'payment_methods' => [
                 ['value' => 'cash', 'label' => 'Tunai'],
                 ['value' => 'transfer', 'label' => 'Transfer'],
@@ -544,9 +545,11 @@ class BillingController extends Controller
         $validated = $request->validate([
             'username' => ['nullable', 'string', 'max:120', 'required_without:customer_id'],
             'customer_id' => ['nullable', 'integer', 'required_without:username'],
+            'months' => ['nullable', 'integer', 'min:1', 'max:6'],
         ]);
 
         $term = trim((string) ($validated['username'] ?? ''));
+        $months = (int) ($validated['months'] ?? 1);
         $scoped = $this->earlyPaymentCustomers($request);
 
         if (! empty($validated['customer_id'])) {
@@ -555,7 +558,7 @@ class BillingController extends Controller
                 return back()->with('error', 'Pelanggan tidak ditemukan.');
             }
 
-            return $this->prepareEarlyInvoice($customer);
+            return $this->prepareEarlyInvoice($customer, $months);
         }
 
         $matches = $this->matchEarlyCustomers($scoped, $term);
@@ -567,13 +570,14 @@ class BillingController extends Controller
         if ($matches->count() > 1) {
             return back()
                 ->with('early_query', $term)
+                ->with('early_months', $months)
                 ->with('early_customers', $matches
                     ->map(fn (PppoeCustomer $customer) => $this->earlyCustomerChoice($customer))
                     ->values()
                     ->all());
         }
 
-        return $this->prepareEarlyInvoice($matches->first());
+        return $this->prepareEarlyInvoice($matches->first(), $months);
     }
 
     public function destroy(Invoice $invoice): RedirectResponse
@@ -723,6 +727,11 @@ class BillingController extends Controller
 
     public function combineBilling(Request $request, PppoeCustomer $pppoe): RedirectResponse
     {
+        $user = $request->user();
+        if ($user?->isAgen() && (int) $pppoe->agent_id !== (int) $user->id) {
+            return back()->with('error', 'Anda tidak memiliki akses untuk menagih pelanggan ini.');
+        }
+
         $validated = $request->validate([
             'months' => ['nullable', 'integer', 'min:2', 'max:6'],
         ]);
@@ -730,7 +739,7 @@ class BillingController extends Controller
         $wasIsolated = $pppoe->status === 'isolated' || $pppoe->isOverdue();
 
         try {
-            $invoice = $this->billing->createCombinedMonthlyInvoice(
+            $invoice = $this->billing->createAdvanceInvoice(
                 $pppoe->load('package'),
                 (int) ($validated['months'] ?? 2),
             );
@@ -739,21 +748,61 @@ class BillingController extends Controller
         }
 
         $customer = $pppoe->fresh();
-        $message = 'Tagihan gabungan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number;
+        $nextDue = $this->billing->projectedDueAfterPayment($invoice->loadMissing('customer'));
+        $message = 'Tagihan '.$invoice->billing_months.' bulan dibuat: '.$invoice->number.
+            ' (Rp '.number_format((int) $invoice->total, 0, ',', '.').')';
+        if ($nextDue) {
+            $message .= '. Setelah lunas, jatuh tempo menjadi '.Carbon::parse($nextDue)->format('d/m/Y');
+        }
 
         if ($wasIsolated && $customer?->hasActiveGrace()) {
             $message .= ' Tempo isolir aktif sampai '.$customer->grace_until->format('d M Y').
                 '. Profil paket dipulihkan (tagihan tetap belum lunas).';
 
             if ($customer->sync_status === 'error') {
-                return back()->with(
-                    'error',
-                    $message.' Sync MikroTik gagal: '.($customer->sync_message ?: 'tidak ada pesan.')
-                );
+                return redirect()
+                    ->route('admin.billing.show', $invoice)
+                    ->with(
+                        'error',
+                        $message.' Sync MikroTik gagal: '.($customer->sync_message ?: 'tidak ada pesan.')
+                    );
             }
         }
 
-        return back()->with('success', $message);
+        return redirect()
+            ->route('admin.billing.show', $invoice)
+            ->with('success', $message);
+    }
+
+    /**
+     * @return array{blocked: ?string, options: list<array<string, mixed>>, next_due_date: ?string}|null
+     */
+    private function advanceUi(Invoice $invoice): ?array
+    {
+        $customer = $invoice->customer;
+        if (! $customer || $invoice->type === 'vpn_router' || $invoice->vpn_router_id) {
+            return null;
+        }
+
+        $nextDue = $invoice->isUnpaid()
+            ? $this->billing->projectedDueAfterPayment($invoice)
+            : null;
+
+        if (! $invoice->isUnpaid() || (int) ($invoice->billing_months ?: 1) > 1 || $invoice->type === 'multi_month') {
+            return [
+                'blocked' => null,
+                'options' => [],
+                'next_due_date' => $nextDue,
+            ];
+        }
+
+        $choices = $this->billing->advancePaymentChoices($customer);
+
+        return [
+            'blocked' => $choices['blocked'],
+            'options' => $choices['options'],
+            'next_due_date' => $nextDue,
+        ];
     }
 
     private function earlyPaymentCustomers(Request $request): Builder
@@ -814,10 +863,30 @@ class BillingController extends Controller
         ];
     }
 
-    private function prepareEarlyInvoice(PppoeCustomer $customer): RedirectResponse
+    private function prepareEarlyInvoice(PppoeCustomer $customer, int $months = 1): RedirectResponse
     {
         if (! $customer->is_active) {
             return back()->with('error', 'Pelanggan '.$customer->name.' ('.$customer->username.') nonaktif. Tagihan tidak dibuat.');
+        }
+
+        if ($months >= 2) {
+            try {
+                $invoice = $this->billing->createAdvanceInvoice($customer->loadMissing('package'), $months);
+            } catch (InvalidArgumentException $e) {
+                return back()->with('error', $e->getMessage());
+            }
+
+            $who = $customer->name.' ('.$customer->username.')';
+            $nextDue = $this->billing->projectedDueAfterPayment($invoice->loadMissing('customer'));
+            $message = 'Tagihan '.$invoice->number.' untuk '.$months.' bulan disiapkan bagi '.$who.
+                ' (Rp '.number_format((int) $invoice->total, 0, ',', '.').')';
+            if ($nextDue) {
+                $message .= '. Setelah lunas, jatuh tempo menjadi '.Carbon::parse($nextDue)->format('d/m/Y').'.';
+            }
+
+            return redirect()
+                ->route('admin.billing.show', $invoice)
+                ->with('success', $message);
         }
 
         $result = $this->billing->ensurePayableInvoice($customer);

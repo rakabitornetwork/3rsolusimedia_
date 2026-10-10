@@ -119,12 +119,47 @@ class PaymentPortalController extends Controller
             'branding' => AppSettings::branding(),
             'token' => $token,
             'status' => $request->get('status'),
-            'customer' => $this->portalCustomerPayload($customer),
+            'customer' => $this->portalCustomerPayload($customer->fresh() ?? $customer),
             'unpaid' => $unpaid,
             'recent_paid' => $recentPaid,
             'gateway_ready' => $this->gateways->hasEnabledGateway(),
             'default_gateway' => AppSettings::paymentGatewayConfig()['default'],
+            'advance' => $this->billing->advancePaymentChoices($customer->fresh(['package']) ?? $customer),
         ]);
+    }
+
+    public function payAhead(Request $request, string $token): RedirectResponse|HttpResponse
+    {
+        $customer = $this->customerFromPortalToken($token);
+        if (! $customer) {
+            return $this->redirectExpiredPortal($request);
+        }
+
+        $validated = $request->validate([
+            'months' => ['required', 'integer', 'min:2', 'max:6'],
+        ]);
+
+        try {
+            $invoice = $this->billing->createAdvanceInvoice(
+                $customer->loadMissing('package'),
+                (int) $validated['months'],
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        if (! $this->gateways->hasEnabledGateway()) {
+            return redirect()
+                ->route('portal.pay.invoices', ['token' => $token])
+                ->with(
+                    'success',
+                    'Tagihan '.$invoice->number.' untuk '.$invoice->billing_months.' bulan sudah dibuat (Rp '.
+                    number_format((int) $invoice->total, 0, ',', '.').
+                    '). Pembayaran online belum aktif. Hubungi admin untuk konfirmasi pembayaran.'
+                );
+        }
+
+        return $this->pay($request, $token, $invoice);
     }
 
     public function pay(Request $request, string $token, Invoice $invoice): RedirectResponse|HttpResponse
@@ -171,6 +206,9 @@ class PaymentPortalController extends Controller
             'id' => $invoice->id,
             'number' => $invoice->number,
             'package_name' => $invoice->package_name,
+            'billing_months' => max(1, (int) ($invoice->billing_months ?: 1)),
+            'period_start' => $invoice->period_start?->format('Y-m-d'),
+            'period_end' => $invoice->period_end?->format('Y-m-d'),
             'due_date' => $invoice->due_date?->format('Y-m-d'),
             'total' => $invoice->total,
             'total_label' => 'Rp '.number_format($invoice->total, 0, ',', '.'),

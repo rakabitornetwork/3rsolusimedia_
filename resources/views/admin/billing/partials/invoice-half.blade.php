@@ -78,6 +78,9 @@
             <tr>
                 <td>
                     <span class="inv-item-title">{{ $invoice->package_name ?: 'Paket layanan' }}</span>
+                    @if ($billingMonths > 1)
+                        <span class="inv-item-note">Pembayaran {{ $billingMonths }} bulan sekaligus</span>
+                    @endif
                     @if ($invoice->notes)
                         <span class="inv-item-note">{{ \Illuminate\Support\Str::limit($invoice->notes, 100) }}</span>
                     @endif
