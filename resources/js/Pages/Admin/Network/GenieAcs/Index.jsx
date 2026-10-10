@@ -419,7 +419,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                 </div>
             )}
 
-            <div className="admin-data-scroll border border-ink/10 bg-white">
+            <div className="paged-table-card admin-data-scroll border border-ink/10 bg-white">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-ink/10 bg-mist/50 text-xs tracking-wide text-ink-soft uppercase">
                         <tr>
@@ -435,7 +435,7 @@ export default function Index({ config, connection, devices, devices_error, stat
                             <th className="px-4 py-3 text-center font-semibold">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody key={paged.current_page} className="paged-table-rows">
                         {rows.map((item) => {
                             const temp = temperatureTone(item.temperature);
                             const rx = rxPowerTone(item.rx_power);

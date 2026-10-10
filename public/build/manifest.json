@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-y-gY_mG0.css",
+    "file": "assets/app-DpYeqrVA.css",
     "name": "app",
     "names": [
       "app.css"
@@ -315,7 +315,7 @@
     ]
   },
   "resources/js/Pages/Admin/Billing/Index.jsx": {
-    "file": "assets/Index-B7QAoUgg.js",
+    "file": "assets/Index-CI618ASq.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Billing/Index.jsx",
     "isDynamicEntry": true,
@@ -475,7 +475,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx": {
-    "file": "assets/Index-Cbx8Rz-5.js",
+    "file": "assets/Index-BZFtMs0U.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Index.jsx",
     "isDynamicEntry": true,
@@ -492,7 +492,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Pppoe/Sessions.jsx": {
-    "file": "assets/Sessions-BWThyTE0.js",
+    "file": "assets/Sessions-BzeEfCC-.js",
     "name": "Sessions",
     "src": "resources/js/Pages/Admin/Customers/Pppoe/Sessions.jsx",
     "isDynamicEntry": true,
@@ -570,7 +570,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/GenieAcs/Index.jsx": {
-    "file": "assets/Index-CJAPOnwi.js",
+    "file": "assets/Index-BJwAgpEE.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/GenieAcs/Index.jsx",
     "isDynamicEntry": true,
@@ -623,7 +623,7 @@
     ]
   },
   "resources/js/Pages/Admin/Network/Hotspot/Index.jsx": {
-    "file": "assets/Index-BVSYwgPy.js",
+    "file": "assets/Index-6zuXsEig.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Network/Hotspot/Index.jsx",
     "isDynamicEntry": true,
@@ -832,7 +832,7 @@
     ]
   },
   "resources/js/Pages/Admin/Users/Index.jsx": {
-    "file": "assets/Index-CehUMET0.js",
+    "file": "assets/Index-DIQCcJlK.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Users/Index.jsx",
     "isDynamicEntry": true,
@@ -1101,7 +1101,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-AVyeuRQA.js",
+    "file": "assets/app-D1rypgQx.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1164,7 +1164,7 @@
       "resources/js/Pages/Vpn/Signup.jsx"
     ],
     "css": [
-      "assets/app-y-gY_mG0.css"
+      "assets/app-DpYeqrVA.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",
