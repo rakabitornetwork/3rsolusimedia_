@@ -935,8 +935,8 @@ function DetailPanelBody({
                         Toleransi isolir
                     </h3>
                     <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-                        Jatuh tempo tetap {customer.due_date || '—'}. Isolir ditunda sampai tanggal
-                        toleransi.
+                        Jatuh tempo pelanggan tetap {customer.due_date || '—'}. Isolir ditunda sampai
+                        tanggal toleransi. Tagihan yang belum lunas dihitung ulang sampai tanggal itu.
                     </p>
                     <p className="mt-1 text-xs text-ink-soft">
                         Saat ini:{' '}

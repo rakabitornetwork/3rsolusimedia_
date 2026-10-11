@@ -161,10 +161,80 @@ class BillingIsolirRestoreTest extends TestCase
         $this->assertSame('active', $customer->status);
     }
 
+    #[Test]
+    public function grace_until_a_later_cycle_bills_every_due_date_at_the_package_price(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-12 01:00:00', 'Asia/Jakarta'));
+
+        [$customer, $package] = $this->isolatedCustomer([
+            'due_date' => '2026-11-03',
+            'billing_day' => 3,
+            'status' => 'isolated',
+        ]);
+        $package->update(['price' => 120000]);
+
+        Invoice::query()->create([
+            'number' => 'INV/2026/09/0001',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-08-03',
+            'period_end' => '2026-09-03',
+            'due_date' => '2026-09-03',
+            'amount' => 120000,
+            'discount' => 0,
+            'total' => 120000,
+            'status' => 'paid',
+            'paid_at' => '2026-09-04 10:00:00',
+            'package_name' => '10 Mbps',
+            'package_price' => 120000,
+        ]);
+
+        Invoice::query()->create([
+            'number' => 'INV/2026/10/0001',
+            'pppoe_customer_id' => $customer->id,
+            'subscription_package_id' => $package->id,
+            'type' => 'monthly',
+            'billing_months' => 1,
+            'period_start' => '2026-10-03',
+            'period_end' => '2026-11-03',
+            'due_date' => '2026-11-03',
+            'amount' => 120000,
+            'discount' => 0,
+            'total' => 120000,
+            'status' => 'unpaid',
+            'package_name' => '10 Mbps',
+            'package_price' => 120000,
+        ]);
+
+        $this->mockProfileRestore('10Mbps');
+
+        $updated = app(BillingService::class)->grantGrace(
+            $customer->fresh('package'),
+            Carbon::parse('2026-11-11'),
+            'Sampai 11 November',
+            coverOpenInvoice: true,
+        );
+
+        $open = Invoice::query()->where('pppoe_customer_id', $customer->id)->where('status', 'unpaid')->first();
+
+        $this->assertSame('2026-11-11', $updated->grace_until?->toDateString());
+        $this->assertSame('2026-11-03', $updated->due_date?->toDateString());
+        $this->assertNotNull($open);
+        $this->assertSame(2, $open->billing_months);
+        $this->assertSame(240000, $open->total);
+        $this->assertSame('2026-10-03', $open->due_date?->toDateString());
+        $this->assertSame('2026-09-03', $open->period_start?->toDateString());
+        $this->assertSame('2026-11-03', $open->period_end?->toDateString());
+        $this->assertSame(1, Invoice::query()->where('pppoe_customer_id', $customer->id)->where('status', 'void')->count());
+    }
+
     /**
+     * @param  array<string, mixed>  $overrides
      * @return array{0: PppoeCustomer, 1: SubscriptionPackage}
      */
-    private function isolatedCustomer(): array
+    private function isolatedCustomer(array $overrides = []): array
     {
         $router = MikrotikRouter::query()->create([
             'name' => 'Router 1',
@@ -183,7 +253,7 @@ class BillingIsolirRestoreTest extends TestCase
             'is_active' => true,
         ]);
 
-        $customer = PppoeCustomer::query()->create([
+        $customer = PppoeCustomer::query()->create(array_merge([
             'mikrotik_router_id' => $router->id,
             'subscription_package_id' => $package->id,
             'name' => 'Amanda',
@@ -198,7 +268,7 @@ class BillingIsolirRestoreTest extends TestCase
             'status' => 'isolated',
             'sync_status' => 'synced',
             'is_active' => true,
-        ]);
+        ], $overrides));
 
         return [$customer, $package];
     }

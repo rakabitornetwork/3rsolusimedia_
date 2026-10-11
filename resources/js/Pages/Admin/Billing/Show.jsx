@@ -353,8 +353,9 @@ export default function Show({
                         <div className="border border-ink/10 bg-white p-6">
                             <h3 className="text-sm font-semibold text-ink">Toleransi isolir</h3>
                             <p className="mt-1 text-sm text-ink-soft">
-                                Jatuh tempo tetap {invoice.customer.due_date || invoice.due_date}.
-                                Isolir ditunda sampai tanggal toleransi.
+                                Jatuh tempo pelanggan tetap {invoice.customer.due_date || invoice.due_date}.
+                                Isolir ditunda sampai tanggal toleransi. Tagihan yang belum lunas
+                                dihitung ulang: setiap tanggal tagihan sampai tanggal itu dikalikan harga paket.
                             </p>
                             <p className="mt-2 text-xs text-ink-soft">
                                 Saat ini:{' '}

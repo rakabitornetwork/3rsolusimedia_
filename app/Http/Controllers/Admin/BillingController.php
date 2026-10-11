@@ -714,20 +714,37 @@ class BillingController extends Controller
                 $pppoe,
                 $until,
                 $validated['note'] ?? null,
+                coverOpenInvoice: true,
             );
         } catch (InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
         }
 
+        $covered = Invoice::query()
+            ->where('pppoe_customer_id', $pppoe->id)
+            ->where('status', 'unpaid')
+            ->where('type', '!=', 'vpn_router')
+            ->whereNull('vpn_router_id')
+            ->latest('id')
+            ->first();
+
         if ($updated->sync_status === 'error') {
-            return back()->with(
-                'error',
-                'Toleransi tersimpan sampai '.$until->format('d M Y').', tetapi sync MikroTik gagal: '.
-                ($updated->sync_message ?: 'tidak ada pesan.')
-            );
+            $error = 'Toleransi tersimpan sampai '.$until->format('d M Y').', tetapi sync MikroTik gagal: '.
+                ($updated->sync_message ?: 'tidak ada pesan.');
+            if ($covered && (int) $covered->billing_months > 1) {
+                $error .= ' Tagihan '.$covered->number.' mencakup '.$covered->billing_months.
+                    ' bulan (Rp '.number_format((int) $covered->total, 0, ',', '.').').';
+            }
+
+            return back()->with('error', $error);
         }
 
-        $message = 'Toleransi isolir aktif sampai '.$until->format('d M Y').'. Jatuh tempo tagihan tidak digeser.';
+        $message = 'Toleransi isolir aktif sampai '.$until->format('d M Y').'. Jatuh tempo pelanggan tidak digeser.';
+        if ($covered) {
+            $message .= ' Tagihan '.$covered->number.' sebesar Rp '.
+                number_format((int) $covered->total, 0, ',', '.').
+                ' untuk '.$covered->billing_months.' jatuh tempo.';
+        }
         if ($wasIsolated) {
             $message .= ' Profil paket dipulihkan dan sesi diputus agar reconnect.';
         }

@@ -1227,8 +1227,12 @@ class BillingService
         return ['invoice' => $invoice, 'created' => true];
     }
 
-    public function grantGrace(PppoeCustomer $customer, Carbon $until, ?string $note = null): PppoeCustomer
-    {
+    public function grantGrace(
+        PppoeCustomer $customer,
+        Carbon $until,
+        ?string $note = null,
+        bool $coverOpenInvoice = false,
+    ): PppoeCustomer {
         $until = $until->copy()->startOfDay();
         $today = now()->startOfDay();
 
@@ -1236,10 +1240,16 @@ class BillingService
             throw new InvalidArgumentException('Tanggal toleransi tidak boleh sebelum hari ini.');
         }
 
-        $customer->update([
-            'grace_until' => $until->toDateString(),
-            'grace_note' => $note !== null && trim($note) !== '' ? trim($note) : null,
-        ]);
+        DB::transaction(function () use ($customer, $until, $note, $coverOpenInvoice) {
+            $customer->update([
+                'grace_until' => $until->toDateString(),
+                'grace_note' => $note !== null && trim($note) !== '' ? trim($note) : null,
+            ]);
+
+            if ($coverOpenInvoice) {
+                $this->coverUnpaidServiceThrough($customer->fresh(['package']), $until);
+            }
+        });
 
         try {
             $this->sync->sync($customer->fresh(['router', 'package']));
@@ -1248,6 +1258,101 @@ class BillingService
         }
 
         return $customer->fresh(['router', 'package']);
+    }
+
+    /**
+     * Tagihan layanan yang belum lunas mencakup setiap jatuh tempo pada atau sebelum
+     * tanggal toleransi, dihitung dari tempo terakhir yang sudah lunas. Satu bulan = harga paket penuh.
+     */
+    public function coverUnpaidServiceThrough(PppoeCustomer $customer, Carbon $until): ?Invoice
+    {
+        $customer->loadMissing('package');
+        $price = (int) ($customer->package?->price ?? 0);
+        $billingDay = (int) $customer->billing_day;
+        if ($price <= 0 || $billingDay <= 0) {
+            return null;
+        }
+
+        $lastPaidDue = Invoice::query()
+            ->where('pppoe_customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->where('type', '!=', 'vpn_router')
+            ->whereNull('vpn_router_id')
+            ->orderByDesc('due_date')
+            ->orderByDesc('id')
+            ->value('due_date');
+
+        $anchor = $lastPaidDue
+            ? Carbon::parse($lastPaidDue)->startOfDay()
+            : ($customer->due_date
+                ? $this->cycle->periodStart($customer->due_date, $billingDay)
+                : null);
+
+        if (! $anchor) {
+            return null;
+        }
+
+        $dues = [];
+        $cursor = $anchor->copy();
+        for ($i = 0; $i < 36; $i++) {
+            $cursor = $this->cycle->advanceDueDate($cursor, $billingDay);
+            if ($cursor->greaterThan($until->copy()->startOfDay())) {
+                break;
+            }
+            $dues[] = $cursor->copy();
+        }
+
+        if ($dues === []) {
+            return null;
+        }
+
+        $months = count($dues);
+        $firstDue = $dues[0];
+        $lastDue = $dues[$months - 1];
+        $amount = $price * $months;
+        $periodStart = $this->cycle->periodStart($firstDue, $billingDay)->toDateString();
+        $periodEnd = $lastDue->toDateString();
+
+        $open = $this->replaceableServiceInvoices($customer);
+        $already = $open->first(function (Invoice $invoice) use ($months, $amount, $firstDue, $periodEnd) {
+            return (int) ($invoice->billing_months ?: 1) === $months
+                && (int) $invoice->total === $amount
+                && $invoice->due_date?->toDateString() === $firstDue->toDateString()
+                && $invoice->period_end?->toDateString() === $periodEnd;
+        });
+        if ($already) {
+            return $already;
+        }
+
+        foreach ($open as $existing) {
+            if ((int) ($existing->billing_months ?: 1) > 1 || $existing->type === 'multi_month') {
+                throw new InvalidArgumentException(
+                    'Sudah ada tagihan gabungan yang belum dibayar. Lunasi atau batalkan dulu sebelum mengatur toleransi.'
+                );
+            }
+        }
+
+        foreach ($open as $existing) {
+            $this->voidInvoice($existing, 'Diganti karena toleransi mencakup '.$months.' jatuh tempo.');
+        }
+
+        $note = 'Toleransi sampai '.$until->format('d/m/Y').'. '
+            .$months.' jatuh tempo ('
+            .$firstDue->format('d/m/Y').' s/d '.$lastDue->format('d/m/Y')
+            .'), harga paket × '.$months.' bulan.';
+
+        return $this->createInvoice(
+            customer: $customer,
+            type: $months > 1 ? 'multi_month' : 'monthly',
+            periodStart: $periodStart,
+            periodEnd: $periodEnd,
+            dueDate: $firstDue->toDateString(),
+            amount: $amount,
+            notes: $note,
+            billingMonths: $months,
+            notify: false,
+            applyCredit: true,
+        );
     }
 
     public function clearGrace(PppoeCustomer $customer, bool $sync = true): PppoeCustomer
