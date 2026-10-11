@@ -465,8 +465,8 @@ class MessagingTelegramTest extends TestCase
 
         $this->postUpdate('/bantuan')->assertOk();
 
-        $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
-        $this->assertStringContainsString('/cari', (string) $body);
+        Http::assertSent(fn ($request) => str_contains($request->url(), 'sendMessage')
+            && str_contains((string) ($request['text'] ?? ''), '/cari'));
     }
 
     #[Test]

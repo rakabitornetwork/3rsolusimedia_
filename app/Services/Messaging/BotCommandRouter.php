@@ -46,7 +46,14 @@ class BotCommandRouter
         $inboundCommand = $message->isCallback()
             ? 'cari'
             : $this->parseCommand($message->text)[0];
-        $this->log($message, 'inbound', $identity, $inboundCommand, 'received');
+        $this->log(
+            $message,
+            'inbound',
+            $identity,
+            $inboundCommand,
+            'received',
+            in_array($inboundCommand, ['password', 'sandi'], true) ? $inboundCommand : null,
+        );
 
         if (! $message->isPrivate) {
             $this->reply($message, 'Gunakan chat pribadi dengan bot ini.', $identity);
@@ -103,6 +110,12 @@ class BotCommandRouter
             'lepas' => $this->lepas($message, $identity),
             'tagihan' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->tagihan($message, $bound)),
             'bayar' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->bayar($message, $bound, $args)),
+            'wifi' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'wifi')),
+            'ssid' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'ssid', $args)),
+            'password', 'sandi' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'password', $args)),
+            'rx', 'rxpower' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'rx')),
+            'suhu', 'temp' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'temp')),
+            'perangkat' => $this->requireBound($message, $identity, fn (MessagingIdentity $bound) => $this->onu($message, $bound, 'dev')),
             'cari' => $this->cari($message, $args, $identity),
             default => $this->reply($message, 'Perintah '.$command.' belum tersedia. Ketik bantuan.', $identity),
         };
@@ -652,6 +665,63 @@ class BotCommandRouter
         );
     }
 
+    private function onu(IncomingMessage $message, MessagingIdentity $identity, string $view, string $args = ''): void
+    {
+        $customer = $identity->customer;
+        if (! $customer) {
+            $this->reply($message, 'Akun pelanggan tidak ditemukan. Ketik daftar ulang.', $identity);
+
+            return;
+        }
+
+        if ($customer->pppService() === PppoeCustomer::SERVICE_L2TP) {
+            $this->reply($message, 'Akun VPN tidak memiliki ONU. Perintah ini untuk pelanggan internet PPPoE.', $identity);
+
+            return;
+        }
+
+        if ($view === 'ssid' && $args !== '') {
+            if (mb_strlen($args) > 32) {
+                $this->reply($message, 'SSID harus 1–32 karakter.', $identity);
+
+                return;
+            }
+
+            $result = $this->adminLookup->applyWifi($customer, $args, null);
+            $this->reply($message, $result['text'], $identity, null, $result['log_text'] ?? null);
+
+            return;
+        }
+
+        if ($view === 'password' && $args !== '') {
+            $parsed = $this->adminLookup->parseWifiInput('*'.$args);
+            if (isset($parsed['error'])) {
+                $this->reply($message, $parsed['error'], $identity);
+
+                return;
+            }
+
+            $result = $this->adminLookup->applyWifi($customer, null, $parsed['password']);
+            $this->reply($message, $result['text'], $identity, null, $result['log_text'] ?? null);
+
+            return;
+        }
+
+        $action = match ($view) {
+            'ssid', 'password' => 'wifi',
+            default => $view,
+        };
+        $result = $this->adminLookup->customerView($customer, $action);
+        $text = $result['text'];
+        if ($action === 'wifi' && str_contains($text, 'SSID:')) {
+            $slash = $message->channel === 'whatsapp' ? '' : '/';
+            $text .= "\n\nGanti nama: {$slash}ssid NamaBaru";
+            $text .= "\nGanti password (8–63 karakter): {$slash}password passwordbaru";
+        }
+
+        $this->reply($message, $text, $identity, null, $result['log_text'] ?? null);
+    }
+
     private function helpText(bool $bound, string $channel = 'telegram', bool $admin = false, ?PppoeCustomer $customer = null): string
     {
         $company = AppSettings::companyName();
@@ -677,12 +747,24 @@ class BotCommandRouter
             $slash.'tagihan — cek tagihan belum lunas',
             $slash.'bayar — tautan bayar tagihan saat ini',
             $slash.'bayar 3 — bayar 3 bulan sekaligus (2–6)',
+        ];
+
+        if (! $vpn) {
+            $lines[] = $slash.'wifi — lihat nama dan password WiFi';
+            $lines[] = $slash.'ssid NamaBaru — ganti nama WiFi';
+            $lines[] = $slash.'password passwordbaru — ganti password WiFi';
+            $lines[] = $slash.'rx — lihat RX power ONU';
+            $lines[] = $slash.'suhu — lihat suhu ONU';
+            $lines[] = $slash.'perangkat — jumlah dan detail perangkat terhubung';
+        }
+
+        $lines = array_merge($lines, [
             $slash.'lepas — putuskan ikatan chat ini',
             $slash.'bantuan — tampilkan pesan ini',
             '',
             'Portal pelanggan: '.url('/portal'),
             $portalHint,
-        ];
+        ]);
 
         if ($admin && $channel === 'telegram') {
             $lines[] = '';
@@ -711,7 +793,7 @@ class BotCommandRouter
             return [strtolower($matches[1]), trim((string) ($matches[2] ?? ''))];
         }
 
-        if (preg_match('/^(daftar|tagihan|bayar|bantuan|help|menu|start|lepas|batal|cari)(?:\s+([\s\S]+))?$/iu', $text, $matches)) {
+        if (preg_match('/^(daftar|tagihan|bayar|bantuan|help|menu|start|lepas|batal|cari|wifi|ssid|password|sandi|rxpower|rx|suhu|temp|perangkat)(?:\s+([\s\S]+))?$/iu', $text, $matches)) {
             $command = strtolower($matches[1]);
             if ($command === 'menu') {
                 $command = 'bantuan';

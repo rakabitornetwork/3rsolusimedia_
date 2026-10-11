@@ -10,6 +10,7 @@ use App\Models\PppoeCustomer;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Services\BillingService;
+use App\Services\GenieAcsService;
 use App\Services\Messaging\CustomerNotifier;
 use App\Services\Messaging\MessageTemplate;
 use App\Services\MikrotikApiService;
@@ -1045,5 +1046,151 @@ class MessagingWhatsAppTest extends TestCase
             ->assertJsonPath('remote_webhook_url', '3rsolusimedia.my.id/webhooks/evolution');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/webhook/set/teslatech'));
+    }
+
+    #[Test]
+    public function whatsapp_onu_commands_show_wifi_rx_temperature_and_devices(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $this->mockGenieDevice();
+
+        $this->postUpsert('wifi')->assertOk();
+        $wifi = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('RumahBudi', $wifi);
+        $this->assertStringNotContainsString('wifiRahasia', $wifi);
+
+        Http::assertSent(fn ($request) => str_contains((string) ($request['text'] ?? ''), 'wifiRahasia')
+            && str_contains((string) ($request['text'] ?? ''), 'RumahBudi')
+            && str_contains((string) ($request['text'] ?? ''), 'ssid NamaBaru'));
+
+        $this->postUpsert('rx')->assertOk();
+        $rx = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('-18.5 dBm', $rx);
+
+        $this->postUpsert('suhu')->assertOk();
+        $suhu = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('48 °C', $suhu);
+
+        $this->postUpsert('perangkat')->assertOk();
+        $devices = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Jumlah perangkat terhubung: 2', $devices);
+        $this->assertStringContainsString('iPhone-Budi', $devices);
+        $this->assertStringContainsString('192.168.1.10', $devices);
+        $this->assertStringContainsString('AA:BB:CC:DD:EE:01', $devices);
+    }
+
+    #[Test]
+    public function whatsapp_can_change_ssid_and_password(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $genie = $this->mockGenieDevice();
+        $genie->shouldReceive('updateWifi')->once()->with('DEV1', 'RumahBaru', null)->andReturn([
+            'ok' => true,
+            'message' => 'SSID diantrikan ke perangkat.',
+        ]);
+
+        $this->postUpsert('ssid RumahBaru')->assertOk();
+        $ssid = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('RumahBaru', $ssid);
+        $this->assertStringContainsString('berhasil', $ssid);
+
+        $genie->shouldReceive('updateWifi')->once()->with('DEV1', null, 'passwordbaru1')->andReturn([
+            'ok' => true,
+            'message' => 'Password diantrikan ke perangkat.',
+        ]);
+
+        $this->postUpsert('password passwordbaru1')->assertOk();
+        $changed = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('berhasil', $changed);
+        $this->assertStringNotContainsString('passwordbaru1', $changed);
+        $inbound = MessageLog::query()->where('direction', 'inbound')->where('command', 'password')->value('body');
+        $this->assertSame('password', $inbound);
+
+        $this->postUpsert('password pendek')->assertOk();
+        $short = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('8–63', $short);
+    }
+
+    #[Test]
+    public function whatsapp_onu_commands_require_a_bound_pppoe_customer(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+
+        $this->postUpsert('wifi', '6289999999999@s.whatsapp.net')->assertOk();
+        $unbound = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('daftar', strtolower($unbound));
+
+        $this->customer([
+            'name' => 'VPN Siti',
+            'username' => 'vpn01',
+            'phone' => '081111111111',
+            'ppp_service' => PppoeCustomer::SERVICE_L2TP,
+        ]);
+        $this->mockGenieDevice();
+
+        $this->postUpsert('rx', '6281111111111@s.whatsapp.net')->assertOk();
+        $vpn = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('tidak memiliki ONU', $vpn);
+    }
+
+    #[Test]
+    public function whatsapp_bantuan_lists_onu_commands(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+
+        $this->postUpsert('bantuan')->assertOk();
+        $body = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('wifi — lihat nama dan password WiFi', $body);
+        $this->assertStringContainsString('rx — lihat RX power ONU', $body);
+        $this->assertStringContainsString('suhu — lihat suhu ONU', $body);
+        $this->assertStringContainsString('perangkat — jumlah dan detail perangkat terhubung', $body);
+    }
+
+    private function mockGenieDevice(): GenieAcsService
+    {
+        $genie = Mockery::mock(GenieAcsService::class);
+        $genie->shouldReceive('isConfigured')->andReturn(true);
+        $genie->shouldReceive('findDeviceByPppoeUsername')->andReturn([
+            'ok' => true,
+            'device' => [
+                'id' => 'DEV1',
+                'manufacturer' => 'ZTE',
+                'model' => 'F670L',
+                'serial' => 'SN123',
+                'ssid' => 'RumahBudi',
+                'ssid_password' => 'wifiRahasia',
+                'rx_power_label' => '-18.5 dBm',
+                'tx_power_label' => '2.1 dBm',
+                'redaman_label' => '20.6 dB',
+                'temperature_label' => '48 °C',
+                'online' => true,
+                'last_inform_label' => '23/08/2026 01:20',
+                'connected_count' => 2,
+                'connected_clients' => [
+                    [
+                        'hostname' => 'iPhone-Budi',
+                        'mac' => 'AA:BB:CC:DD:EE:01',
+                        'ip' => '192.168.1.10',
+                        'ssid' => 'RumahBudi',
+                    ],
+                    [
+                        'hostname' => 'Laptop-Siti',
+                        'mac' => 'AA:BB:CC:DD:EE:02',
+                        'ip' => '192.168.1.11',
+                        'ssid' => 'RumahBudi',
+                    ],
+                ],
+            ],
+        ]);
+        $this->app->instance(GenieAcsService::class, $genie);
+
+        return $genie;
     }
 }

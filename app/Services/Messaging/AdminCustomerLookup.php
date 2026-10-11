@@ -122,6 +122,28 @@ class AdminCustomerLookup
     }
 
     /**
+     * Laporan ONU milik pelanggan sendiri, tanpa tombol admin.
+     *
+     * @return array{text: string, log_text?: string}
+     */
+    public function customerView(PppoeCustomer $customer, string $action): array
+    {
+        $result = match ($action) {
+            'rx' => $this->rxPower($customer),
+            'temp' => $this->temperature($customer),
+            'wifi' => $this->wifi($customer),
+            'dev' => $this->connectedDevices($customer),
+            default => [
+                'text' => 'Perintah tidak dikenali. Ketik bantuan.',
+            ],
+        };
+
+        unset($result['keyboard'], $result['pending']);
+
+        return $result;
+    }
+
+    /**
      * @return array{text: string, keyboard: array<int, array<int, array{text: string, callback_data: string}>>, pending?: array{type: string, customer_id: int}, log_text?: string}
      */
     public function action(string $action, PppoeCustomer $customer): array
