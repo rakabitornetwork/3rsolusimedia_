@@ -133,11 +133,19 @@ function UsageAmount({ kind, label, compact = false }) {
     );
 }
 
-export default function Index({ customers = [], filters, routers, stats, section = 'pppoe' }) {
+export default function Index({
+    customers = [],
+    filters,
+    routers,
+    agents = [],
+    stats,
+    section = 'pppoe',
+}) {
     const vpn = section === 'vpn';
     const base = vpn ? '/admin/customers/vpn' : '/admin/customers/pppoe';
     const { auth } = usePage().props;
-    const canWrite = auth?.user?.can_write !== false && auth?.user?.role !== 'agen';
+    const isAgen = auth?.user?.role === 'agen';
+    const canWrite = auth?.user?.can_write !== false && !isAgen;
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
@@ -148,13 +156,21 @@ export default function Index({ customers = [], filters, routers, stats, section
     const [printDate, setPrintDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
     const [printDateField, setPrintDateField] = useState('due_date');
     const [printRouterId, setPrintRouterId] = useState(filters.router_id || '');
+    const [printAgentId, setPrintAgentId] = useState(filters.agent_id || '');
     const [printStatus, setPrintStatus] = useState(filters.status || '');
 
     const allCustomers = Array.isArray(customers) ? customers : customers?.data || [];
     const filtered = useMemo(
         () =>
             allCustomers.filter((item) =>
-                matchesSearch(query, item.name, item.username, item.phone, item.package?.name),
+                matchesSearch(
+                    query,
+                    item.name,
+                    item.username,
+                    item.phone,
+                    item.package?.name,
+                    item.agent_name,
+                ),
             ),
         [allCustomers, query],
     );
@@ -223,6 +239,9 @@ export default function Index({ customers = [], filters, routers, stats, section
 
         if (printRouterId) {
             params.set('router_id', String(printRouterId));
+        }
+        if (printAgentId) {
+            params.set('agent_id', String(printAgentId));
         }
         if (printStatus) {
             params.set('status', printStatus);
@@ -340,6 +359,21 @@ export default function Index({ customers = [], filters, routers, stats, section
                             </option>
                         ))}
                     </select>
+                    {!isAgen && (
+                        <select
+                            value={filters.agent_id || ''}
+                            onChange={(e) => applyFilters('agent_id', e.target.value)}
+                            className="w-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-signal sm:w-auto"
+                        >
+                            <option value="">Semua agen</option>
+                            <option value="none">Tanpa agen</option>
+                            {agents.map((agent) => (
+                                <option key={agent.id} value={agent.id}>
+                                    {agent.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                     <select
                         value={filters.status || ''}
                         onChange={(e) => applyFilters('status', e.target.value)}
@@ -368,6 +402,7 @@ export default function Index({ customers = [], filters, routers, stats, section
                         type="button"
                         onClick={() => {
                             setPrintRouterId(filters.router_id || '');
+                            setPrintAgentId(filters.agent_id || '');
                             setPrintStatus(filters.status || '');
                             setShowPrint((v) => !v);
                             setShowBulkDelete(false);
@@ -444,7 +479,7 @@ export default function Index({ customers = [], filters, routers, stats, section
                         </p>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className={`grid gap-3 sm:grid-cols-2 ${isAgen ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}>
                         <DatePickerField
                             label="Tanggal"
                             value={printDate}
@@ -478,6 +513,24 @@ export default function Index({ customers = [], filters, routers, stats, section
                                 ))}
                             </select>
                         </label>
+                        {!isAgen && (
+                            <label className="block text-sm font-medium text-ink">
+                                Agen
+                                <select
+                                    value={printAgentId}
+                                    onChange={(e) => setPrintAgentId(e.target.value)}
+                                    className="mt-1.5 w-full border border-ink/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-signal"
+                                >
+                                    <option value="">Semua agen</option>
+                                    <option value="none">Tanpa agen</option>
+                                    {agents.map((agent) => (
+                                        <option key={agent.id} value={agent.id}>
+                                            {agent.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
                         <label className="block text-sm font-medium text-ink">
                             Status
                             <select
@@ -695,6 +748,12 @@ export default function Index({ customers = [], filters, routers, stats, section
                                     <p className="font-medium text-ink">{customer.name}</p>
                                     <p className="text-xs text-ink-soft">
                                         {customer.router?.name || '—'}
+                                        {!isAgen && (
+                                            <>
+                                                {' · '}
+                                                {customer.agent_name || 'Tanpa agen'}
+                                            </>
+                                        )}
                                     </p>
                                     {vpn && customer.vpn_trial_active && (
                                         <p className="mt-1">
@@ -828,8 +887,8 @@ export default function Index({ customers = [], filters, routers, stats, section
                         {rows.length === 0 && (
                             <tr>
                                 <td colSpan={10} className="px-4 py-10 text-center text-ink-soft">
-                                    {query.trim()
-                                        ? 'Tidak ada pelanggan yang cocok dengan pencarian.'
+                                    {query.trim() || filters.agent_id || filters.router_id || filters.status
+                                        ? 'Tidak ada pelanggan yang cocok dengan filter.'
                                         : vpn
                                           ? 'Belum ada pelanggan VPN Tunnel.'
                                           : 'Belum ada pelanggan PPPoE.'}

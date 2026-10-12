@@ -190,6 +190,15 @@ export default function Index({ users = [], filters, role_options, stats, can_ma
                                 </td>
                                 <td className="px-4 py-3">
                                     <div className="admin-actions">
+                                        {user.role === 'agen' && (
+                                            <Link
+                                                href={`/admin/customers/pppoe?agent_id=${user.id}`}
+                                                className="btn-action btn-action-xs btn-secondary"
+                                            >
+                                                <Users className="h-3.5 w-3.5" />
+                                                Pelanggan ({user.customer_count ?? 0})
+                                            </Link>
+                                        )}
                                         {showManage && user.can_edit && (
                                             <Link
                                                 href={`/admin/users/${user.id}/edit`}
@@ -209,9 +218,10 @@ export default function Index({ users = [], filters, role_options, stats, can_ma
                                                 Hapus
                                             </button>
                                         )}
-                                        {(!showManage || (!user.can_edit && !user.can_delete)) && (
-                                            <span className="text-xs text-ink-soft">Lihat saja</span>
-                                        )}
+                                        {(!showManage || (!user.can_edit && !user.can_delete)) &&
+                                            user.role !== 'agen' && (
+                                                <span className="text-xs text-ink-soft">Lihat saja</span>
+                                            )}
                                     </div>
                                 </td>
                             </tr>

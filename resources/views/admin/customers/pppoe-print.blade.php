@@ -27,6 +27,9 @@
         ($date_field_label ?? 'Tanggal').': '.$fmtDate($date ?? now()),
         ($date_field ?? '') === 'billing_day' ? 'tiap tgl '.($date ?? now())->day : null,
         $router?->name ? 'Router '.$router->name : null,
+        isset($agent) && $agent?->name
+            ? 'Agen: '.$agent->name
+            : ((($agent_filter ?? null) === 'none') ? 'Tanpa agen' : null),
         $status ? ($customerStatus[$status] ?? ($status === 'grace' ? 'Grace' : $status)) : null,
     ])->filter()->implode(' · ');
     $listTitle = $list_title ?? 'Daftar Tagihan Pelanggan PPPoE';

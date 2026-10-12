@@ -98,7 +98,7 @@ class PppoeCustomerController extends Controller
         }
 
         AdminListState::apply($request, $service === PppoeCustomer::SERVICE_L2TP ? AdminListState::VPN : AdminListState::PPPOE, [
-            'q', 'status', 'router_id', 'sort', 'direction', 'page',
+            'q', 'status', 'router_id', 'agent_id', 'sort', 'direction', 'page',
         ]);
 
         $user = $request->user();
@@ -124,9 +124,7 @@ class PppoeCustomerController extends Controller
             ->where('pppoe_customers.ppp_service', $service)
             ->select('pppoe_customers.*');
 
-        if ($user->isAgen()) {
-            $query->where('pppoe_customers.agent_id', $user->id);
-        }
+        $this->applyAgentScope($query, $user, $request->get('agent_id'));
 
         if ($sort === 'package') {
             $query->leftJoin(
@@ -190,6 +188,7 @@ class PppoeCustomerController extends Controller
                 'q' => $request->get('q', ''),
                 'status' => $request->get('status', ''),
                 'router_id' => $request->get('router_id', ''),
+                'agent_id' => $user->isAgen() ? '' : ($this->agentFilterValue($request->get('agent_id')) ?? ''),
                 'sort' => $sort,
                 'direction' => $direction,
             ],
@@ -197,7 +196,23 @@ class PppoeCustomerController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'host']),
-            'stats' => $this->customerStats($request->get('router_id'), $user, $service),
+            'agents' => $user->isAgen()
+                ? []
+                : User::query()
+                    ->where('role', User::ROLE_AGEN)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (User $agent) => [
+                        'id' => $agent->id,
+                        'name' => $agent->name,
+                    ])
+                    ->values(),
+            'stats' => $this->customerStats(
+                $request->get('router_id'),
+                $user,
+                $service,
+                $request->get('agent_id'),
+            ),
             'is_agen' => $user->isAgen(),
         ]);
     }
@@ -215,6 +230,7 @@ class PppoeCustomerController extends Controller
             'date_field' => ['nullable', Rule::in(['due_date', 'start_date', 'billing_day'])],
             'router_id' => ['nullable', 'integer', 'exists:mikrotik_routers,id'],
             'status' => ['nullable', Rule::in(['active', 'isolated', 'grace', 'disabled'])],
+            'agent_id' => ['nullable', 'string', 'max:20'],
         ]);
 
         $date = Carbon::parse($validated['date'])->startOfDay();
@@ -239,9 +255,7 @@ class PppoeCustomerController extends Controller
             ])
             ->select('pppoe_customers.*');
 
-        if ($user->isAgen()) {
-            $query->where('pppoe_customers.agent_id', $user->id);
-        }
+        $this->applyAgentScope($query, $user, $validated['agent_id'] ?? null);
 
         if ($dateField === 'billing_day') {
             $query->where('pppoe_customers.billing_day', $date->day);
@@ -291,6 +305,10 @@ class PppoeCustomerController extends Controller
         $router = ! empty($validated['router_id'])
             ? MikrotikRouter::query()->find($validated['router_id'])
             : null;
+        $agentFilter = $user->isAgen() ? null : $this->agentFilterValue($validated['agent_id'] ?? null);
+        $agent = $agentFilter !== null && $agentFilter !== 'none'
+            ? User::query()->find((int) $agentFilter)
+            : null;
 
         $dateFieldLabels = [
             'due_date' => 'Jatuh tempo',
@@ -310,6 +328,8 @@ class PppoeCustomerController extends Controller
             'date_field' => $dateField,
             'date_field_label' => $dateFieldLabels[$dateField] ?? $dateField,
             'router' => $router,
+            'agent' => $agent,
+            'agent_filter' => $agentFilter,
             'status' => $validated['status'] ?? '',
             'company' => [
                 'name' => AppSettings::companyName(),
@@ -322,13 +342,11 @@ class PppoeCustomerController extends Controller
         ]);
     }
 
-    private function customerStats(mixed $routerId, ?\App\Models\User $user = null, string $service = PppoeCustomer::SERVICE_PPPOE): array
+    private function customerStats(mixed $routerId, ?\App\Models\User $user = null, string $service = PppoeCustomer::SERVICE_PPPOE, mixed $agentId = null): array
     {
         $statsQuery = PppoeCustomer::query()->where('ppp_service', $service);
 
-        if ($user?->isAgen()) {
-            $statsQuery->where('agent_id', $user->id);
-        }
+        $this->applyAgentScope($statsQuery, $user, $agentId, 'agent_id');
 
         if ($routerId) {
             $statsQuery->where('mikrotik_router_id', $routerId);
@@ -355,6 +373,42 @@ class PppoeCustomerController extends Controller
                 ->count(),
             'new_month_label' => $this->currentMonthLabel(),
         ];
+    }
+
+    private function agentFilterValue(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $value = (string) $value;
+
+        if ($value === 'none') {
+            return 'none';
+        }
+
+        if (ctype_digit($value) && (int) $value > 0) {
+            return $value;
+        }
+
+        return null;
+    }
+
+    private function applyAgentScope(mixed $query, ?User $user, mixed $agentId, string $column = 'pppoe_customers.agent_id'): void
+    {
+        if ($user?->isAgen()) {
+            $query->where($column, $user->id);
+
+            return;
+        }
+
+        $filter = $this->agentFilterValue($agentId);
+
+        if ($filter === 'none') {
+            $query->whereNull($column);
+        } elseif ($filter !== null) {
+            $query->where($column, (int) $filter);
+        }
     }
 
     private function currentMonthLabel(): string

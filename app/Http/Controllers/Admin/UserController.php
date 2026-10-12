@@ -22,7 +22,7 @@ class UserController extends Controller
 
         $actor = $request->user();
 
-        $query = User::query()->latest();
+        $query = User::query()->withCount('agentCustomers')->latest();
 
         if ($role = $request->get('role')) {
             $query->where('role', $role);
@@ -32,6 +32,7 @@ class UserController extends Controller
             function (User $user) use ($actor) {
                 return [
                     ...$user->toAdminArray(),
+                    'customer_count' => $user->isAgen() ? (int) $user->agent_customers_count : null,
                     'can_edit' => $actor->canEditUser($user),
                     'can_delete' => $actor->canDeleteUser($user),
                 ];
