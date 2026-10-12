@@ -855,6 +855,93 @@ class PppoeCustomerController extends Controller
             ->with($secretFailed > 0 ? 'error' : 'success', $message);
     }
 
+    public function bulkDisable(Request $request): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return $this->listRedirect($request)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk menonaktifkan pelanggan.');
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:pppoe_customers,id'],
+            'settle_billing' => ['sometimes', 'boolean'],
+        ]);
+
+        $customers = PppoeCustomer::query()
+            ->with(['router', 'package'])
+            ->where('ppp_service', PppoeCustomer::SERVICE_PPPOE)
+            ->whereIn('id', $validated['ids'])
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return $this->listRedirect($request)
+                ->with('error', 'Tidak ada pelanggan PPPoE yang dipilih.');
+        }
+
+        $settleBilling = $request->boolean('settle_billing');
+        $stopDate = now()->startOfDay();
+        $disabled = 0;
+        $skipped = 0;
+        $failed = 0;
+        $syncFailed = 0;
+
+        foreach ($customers as $customer) {
+            if (! $customer->is_active) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($customer, $stopDate, $settleBilling) {
+                    $customer->update([
+                        'is_active' => false,
+                        'status' => 'disabled',
+                        'stopped_at' => $stopDate->toDateString(),
+                    ]);
+
+                    if ($settleBilling) {
+                        $this->billingService->settleStoppedService(
+                            $customer->fresh(['router', 'package']),
+                            $stopDate,
+                        );
+                    }
+                });
+            } catch (InvalidArgumentException $exception) {
+                $failed++;
+
+                continue;
+            }
+
+            $fresh = $customer->fresh(['router', 'package']);
+            $this->sync->sync($fresh);
+            if ($fresh->refresh()->sync_status !== 'synced') {
+                $syncFailed++;
+            }
+            $disabled++;
+        }
+
+        $message = "{$disabled} pelanggan PPPoE dinonaktifkan.";
+        if ($disabled > 0) {
+            $message .= $settleBilling
+                ? ' Secret PPPoE di MikroTik ikut dimatikan, dan tagihan dihitung sampai hari ini bila masih sebelum jatuh tempo.'
+                : ' Secret PPPoE di MikroTik ikut dimatikan. Tagihan yang sudah ada tidak dihitung ulang.';
+        }
+        if ($skipped > 0) {
+            $message .= " {$skipped} pelanggan sudah nonaktif dan dilewati.";
+        }
+        if ($failed > 0) {
+            $message .= " {$failed} pelanggan gagal dinonaktifkan karena tagihan gabungan yang belum lunas.";
+        }
+        if ($syncFailed > 0) {
+            $message .= " {$syncFailed} pelanggan sudah nonaktif di aplikasi, tetapi secret di router gagal diperbarui.";
+        }
+
+        return $this->listRedirect($request)
+            ->with($failed > 0 || $syncFailed > 0 ? 'error' : 'success', $message);
+    }
+
     public function importVpnFromChr(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {

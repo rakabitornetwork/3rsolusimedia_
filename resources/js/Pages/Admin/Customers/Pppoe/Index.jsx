@@ -12,6 +12,7 @@ import {
     ShieldOff,
     Trash2,
     UserPlus,
+    UserX,
     Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -148,6 +149,8 @@ export default function Index({
     const canWrite = auth?.user?.can_write !== false && !isAgen;
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
+    const [showBulkDisable, setShowBulkDisable] = useState(false);
+    const [settleBilling, setSettleBilling] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
     const [removeSecret, setRemoveSecret] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -184,6 +187,7 @@ export default function Index({
     const applyFilters = (key, value) => {
         setSelected([]);
         setShowBulkDelete(false);
+        setShowBulkDisable(false);
         setPage(1);
         router.get(
             base,
@@ -195,6 +199,7 @@ export default function Index({
     const applySort = (column, direction) => {
         setSelected([]);
         setShowBulkDelete(false);
+        setShowBulkDisable(false);
         router.get(
             base,
             {
@@ -226,6 +231,40 @@ export default function Index({
         setSelected([id]);
         setRemoveSecret(false);
         setShowBulkDelete(true);
+        setShowBulkDisable(false);
+    };
+
+    const submitBulkDisable = () => {
+        if (!canWrite || vpn || selected.length === 0) return;
+
+        const billingNote = settleBilling
+            ? 'Tagihan dihitung sampai hari ini jika masih sebelum jatuh tempo.'
+            : 'Tagihan yang sudah ada tidak dihitung ulang.';
+
+        if (
+            !window.confirm(
+                `Nonaktifkan ${selected.length} pelanggan PPPoE?\n\nSecret di MikroTik ikut dimatikan. ${billingNote}`,
+            )
+        ) {
+            return;
+        }
+
+        setProcessing(true);
+        router.post(
+            `${base}/bulk-disable`,
+            {
+                ids: selected,
+                settle_billing: settleBilling,
+            },
+            {
+                ...keepPage,
+                onFinish: () => {
+                    setProcessing(false);
+                    setSelected([]);
+                    setShowBulkDisable(false);
+                },
+            },
+        );
     };
 
     const openPrint = () => {
@@ -388,10 +427,28 @@ export default function Index({
                 </div>
 
                 <div className="admin-toolbar-actions admin-toolbar-actions--dense">
+                    {canWrite && !vpn && selected.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSettleBilling(false);
+                                setShowBulkDisable((v) => !v);
+                                setShowBulkDelete(false);
+                                setShowPrint(false);
+                            }}
+                            className="btn-action btn-action-xs btn-warn"
+                        >
+                            <UserX className="mr-1.5 h-3.5 w-3.5" />
+                            Nonaktifkan ({selected.length})
+                        </button>
+                    )}
                     {canWrite && selected.length > 0 && (
                         <button
                             type="button"
-                            onClick={() => setShowBulkDelete((v) => !v)}
+                            onClick={() => {
+                                setShowBulkDelete((v) => !v);
+                                setShowBulkDisable(false);
+                            }}
                             className="btn-action btn-action-xs btn-danger"
                         >
                             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -406,6 +463,7 @@ export default function Index({
                             setPrintStatus(filters.status || '');
                             setShowPrint((v) => !v);
                             setShowBulkDelete(false);
+                            setShowBulkDisable(false);
                         }}
                         className="btn-action btn-action-sm btn-secondary"
                         title="Cetak daftar pelanggan per tanggal, diurutkan A → Z"
@@ -563,6 +621,90 @@ export default function Index({
                             className="btn-action btn-action-sm btn-secondary"
                         >
                             Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showBulkDisable && selected.length > 0 && canWrite && !vpn && (
+                <div className="mb-4 space-y-3 border border-amber-200 bg-white p-4 sm:p-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            Nonaktifkan {selected.length} pelanggan terpilih
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Status menjadi Nonaktif dan secret PPPoE di MikroTik dimatikan. Pelanggan
+                            yang sudah nonaktif dilewati.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                !settleBilling
+                                    ? 'border-amber-300 bg-amber-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_disable_billing"
+                                checked={!settleBilling}
+                                onChange={() => setSettleBilling(false)}
+                                className="mt-0.5 accent-amber-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Tanpa hitung tagihan
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Layanan dimatikan. Tagihan yang sudah ada tidak dihitung ulang
+                                    sampai hari ini.
+                                </span>
+                            </span>
+                        </label>
+
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                settleBilling
+                                    ? 'border-amber-300 bg-amber-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_disable_billing"
+                                checked={settleBilling}
+                                onChange={() => setSettleBilling(true)}
+                                className="mt-0.5 accent-amber-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Hitung tagihan sampai hari ini
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Tagihan pemakaian dihitung sampai hari pelanggan dinonaktifkan,
+                                    jika masih sebelum jatuh tempo.
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={submitBulkDisable}
+                            disabled={processing}
+                            className="btn-action btn-action-sm btn-warn-solid"
+                        >
+                            {processing ? 'Memproses...' : 'Konfirmasi nonaktif'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowBulkDisable(false)}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            Batal
                         </button>
                     </div>
                 </div>
