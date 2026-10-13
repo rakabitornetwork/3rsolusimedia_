@@ -942,6 +942,139 @@ class PppoeCustomerController extends Controller
             ->with($failed > 0 || $syncFailed > 0 ? 'error' : 'success', $message);
     }
 
+    public function bulkEnable(Request $request): RedirectResponse
+    {
+        if ($request->user()?->isAgen()) {
+            return $this->listRedirect($request)
+                ->with('error', 'Akun Agen tidak memiliki akses untuk mengaktifkan pelanggan.');
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:pppoe_customers,id'],
+            'create_invoice' => ['sometimes', 'boolean'],
+        ]);
+
+        $customers = PppoeCustomer::query()
+            ->with(['router', 'package'])
+            ->where('ppp_service', PppoeCustomer::SERVICE_PPPOE)
+            ->whereIn('id', $validated['ids'])
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return $this->listRedirect($request)
+                ->with('error', 'Tidak ada pelanggan PPPoE yang dipilih.');
+        }
+
+        $createInvoice = $request->boolean('create_invoice');
+        $reactivateDate = now()->startOfDay();
+        $enabled = 0;
+        $skipped = 0;
+        $failed = 0;
+        $syncFailed = 0;
+        $dueMoved = 0;
+        $isolated = 0;
+        $failReasons = [];
+
+        foreach ($customers as $customer) {
+            if ($customer->is_active) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                $outcome = DB::transaction(function () use ($customer, $reactivateDate, $createInvoice) {
+                    $updates = [
+                        'is_active' => true,
+                        'status' => 'active',
+                        'stopped_at' => null,
+                        'reactivated_at' => $reactivateDate->toDateString(),
+                    ];
+                    $movedDue = false;
+
+                    if ($createInvoice) {
+                        $due = $customer->due_date?->copy()->startOfDay();
+                        if (! $due || $due->lessThanOrEqualTo($reactivateDate)) {
+                            $nextDue = $this->billing->nextDueDate(
+                                $reactivateDate,
+                                (int) $customer->billing_day,
+                            );
+                            $updates['due_date'] = $nextDue->toDateString();
+                            $movedDue = true;
+                        }
+                    }
+
+                    $customer->update($updates);
+
+                    if ($createInvoice) {
+                        $this->billingService->createReactivationInvoice(
+                            $customer->fresh(['router', 'package']),
+                            $reactivateDate,
+                        );
+                    }
+
+                    return [
+                        'moved_due' => $movedDue,
+                    ];
+                });
+            } catch (InvalidArgumentException $exception) {
+                $failed++;
+                $failReasons[$exception->getMessage()] = true;
+
+                continue;
+            } catch (\Throwable $exception) {
+                report($exception);
+                $failed++;
+                $failReasons['Terjadi kesalahan saat menyimpan data pelanggan.'] = true;
+
+                continue;
+            }
+
+            if ($outcome['moved_due']) {
+                $dueMoved++;
+            }
+
+            $fresh = $customer->fresh(['router', 'package']);
+            $this->sync->sync($fresh, forceDisconnect: true);
+            $fresh->refresh();
+            if ($fresh->sync_status !== 'synced') {
+                $syncFailed++;
+            } elseif ($fresh->status === 'isolated') {
+                $isolated++;
+            }
+            $enabled++;
+        }
+
+        $message = "{$enabled} pelanggan PPPoE diaktifkan kembali.";
+        if ($enabled > 0) {
+            $message .= $createInvoice
+                ? ' Secret PPPoE di MikroTik dihidupkan kembali, dan tagihan prorata dibuat dari hari ini sampai jatuh tempo.'
+                : ' Secret PPPoE di MikroTik dihidupkan kembali. Tagihan yang sudah ada tidak diubah.';
+        }
+        if ($dueMoved > 0) {
+            $message .= " Jatuh tempo {$dueMoved} pelanggan digeser ke tanggal tagihan berikutnya karena sudah lewat.";
+        }
+        if ($isolated > 0) {
+            $message .= " {$isolated} pelanggan langsung masuk isolir karena jatuh tempo sudah lewat.";
+        }
+        if ($skipped > 0) {
+            $message .= " {$skipped} pelanggan sudah aktif dan dilewati.";
+        }
+        if ($failed > 0) {
+            $message .= " {$failed} pelanggan gagal diaktifkan.";
+            if ($failReasons !== []) {
+                $message .= ' '.implode(' ', array_keys($failReasons));
+            }
+        }
+        if ($syncFailed > 0) {
+            $message .= " {$syncFailed} pelanggan sudah aktif di aplikasi, tetapi secret di router gagal diperbarui.";
+        }
+
+        return $this->listRedirect($request)
+            ->with($failed > 0 || $syncFailed > 0 ? 'error' : 'success', $message);
+    }
+
     public function importVpnFromChr(Request $request): RedirectResponse
     {
         if ($request->user()?->isAgen()) {

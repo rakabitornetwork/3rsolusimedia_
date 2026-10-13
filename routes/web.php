@@ -233,6 +233,7 @@ Route::middleware(['auth', 'can.write'])->prefix('admin')->name('admin.')->group
     Route::post('/customers/pppoe/import-sessions', [PppoeCustomerController::class, 'importFromSessions'])->name('customers.pppoe.import-sessions');
     Route::post('/customers/pppoe/bulk-destroy', [PppoeCustomerController::class, 'bulkDestroy'])->name('customers.pppoe.bulk-destroy');
     Route::post('/customers/pppoe/bulk-disable', [PppoeCustomerController::class, 'bulkDisable'])->name('customers.pppoe.bulk-disable');
+    Route::post('/customers/pppoe/bulk-enable', [PppoeCustomerController::class, 'bulkEnable'])->name('customers.pppoe.bulk-enable');
     Route::post('/customers/pppoe/sync-overdue', [PppoeCustomerController::class, 'syncOverdue'])->name('customers.pppoe.sync-overdue');
     Route::post('/customers/pppoe', [PppoeCustomerController::class, 'store'])->name('customers.pppoe.store');
 

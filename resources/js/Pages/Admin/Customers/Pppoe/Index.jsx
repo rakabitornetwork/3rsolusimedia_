@@ -11,6 +11,7 @@ import {
     RefreshCw,
     ShieldOff,
     Trash2,
+    UserCheck,
     UserPlus,
     UserX,
     Users,
@@ -150,7 +151,9 @@ export default function Index({
     const [selected, setSelected] = useState([]);
     const [showBulkDelete, setShowBulkDelete] = useState(false);
     const [showBulkDisable, setShowBulkDisable] = useState(false);
+    const [showBulkEnable, setShowBulkEnable] = useState(false);
     const [settleBilling, setSettleBilling] = useState(false);
+    const [createInvoice, setCreateInvoice] = useState(false);
     const [showPrint, setShowPrint] = useState(false);
     const [removeSecret, setRemoveSecret] = useState(false);
     const [processing, setProcessing] = useState(false);
@@ -180,6 +183,11 @@ export default function Index({
     const paged = useMemo(() => paginateItems(filtered, page, 15), [filtered, page]);
     const rows = paged.data;
 
+    const agentFilterLabel =
+        filters.agent_id === 'none'
+            ? 'tanpa agen'
+            : agents.find((agent) => String(agent.id) === String(filters.agent_id))?.name || '';
+
     const pageIds = useMemo(() => rows.map((item) => item.id), [rows]);
     const allPageSelected =
         pageIds.length > 0 && pageIds.every((id) => selected.includes(id));
@@ -188,6 +196,7 @@ export default function Index({
         setSelected([]);
         setShowBulkDelete(false);
         setShowBulkDisable(false);
+        setShowBulkEnable(false);
         setPage(1);
         router.get(
             base,
@@ -200,6 +209,7 @@ export default function Index({
         setSelected([]);
         setShowBulkDelete(false);
         setShowBulkDisable(false);
+        setShowBulkEnable(false);
         router.get(
             base,
             {
@@ -232,6 +242,40 @@ export default function Index({
         setRemoveSecret(false);
         setShowBulkDelete(true);
         setShowBulkDisable(false);
+        setShowBulkEnable(false);
+    };
+
+    const submitBulkEnable = () => {
+        if (!canWrite || vpn || selected.length === 0) return;
+
+        const billingNote = createInvoice
+            ? 'Tagihan prorata dibuat dari hari ini sampai jatuh tempo.'
+            : 'Tagihan yang sudah ada tidak diubah.';
+
+        if (
+            !window.confirm(
+                `Aktifkan ${selected.length} pelanggan PPPoE?\n\nSecret di MikroTik dihidupkan kembali. ${billingNote}`,
+            )
+        ) {
+            return;
+        }
+
+        setProcessing(true);
+        router.post(
+            `${base}/bulk-enable`,
+            {
+                ids: selected,
+                create_invoice: createInvoice,
+            },
+            {
+                ...keepPage,
+                onFinish: () => {
+                    setProcessing(false);
+                    setSelected([]);
+                    setShowBulkEnable(false);
+                },
+            },
+        );
     };
 
     const submitBulkDisable = () => {
@@ -431,8 +475,25 @@ export default function Index({
                         <button
                             type="button"
                             onClick={() => {
+                                setCreateInvoice(false);
+                                setShowBulkEnable((v) => !v);
+                                setShowBulkDisable(false);
+                                setShowBulkDelete(false);
+                                setShowPrint(false);
+                            }}
+                            className="btn-action btn-action-xs btn-success"
+                        >
+                            <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                            Aktifkan ({selected.length})
+                        </button>
+                    )}
+                    {canWrite && !vpn && selected.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => {
                                 setSettleBilling(false);
                                 setShowBulkDisable((v) => !v);
+                                setShowBulkEnable(false);
                                 setShowBulkDelete(false);
                                 setShowPrint(false);
                             }}
@@ -448,6 +509,7 @@ export default function Index({
                             onClick={() => {
                                 setShowBulkDelete((v) => !v);
                                 setShowBulkDisable(false);
+                                setShowBulkEnable(false);
                             }}
                             className="btn-action btn-action-xs btn-danger"
                         >
@@ -464,6 +526,7 @@ export default function Index({
                             setShowPrint((v) => !v);
                             setShowBulkDelete(false);
                             setShowBulkDisable(false);
+                            setShowBulkEnable(false);
                         }}
                         className="btn-action btn-action-sm btn-secondary"
                         title="Cetak daftar pelanggan per tanggal, diurutkan A → Z"
@@ -621,6 +684,90 @@ export default function Index({
                             className="btn-action btn-action-sm btn-secondary"
                         >
                             Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showBulkEnable && selected.length > 0 && canWrite && !vpn && (
+                <div className="mb-4 space-y-3 border border-emerald-200 bg-white p-4 sm:p-5">
+                    <div>
+                        <h2 className="text-sm font-semibold text-ink">
+                            Aktifkan {selected.length} pelanggan terpilih
+                            {agentFilterLabel ? ` · ${agentFilterLabel}` : ''}
+                        </h2>
+                        <p className="mt-0.5 text-xs text-ink-soft">
+                            Status menjadi Aktif dan secret PPPoE di MikroTik dihidupkan kembali.
+                            Pelanggan yang sudah aktif dilewati.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                !createInvoice
+                                    ? 'border-emerald-300 bg-emerald-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_enable_billing"
+                                checked={!createInvoice}
+                                onChange={() => setCreateInvoice(false)}
+                                className="mt-0.5 accent-emerald-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Tanpa tagihan baru
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Layanan dihidupkan. Tagihan yang sudah ada tidak diubah.
+                                </span>
+                            </span>
+                        </label>
+
+                        <label
+                            className={`flex cursor-pointer items-start gap-3 border px-3 py-3 ${
+                                createInvoice
+                                    ? 'border-emerald-300 bg-emerald-50'
+                                    : 'border-ink/10 hover:bg-mist'
+                            }`}
+                        >
+                            <input
+                                type="radio"
+                                name="bulk_enable_billing"
+                                checked={createInvoice}
+                                onChange={() => setCreateInvoice(true)}
+                                className="mt-0.5 accent-emerald-600"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Buat tagihan prorata
+                                </span>
+                                <span className="mt-0.5 block text-xs text-ink-soft">
+                                    Tagihan dihitung dari hari ini sampai jatuh tempo. Jika jatuh
+                                    tempo sudah lewat, digeser ke tanggal tagihan berikutnya.
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={submitBulkEnable}
+                            disabled={processing}
+                            className="btn-action btn-action-sm btn-success-solid"
+                        >
+                            {processing ? 'Memproses...' : 'Konfirmasi aktifkan'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowBulkEnable(false)}
+                            className="btn-action btn-action-sm btn-secondary"
+                        >
+                            Batal
                         </button>
                     </div>
                 </div>
