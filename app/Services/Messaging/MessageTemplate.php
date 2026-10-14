@@ -3,6 +3,7 @@
 namespace App\Services\Messaging;
 
 use App\Models\PppoeCustomer;
+use App\Services\PaymentGateway\PaymentGatewayManager;
 use App\Support\AppSettings;
 
 class MessageTemplate
@@ -803,6 +804,9 @@ class MessageTemplate
     public static function render(string $template, array $vars): string
     {
         $body = self::get($template);
+        if (! app(PaymentGatewayManager::class)->hasEnabledGateway()) {
+            $body = self::withoutOnlinePaymentPitch($body);
+        }
         $vars = [...self::sharedVars(), ...$vars];
 
         foreach ($vars as $key => $value) {
@@ -812,6 +816,91 @@ class MessageTemplate
         $body = preg_replace("/\n{3,}/", "\n\n", $body) ?? $body;
 
         return trim($body);
+    }
+
+    /**
+     * Hilangkan ajakan bayar lewat portal saat tidak ada payment gateway aktif.
+     * Rekening transfer dan informasi tagihan tetap ada.
+     */
+    public static function withoutOnlinePaymentPitch(string $body): string
+    {
+        $lines = preg_split("/\r\n|\n|\r/", $body) ?: [];
+        $output = [];
+        $index = 0;
+        $count = count($lines);
+
+        while ($index < $count) {
+            $line = $lines[$index];
+            if (preg_match('/Bayar di portal pelanggan/u', $line) === 1) {
+                $block = [];
+                $index++;
+                while ($index < $count && trim($lines[$index]) !== '') {
+                    $block[] = $lines[$index];
+                    $index++;
+                }
+
+                if (str_contains(implode("\n", $block), 'skrip')) {
+                    $output[] = '🌐 *Portal pelanggan*';
+                    foreach ($block as $kept) {
+                        $replacement = self::onlinePaymentLineReplacement($kept);
+                        if ($replacement === null) {
+                            $output[] = $kept;
+                        } elseif ($replacement !== '') {
+                            $output[] = $replacement;
+                        }
+                    }
+                }
+
+                continue;
+            }
+
+            $replacement = self::onlinePaymentLineReplacement($line);
+            if ($replacement === null) {
+                $output[] = $line;
+            } elseif ($replacement !== '') {
+                $output[] = $replacement;
+            }
+            $index++;
+        }
+
+        $body = implode("\n", $output);
+        $body = str_replace('Di portal: cek & bayar tagihan, ', 'Di portal: ', $body);
+        $body = preg_replace("/\n{3,}/", "\n\n", $body) ?? $body;
+
+        return trim($body);
+    }
+
+    private static function onlinePaymentLineReplacement(string $line): ?string
+    {
+        $trim = trim($line);
+        $replacements = [
+            '💬 Atau ketik *tagihan* / *bayar* di chat ini.' => '💬 Ketik *tagihan* di chat ini.',
+            '💬 Ketik *tagihan* atau *bayar* di chat ini.' => '💬 Ketik *tagihan* di chat ini.',
+            'Ketik tagihan atau bayar di chat ini.' => 'Ketik tagihan di chat ini.',
+            'Setelah masa gratis habis, tagihan dikirim ke WhatsApp ini dan dibayar lewat payment gateway.' => 'Setelah masa gratis habis, tagihan dikirim ke WhatsApp ini.',
+        ];
+        if (array_key_exists($trim, $replacements)) {
+            return $replacements[$trim];
+        }
+
+        $drop = [
+            '💬 Ketik *bayar* di chat ini.',
+            '💬 Atau ketik *bayar* di chat ini.',
+            '💬 Ketik *bayar* untuk tautan pembayaran.',
+            '• bayar — tautan pembayaran',
+            'Tagihan dibayar lewat payment gateway di portal.',
+            'Ketik bayar untuk tautan pembayaran.',
+            'Ketik bayar.',
+        ];
+        if (in_array($trim, $drop, true) || str_contains($trim, 'dibayar lewat payment gateway')) {
+            return '';
+        }
+
+        if (preg_match('/\sKetik bayar\.$/u', $trim) === 1) {
+            return preg_replace('/\s*Ketik bayar\.$/u', '', $trim) ?? $trim;
+        }
+
+        return null;
     }
 
     /**

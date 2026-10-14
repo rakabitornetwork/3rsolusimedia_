@@ -174,11 +174,13 @@ class MessagingWhatsAppTest extends TestCase
 
         $tagihan = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
         $this->assertStringContainsString('INV-AUTO-PAY', (string) $tagihan);
+        $this->assertStringNotContainsString('bayar', strtolower((string) $tagihan));
 
         $this->postUpsert('bayar')->assertOk();
 
         $bayar = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
-        $this->assertStringContainsString('/portal', (string) $bayar);
+        $this->assertStringContainsString('Pembayaran online belum aktif', (string) $bayar);
+        $this->assertStringNotContainsString('/portal', (string) $bayar);
         $this->assertStringNotContainsString('daftar', strtolower((string) $bayar));
     }
 
@@ -394,11 +396,10 @@ class MessagingWhatsAppTest extends TestCase
             return str_contains($request->url(), '/message/sendText/teslatech')
                 && ($request['number'] ?? null) === '6281234567890'
                 && str_contains($text, 'INV-NOTIF')
-                && str_contains($text, '/portal')
-                && str_contains($text, 'Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.')
-                && str_contains($text, 'cek & bayar tagihan')
+                && ! str_contains($text, 'Bayar di portal pelanggan')
+                && ! str_contains($text, '/portal')
+                && str_contains($text, 'Ketik *tagihan* di chat ini.')
                 && ! str_contains($text, 'budi01')
-                && str_contains($text, 'Bayar di portal pelanggan')
                 && isset($request['delay']);
         });
         $this->assertDatabaseHas('message_outbox', [
@@ -600,8 +601,30 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Budi Santoso', (string) $body);
         $this->assertStringNotContainsString('budi01', (string) $body);
         $this->assertStringContainsString('diisolir', (string) $body);
-        $this->assertStringContainsString('/portal', (string) $body);
-        $this->assertStringContainsString('Login dengan WhatsApp. Kode OTP dikirim ke HP terdaftar.', (string) $body);
+        $this->assertStringNotContainsString('/portal', (string) $body);
+        $this->assertStringNotContainsString('Bayar di portal pelanggan', (string) $body);
+        $this->assertStringNotContainsString('bayar', strtolower((string) $body));
+    }
+
+    #[Test]
+    public function invoice_message_keeps_portal_payment_when_a_gateway_is_enabled(): void
+    {
+        SiteSetting::setMany([
+            'duitku_enabled' => '1',
+            'duitku_merchant_code' => 'D1234',
+            'duitku_api_key' => 'secret-key',
+        ]);
+
+        $body = MessageTemplate::render(MessageTemplate::INVOICE, [
+            'nama' => 'Budi',
+            'nomor' => 'INV-1',
+            'total' => 'Rp 150.000',
+            'jatuh_tempo' => '01/11/2026',
+            'paket' => '10 Mbps',
+        ]);
+
+        $this->assertStringContainsString('Bayar di portal pelanggan', $body);
+        $this->assertStringContainsString('/portal', $body);
     }
 
     #[Test]

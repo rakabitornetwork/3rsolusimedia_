@@ -11,7 +11,7 @@ const primaryButton =
 const quietButton =
     'cursor-pointer rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-sm font-medium text-ink hover:bg-mist disabled:cursor-not-allowed disabled:opacity-60';
 
-export default function Index({ branding, gateway_ready, whatsapp_login }) {
+export default function Index({ branding, whatsapp_login }) {
     const { flash, errors } = usePage().props;
     const login = whatsapp_login || { enabled: false, pending: false, phone: '', phone_mask: '' };
 
@@ -119,12 +119,6 @@ export default function Index({ branding, gateway_ready, whatsapp_login }) {
                                 }`}
                             >
                                 {flash.error || flash.success}
-                            </div>
-                        )}
-
-                        {!gateway_ready && (
-                            <div className="mt-5 rounded-xl border border-amber-line/40 bg-amber-50/80 px-4 py-3 text-sm text-ink-soft">
-                                Pembayaran online mungkin belum aktif. Fitur perangkat dan WiFi tetap dapat digunakan jika ONU terpantau.
                             </div>
                         )}
 

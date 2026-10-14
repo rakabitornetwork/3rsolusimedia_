@@ -106,7 +106,7 @@ export default function Home({
                             <CreditCard className="h-5 w-5 shrink-0 text-signal-deep" />
                         </div>
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                            {unpaidCount > 0 && (
+                            {unpaidCount > 0 && gatewayReady && (
                                 <button
                                     type="button"
                                     onClick={payOnline}
@@ -119,7 +119,7 @@ export default function Home({
                             <Link
                                 href={invoicesHref}
                                 className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold ${
-                                    unpaidCount > 0
+                                    unpaidCount > 0 && gatewayReady
                                         ? 'border border-ink/15 text-ink hover:bg-mist'
                                         : 'bg-signal text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep'
                                 }`}
@@ -223,7 +223,9 @@ export default function Home({
                         ) : (vpn?.extra_routers || []).length === 0 ? (
                             <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
                                 {vpn?.needs_account
-                                    ? 'Belum ada akun VPN di CHR. Isi nama di bawah. Akun gratis 3 hari. Setelah itu tagihan dikirim ke WhatsApp dan dibayar lewat payment gateway. Jika tidak dibayar, akun dihapus dari CHR.'
+                                    ? gatewayReady
+                                      ? 'Belum ada akun VPN di CHR. Isi nama di bawah. Akun gratis 3 hari. Setelah itu tagihan dikirim ke WhatsApp dan dibayar lewat payment gateway. Jika tidak dibayar, akun dihapus dari CHR.'
+                                      : 'Belum ada akun VPN di CHR. Isi nama di bawah. Akun gratis 3 hari. Setelah itu tagihan dikirim ke WhatsApp. Jika tidak dibayar, akun dihapus dari CHR.'
                                     : vpn?.trial?.active
                                       ? `Belum ada router. Isi nama di bawah. GRATIS coba 3 hari sampai ${vpn.trial.ends_at}.`
                                       : 'Belum ada router. Isi nama di bawah. Nama bebas, paling banyak 3, dan semuanya bisa dihapus. Router pertama mengikuti tagihan akun.'}
@@ -300,7 +302,7 @@ export default function Home({
                                     {vpn?.needs_account
                                         ? 'Nama ini menjadi username akun VPN di CHR. Gratis 3 hari. Informasi akun dikirim ke WhatsApp.'
                                         : vpn?.trial?.active && nextWithoutInvoice
-                                          ? `Nama ini bebas. GRATIS coba 3 hari sampai ${vpn.trial.ends_at}. Setelah itu tagihan dikirim ke WhatsApp dan dibayar lewat payment gateway.`
+                                          ? `Nama ini bebas. GRATIS coba 3 hari sampai ${vpn.trial.ends_at}. Setelah itu tagihan dikirim ke WhatsApp${gatewayReady ? ' dan dibayar lewat payment gateway' : ''}.`
                                           : nextWithoutInvoice
                                             ? 'Nama ini bebas. Router ini tidak membuat tagihan baru.'
                                             : 'Nama ini menjadi username VPN router tersebut. Tagihan muncul hari ini dan harus lunas dulu. Skrip baru muncul setelah lunas.'}

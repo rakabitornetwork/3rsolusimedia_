@@ -523,7 +523,9 @@ class BotCommandRouter
             if ($due) {
                 $lines[] = 'Jatuh tempo berikutnya '.$due.'.';
             }
-            $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+            if ($this->gateways->hasEnabledGateway()) {
+                $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+            }
             $this->reply($message, implode("\n", $lines), $identity);
 
             return;
@@ -542,8 +544,10 @@ class BotCommandRouter
         }
         $lines[] = '';
         $lines[] = 'Total: '.$this->rupiah($total);
-        $lines[] = 'Ketik '.$slash.'bayar untuk tautan pembayaran tagihan tertua.';
-        $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+        if ($this->gateways->hasEnabledGateway()) {
+            $lines[] = 'Ketik '.$slash.'bayar untuk tautan pembayaran tagihan tertua.';
+            $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+        }
 
         $this->reply($message, implode("\n", $lines), $identity);
     }
@@ -567,6 +571,21 @@ class BotCommandRouter
         $customer = $identity->customer;
         if (! $customer) {
             $this->reply($message, 'Akun pelanggan tidak ditemukan. Ketik /daftar ulang.', $identity);
+
+            return;
+        }
+
+        if (! $this->gateways->hasEnabledGateway()) {
+            $lines = ['Pembayaran online belum aktif. Hubungi admin untuk konfirmasi pembayaran.'];
+            if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
+                $rekening = MessageTemplate::sharedVars()['rekening'];
+                if ($rekening !== '') {
+                    $lines[] = '';
+                    $lines[] = $rekening;
+                }
+            }
+
+            $this->reply($message, implode("\n", $lines), $identity);
 
             return;
         }
@@ -623,24 +642,6 @@ class BotCommandRouter
         $token = Str::lower(Str::random(48));
         Cache::put('portal_pay:'.$token, $customer->id, now()->addHours(2));
         $invoicesUrl = URL::route('portal.pay.invoices', ['token' => $token]);
-
-        if (! $this->gateways->hasEnabledGateway()) {
-            $lines = [
-                'Pembayaran online belum aktif. Cek tagihan di portal:',
-                $invoicesUrl,
-            ];
-            if ($customer->pppService() !== PppoeCustomer::SERVICE_L2TP) {
-                $rekening = MessageTemplate::sharedVars()['rekening'];
-                if ($rekening !== '') {
-                    $lines[] = '';
-                    $lines[] = $rekening;
-                }
-            }
-
-            $this->reply($message, implode("\n", $lines), $identity);
-
-            return;
-        }
 
         $successUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'success']);
         $failureUrl = URL::route('portal.pay.invoices', ['token' => $token, 'status' => 'failed']);
@@ -733,10 +734,15 @@ class BotCommandRouter
         $slash = $channel === 'whatsapp' ? '' : '/';
         $vpn = $customer?->pppService() === PppoeCustomer::SERVICE_L2TP;
         $account = $vpn ? 'VPN' : ($bound ? 'PPPoE' : 'PPPoE atau VPN');
+        $onlinePay = $this->gateways->hasEnabledGateway();
         $portalHint = $vpn
-            ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lalu salin skrip VPN dan jalankan di New Terminal Winbox.'
+            ? ($onlinePay
+                ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lalu salin skrip VPN dan jalankan di New Terminal Winbox.'
+                : 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa salin skrip VPN dan jalankan di New Terminal Winbox.')
             : ($bound
-                ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.'
+                ? ($onlinePay
+                    ? 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa cek & bayar tagihan, lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.'
+                    : 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Di portal bisa lihat status ONU, ubah WiFi, dan pantau perangkat terhubung.')
                 : 'Login WhatsApp, kode OTP dikirim ke HP terdaftar. Pelanggan PPPoE mengelola ONU dan WiFi di portal. Pelanggan VPN mendapat skrip pemasangan untuk terminal Winbox.');
 
         $lines = [
@@ -745,9 +751,11 @@ class BotCommandRouter
             '',
             $slash.'daftar — hubungkan chat ke akun '.$account.' (username + nomor HP terdaftar)',
             $slash.'tagihan — cek tagihan belum lunas',
-            $slash.'bayar — tautan bayar tagihan saat ini',
-            $slash.'bayar 3 — bayar 3 bulan sekaligus (2–6)',
         ];
+        if ($onlinePay) {
+            $lines[] = $slash.'bayar — tautan bayar tagihan saat ini';
+            $lines[] = $slash.'bayar 3 — bayar 3 bulan sekaligus (2–6)';
+        }
 
         if (! $vpn) {
             $lines[] = $slash.'wifi — lihat nama dan password WiFi';
@@ -774,7 +782,9 @@ class BotCommandRouter
 
         if (! $bound && $channel === 'whatsapp') {
             $lines[] = '';
-            $lines[] = 'Nomor HP di data pelanggan terhubung otomatis. Ketik tagihan atau bayar. Jika nomor chat berbeda, ketik daftar <username>.';
+            $lines[] = $onlinePay
+                ? 'Nomor HP di data pelanggan terhubung otomatis. Ketik tagihan atau bayar. Jika nomor chat berbeda, ketik daftar <username>.'
+                : 'Nomor HP di data pelanggan terhubung otomatis. Ketik tagihan. Jika nomor chat berbeda, ketik daftar <username>.';
         } elseif (! $bound) {
             $lines[] = '';
             $lines[] = 'Mulai dengan /daftar diikuti username, contoh /daftar budi01';

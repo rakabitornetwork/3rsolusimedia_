@@ -38,12 +38,7 @@ export default function Home({
     const payOnline = () => {
         if (paying) return;
 
-        if (!oldestUnpaidId || unpaidCount > 1) {
-            router.visit(invoicesHref);
-            return;
-        }
-
-        if (!gatewayReady) {
+        if (!oldestUnpaidId || unpaidCount > 1 || !gatewayReady) {
             router.visit(invoicesHref);
             return;
         }
@@ -91,7 +86,7 @@ export default function Home({
                         <CreditCard className="h-5 w-5 shrink-0 text-signal-deep" />
                     </div>
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                        {unpaidCount > 0 && (
+                        {unpaidCount > 0 && gatewayReady && (
                             <button
                                 type="button"
                                 onClick={payOnline}
@@ -104,7 +99,7 @@ export default function Home({
                         <Link
                             href={invoicesHref}
                             className={`inline-flex cursor-pointer items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold ${
-                                unpaidCount > 0
+                                unpaidCount > 0 && gatewayReady
                                     ? 'border border-ink/15 text-ink hover:bg-mist'
                                     : 'bg-signal text-white shadow-[0_10px_24px_-16px_rgba(26,110,255,0.9)] hover:bg-signal-deep'
                             }`}

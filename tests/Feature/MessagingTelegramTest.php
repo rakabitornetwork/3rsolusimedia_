@@ -204,7 +204,7 @@ class MessagingTelegramTest extends TestCase
         $this->assertStringContainsString('Tesla Tech', (string) $body);
         $this->assertStringContainsString('/daftar', (string) $body);
         $this->assertStringContainsString('/tagihan', (string) $body);
-        $this->assertStringContainsString('/bayar', (string) $body);
+        $this->assertStringNotContainsString('/bayar', (string) $body);
         $this->assertStringNotContainsString('/cari', (string) $body);
         $this->assertStringNotContainsString('3R Solusi Media', (string) $body);
     }
@@ -295,7 +295,7 @@ class MessagingTelegramTest extends TestCase
         $body = MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
         $this->assertStringContainsString('INV-100', (string) $body);
         $this->assertStringContainsString('150.000', (string) $body);
-        $this->assertStringContainsString('/bayar', (string) $body);
+        $this->assertStringNotContainsString('/bayar', (string) $body);
     }
 
     #[Test]
