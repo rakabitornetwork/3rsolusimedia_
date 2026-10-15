@@ -146,6 +146,8 @@ export default function Form({ router }) {
                 <div className="rounded-sm border border-ink/10 bg-mist/40 px-4 py-3 text-xs leading-relaxed text-ink-soft">
                     Tip: di Winbox buka <strong>IP → Services</strong>, aktifkan <strong>api</strong>{' '}
                     (port 8728). Kalau dari luar jaringan, pastikan firewall mengizinkan port tersebut.
+                    Jika <strong>Aktif</strong> tidak dicentang, tombol Tes akan gagal dan aplikasi
+                    tidak menyambung ke RouterOS untuk sinkronisasi apa pun.
                 </div>
 
                 <div className="flex flex-wrap gap-3 pt-2">

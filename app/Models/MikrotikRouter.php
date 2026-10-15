@@ -43,6 +43,13 @@ class MikrotikRouter extends Model
         );
     }
 
+    public function connectionBlockedMessage(): string
+    {
+        $label = trim((string) ($this->name ?: $this->host));
+
+        return 'RouterOS'.($label !== '' ? ' "'.$label.'"' : '').' tidak aktif. Tes dan sinkronisasi ke perangkat diblokir.';
+    }
+
     public function toSafeArray(): array
     {
         return [

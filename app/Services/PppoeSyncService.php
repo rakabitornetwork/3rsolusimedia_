@@ -39,6 +39,15 @@ class PppoeSyncService
             return;
         }
 
+        if (! $router->is_active) {
+            $customer->update([
+                'sync_status' => 'error',
+                'sync_message' => $router->connectionBlockedMessage(),
+            ]);
+
+            return;
+        }
+
         $wasIsolated = $customer->status === 'isolated';
         $targetProfile = $customer->service_profile;
         $stopService = ! $customer->is_active;

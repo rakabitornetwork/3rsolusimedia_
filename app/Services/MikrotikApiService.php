@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\InactiveMikrotikRouterException;
 use App\Models\MikrotikRouter;
 use RouterOS\Client;
 use RouterOS\Config;
@@ -17,6 +18,8 @@ class MikrotikApiService
 {
     public function makeClient(MikrotikRouter $router, ?int $timeout = null): Client
     {
+        $this->assertRouterActive($router);
+
         $timeout = $timeout ?? (int) env('MIKROTIK_API_TIMEOUT', 15);
 
         // Always cast to expected types — partial Eloquent selects can leave
@@ -41,6 +44,7 @@ class MikrotikApiService
     public function testConnection(MikrotikRouter $router): array
     {
         try {
+            $this->assertRouterActive($router);
             $client = $this->makeClient($router);
             $identity = $this->first($client, '/system/identity/print');
             $resource = $this->first($client, '/system/resource/print');
@@ -2873,9 +2877,19 @@ class MikrotikApiService
         return $rows[0] ?? [];
     }
 
+    private function assertRouterActive(MikrotikRouter $router): void
+    {
+        if (! array_key_exists('is_active', $router->getAttributes()) || $router->is_active) {
+            return;
+        }
+
+        throw InactiveMikrotikRouterException::for($router);
+    }
+
     private function friendlyError(Throwable $e): string
     {
         return match (true) {
+            $e instanceof InactiveMikrotikRouterException => $e->getMessage(),
             $e instanceof BadCredentialsException => 'Username atau password RouterOS salah.',
             $e instanceof ConnectException => 'Tidak bisa terhubung ke router. Cek IP, port API 8728, dan firewall.',
             $e instanceof ConfigException => 'Konfigurasi koneksi tidak valid.',

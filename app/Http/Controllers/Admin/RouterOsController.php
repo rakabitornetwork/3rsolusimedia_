@@ -129,7 +129,7 @@ class RouterOsController extends Controller
 
         $router->update([
             'last_checked_at' => now(),
-            'last_status' => $result['ok'] ? 'online' : 'offline',
+            'last_status' => $this->statusFromResult($router, $result['ok']),
             'last_message' => $result['message'],
         ]);
 
@@ -149,7 +149,7 @@ class RouterOsController extends Controller
 
         $router->update([
             'last_checked_at' => now(),
-            'last_status' => $result['ok'] ? 'online' : 'offline',
+            'last_status' => $this->statusFromResult($router, $result['ok']),
             'last_message' => $result['ok'] ? 'Sinkronisasi data berhasil' : ($result['message'] ?? 'Gagal'),
         ]);
 
@@ -181,6 +181,15 @@ class RouterOsController extends Controller
         $result = $this->api->monitorTraffic($router, $validated['interface']);
 
         return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
+    private function statusFromResult(MikrotikRouter $router, bool $ok): string
+    {
+        if ($ok) {
+            return 'online';
+        }
+
+        return $router->is_active ? 'offline' : 'inactive';
     }
 
     private function validateRouter(Request $request, bool $updating = false): array

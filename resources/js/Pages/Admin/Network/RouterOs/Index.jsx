@@ -3,7 +3,11 @@ import { Cable, Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../../Layouts/AdminLayout';
 import { keepPage } from '../../../../lib/keepPage';
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, isActive }) {
+    if (!isActive) {
+        return <span className="bg-ink/10 px-2 py-1 text-xs font-semibold text-ink-soft">Tidak aktif</span>;
+    }
+
     if (status === 'online') {
         return (
             <span className="bg-signal/15 px-2 py-1 text-xs font-semibold text-signal-deep">
@@ -105,7 +109,7 @@ export default function Index({ routers }) {
                                         {item.username}
                                     </td>
                                     <td className="px-4 py-4">
-                                        <StatusBadge status={item.last_status} />
+                                        <StatusBadge status={item.last_status} isActive={item.is_active} />
                                         {item.last_message && (
                                             <p className="mt-1 max-w-[220px] truncate text-xs text-ink/45">
                                                 {item.last_message}
