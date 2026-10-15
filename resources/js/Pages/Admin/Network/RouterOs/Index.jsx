@@ -4,8 +4,8 @@ import AdminLayout from '../../../../Layouts/AdminLayout';
 import { keepPage } from '../../../../lib/keepPage';
 
 function StatusBadge({ status, isActive }) {
-    if (!isActive) {
-        return <span className="bg-ink/10 px-2 py-1 text-xs font-semibold text-ink-soft">Tidak aktif</span>;
+    if (!isActive || status === 'offline' || status === 'inactive') {
+        return <span className="bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">Offline</span>;
     }
 
     if (status === 'online') {
@@ -14,10 +14,6 @@ function StatusBadge({ status, isActive }) {
                 Online
             </span>
         );
-    }
-
-    if (status === 'offline') {
-        return <span className="bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">Offline</span>;
     }
 
     return <span className="bg-ink/5 px-2 py-1 text-xs font-semibold text-ink-soft">Belum dicek</span>;

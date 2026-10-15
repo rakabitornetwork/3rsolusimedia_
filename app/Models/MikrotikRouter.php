@@ -62,7 +62,7 @@ class MikrotikRouter extends Model
             'is_active' => $this->is_active,
             'notes' => $this->notes,
             'last_checked_at' => $this->last_checked_at?->toIso8601String(),
-            'last_status' => $this->last_status,
+            'last_status' => $this->is_active ? $this->last_status : 'offline',
             'last_message' => $this->last_message,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

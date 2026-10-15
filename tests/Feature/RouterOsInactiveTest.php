@@ -31,7 +31,7 @@ class RouterOsInactiveTest extends TestCase
 
         $router->refresh();
 
-        $this->assertSame('inactive', $router->last_status);
+        $this->assertSame('offline', $router->last_status);
         $this->assertStringContainsString('tidak aktif', (string) $router->last_message);
         $this->assertStringNotContainsString('Koneksi berhasil', (string) $router->last_message);
     }
@@ -48,8 +48,32 @@ class RouterOsInactiveTest extends TestCase
             ->assertSessionHas('error');
 
         $router->refresh();
-        $this->assertSame('inactive', $router->last_status);
+        $this->assertSame('offline', $router->last_status);
         $this->assertStringContainsString('tidak aktif', (string) $router->last_message);
+    }
+
+    #[Test]
+    public function deactivating_a_router_shows_offline_instead_of_unchecked(): void
+    {
+        $admin = User::factory()->superadmin()->create();
+        $router = $this->router(['is_active' => true, 'last_status' => null]);
+
+        $this->actingAs($admin)
+            ->put('/admin/network/routeros/'.$router->id, [
+                'name' => $router->name,
+                'host' => $router->host,
+                'port' => $router->port,
+                'username' => $router->username,
+                'use_ssl' => 0,
+                'is_active' => 0,
+            ])
+            ->assertRedirect(route('admin.network.routeros'));
+
+        $router->refresh();
+
+        $this->assertFalse($router->is_active);
+        $this->assertSame('offline', $router->last_status);
+        $this->assertSame('offline', $router->toSafeArray()['last_status']);
     }
 
     #[Test]

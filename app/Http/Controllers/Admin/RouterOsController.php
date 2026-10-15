@@ -52,11 +52,15 @@ class RouterOsController extends Controller
 
         $validated = $this->validateRouter($request);
 
+        $isActive = $request->boolean('is_active', true);
+
         MikrotikRouter::create([
             ...$validated,
             'port' => $validated['port'] ?? 8728,
             'use_ssl' => $request->boolean('use_ssl'),
-            'is_active' => $request->boolean('is_active', true),
+            'is_active' => $isActive,
+            'last_status' => $isActive ? null : 'offline',
+            'last_message' => $isActive ? null : 'RouterOS tidak aktif. Tes dan sinkronisasi ke perangkat diblokir.',
         ]);
 
         return redirect()
@@ -87,15 +91,24 @@ class RouterOsController extends Controller
 
         $validated = $this->validateRouter($request, updating: true);
 
+        $isActive = $request->boolean('is_active', true);
+
         $payload = [
             'name' => $validated['name'],
             'host' => $validated['host'],
             'port' => $validated['port'] ?? 8728,
             'username' => $validated['username'],
             'use_ssl' => $request->boolean('use_ssl'),
-            'is_active' => $request->boolean('is_active', true),
+            'is_active' => $isActive,
             'notes' => $validated['notes'] ?? null,
         ];
+
+        if (! $isActive) {
+            $payload['last_status'] = 'offline';
+            if (! $router->last_message || $router->last_status === 'online') {
+                $payload['last_message'] = $router->connectionBlockedMessage();
+            }
+        }
 
         if (! empty($validated['password'])) {
             $payload['password'] = $validated['password'];
@@ -129,7 +142,7 @@ class RouterOsController extends Controller
 
         $router->update([
             'last_checked_at' => now(),
-            'last_status' => $this->statusFromResult($router, $result['ok']),
+            'last_status' => $this->statusFromResult($result['ok']),
             'last_message' => $result['message'],
         ]);
 
@@ -149,7 +162,7 @@ class RouterOsController extends Controller
 
         $router->update([
             'last_checked_at' => now(),
-            'last_status' => $this->statusFromResult($router, $result['ok']),
+            'last_status' => $this->statusFromResult($result['ok']),
             'last_message' => $result['ok'] ? 'Sinkronisasi data berhasil' : ($result['message'] ?? 'Gagal'),
         ]);
 
@@ -183,13 +196,9 @@ class RouterOsController extends Controller
         return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
-    private function statusFromResult(MikrotikRouter $router, bool $ok): string
+    private function statusFromResult(bool $ok): string
     {
-        if ($ok) {
-            return 'online';
-        }
-
-        return $router->is_active ? 'offline' : 'inactive';
+        return $ok ? 'online' : 'offline';
     }
 
     private function validateRouter(Request $request, bool $updating = false): array
