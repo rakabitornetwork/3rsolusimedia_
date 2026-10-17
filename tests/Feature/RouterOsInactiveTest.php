@@ -8,6 +8,7 @@ use App\Models\SubscriptionPackage;
 use App\Models\User;
 use App\Services\MikrotikApiService;
 use App\Services\PppoeSyncService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use PHPUnit\Framework\Attributes\Test;
@@ -127,6 +128,97 @@ class RouterOsInactiveTest extends TestCase
         $customer->refresh();
         $this->assertSame('error', $customer->sync_status);
         $this->assertStringContainsString('tidak aktif', (string) $customer->sync_message);
+    }
+
+    #[Test]
+    public function overdue_customer_is_marked_isolated_locally_when_router_is_inactive(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-18 10:00:00', 'Asia/Jakarta'));
+
+        $router = $this->router(['is_active' => false]);
+        $package = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '10 Mbps',
+            'price' => 150000,
+            'mikrotik_profile' => '10Mbps',
+            'is_active' => true,
+        ]);
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Wiwin',
+            'username' => 'wiwin01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'isolir_profile' => 'ISOLIR',
+            'start_date' => '2026-01-15',
+            'billing_day' => 15,
+            'due_date' => '2026-10-15',
+            'overdue_action' => 'isolir',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')->never();
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $this->app->make(PppoeSyncService::class)->sync($customer);
+
+        $customer->refresh();
+        $this->assertSame('isolated', $customer->status);
+        $this->assertSame('error', $customer->sync_status);
+        $this->assertStringContainsString('tidak aktif', (string) $customer->sync_message);
+
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function failed_mikrotik_push_still_marks_overdue_customer_isolated_locally(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-18 10:00:00', 'Asia/Jakarta'));
+
+        $router = $this->router(['is_active' => true]);
+        $package = SubscriptionPackage::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'name' => '10 Mbps',
+            'price' => 150000,
+            'mikrotik_profile' => '10Mbps',
+            'is_active' => true,
+        ]);
+        $customer = PppoeCustomer::query()->create([
+            'mikrotik_router_id' => $router->id,
+            'subscription_package_id' => $package->id,
+            'name' => 'Wiwin',
+            'username' => 'wiwin01',
+            'password' => 'secret',
+            'service_profile' => '10Mbps',
+            'isolir_profile' => 'ISOLIR',
+            'start_date' => '2026-01-15',
+            'billing_day' => 15,
+            'due_date' => '2026-10-15',
+            'overdue_action' => 'isolir',
+            'status' => 'active',
+            'sync_status' => 'synced',
+            'is_active' => true,
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')->once()->andReturn([
+            'ok' => false,
+            'message' => 'Koneksi RouterOS gagal.',
+        ]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $this->app->make(PppoeSyncService::class)->sync($customer);
+
+        $customer->refresh();
+        $this->assertSame('isolated', $customer->status);
+        $this->assertSame('error', $customer->sync_status);
+        $this->assertStringContainsString('gagal', (string) $customer->sync_message);
+
+        Carbon::setTestNow();
     }
 
     /**

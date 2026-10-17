@@ -234,6 +234,14 @@ export default function Show({
                                             Setelah lunas, jatuh tempo menjadi {advance.next_due_date}
                                         </span>
                                     ) : null}
+                                    {invoice.status === 'paid' &&
+                                    invoice.customer?.due_date &&
+                                    invoice.customer.due_date !== invoice.due_date ? (
+                                        <span className="mt-1 block text-xs text-ink-soft">
+                                            Jatuh tempo pelanggan berikutnya:{' '}
+                                            {invoice.customer.due_date}
+                                        </span>
+                                    ) : null}
                                 </dd>
                             </div>
                             <div>

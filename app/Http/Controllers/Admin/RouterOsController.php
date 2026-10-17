@@ -7,6 +7,7 @@ use App\Models\MikrotikRouter;
 use App\Services\MikrotikApiService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -92,6 +93,7 @@ class RouterOsController extends Controller
         $validated = $this->validateRouter($request, updating: true);
 
         $isActive = $request->boolean('is_active', true);
+        $wasActive = (bool) $router->is_active;
 
         $payload = [
             'name' => $validated['name'],
@@ -116,9 +118,16 @@ class RouterOsController extends Controller
 
         $router->update($payload);
 
+        $message = 'Router berhasil diperbarui.';
+        if ($isActive && ! $wasActive) {
+            // Dorong ulang isolir/pemulihan yang tertunda saat RouterOS sempat nonaktif.
+            Artisan::queue('pppoe:sync-overdue');
+            $message .= ' Sinkronisasi pelanggan lewat tempo dijadwalkan ulang.';
+        }
+
         return redirect()
             ->route('admin.network.routeros')
-            ->with('success', 'Router berhasil diperbarui.');
+            ->with('success', $message);
     }
 
     public function destroy(Request $request, MikrotikRouter $router): RedirectResponse
