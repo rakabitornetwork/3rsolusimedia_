@@ -104,7 +104,11 @@ export default function Form({ router }) {
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
                             className={fieldClass}
-                            placeholder={editing ? 'Kosongkan jika tidak diganti' : ''}
+                            placeholder={
+                                editing
+                                    ? 'Wajib diisi ulang jika koneksi gagal / setelah restore DB'
+                                    : ''
+                            }
                             required={!editing}
                         />
                         {errors.password && (

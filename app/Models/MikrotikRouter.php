@@ -36,7 +36,19 @@ class MikrotikRouter extends Model
     protected function password(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value) => $value ? Crypt::decryptString($value) : '',
+            get: function (?string $value) {
+                if ($value === null || $value === '') {
+                    return '';
+                }
+
+                try {
+                    return Crypt::decryptString($value);
+                } catch (\Throwable) {
+                    // Ciphertext dari backup/APP_KEY lama: anggap kosong agar
+                    // form edit tetap bisa menyimpan password baru.
+                    return '';
+                }
+            },
             set: fn (?string $value) => $value !== null && $value !== ''
                 ? Crypt::encryptString($value)
                 : $value,
