@@ -882,13 +882,21 @@ class PppoeCustomerController extends Controller
         $settleBilling = $request->boolean('settle_billing');
         $stopDate = now()->startOfDay();
         $disabled = 0;
-        $skipped = 0;
+        $ensured = 0;
         $failed = 0;
         $syncFailed = 0;
 
         foreach ($customers as $customer) {
+            // Sudah nonaktif di app: tetap dorong secret disable + putus sesi
+            // (sering tertinggal saat RouterOS offline / sync gagal sebelumnya).
             if (! $customer->is_active) {
-                $skipped++;
+                $fresh = $customer->fresh(['router', 'package']);
+                $this->sync->sync($fresh);
+                if ($fresh->refresh()->sync_status !== 'synced') {
+                    $syncFailed++;
+                } else {
+                    $ensured++;
+                }
 
                 continue;
             }
@@ -928,8 +936,8 @@ class PppoeCustomerController extends Controller
                 ? ' Secret PPPoE di MikroTik ikut dimatikan, dan tagihan dihitung sampai hari ini bila masih sebelum jatuh tempo.'
                 : ' Secret PPPoE di MikroTik ikut dimatikan. Tagihan yang sudah ada tidak dihitung ulang.';
         }
-        if ($skipped > 0) {
-            $message .= " {$skipped} pelanggan sudah nonaktif dan dilewati.";
+        if ($ensured > 0) {
+            $message .= " {$ensured} pelanggan sudah nonaktif — secret di RouterOS dipastikan mati ulang.";
         }
         if ($failed > 0) {
             $message .= " {$failed} pelanggan gagal dinonaktifkan karena tagihan gabungan yang belum lunas.";

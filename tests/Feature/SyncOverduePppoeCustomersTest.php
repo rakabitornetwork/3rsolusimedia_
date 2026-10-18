@@ -130,6 +130,41 @@ class SyncOverduePppoeCustomersTest extends TestCase
     }
 
     #[Test]
+    public function inactive_customers_are_re_synced_so_secrets_stay_disabled(): void
+    {
+        $customer = $this->customer([
+            'username' => 'erlina01',
+            'is_active' => false,
+            'status' => 'disabled',
+            'sync_status' => 'synced',
+            'sync_message' => 'Secret PPPoE dinonaktifkan di RouterOS.',
+            'due_date' => '2026-10-20',
+        ]);
+
+        $api = Mockery::mock(MikrotikApiService::class);
+        $api->shouldReceive('upsertPppSecret')
+            ->once()
+            ->withArgs(function (...$args) {
+                return ($args[1] ?? null) === 'erlina01'
+                    && ($args[5] ?? null) === true;
+            })
+            ->andReturn([
+                'ok' => true,
+                'message' => 'Secret PPPoE dinonaktifkan di RouterOS.',
+            ]);
+        $this->app->instance(MikrotikApiService::class, $api);
+
+        $this->artisan('pppoe:sync-errors')
+            ->expectsOutputToContain('OK [erlina01]')
+            ->assertSuccessful();
+
+        $customer->refresh();
+        $this->assertFalse($customer->is_active);
+        $this->assertSame('disabled', $customer->status);
+        $this->assertSame('synced', $customer->sync_status);
+    }
+
+    #[Test]
     public function failed_sync_retry_is_scheduled_every_fifteen_minutes(): void
     {
         $events = collect(app(Schedule::class)->events());

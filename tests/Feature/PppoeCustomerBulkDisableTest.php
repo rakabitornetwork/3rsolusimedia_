@@ -61,15 +61,14 @@ class PppoeCustomerBulkDisableTest extends TestCase
 
         $api = Mockery::mock(MikrotikApiService::class);
         $api->shouldReceive('upsertPppSecret')
-            ->twice()
+            ->times(3)
             ->withArgs(function (...$args) {
-                return in_array($args[1] ?? null, ['aktif-satu', 'aktif-dua'], true)
-                    && ($args[5] ?? null) === true
-                    && ($args[6] ?? null) === false;
+                return in_array($args[1] ?? null, ['aktif-satu', 'aktif-dua', 'sudah-mati'], true)
+                    && ($args[5] ?? null) === true;
             })
             ->andReturn([
                 'ok' => true,
-                'message' => 'Secret PPPoE berhasil diperbarui di RouterOS.',
+                'message' => 'Secret PPPoE dinonaktifkan di RouterOS.',
             ]);
         $this->app->instance(MikrotikApiService::class, $api);
 
@@ -95,6 +94,7 @@ class PppoeCustomerBulkDisableTest extends TestCase
         $this->assertFalse($second->is_active);
         $this->assertSame('disabled', $second->status);
         $this->assertSame('2026-09-01', $alreadyOff->stopped_at?->toDateString());
+        $this->assertSame('synced', $alreadyOff->sync_status);
         $this->assertTrue($blocked->is_active);
         $this->assertSame('active', $blocked->status);
         $this->assertTrue($vpn->is_active);

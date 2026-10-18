@@ -78,6 +78,34 @@ class RouterOsInactiveTest extends TestCase
     }
 
     #[Test]
+    public function reactivating_a_router_queues_overdue_and_error_sync(): void
+    {
+        \Illuminate\Support\Facades\Artisan::shouldReceive('queue')
+            ->once()
+            ->with('pppoe:sync-overdue');
+        \Illuminate\Support\Facades\Artisan::shouldReceive('queue')
+            ->once()
+            ->with('pppoe:sync-errors');
+
+        $admin = User::factory()->superadmin()->create();
+        $router = $this->router(['is_active' => false, 'last_status' => 'offline']);
+
+        $this->actingAs($admin)
+            ->put('/admin/network/routeros/'.$router->id, [
+                'name' => $router->name,
+                'host' => $router->host,
+                'port' => $router->port,
+                'username' => $router->username,
+                'use_ssl' => 0,
+                'is_active' => 1,
+            ])
+            ->assertRedirect(route('admin.network.routeros'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue($router->fresh()->is_active);
+    }
+
+    #[Test]
     public function api_test_connection_refuses_inactive_routers_before_socket(): void
     {
         $router = $this->router([

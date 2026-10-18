@@ -10,22 +10,28 @@ class SyncFailedPppoeCustomers extends Command
 {
     protected $signature = 'pppoe:sync-errors {--limit=50}';
 
-    protected $description = 'Ulangi sinkronisasi pelanggan yang status MikroTik-nya masih gagal';
+    protected $description = 'Ulangi sync gagal, dan pastikan secret pelanggan nonaktif tetap mati di RouterOS';
 
     public function handle(PppoeSyncService $sync): int
     {
         $limit = max(1, (int) $this->option('limit'));
 
+        // Prioritas: sync_status=error, lalu pelanggan nonaktif (secret sering
+        // tertinggal aktif setelah RouterOS offline / sync sempat "berhasil" palsu).
         $customers = PppoeCustomer::query()
             ->with(['router', 'package'])
-            ->where('sync_status', 'error')
+            ->where(function ($q) {
+                $q->where('sync_status', 'error')
+                    ->orWhere('is_active', false);
+            })
+            ->orderByRaw("CASE WHEN sync_status = 'error' THEN 0 ELSE 1 END")
             ->orderBy('last_synced_at')
             ->orderBy('id')
             ->limit($limit)
             ->get();
 
         if ($customers->isEmpty()) {
-            $this->info('Tidak ada pelanggan yang gagal sync.');
+            $this->info('Tidak ada pelanggan yang perlu di-sync ulang.');
 
             return self::SUCCESS;
         }

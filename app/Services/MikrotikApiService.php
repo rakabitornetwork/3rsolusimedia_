@@ -1660,6 +1660,13 @@ class MikrotikApiService
                     $this->disconnectPppActive($client, $username);
                 }
 
+                if ($disabled && $this->pppSecretStillEnabled($client, $username)) {
+                    return [
+                        'ok' => false,
+                        'message' => 'Secret '.$serviceLabel.' masih aktif di RouterOS setelah dinonaktifkan.',
+                    ];
+                }
+
                 return [
                     'ok' => true,
                     'message' => $disabled
@@ -1690,6 +1697,16 @@ class MikrotikApiService
 
             $client->query($query)->read();
 
+            if ($disabled) {
+                $this->disconnectPppActive($client, $username);
+                if ($this->pppSecretStillEnabled($client, $username)) {
+                    return [
+                        'ok' => false,
+                        'message' => 'Secret '.$serviceLabel.' masih aktif di RouterOS setelah ditambahkan nonaktif.',
+                    ];
+                }
+            }
+
             return [
                 'ok' => true,
                 'message' => $disabled
@@ -1699,6 +1716,22 @@ class MikrotikApiService
         } catch (Throwable $e) {
             return ['ok' => false, 'message' => $this->friendlyError($e)];
         }
+    }
+
+    /**
+     * True bila secret ada dan belum disabled. Secret hilang dihitung sebagai nonaktif.
+     */
+    private function pppSecretStillEnabled(Client $client, string $username): bool
+    {
+        $rows = $client->query(
+            (new Query('/ppp/secret/print'))->where('name', $username)
+        )->read();
+
+        if (empty($rows[0])) {
+            return false;
+        }
+
+        return ($rows[0]['disabled'] ?? 'false') !== 'true';
     }
 
     /**

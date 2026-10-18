@@ -120,9 +120,10 @@ class RouterOsController extends Controller
 
         $message = 'Router berhasil diperbarui.';
         if ($isActive && ! $wasActive) {
-            // Dorong ulang isolir/pemulihan yang tertunda saat RouterOS sempat nonaktif.
+            // Dorong ulang isolir/pemulihan + secret nonaktif yang tertunda saat RouterOS sempat mati.
             Artisan::queue('pppoe:sync-overdue');
-            $message .= ' Sinkronisasi pelanggan lewat tempo dijadwalkan ulang.';
+            Artisan::queue('pppoe:sync-errors');
+            $message .= ' Sinkronisasi pelanggan lewat tempo dan secret nonaktif dijadwalkan ulang.';
         }
 
         return redirect()
