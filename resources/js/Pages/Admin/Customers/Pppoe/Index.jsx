@@ -1114,6 +1114,17 @@ export default function Index({
                                     <p className="text-xs text-ink-soft/80">
                                         {customer.monthly_usage?.period_label || 'Bulan ini'}
                                     </p>
+                                    {!customer.monthly_usage?.has_sample && (
+                                        <p className="text-[11px] text-amber-700">
+                                            Belum terbaca RouterOS
+                                        </p>
+                                    )}
+                                    {customer.monthly_usage?.has_sample &&
+                                        (customer.monthly_usage?.total_bytes ?? 0) === 0 && (
+                                            <p className="text-[11px] text-sky-700">
+                                                Patokan diambil · tunggu ~5 menit
+                                            </p>
+                                        )}
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
                                     <p>{customer.due_date}</p>

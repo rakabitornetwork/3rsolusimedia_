@@ -427,11 +427,10 @@ export default function Form({
                         </div>
                     </div>
                     <p className="mt-3 text-xs text-ink-soft">
-                        {customer.monthly_usage.has_sample
-                            ? `Terakhir dibaca ${customer.monthly_usage.sampled_at || '—'}. `
-                            : 'Belum ada pembacaan. '}
-                        Angka bertambah tiap 5 menit selama pelanggan online, lalu mulai dari nol
-                        pada tanggal 1.
+                        {customer.monthly_usage.status_hint ||
+                            (customer.monthly_usage.has_sample
+                                ? `Terakhir dibaca ${customer.monthly_usage.sampled_at || '—'}. Angka bertambah tiap 5 menit saat online.`
+                                : 'Belum ada pembacaan. Pastikan cron aktif dan pelanggan sedang online.')}
                     </p>
                 </section>
             )}

@@ -159,7 +159,36 @@ server {
 
 Aktifkan site, uji konfigurasi, lalu reload Nginx. Pasang SSL dengan Certbot bila perlu.
 
-### 6. Optimasi Laravel (produksi)
+### 6. Cron scheduler (wajib)
+
+Tanpa cron, fitur yang bergantung jadwal **tidak berjalan**, termasuk:
+
+- Pemakaian **RX/TX** pelanggan (`pppoe:collect-usage` tiap 5 menit)
+- Isolir otomatis, sync gagal, pengingat WhatsApp, dll.
+
+Pasang crontab untuk user yang menjalankan PHP aplikasi (contoh `www-data` atau `teslatech`):
+
+```bash
+sudo crontab -u www-data -e
+```
+
+Isi satu baris (sesuaikan path):
+
+```cron
+* * * * * cd /var/www/3rsolusimedia && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Uji manual pemakaian:
+
+```bash
+cd /var/www/3rsolusimedia
+php artisan pppoe:collect-usage --diagnose
+php artisan pppoe:collect-usage
+# tunggu ~5 menit (atau jalankan sekali lagi) — sample pertama = 0 B (patokan)
+php artisan pppoe:collect-usage
+```
+
+### 7. Optimasi Laravel (produksi)
 
 ```bash
 php artisan config:cache
@@ -167,7 +196,7 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-### 7. Login awal
+### 8. Login awal
 
 Setelah `db:seed`, akun Superadmin default (dari seeder):
 

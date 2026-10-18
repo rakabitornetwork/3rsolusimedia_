@@ -216,7 +216,8 @@ class PppoeMonthlyUsageService
      *     total_label: string,
      *     has_sample: bool,
      *     sampled_at: ?string,
-     *     reset_label: string
+     *     reset_label: string,
+     *     status_hint: string
      * }
      */
     public function present(?PppoeMonthlyUsage $usage, ?PppoeTrafficCursor $cursor, ?CarbonInterface $at = null): array
@@ -229,19 +230,33 @@ class PppoeMonthlyUsageService
 
         $rx = (int) ($usage->rx_bytes ?? 0);
         $tx = (int) ($usage->tx_bytes ?? 0);
+        $total = $rx + $tx;
+        $sampledAt = $cursor?->sampled_at?->copy()->timezone($this->timezone())->format('Y-m-d H:i');
+
+        if ($cursor === null) {
+            $hint = 'Belum terbaca dari RouterOS. Pastikan cron schedule:run aktif dan pelanggan sedang online.';
+        } elseif ($total === 0) {
+            $hint = 'Patokan sudah diambil'
+                .($sampledAt ? " ({$sampledAt})" : '')
+                .'. Angka muncul setelah pembacaan berikutnya (~5 menit) selama pelanggan online.';
+        } else {
+            $hint = ($sampledAt ? "Terakhir dibaca {$sampledAt}. " : '')
+                .'Bertambah tiap 5 menit saat online; reset tanggal 1.';
+        }
 
         return [
             'period' => $period,
             'period_label' => $this->periodLabel($period),
             'rx_bytes' => $rx,
             'tx_bytes' => $tx,
-            'total_bytes' => $rx + $tx,
+            'total_bytes' => $total,
             'rx_label' => $this->formatBytes($rx),
             'tx_label' => $this->formatBytes($tx),
-            'total_label' => $this->formatBytes($rx + $tx),
+            'total_label' => $this->formatBytes($total),
             'has_sample' => $cursor !== null,
-            'sampled_at' => $cursor?->sampled_at?->copy()->timezone($this->timezone())->format('Y-m-d H:i'),
+            'sampled_at' => $sampledAt,
             'reset_label' => 'Reset tiap tanggal 1',
+            'status_hint' => $hint,
         ];
     }
 
