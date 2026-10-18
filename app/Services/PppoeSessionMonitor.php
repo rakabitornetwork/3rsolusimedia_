@@ -658,6 +658,10 @@ class PppoeSessionMonitor
             return $current;
         }
 
+        if ($map === null || $map === []) {
+            return $current;
+        }
+
         foreach ($current as $user => $session) {
             if (! isset($map[$user])) {
                 continue;

@@ -9,7 +9,9 @@ use App\Models\PppoeMonthlyUsage;
 use App\Models\PppoeTrafficCursor;
 use App\Support\AppSettings;
 use Carbon\CarbonInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class PppoeMonthlyUsageService
@@ -20,7 +22,7 @@ class PppoeMonthlyUsageService
      * Baca counter interface PPPoE di setiap router aktif dan tambahkan selisihnya
      * ke pemakaian bulan berjalan.
      *
-     * @return array{routers: int, customers: int, failed_routers: int}
+     * @return array{routers: int, customers: int, failed_routers: int, failed_customers: int}
      */
     public function collect(): array
     {
@@ -28,6 +30,7 @@ class PppoeMonthlyUsageService
             'routers' => 0,
             'customers' => 0,
             'failed_routers' => 0,
+            'failed_customers' => 0,
         ];
 
         $routers = MikrotikRouter::query()
@@ -37,14 +40,17 @@ class PppoeMonthlyUsageService
 
         foreach ($routers as $router) {
             $map = $this->api->pppoeInterfaceBytesMap($router);
-            if ($map === []) {
+            // null = API gagal; [] = berhasil tapi tidak ada sesi PPPoE/L2TP online.
+            if ($map === null) {
                 $summary['failed_routers']++;
 
                 continue;
             }
 
             $summary['routers']++;
-            $summary['customers'] += $this->applyRouterMap($router, $map, now());
+            $result = $this->applyRouterMap($router, $map, now());
+            $summary['customers'] += $result['updated'];
+            $summary['failed_customers'] += $result['failed'];
         }
 
         return $summary;
@@ -52,11 +58,12 @@ class PppoeMonthlyUsageService
 
     /**
      * @param  array<string, array{rx_byte: int, tx_byte: int}>  $bytesByUsername
+     * @return array{updated: int, failed: int}
      */
-    public function applyRouterMap(MikrotikRouter $router, array $bytesByUsername, CarbonInterface $at): int
+    public function applyRouterMap(MikrotikRouter $router, array $bytesByUsername, CarbonInterface $at): array
     {
         if ($bytesByUsername === []) {
-            return 0;
+            return ['updated' => 0, 'failed' => 0];
         }
 
         $usernames = array_keys($bytesByUsername);
@@ -66,6 +73,7 @@ class PppoeMonthlyUsageService
             ->get();
 
         $updated = 0;
+        $failed = 0;
         foreach ($customers as $customer) {
             $key = strtolower(trim((string) $customer->username));
             $sample = $bytesByUsername[$key] ?? null;
@@ -73,16 +81,26 @@ class PppoeMonthlyUsageService
                 continue;
             }
 
-            $this->applySample(
-                $customer,
-                (int) ($sample['rx_byte'] ?? 0),
-                (int) ($sample['tx_byte'] ?? 0),
-                $at,
-            );
-            $updated++;
+            try {
+                $this->applySample(
+                    $customer,
+                    (int) ($sample['rx_byte'] ?? 0),
+                    (int) ($sample['tx_byte'] ?? 0),
+                    $at,
+                );
+                $updated++;
+            } catch (Throwable $e) {
+                $failed++;
+                Log::warning('Gagal menyimpan sample pemakaian PPPoE.', [
+                    'customer_id' => $customer->id,
+                    'username' => $customer->username,
+                    'router_id' => $router->id,
+                    'message' => $e->getMessage(),
+                ]);
+            }
         }
 
-        return $updated;
+        return ['updated' => $updated, 'failed' => $failed];
     }
 
     /**
@@ -129,16 +147,7 @@ class PppoeMonthlyUsageService
                 $usage->tx_bytes = (int) $usage->tx_bytes + $deltaTx;
                 $usage->save();
 
-                $daily = PppoeDailyUsage::query()->firstOrCreate(
-                    [
-                        'pppoe_customer_id' => $customer->id,
-                        'usage_date' => $usageDate,
-                    ],
-                    [
-                        'rx_bytes' => 0,
-                        'tx_bytes' => 0,
-                    ],
-                );
+                $daily = $this->findOrCreateDailyUsage($customer->id, $usageDate);
                 $daily->rx_bytes = (int) $daily->rx_bytes + $deltaRx;
                 $daily->tx_bytes = (int) $daily->tx_bytes + $deltaTx;
                 $daily->save();
@@ -161,6 +170,38 @@ class PppoeMonthlyUsageService
                 'sampled_at' => $at,
             ])->save();
         });
+    }
+
+    /**
+     * SQLite menyimpan kolom date sebagai "Y-m-d 00:00:00". where(usage_date, "Y-m-d")
+     * tidak menemukan baris itu, lalu firstOrCreate bentrok UNIQUE dan menghentikan collect.
+     */
+    private function findOrCreateDailyUsage(int $customerId, string $usageDate): PppoeDailyUsage
+    {
+        $daily = PppoeDailyUsage::query()
+            ->where('pppoe_customer_id', $customerId)
+            ->whereDate('usage_date', $usageDate)
+            ->lockForUpdate()
+            ->first();
+
+        if ($daily) {
+            return $daily;
+        }
+
+        try {
+            return PppoeDailyUsage::query()->create([
+                'pppoe_customer_id' => $customerId,
+                'usage_date' => $usageDate,
+                'rx_bytes' => 0,
+                'tx_bytes' => 0,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return PppoeDailyUsage::query()
+                ->where('pppoe_customer_id', $customerId)
+                ->whereDate('usage_date', $usageDate)
+                ->lockForUpdate()
+                ->firstOrFail();
+        }
     }
 
     /**

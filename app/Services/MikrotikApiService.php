@@ -1890,9 +1890,12 @@ class MikrotikApiService
     }
 
     /**
-     * @return array<string, array{rx_byte: int, tx_byte: int}>
+     * Peta counter interface dinamis PPPoE/L2TP.
+     *
+     * @return array<string, array{rx_byte: int, tx_byte: int}>|null
+     *         null = gagal koneksi/API; [] = berhasil tanpa sesi online.
      */
-    public function pppoeInterfaceBytesMap(MikrotikRouter $router): array
+    public function pppoeInterfaceBytesMap(MikrotikRouter $router): ?array
     {
         try {
             $client = $this->makeClient($router, timeout: 8);
@@ -1922,7 +1925,7 @@ class MikrotikApiService
 
             return $map;
         } catch (Throwable) {
-            return [];
+            return null;
         }
     }
 

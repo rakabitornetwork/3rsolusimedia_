@@ -214,6 +214,66 @@ class PppoeMonthlyUsageTest extends TestCase
     }
 
     #[Test]
+    public function daily_usage_lookup_survives_sqlite_datetime_date_storage(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        $customer = $this->customer();
+        $service = app(PppoeMonthlyUsageService::class);
+
+        // Simulasikan baris harian yang sudah ada (SQLite menyimpan date sebagai datetime).
+        PppoeDailyUsage::query()->create([
+            'pppoe_customer_id' => $customer->id,
+            'usage_date' => '2026-10-18',
+            'rx_bytes' => 100,
+            'tx_bytes' => 50,
+        ]);
+        $raw = PppoeDailyUsage::query()->where('pppoe_customer_id', $customer->id)->first();
+        $this->assertSame('2026-10-18 00:00:00', $raw?->getAttributes()['usage_date'] ?? null);
+
+        $service->applySample($customer, 0, 0, Carbon::parse('2026-10-18 10:00:00', 'Asia/Jakarta'));
+        $service->applySample($customer, 500, 2_000, Carbon::parse('2026-10-18 10:05:00', 'Asia/Jakarta'));
+
+        $this->assertSame(1, PppoeDailyUsage::query()->where('pppoe_customer_id', $customer->id)->count());
+        $daily = PppoeDailyUsage::query()->where('pppoe_customer_id', $customer->id)->first();
+        $this->assertSame(2_100, (int) $daily?->rx_bytes);
+        $this->assertSame(550, (int) $daily?->tx_bytes);
+
+        $monthly = PppoeMonthlyUsage::query()->where('pppoe_customer_id', $customer->id)->where('period', '2026-10')->first();
+        $this->assertSame(2_000, (int) $monthly?->rx_bytes);
+        $this->assertSame(500, (int) $monthly?->tx_bytes);
+    }
+
+    #[Test]
+    public function collect_skips_api_failure_but_accepts_empty_online_map(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+        Carbon::setTestNow(Carbon::parse('2026-10-18 11:00:00', 'Asia/Jakarta'));
+
+        $onlineRouter = $this->router('Online', '10.0.0.1');
+        $emptyRouter = $this->router('Empty', '10.0.0.2');
+        $failedRouter = $this->router('Failed', '10.0.0.3');
+        $customer = $this->customer($onlineRouter, ['username' => 'online01']);
+
+        $api = $this->mock(MikrotikApiService::class);
+        $api->shouldReceive('pppoeInterfaceBytesMap')
+            ->times(3)
+            ->andReturn(
+                ['online01' => ['rx_byte' => 100, 'tx_byte' => 200]],
+                [],
+                null,
+            );
+
+        $summary = app(PppoeMonthlyUsageService::class)->collect();
+
+        $this->assertSame(2, $summary['routers']);
+        $this->assertSame(1, $summary['failed_routers']);
+        $this->assertSame(1, $summary['customers']);
+        $this->assertSame(0, $summary['failed_customers']);
+        $this->assertNotNull(PppoeMonthlyUsage::query()->where('pppoe_customer_id', $customer->id)->first());
+        unset($emptyRouter, $failedRouter);
+    }
+
+    #[Test]
     public function top_ten_ranks_daily_weekly_and_monthly_usage(): void
     {
         config(['app.timezone' => 'Asia/Jakarta']);
@@ -252,6 +312,7 @@ class PppoeMonthlyUsageTest extends TestCase
     {
         config(['app.timezone' => 'Asia/Jakarta']);
         $at = Carbon::parse('2026-10-07 11:00:00', 'Asia/Jakarta');
+        Carbon::setTestNow($at);
         $router = $this->router();
         $agent = User::factory()->agen()->create();
 

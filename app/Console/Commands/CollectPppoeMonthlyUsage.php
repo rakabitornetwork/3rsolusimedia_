@@ -24,10 +24,11 @@ class CollectPppoeMonthlyUsage extends Command
         try {
             $summary = $usage->collect();
             $this->info(sprintf(
-                'Router terbaca %d, router tanpa sesi/gagal %d, pelanggan diperbarui %d.',
+                'Router terbaca %d, router gagal API %d, pelanggan diperbarui %d, gagal simpan %d.',
                 $summary['routers'],
                 $summary['failed_routers'],
                 $summary['customers'],
+                $summary['failed_customers'] ?? 0,
             ));
         } finally {
             $lock->release();
