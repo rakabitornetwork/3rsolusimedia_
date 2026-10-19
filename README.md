@@ -306,6 +306,10 @@ routes/web.php       # Route web & admin
 
 ---
 
-## Lisensi
+## Lisensi & Copyleft
 
-Proyek ini memakai lisensi yang mengikuti repositori (lihat `composer.json` / kebijakan pemilik repositori). Digunakan untuk operasional 3R Solusi Media.
+🄯 **Copyleft 2026** — **3R Solusi Media** (`rakabitornetwork` / amon)
+
+Perangkat lunak ini dilindungi dengan semangat **copyleft**: Anda bebas menggunakan, mempelajari, memodifikasi, dan mendistribusikan ulang aplikasi ini, dengan syarat bahwa **karya turunan tetap bebas dan terbuka** serta mencantumkan pemberitahuan lisensi yang sama.
+
+Rincian hak dan kewajiban mengikuti berkas [`LICENSE`](LICENSE) di repositori ini. Digunakan untuk operasional **3R Solusi Media**.
