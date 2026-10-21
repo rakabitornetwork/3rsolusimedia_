@@ -1186,6 +1186,34 @@ class MessagingWhatsAppTest extends TestCase
     }
 
     #[Test]
+    public function whatsapp_unbound_bantuan_points_to_admin_whatsapp_and_portal(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        SiteSetting::setValue('whatsapp', '628111000111');
+
+        $this->postUpsert('bantuan', '6289999999999@s.whatsapp.net')->assertOk();
+
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($text, 'Nomor WhatsApp ini belum terhubung ke akun pelanggan.')
+                && str_contains($text, 'Minta dibantu Admin (didaftarkan manual)')
+                && str_contains($text, 'WhatsApp Admin: *08111000111*')
+                && str_contains($text, 'https://wa.me/628111000111?text=')
+                && str_contains($text, 'minta nomor WhatsApp ini didaftarkan ke username tersebut')
+                && str_contains($text, 'Lewat Portal Pelanggan (lebih mudah)')
+                && str_contains($text, 'Portal pelanggan: '.url('/portal')."\n\n")
+                && str_contains($text, 'tanpa menunggu Admin');
+        });
+
+        $this->postUpsert('tagihan', '6289999999999@s.whatsapp.net')->assertOk();
+        $hint = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('WhatsApp Admin', $hint);
+        $this->assertStringContainsString('Portal Pelanggan (lebih mudah)', $hint);
+    }
+
+    #[Test]
     public function whatsapp_typing_menu_number_runs_the_matching_command(): void
     {
         $this->enableWhatsapp();

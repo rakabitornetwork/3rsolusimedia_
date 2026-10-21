@@ -507,7 +507,7 @@ class BotCommandRouter
     {
         if (! $identity) {
             $hint = $message->channel === 'whatsapp'
-                ? 'Nomor WhatsApp ini belum terhubung ke akun pelanggan. 🙏 Ketik *daftar usernameAnda* (contoh: daftar budi01), lalu kirim nomor HP yang terdaftar di tagihan.'
+                ? $this->unboundWhatsappHint()
                 : 'Chat ini belum terhubung. Ketik /daftar lalu ikuti petunjuknya.';
             $this->reply($message, $hint);
 
@@ -802,6 +802,41 @@ class BotCommandRouter
         return $items[$number - 1]['command'] ?? null;
     }
 
+    /**
+     * Nomor WhatsApp Admin dari Pengaturan Situs (kunci `whatsapp` di panel admin).
+     *
+     * @return array{display: string, url: string}|null
+     */
+    private function adminWhatsappContact(): ?array
+    {
+        $display = PhoneNumber::normalize(trim((string) AppSettings::get('whatsapp', '')));
+        $url = AppSettings::whatsappChatUrl(
+            'Halo Admin, nomor WhatsApp saya belum terhubung ke akun pelanggan. Mohon bantu daftarkan/hubungkan nomor ini ke username saya. Terima kasih.'
+        );
+
+        if ($display === '' || $url === '') {
+            return null;
+        }
+
+        return ['display' => $display, 'url' => $url];
+    }
+
+    private function unboundWhatsappHint(): string
+    {
+        $adminContact = $this->adminWhatsappContact();
+        $portal = url('/portal');
+
+        if ($adminContact !== null) {
+            return 'Nomor WhatsApp ini belum terhubung ke akun pelanggan. 🙏 '
+                .'Minta Admin mendaftarkannya secara manual ke username Anda di WhatsApp Admin *'.$adminContact['display'].'* ('.$adminContact['url'].'), '
+                .'atau hubungkan sendiri lewat Portal Pelanggan (lebih mudah): '.$portal.' — masuk dengan nomor WhatsApp, kode OTP dikirim ke HP terdaftar.';
+        }
+
+        return 'Nomor WhatsApp ini belum terhubung ke akun pelanggan. 🙏 '
+            .'Hubungkan sendiri lewat Portal Pelanggan (lebih mudah): '.$portal.' — masuk dengan nomor WhatsApp, kode OTP dikirim ke HP terdaftar. '
+            .'Atau ketik *daftar usernameAnda* (contoh: daftar budi01) di chat ini.';
+    }
+
     private function whatsappHelpText(bool $bound, ?PppoeCustomer $customer = null): string
     {
         $company = AppSettings::companyName();
@@ -809,6 +844,8 @@ class BotCommandRouter
         $onlinePay = $this->gateways->hasEnabledGateway();
         $items = $this->whatsappMenuItems($bound, $vpn);
         $keycaps = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+
+        $adminContact = $bound ? null : $this->adminWhatsappContact();
 
         $portalHint = $vpn
             ? ($onlinePay
@@ -818,7 +855,7 @@ class BotCommandRouter
                 ? ($onlinePay
                     ? 'Di portal Anda bisa cek & bayar tagihan, melihat kondisi kotak internet (ONU), mengganti WiFi, dan melihat perangkat yang terhubung.'
                     : 'Di portal Anda bisa melihat kondisi kotak internet (ONU), mengganti WiFi, dan melihat perangkat yang terhubung.')
-                : 'Di portal, masuk dengan nomor WhatsApp (kode OTP dikirim ke HP terdaftar). Pelanggan internet bisa mengatur WiFi & kotak internet (ONU). Pelanggan VPN mendapatkan skrip pemasangan untuk Winbox.');
+                : '💻 *Lewat Portal Pelanggan (lebih mudah):* Anda bisa menghubungkan nomor WhatsApp ini ke username Anda sendiri di portal, tanpa menunggu Admin. Cukup masuk dengan nomor WhatsApp — kode OTP akan dikirim ke HP yang terdaftar. Setelah terhubung, Anda bisa langsung cek & bayar tagihan, mengatur WiFi, dan melihat perangkat yang terhubung.');
 
         $lines = [
             $company,
@@ -829,8 +866,10 @@ class BotCommandRouter
 
         if (! $bound) {
             $lines[] = '⚠️ Nomor WhatsApp ini belum terhubung ke akun pelanggan.';
-            $lines[] = 'Untuk menghubungkan, ketik: *daftar usernameAnda*';
-            $lines[] = 'Contoh: daftar budi01';
+            $lines[] = 'Agar bisa memakai layanan di bawah, nomor ini perlu dihubungkan dulu ke username Anda.';
+            $lines[] = $adminContact !== null
+                ? 'Minta Admin mendaftarkannya secara manual, atau hubungkan sendiri lewat Portal Pelanggan (lebih mudah) — caranya ada di bawah menu ini. 👇'
+                : 'Hubungkan sendiri lewat Portal Pelanggan (lebih mudah) — caranya ada di bawah menu ini. 👇';
             $lines[] = '';
         }
 
@@ -845,13 +884,26 @@ class BotCommandRouter
         $lines[] = $vpn
             ? 'Selain angka, Anda juga tetap bisa mengetik katanya, contoh: *tagihan*, *bayar*.'
             : 'Selain angka, Anda juga tetap bisa mengetik katanya, contoh: *wifi*, *tagihan*, *bayar*.';
+        if (! $bound) {
+            $lines[] = '';
+            if ($adminContact !== null) {
+                $lines[] = '📞 *Minta dibantu Admin (didaftarkan manual)*';
+                $lines[] = 'WhatsApp Admin: *'.$adminContact['display'].'*';
+                $lines[] = $adminContact['url'];
+                $lines[] = 'Klik link di atas, lalu sampaikan username Anda dan minta nomor WhatsApp ini didaftarkan ke username tersebut. Siapkan juga nomor HP yang terdaftar ya. 🙏';
+            } else {
+                $lines[] = '📞 *Minta dibantu Admin (didaftarkan manual)*';
+                $lines[] = 'Ketik *daftar usernameAnda* (contoh: daftar budi01) di chat ini, lalu kirim nomor HP yang terdaftar.';
+            }
+        }
         $lines[] = '';
         $lines[] = '🌐 Portal pelanggan: '.url('/portal');
+        $lines[] = '';
         $lines[] = $portalHint;
 
         if (! $bound) {
             $lines[] = '';
-            $lines[] = 'Jika nomor WhatsApp ini sama dengan nomor HP di data pelanggan, biasanya langsung terhubung otomatis. Jika belum, hubungkan dengan cara di atas ya. 🙏';
+            $lines[] = 'Jika nomor WhatsApp ini sama dengan nomor HP di data pelanggan, biasanya langsung terhubung otomatis. Jika belum, silakan pilih salah satu cara di atas ya. 🙏';
         }
 
         return implode("\n", $lines);
