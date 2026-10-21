@@ -11,11 +11,9 @@ export default function Show({
     unpaid,
     recent_paid,
     gateway_ready,
-    advance = null,
 }) {
     const { flash } = usePage().props;
     const [payingId, setPayingId] = useState(null);
-    const [advanceMonths, setAdvanceMonths] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
@@ -27,22 +25,6 @@ export default function Show({
 
         return () => clearInterval(timer);
     }, [status, unpaid?.length]);
-
-    const payAhead = (months) => {
-        if (payingId || advanceMonths) return;
-        const option = (advance?.options || []).find((item) => item.months === months);
-        const total = option?.total_label || `${months} bulan`;
-        const nextDue = option?.next_due_label ? ` Setelah lunas, jatuh tempo menjadi ${option.next_due_label}.` : '';
-        if (!window.confirm(`Bayar ${months} bulan sekaligus (${total})?${nextDue}`)) return;
-        setAdvanceMonths(months);
-        router.post(
-            `/portal/${token}/bayar-depan`,
-            { months },
-            {
-                onFinish: () => setAdvanceMonths(null),
-            },
-        );
-    };
 
     const pay = (invoiceId) => {
         if (payingId) return;
@@ -156,37 +138,6 @@ export default function Show({
                             otomatis.
                         </p>
                     ) : null}
-                </div>
-            )}
-
-            {gateway_ready && advance?.options?.length > 0 && (
-                <div className="mt-6 border border-ink/10 bg-white p-5">
-                    <h2 className="text-sm font-semibold text-ink">Bayar beberapa bulan sekaligus</h2>
-                    <p className="mt-1 text-xs text-ink-soft">
-                        Satu pembayaran untuk 2–6 bulan ke depan. Tagihan bulan berjalan yang belum
-                        lunas diganti dengan tagihan gabungan ini.
-                    </p>
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        {advance.options.map((option) => (
-                            <button
-                                key={option.months}
-                                type="button"
-                                onClick={() => payAhead(option.months)}
-                                disabled={advanceMonths !== null || payingId !== null}
-                                className="cursor-pointer border border-ink/15 px-3 py-3 text-left hover:border-signal disabled:cursor-wait disabled:opacity-60"
-                            >
-                                <span className="block text-sm font-semibold text-ink">
-                                    {advanceMonths === option.months
-                                        ? 'Menyiapkan...'
-                                        : `${option.months} bulan · ${option.total_label}`}
-                                </span>
-                                <span className="mt-1 block text-xs text-ink-soft">
-                                    Jatuh tempo berikutnya {option.next_due_label}
-                                    {option.ahead ? ' · pembayaran di muka' : ''}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
                 </div>
             )}
 

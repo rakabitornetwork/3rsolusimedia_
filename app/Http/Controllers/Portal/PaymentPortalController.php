@@ -124,42 +124,7 @@ class PaymentPortalController extends Controller
             'recent_paid' => $recentPaid,
             'gateway_ready' => $this->gateways->hasEnabledGateway(),
             'default_gateway' => AppSettings::paymentGatewayConfig()['default'],
-            'advance' => $this->billing->advancePaymentChoices($customer->fresh(['package']) ?? $customer),
         ]);
-    }
-
-    public function payAhead(Request $request, string $token): RedirectResponse|HttpResponse
-    {
-        $customer = $this->customerFromPortalToken($token);
-        if (! $customer) {
-            return $this->redirectExpiredPortal($request);
-        }
-
-        $validated = $request->validate([
-            'months' => ['required', 'integer', 'min:2', 'max:6'],
-        ]);
-
-        try {
-            $invoice = $this->billing->createAdvanceInvoice(
-                $customer->loadMissing('package'),
-                (int) $validated['months'],
-            );
-        } catch (InvalidArgumentException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        if (! $this->gateways->hasEnabledGateway()) {
-            return redirect()
-                ->route('portal.pay.invoices', ['token' => $token])
-                ->with(
-                    'success',
-                    'Tagihan '.$invoice->number.' untuk '.$invoice->billing_months.' bulan sudah dibuat (Rp '.
-                    number_format((int) $invoice->total, 0, ',', '.').
-                    '). Pembayaran online belum aktif. Hubungi admin untuk konfirmasi pembayaran.'
-                );
-        }
-
-        return $this->pay($request, $token, $invoice);
     }
 
     public function pay(Request $request, string $token, Invoice $invoice): RedirectResponse|HttpResponse

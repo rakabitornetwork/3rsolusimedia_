@@ -561,7 +561,7 @@ class BotCommandRouter
             if ($due) {
                 $lines[] = 'Jatuh tempo berikutnya '.$due.'.';
             }
-            if ($this->gateways->hasEnabledGateway()) {
+            if ($this->gateways->hasEnabledGateway() && $message->channel !== 'whatsapp') {
                 $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
             }
             $this->reply($message, implode("\n", $lines), $identity);
@@ -584,7 +584,9 @@ class BotCommandRouter
         $lines[] = 'Total: '.$this->rupiah($total);
         if ($this->gateways->hasEnabledGateway()) {
             $lines[] = 'Ketik '.$slash.'bayar untuk tautan pembayaran tagihan tertua.';
-            $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+            if ($message->channel !== 'whatsapp') {
+                $lines[] = 'Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.';
+            }
         }
 
         $this->reply($message, implode("\n", $lines), $identity);
@@ -609,6 +611,17 @@ class BotCommandRouter
         $customer = $identity->customer;
         if (! $customer) {
             $this->reply($message, 'Akun pelanggan tidak ditemukan. Ketik /daftar ulang.', $identity);
+
+            return;
+        }
+
+        // Bayar beberapa bulan sekaligus sudah tidak tersedia di WhatsApp.
+        if ($message->channel === 'whatsapp' && trim($args) !== '') {
+            $this->reply(
+                $message,
+                'Maaf, bayar beberapa bulan sekaligus sudah tidak tersedia di WhatsApp. 🙏 Ketik *bayar* untuk membayar tagihan saat ini.',
+                $identity,
+            );
 
             return;
         }
@@ -670,7 +683,9 @@ class BotCommandRouter
         if (! $invoice) {
             $this->reply(
                 $message,
-                'Tidak ada tagihan yang belum lunas. Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.',
+                $message->channel === 'whatsapp'
+                    ? 'Tidak ada tagihan yang belum lunas.'
+                    : 'Tidak ada tagihan yang belum lunas. Ketik '.$slash.'bayar 2 sampai '.$slash.'bayar 6 untuk membayar beberapa bulan sekaligus.',
                 $identity,
             );
 

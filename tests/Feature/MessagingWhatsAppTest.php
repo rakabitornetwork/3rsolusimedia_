@@ -1328,6 +1328,28 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('Silakan pilih layanan', $body);
     }
 
+    #[Test]
+    public function whatsapp_no_longer_offers_multi_month_payment(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $customer = $this->customer();
+        $this->unpaidInvoice($customer, 'INV-WA-SINGLE');
+
+        $this->postUpsert('tagihan')->assertOk();
+        $tagihan = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('INV-WA-SINGLE', $tagihan);
+        $this->assertStringNotContainsString('beberapa bulan', $tagihan);
+        $this->assertStringNotContainsString('bayar 2', $tagihan);
+
+        $this->postUpsert('bayar 3')->assertOk();
+        $bayar = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('bayar beberapa bulan sekaligus sudah tidak tersedia di WhatsApp', $bayar);
+        $this->assertStringContainsString('Ketik *bayar*', $bayar);
+        $this->assertSame(0, Invoice::query()->where('type', 'multi_month')->count());
+        $this->assertSame(0, Invoice::query()->where('billing_months', '>', 1)->count());
+    }
+
     private function mockGenieDevice(): GenieAcsService
     {
         $genie = Mockery::mock(GenieAcsService::class);

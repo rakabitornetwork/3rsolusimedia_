@@ -89,10 +89,6 @@ Route::middleware('throttle:60,1')->group(function () {
         ->name('portal.pay.checkout')
         ->where('token', '[A-Za-z0-9]+')
         ->whereNumber('invoice');
-    Route::post('/portal/{token}/bayar-depan', [PaymentPortalController::class, 'payAhead'])
-        ->name('portal.pay.ahead')
-        ->where('token', '[A-Za-z0-9]+');
-
     Route::get('/portal/{token}/perangkat', [CustomerPortalController::class, 'device'])
         ->name('portal.device')
         ->where('token', '[A-Za-z0-9]+');

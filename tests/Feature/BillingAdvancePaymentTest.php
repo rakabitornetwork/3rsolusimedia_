@@ -192,7 +192,7 @@ class BillingAdvancePaymentTest extends TestCase
     }
 
     #[Test]
-    public function portal_can_open_an_advance_invoice_before_checkout_exists(): void
+    public function portal_no_longer_offers_advance_multi_month_payment(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', 'Asia/Jakarta'));
 
@@ -204,20 +204,15 @@ class BillingAdvancePaymentTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Portal/Pay/Show', false)
-                ->has('advance.options', 5)
-                ->where('advance.options.0.months', 2)
-                ->where('advance.options.0.ahead', true)
+                ->missing('advance')
             );
 
         $this->from('/portal/'.$token.'/tagihan')
             ->post('/portal/'.$token.'/bayar-depan', ['months' => 2])
-            ->assertRedirect('/portal/'.$token.'/tagihan')
-            ->assertSessionHas('success');
+            ->assertNotFound();
 
-        $invoice = Invoice::query()->where('status', 'unpaid')->first();
-        $this->assertNotNull($invoice);
-        $this->assertSame(2, $invoice->billing_months);
-        $this->assertSame(300000, $invoice->total);
+        $this->assertSame(0, Invoice::query()->where('type', 'multi_month')->count());
+        $this->assertSame(0, Invoice::query()->where('billing_months', '>', 1)->count());
     }
 
     /**
