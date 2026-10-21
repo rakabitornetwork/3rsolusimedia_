@@ -1092,6 +1092,16 @@ class MessagingWhatsAppTest extends TestCase
         $this->postUpsert('rx')->assertOk();
         $rx = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
         $this->assertStringContainsString('-18.5 dBm', $rx);
+        $this->assertStringNotContainsString('TX Power', $rx);
+        $this->assertStringNotContainsString('Redaman', $rx);
+        $this->assertStringNotContainsString('2.1 dBm', $rx);
+        $this->assertStringNotContainsString('20.6 dB', $rx);
+
+        $this->postUpsert('3')->assertOk();
+        $rxByNumber = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('-18.5 dBm', $rxByNumber);
+        $this->assertStringNotContainsString('TX Power', $rxByNumber);
+        $this->assertStringNotContainsString('Redaman', $rxByNumber);
 
         $this->postUpsert('suhu')->assertOk();
         $suhu = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
@@ -1103,6 +1113,64 @@ class MessagingWhatsAppTest extends TestCase
         $this->assertStringContainsString('iPhone-Budi', $devices);
         $this->assertStringContainsString('192.168.1.10', $devices);
         $this->assertStringContainsString('AA:BB:CC:DD:EE:01', $devices);
+    }
+
+    #[Test]
+    public function whatsapp_wifi_shows_menu_numbers_to_change_ssid_and_password(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $this->mockGenieDevice();
+
+        // Tanpa gateway aktif: 6 = ganti SSID, 7 = ganti password.
+        $this->postUpsert('wifi')->assertOk();
+        Http::assertSent(fn ($request) => str_contains((string) ($request['text'] ?? ''), 'Ganti Nama WiFi (SSID): ketik *6*')
+            && str_contains((string) ($request['text'] ?? ''), 'Ganti Password WiFi (Password SSID): ketik *7*')
+            && str_contains((string) ($request['text'] ?? ''), 'ssid NamaBaru'));
+
+        $this->postUpsert('1')->assertOk();
+        Http::assertSent(fn ($request) => str_contains((string) ($request['text'] ?? ''), 'Ganti Nama WiFi (SSID): ketik *6*')
+            && str_contains((string) ($request['text'] ?? ''), 'Ganti Password WiFi (Password SSID): ketik *7*'));
+    }
+
+    #[Test]
+    public function whatsapp_menu_number_prompts_then_applies_new_ssid_and_password(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $genie = $this->mockGenieDevice();
+        $genie->shouldReceive('updateWifi')->once()->with('DEV1', 'WiFiBaruKu', null)->andReturn([
+            'ok' => true,
+            'message' => 'SSID diantrikan ke perangkat.',
+        ]);
+        $genie->shouldReceive('updateWifi')->once()->with('DEV1', null, 'passwordbaru9')->andReturn([
+            'ok' => true,
+            'message' => 'Password diantrikan ke perangkat.',
+        ]);
+
+        $this->postUpsert('6')->assertOk();
+        $prompt = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Ganti Nama WiFi (SSID)', $prompt);
+        $this->assertStringContainsString('Kirim nama WiFi baru', $prompt);
+
+        $this->postUpsert('WiFiBaruKu')->assertOk();
+        $changed = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('berhasil', $changed);
+        $this->assertStringContainsString('WiFiBaruKu', $changed);
+
+        $this->postUpsert('7')->assertOk();
+        $promptPassword = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Ganti Password WiFi (Password SSID)', $promptPassword);
+        $this->assertStringContainsString('Kirim password WiFi baru', $promptPassword);
+
+        $this->postUpsert('passwordbaru9')->assertOk();
+        $changedPassword = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('berhasil', $changedPassword);
+        $this->assertStringNotContainsString('passwordbaru9', $changedPassword);
+        $inbound = (string) MessageLog::query()->where('direction', 'inbound')->latest('id')->value('body');
+        $this->assertSame('[perubahan wifi]', $inbound);
     }
 
     #[Test]

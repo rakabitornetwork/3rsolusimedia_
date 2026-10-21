@@ -126,10 +126,10 @@ class AdminCustomerLookup
      *
      * @return array{text: string, log_text?: string}
      */
-    public function customerView(PppoeCustomer $customer, string $action): array
+    public function customerView(PppoeCustomer $customer, string $action, bool $whatsapp = false): array
     {
         $result = match ($action) {
-            'rx' => $this->rxPower($customer),
+            'rx' => $this->rxPower($customer, detailedOptical: ! $whatsapp),
             'temp' => $this->temperature($customer),
             'wifi' => $this->wifi($customer),
             'dev' => $this->connectedDevices($customer),
@@ -301,7 +301,7 @@ class AdminCustomerLookup
     /**
      * @return array{text: string, keyboard: array<int, array<int, array{text: string, callback_data: string}>>}
      */
-    private function rxPower(PppoeCustomer $customer): array
+    private function rxPower(PppoeCustomer $customer, bool $detailedOptical = true): array
     {
         $owned = $this->ownedDevice($customer);
         if (! ($owned['ok'] ?? false)) {
@@ -313,18 +313,23 @@ class AdminCustomerLookup
 
         $device = $owned['device'];
 
+        $lines = [
+            '📶 RX Power — '.$customer->name.' ('.$customer->username.')',
+            '',
+            '📟 ONU: '.$this->onuName($device),
+            '🔢 Serial: '.($device['serial'] ?? '—'),
+            $this->onuStatusLine($device),
+            '📥 RX Power: '.($device['rx_power_label'] ?? '—'),
+        ];
+        // TX Power & Redaman hanya untuk admin/teknisi (Telegram), terlalu teknis untuk pelanggan WhatsApp.
+        if ($detailedOptical) {
+            $lines[] = '📤 TX Power: '.($device['tx_power_label'] ?? '—');
+            $lines[] = '📉 Redaman: '.($device['redaman_label'] ?? '—');
+        }
+        $lines[] = '🕒 Inform terakhir: '.($device['last_inform_label'] ?? '—');
+
         return [
-            'text' => implode("\n", [
-                '📶 RX Power — '.$customer->name.' ('.$customer->username.')',
-                '',
-                '📟 ONU: '.$this->onuName($device),
-                '🔢 Serial: '.($device['serial'] ?? '—'),
-                $this->onuStatusLine($device),
-                '📥 RX Power: '.($device['rx_power_label'] ?? '—'),
-                '📤 TX Power: '.($device['tx_power_label'] ?? '—'),
-                '📉 Redaman: '.($device['redaman_label'] ?? '—'),
-                '🕒 Inform terakhir: '.($device['last_inform_label'] ?? '—'),
-            ]),
+            'text' => implode("\n", $lines),
             'keyboard' => $this->actionKeyboard($customer),
         ];
     }

@@ -87,6 +87,12 @@ class BotCommandRouter
                 return;
             }
 
+            if ($this->pendingWifiEdit($message) !== null) {
+                $this->completeWifiEdit($message, $identity);
+
+                return;
+            }
+
             if ($this->pendingBind($message) !== null) {
                 $this->completeBind($message, $message->text, $identity);
 
@@ -120,6 +126,7 @@ class BotCommandRouter
 
         if ($command !== 'batal' && $command !== 'cari') {
             $this->forgetAdminAction($message);
+            $this->forgetWifiEdit($message);
         }
 
         match ($command) {
@@ -299,6 +306,18 @@ class BotCommandRouter
 
     private function batal(IncomingMessage $message, ?MessagingIdentity $identity): void
     {
+        if ($this->forgetWifiEdit($message)) {
+            $this->reply(
+                $message,
+                $message->channel === 'whatsapp'
+                    ? 'Perubahan WiFi dibatalkan. Ketik *0* untuk melihat menu lagi.'
+                    : 'Perubahan WiFi dibatalkan.',
+                $identity,
+            );
+
+            return;
+        }
+
         if ($this->forgetAdminAction($message)) {
             $this->reply($message, 'Perubahan WiFi dibatalkan. Ketik /cari untuk mencari pelanggan lagi.', $identity);
 
@@ -727,16 +746,36 @@ class BotCommandRouter
             return;
         }
 
+        if (($view === 'ssid' || $view === 'password') && $args === '' && $message->channel === 'whatsapp') {
+            $this->rememberWifiEdit($message, $view, (int) $customer->id);
+            $this->reply(
+                $message,
+                $view === 'ssid'
+                    ? "✏️ *Ganti Nama WiFi (SSID)*\nKirim nama WiFi baru sekarang (1–32 karakter).\nContoh: WiFiKeluarga\n\nKetik *batal* jika tidak jadi mengganti."
+                    : "🔐 *Ganti Password WiFi (Password SSID)*\nKirim password WiFi baru sekarang (8–63 karakter).\n\nKetik *batal* jika tidak jadi mengganti.",
+                $identity,
+            );
+
+            return;
+        }
+
         $action = match ($view) {
             'ssid', 'password' => 'wifi',
             default => $view,
         };
-        $result = $this->adminLookup->customerView($customer, $action);
+        $result = $this->adminLookup->customerView($customer, $action, $message->channel === 'whatsapp');
         $text = $result['text'];
         if ($action === 'wifi' && str_contains($text, 'SSID:')) {
-            $slash = $message->channel === 'whatsapp' ? '' : '/';
-            $text .= "\n\nGanti nama: {$slash}ssid NamaBaru";
-            $text .= "\nGanti password (8–63 karakter): {$slash}password passwordbaru";
+            if ($message->channel === 'whatsapp') {
+                $ssidNumber = $this->whatsappMenuNumber('ssid', true, false);
+                $passwordNumber = $this->whatsappMenuNumber('password', true, false);
+                $text .= "\n\nMau mengganti WiFi?";
+                $text .= "\n✏️ Ganti Nama WiFi (SSID): ketik *".$ssidNumber.'* lalu kirim nama WiFi baru, atau langsung ketik: ssid NamaBaru';
+                $text .= "\n🔐 Ganti Password WiFi (Password SSID): ketik *".$passwordNumber.'* lalu kirim password baru (8–63 karakter), atau langsung ketik: password passwordbaru';
+            } else {
+                $text .= "\n\nGanti nama: /ssid NamaBaru";
+                $text .= "\nGanti password (8–63 karakter): /password passwordbaru";
+            }
         }
 
         $this->reply($message, $text, $identity, null, $result['log_text'] ?? null);
@@ -800,6 +839,87 @@ class BotCommandRouter
         $items = $this->whatsappMenuItems($identity !== null, $vpn);
 
         return $items[$number - 1]['command'] ?? null;
+    }
+
+    private function whatsappMenuNumber(string $command, bool $bound, bool $vpn): ?int
+    {
+        foreach ($this->whatsappMenuItems($bound, $vpn) as $index => $item) {
+            if ($item['command'] === $command) {
+                return $index + 1;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{mode: string, customer_id: int}|null
+     */
+    private function pendingWifiEdit(IncomingMessage $message): ?array
+    {
+        $value = Cache::get($this->wifiEditKey($message));
+
+        return is_array($value) && in_array($value['mode'] ?? '', ['ssid', 'password'], true) ? $value : null;
+    }
+
+    private function rememberWifiEdit(IncomingMessage $message, string $mode, int $customerId): void
+    {
+        Cache::put($this->wifiEditKey($message), [
+            'mode' => $mode,
+            'customer_id' => $customerId,
+        ], now()->addMinutes(10));
+    }
+
+    private function forgetWifiEdit(IncomingMessage $message): bool
+    {
+        $key = $this->wifiEditKey($message);
+        if (! Cache::has($key)) {
+            return false;
+        }
+
+        Cache::forget($key);
+
+        return true;
+    }
+
+    private function wifiEditKey(IncomingMessage $message): string
+    {
+        return 'messaging:wifi-edit:'.$message->channel.':'.$message->externalId;
+    }
+
+    private function completeWifiEdit(IncomingMessage $message, ?MessagingIdentity $identity): void
+    {
+        $pending = $this->pendingWifiEdit($message);
+        $customer = $identity?->customer;
+        if (! $pending || ! $customer || (int) $customer->id !== (int) ($pending['customer_id'] ?? 0)) {
+            $this->forgetWifiEdit($message);
+            $this->reply($message, 'Sesi ganti WiFi sudah berakhir. Ketik *0* untuk melihat menu, lalu pilih lagi.', $identity);
+
+            return;
+        }
+
+        $value = trim($message->text);
+        if ($pending['mode'] === 'ssid') {
+            if (mb_strlen($value) < 1 || mb_strlen($value) > 32) {
+                $this->reply($message, "Nama WiFi (SSID) harus 1–32 karakter. Kirim nama lain, atau ketik *batal*.", $identity);
+
+                return;
+            }
+
+            $result = $this->adminLookup->applyWifi($customer, $value, null);
+        } else {
+            $parsed = $this->adminLookup->parseWifiInput('*'.$value);
+            if (isset($parsed['error'])) {
+                $this->reply($message, $parsed['error']." Kirim password lain, atau ketik *batal*.", $identity);
+
+                return;
+            }
+
+            $result = $this->adminLookup->applyWifi($customer, null, $parsed['password']);
+        }
+
+        $this->forgetWifiEdit($message);
+        $this->reply($message, $result['text'], $identity, null, $result['log_text'] ?? null);
     }
 
     /**
@@ -1121,6 +1241,9 @@ class BotCommandRouter
                 $text = $this->redactSensitive($text);
             }
             if ($direction === 'inbound' && $this->pendingAdminAction($message) !== null) {
+                $text = '[perubahan wifi]';
+            }
+            if ($direction === 'inbound' && $this->pendingWifiEdit($message) !== null) {
                 $text = '[perubahan wifi]';
             }
 
