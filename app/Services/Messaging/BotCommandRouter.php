@@ -794,25 +794,25 @@ class BotCommandRouter
 
         if ($vpn) {
             $items = [
-                ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan yang belum dibayar'],
+                ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan'],
             ];
             if ($onlinePay) {
-                $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan sekarang (online)'];
+                $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan'];
             }
-            $items[] = ['command' => 'lepas', 'icon' => '🔓', 'label' => 'Putuskan hubungan nomor WhatsApp ini dari akun'];
+            $items[] = ['command' => 'lepas', 'icon' => '🔓', 'label' => 'Putuskan hubungan akun'];
 
             return $items;
         }
 
         $items = [
-            ['command' => 'wifi', 'icon' => '📶', 'label' => 'Lihat nama & password WiFi di rumah'],
-            ['command' => 'perangkat', 'icon' => '📱', 'label' => 'Lihat HP / perangkat yang terhubung ke WiFi'],
-            ['command' => 'rx', 'icon' => '📡', 'label' => 'Cek sinyal kotak internet / ONU (kuat atau lemah)'],
-            ['command' => 'suhu', 'icon' => '🌡️', 'label' => 'Cek suhu kotak internet / ONU (normal atau panas)'],
-            ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan yang belum dibayar'],
+            ['command' => 'wifi', 'icon' => '📶', 'label' => 'Nama & password WiFi'],
+            ['command' => 'perangkat', 'icon' => '📱', 'label' => 'Perangkat terhubung'],
+            ['command' => 'rx', 'icon' => '📡', 'label' => 'Sinyal ONU'],
+            ['command' => 'suhu', 'icon' => '🌡️', 'label' => 'Suhu ONU'],
+            ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan'],
         ];
         if ($onlinePay) {
-            $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan sekarang (online)'];
+            $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan'];
         }
         $items[] = ['command' => 'ssid', 'icon' => '✏️', 'label' => 'Ganti nama WiFi'];
         $items[] = ['command' => 'password', 'icon' => '🔐', 'label' => 'Ganti password WiFi'];
@@ -996,7 +996,7 @@ class BotCommandRouter
         foreach ($items as $index => $item) {
             $lines[] = ($keycaps[$index] ?? (($index + 1).'.')).' '.$item['icon'].' '.$item['label'];
         }
-        $lines[] = '0️⃣ ❓ Tampilkan menu ini lagi';
+        $lines[] = '0️⃣ ❓ Menu bantuan';
         $lines[] = '';
         $lines[] = $vpn
             ? '💡 Contoh: ketik *1* untuk mengecek tagihan Anda.'

@@ -1241,14 +1241,14 @@ class MessagingWhatsAppTest extends TestCase
         Http::assertSent(function ($request) {
             $text = (string) ($request['text'] ?? '');
 
-            return str_contains($text, '1️⃣ 📶 Lihat nama & password WiFi di rumah')
-                && str_contains($text, '2️⃣ 📱 Lihat HP / perangkat yang terhubung ke WiFi')
-                && str_contains($text, '3️⃣ 📡 Cek sinyal kotak internet / ONU (kuat atau lemah)')
-                && str_contains($text, '4️⃣ 🌡️ Cek suhu kotak internet / ONU (normal atau panas)')
-                && str_contains($text, '🧾 Cek tagihan yang belum dibayar')
+            return str_contains($text, '1️⃣ 📶 Nama & password WiFi')
+                && str_contains($text, '2️⃣ 📱 Perangkat terhubung')
+                && str_contains($text, '3️⃣ 📡 Sinyal ONU')
+                && str_contains($text, '4️⃣ 🌡️ Suhu ONU')
+                && str_contains($text, '🧾 Cek tagihan')
                 && str_contains($text, '✏️ Ganti nama WiFi')
                 && str_contains($text, '🔐 Ganti password WiFi')
-                && str_contains($text, '0️⃣ ❓ Tampilkan menu ini lagi')
+                && str_contains($text, '0️⃣ ❓ Menu bantuan')
                 && str_contains($text, 'ketik *1* untuk melihat nama & password WiFi')
                 && ! str_contains($text, '9️⃣')
                 && ! str_contains($text, 'Putuskan hubungan nomor WhatsApp ini dari akun')
