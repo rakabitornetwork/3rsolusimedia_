@@ -816,9 +816,9 @@ class BotCommandRouter
         }
         $items[] = ['command' => 'ssid', 'icon' => '✏️', 'label' => 'Ganti nama WiFi'];
         $items[] = ['command' => 'password', 'icon' => '🔐', 'label' => 'Ganti password WiFi'];
-        $items[] = $bound
-            ? ['command' => 'lepas', 'icon' => '🔓', 'label' => 'Putuskan hubungan nomor WhatsApp ini dari akun']
-            : ['command' => 'daftar', 'icon' => '🔗', 'label' => 'Hubungkan nomor WhatsApp ini ke akun pelanggan'];
+
+        // Pilihan terakhir (dulu nomor 9: lepas/daftar) tidak lagi ditampilkan di menu WhatsApp.
+        // Perintah kata "lepas"/"daftar" tetap bisa diketik manual bila diperlukan.
 
         return $items;
     }

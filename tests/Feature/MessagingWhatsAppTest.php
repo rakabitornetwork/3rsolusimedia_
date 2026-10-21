@@ -1249,7 +1249,10 @@ class MessagingWhatsAppTest extends TestCase
                 && str_contains($text, '✏️ Ganti nama WiFi')
                 && str_contains($text, '🔐 Ganti password WiFi')
                 && str_contains($text, '0️⃣ ❓ Tampilkan menu ini lagi')
-                && str_contains($text, 'ketik *1* untuk melihat nama & password WiFi');
+                && str_contains($text, 'ketik *1* untuk melihat nama & password WiFi')
+                && ! str_contains($text, '9️⃣')
+                && ! str_contains($text, 'Putuskan hubungan nomor WhatsApp ini dari akun')
+                && ! str_contains($text, 'Hubungkan nomor WhatsApp ini ke akun pelanggan');
         });
     }
 
@@ -1313,6 +1316,11 @@ class MessagingWhatsAppTest extends TestCase
     {
         $this->enableWhatsapp();
         $this->fakeEvolution();
+
+        $this->postUpsert('9')->assertOk();
+        $body = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('pilihan nomor 9 tidak ada di menu', $body);
+        $this->assertStringContainsString('Silakan pilih layanan', $body);
 
         $this->postUpsert('99')->assertOk();
         $body = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
