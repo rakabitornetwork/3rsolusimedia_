@@ -43,9 +43,14 @@ class BotCommandRouter
 
         $identity = $this->identityFor($message) ?? $this->autoBindWhatsApp($message);
         $this->touchIdentity($identity, $message);
+        $whatsappSelection = $message->channel === 'whatsapp'
+            ? $this->whatsappMenuSelection($message->text, $identity)
+            : null;
+        $isWhatsappNumber = $message->channel === 'whatsapp'
+            && preg_match('/^\d{1,2}$/', trim($message->text)) === 1;
         $inboundCommand = $message->isCallback()
             ? 'cari'
-            : $this->parseCommand($message->text)[0];
+            : ($whatsappSelection ?? $this->parseCommand($message->text)[0]);
         $this->log(
             $message,
             'inbound',
@@ -88,15 +93,29 @@ class BotCommandRouter
                 return;
             }
 
-            $this->reply(
-                $message,
-                trim($message->text) === ''
-                    ? $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message), $identity?->customer)
-                    : 'Perintah tidak dikenali. Ketik /bantuan atau bantuan.',
-                $identity,
-            );
+            if ($whatsappSelection !== null) {
+                $command = $whatsappSelection;
+            } elseif ($isWhatsappNumber) {
+                $this->reply(
+                    $message,
+                    "Maaf, pilihan nomor ".trim($message->text)." tidak ada di menu. 🙏\n\n".$this->helpText($identity !== null, $message->channel, false, $identity?->customer),
+                    $identity,
+                );
 
-            return;
+                return;
+            } else {
+                $this->reply(
+                    $message,
+                    trim($message->text) === ''
+                        ? $this->helpText($identity !== null, $message->channel, $this->adminLookup->isAdmin($message), $identity?->customer)
+                        : ($message->channel === 'whatsapp'
+                            ? 'Maaf, pesan itu belum saya pahami. 🙏 Ketik *0* atau *bantuan* untuk melihat menu pilihan.'
+                            : 'Perintah tidak dikenali. Ketik /bantuan atau bantuan.'),
+                    $identity,
+                );
+
+                return;
+            }
         }
 
         if ($command !== 'batal' && $command !== 'cari') {
@@ -488,7 +507,7 @@ class BotCommandRouter
     {
         if (! $identity) {
             $hint = $message->channel === 'whatsapp'
-                ? 'Nomor chat ini belum cocok dengan data pelanggan. Ketik daftar <username>.'
+                ? 'Nomor WhatsApp ini belum terhubung ke akun pelanggan. 🙏 Ketik *daftar usernameAnda* (contoh: daftar budi01), lalu kirim nomor HP yang terdaftar di tagihan.'
                 : 'Chat ini belum terhubung. Ketik /daftar lalu ikuti petunjuknya.';
             $this->reply($message, $hint);
 
@@ -723,8 +742,127 @@ class BotCommandRouter
         $this->reply($message, $text, $identity, null, $result['log_text'] ?? null);
     }
 
+    /**
+     * Pilihan menu WhatsApp berbasis angka untuk pelanggan awam.
+     * Urutan di sini HARUS sama dengan urutan yang ditampilkan di whatsappHelpText(),
+     * karena pelanggan membalas hanya dengan angkanya (mis. "1").
+     *
+     * @return list<array{command: string, icon: string, label: string}>
+     */
+    private function whatsappMenuItems(bool $bound, bool $vpn): array
+    {
+        $onlinePay = $this->gateways->hasEnabledGateway();
+
+        if ($vpn) {
+            $items = [
+                ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan yang belum dibayar'],
+            ];
+            if ($onlinePay) {
+                $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan sekarang (online)'];
+            }
+            $items[] = ['command' => 'lepas', 'icon' => '🔓', 'label' => 'Putuskan hubungan nomor WhatsApp ini dari akun'];
+
+            return $items;
+        }
+
+        $items = [
+            ['command' => 'wifi', 'icon' => '📶', 'label' => 'Lihat nama & password WiFi di rumah'],
+            ['command' => 'perangkat', 'icon' => '📱', 'label' => 'Lihat HP / perangkat yang terhubung ke WiFi'],
+            ['command' => 'rx', 'icon' => '📡', 'label' => 'Cek sinyal kotak internet / ONU (kuat atau lemah)'],
+            ['command' => 'suhu', 'icon' => '🌡️', 'label' => 'Cek suhu kotak internet / ONU (normal atau panas)'],
+            ['command' => 'tagihan', 'icon' => '🧾', 'label' => 'Cek tagihan yang belum dibayar'],
+        ];
+        if ($onlinePay) {
+            $items[] = ['command' => 'bayar', 'icon' => '💳', 'label' => 'Bayar tagihan sekarang (online)'];
+        }
+        $items[] = ['command' => 'ssid', 'icon' => '✏️', 'label' => 'Ganti nama WiFi'];
+        $items[] = ['command' => 'password', 'icon' => '🔐', 'label' => 'Ganti password WiFi'];
+        $items[] = $bound
+            ? ['command' => 'lepas', 'icon' => '🔓', 'label' => 'Putuskan hubungan nomor WhatsApp ini dari akun']
+            : ['command' => 'daftar', 'icon' => '🔗', 'label' => 'Hubungkan nomor WhatsApp ini ke akun pelanggan'];
+
+        return $items;
+    }
+
+    private function whatsappMenuSelection(string $text, ?MessagingIdentity $identity): ?string
+    {
+        $text = trim($text);
+        if (preg_match('/^\d{1,2}$/', $text) !== 1) {
+            return null;
+        }
+
+        $number = (int) $text;
+        if ($number === 0) {
+            return 'bantuan';
+        }
+
+        $vpn = $identity?->customer?->pppService() === PppoeCustomer::SERVICE_L2TP;
+        $items = $this->whatsappMenuItems($identity !== null, $vpn);
+
+        return $items[$number - 1]['command'] ?? null;
+    }
+
+    private function whatsappHelpText(bool $bound, ?PppoeCustomer $customer = null): string
+    {
+        $company = AppSettings::companyName();
+        $vpn = $customer?->pppService() === PppoeCustomer::SERVICE_L2TP;
+        $onlinePay = $this->gateways->hasEnabledGateway();
+        $items = $this->whatsappMenuItems($bound, $vpn);
+        $keycaps = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+
+        $portalHint = $vpn
+            ? ($onlinePay
+                ? 'Di portal Anda bisa cek & bayar tagihan, lalu menyalin skrip VPN untuk dipasang di Winbox.'
+                : 'Di portal Anda bisa menyalin skrip VPN untuk dipasang di Winbox.')
+            : ($bound
+                ? ($onlinePay
+                    ? 'Di portal Anda bisa cek & bayar tagihan, melihat kondisi kotak internet (ONU), mengganti WiFi, dan melihat perangkat yang terhubung.'
+                    : 'Di portal Anda bisa melihat kondisi kotak internet (ONU), mengganti WiFi, dan melihat perangkat yang terhubung.')
+                : 'Di portal, masuk dengan nomor WhatsApp (kode OTP dikirim ke HP terdaftar). Pelanggan internet bisa mengatur WiFi & kotak internet (ONU). Pelanggan VPN mendapatkan skrip pemasangan untuk Winbox.');
+
+        $lines = [
+            $company,
+            '👋 Halo! Silakan pilih layanan di bawah ini.',
+            'Cukup *ketik angkanya saja*, lalu kirim.',
+            '',
+        ];
+
+        if (! $bound) {
+            $lines[] = '⚠️ Nomor WhatsApp ini belum terhubung ke akun pelanggan.';
+            $lines[] = 'Untuk menghubungkan, ketik: *daftar usernameAnda*';
+            $lines[] = 'Contoh: daftar budi01';
+            $lines[] = '';
+        }
+
+        foreach ($items as $index => $item) {
+            $lines[] = ($keycaps[$index] ?? (($index + 1).'.')).' '.$item['icon'].' '.$item['label'];
+        }
+        $lines[] = '0️⃣ ❓ Tampilkan menu ini lagi';
+        $lines[] = '';
+        $lines[] = $vpn
+            ? '💡 Contoh: ketik *1* untuk mengecek tagihan Anda.'
+            : '💡 Contoh: ketik *1* untuk melihat nama & password WiFi.';
+        $lines[] = $vpn
+            ? 'Selain angka, Anda juga tetap bisa mengetik katanya, contoh: *tagihan*, *bayar*.'
+            : 'Selain angka, Anda juga tetap bisa mengetik katanya, contoh: *wifi*, *tagihan*, *bayar*.';
+        $lines[] = '';
+        $lines[] = '🌐 Portal pelanggan: '.url('/portal');
+        $lines[] = $portalHint;
+
+        if (! $bound) {
+            $lines[] = '';
+            $lines[] = 'Jika nomor WhatsApp ini sama dengan nomor HP di data pelanggan, biasanya langsung terhubung otomatis. Jika belum, hubungkan dengan cara di atas ya. 🙏';
+        }
+
+        return implode("\n", $lines);
+    }
+
     private function helpText(bool $bound, string $channel = 'telegram', bool $admin = false, ?PppoeCustomer $customer = null): string
     {
+        if ($channel === 'whatsapp') {
+            return $this->whatsappHelpText($bound, $customer);
+        }
+
         $company = AppSettings::companyName();
         $bot = ltrim((string) AppSettings::get('telegram_bot_username', ''), '@');
         $header = $channel === 'telegram' && $bot !== ''

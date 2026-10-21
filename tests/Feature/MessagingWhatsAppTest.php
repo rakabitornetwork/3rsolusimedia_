@@ -247,7 +247,7 @@ class MessagingWhatsAppTest extends TestCase
 
         $body = MessageLog::query()->where('direction', 'outbound')->value('body');
         $this->assertStringContainsString('Tesla Tech', (string) $body);
-        $this->assertStringContainsString('Bot pelanggan', (string) $body);
+        $this->assertStringContainsString('Silakan pilih layanan', (string) $body);
         $this->assertStringNotContainsString('3R Solusi Media', (string) $body);
 
         $this->assertSame(
@@ -260,7 +260,8 @@ class MessagingWhatsAppTest extends TestCase
 
             return str_contains($request->url(), '/message/sendText/teslatech')
                 && str_starts_with($text, 'Tesla Tech')
-                && str_contains($text, 'Bot pelanggan — ketik salah satu perintah:')
+                && str_contains($text, 'Silakan pilih layanan di bawah ini.')
+                && str_contains($text, 'ketik angkanya saja')
                 && ! str_contains($text, '3R Solusi Media');
         });
 
@@ -1169,11 +1170,58 @@ class MessagingWhatsAppTest extends TestCase
         $this->fakeEvolution();
 
         $this->postUpsert('bantuan')->assertOk();
+        Http::assertSent(function ($request) {
+            $text = (string) ($request['text'] ?? '');
+
+            return str_contains($text, '1️⃣ 📶 Lihat nama & password WiFi di rumah')
+                && str_contains($text, '2️⃣ 📱 Lihat HP / perangkat yang terhubung ke WiFi')
+                && str_contains($text, '3️⃣ 📡 Cek sinyal kotak internet / ONU (kuat atau lemah)')
+                && str_contains($text, '4️⃣ 🌡️ Cek suhu kotak internet / ONU (normal atau panas)')
+                && str_contains($text, '🧾 Cek tagihan yang belum dibayar')
+                && str_contains($text, '✏️ Ganti nama WiFi')
+                && str_contains($text, '🔐 Ganti password WiFi')
+                && str_contains($text, '0️⃣ ❓ Tampilkan menu ini lagi')
+                && str_contains($text, 'ketik *1* untuk melihat nama & password WiFi');
+        });
+    }
+
+    #[Test]
+    public function whatsapp_typing_menu_number_runs_the_matching_command(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+        $this->customer();
+        $this->mockGenieDevice();
+
+        $this->postUpsert('1')->assertOk();
+        $wifi = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('RumahBudi', $wifi);
+        $this->assertDatabaseHas('message_logs', [
+            'channel' => 'whatsapp',
+            'direction' => 'inbound',
+            'command' => 'wifi',
+        ]);
+
+        $this->postUpsert('2')->assertOk();
+        $devices = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Jumlah perangkat terhubung: 2', $devices);
+        $this->assertStringContainsString('iPhone-Budi', $devices);
+
+        $this->postUpsert('0')->assertOk();
+        $menu = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
+        $this->assertStringContainsString('Silakan pilih layanan', $menu);
+    }
+
+    #[Test]
+    public function whatsapp_typing_unknown_menu_number_replies_with_menu(): void
+    {
+        $this->enableWhatsapp();
+        $this->fakeEvolution();
+
+        $this->postUpsert('99')->assertOk();
         $body = (string) MessageLog::query()->where('direction', 'outbound')->latest('id')->value('body');
-        $this->assertStringContainsString('wifi — lihat nama dan password WiFi', $body);
-        $this->assertStringContainsString('rx — lihat RX power ONU', $body);
-        $this->assertStringContainsString('suhu — lihat suhu ONU', $body);
-        $this->assertStringContainsString('perangkat — jumlah dan detail perangkat terhubung', $body);
+        $this->assertStringContainsString('pilihan nomor 99 tidak ada di menu', $body);
+        $this->assertStringContainsString('Silakan pilih layanan', $body);
     }
 
     private function mockGenieDevice(): GenieAcsService
