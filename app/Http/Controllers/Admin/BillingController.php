@@ -935,6 +935,15 @@ class BillingController extends Controller
             $windowDays = AppSettings::billingGenerateDays();
             $who = $customer->name.' ('.$customer->username.')';
 
+            if ($customer->due_date && ! $this->billing->isWithinUpcomingWindow($customer->due_date)) {
+                $when = $due ? "Jatuh tempo {$due} " : 'Tagihan ';
+
+                return back()->with(
+                    'error',
+                    "{$when}untuk {$who} masih di luar jendela tagihan, jadi tagihan belum bisa dibuat. Tagihan baru muncul {$windowDays} hari sebelum jatuh tempo."
+                );
+            }
+
             if (! $this->billing->currentCycleHasStarted($customer)) {
                 $when = $due ? "Jatuh tempo {$due} " : 'Tagihan ';
 

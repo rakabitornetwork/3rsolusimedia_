@@ -28,7 +28,7 @@ class BillingEarlyPaymentTest extends TestCase
     }
 
     #[Test]
-    public function automatic_generate_waits_but_prepare_creates_the_current_cycle_invoice(): void
+    public function automatic_generate_and_prepare_both_wait_until_the_generate_window(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', 'Asia/Jakarta'));
 
@@ -39,6 +39,19 @@ class BillingEarlyPaymentTest extends TestCase
             ->assertOk();
 
         $this->assertSame(1, Invoice::query()->count());
+
+        // Periode berjalan sudah mulai (20 Sep), tapi due 20 Okt masih
+        // di luar jendela 7 hari: siapkan tagihan pun tidak boleh membuat.
+        $this->actingAs($admin)
+            ->from('/admin/billing')
+            ->post('/admin/billing/prepare', ['username' => 'budi01'])
+            ->assertRedirect('/admin/billing')
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, Invoice::query()->where('status', 'unpaid')->count());
+
+        // Masuk jendela (due <= 7 hari): prepare membuat tagihan periode ini.
+        Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00', 'Asia/Jakarta'));
 
         $this->actingAs($admin)
             ->post('/admin/billing/prepare', ['username' => 'budi01'])
@@ -117,6 +130,10 @@ class BillingEarlyPaymentTest extends TestCase
 
         $this->assertSame(0, Invoice::query()->where('status', 'unpaid')->count());
 
+        // Pilihan pelanggan dibuat di luar jendela; pembuatan tagihannya
+        // baru boleh jalan setelah masuk jendela 7 hari.
+        Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00', 'Asia/Jakarta'));
+
         $this->actingAs($admin)
             ->post('/admin/billing/prepare', [
                 'customer_id' => $second->id,
@@ -147,12 +164,25 @@ class BillingEarlyPaymentTest extends TestCase
     }
 
     #[Test]
-    public function portal_shows_the_current_bill_before_the_generate_window_and_not_the_following_month(): void
+    public function portal_waits_for_the_generate_window_and_never_shows_the_following_month(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-01 09:00:00', 'Asia/Jakarta'));
 
         [, $customer] = $this->customerDueOn('2026-10-20');
         $token = Str::lower(Str::random(48));
+        Cache::put('portal_pay:'.$token, $customer->id, now()->addHours(2));
+
+        // Membuka portal tidak boleh membuat tagihan sebelum jendela 7 hari.
+        $this->get('/portal/'.$token.'/tagihan')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Portal/Pay/Show', false)
+                ->has('unpaid', 0)
+            );
+
+        $this->assertSame(0, Invoice::query()->where('status', 'unpaid')->count());
+
+        Carbon::setTestNow(Carbon::parse('2026-10-14 09:00:00', 'Asia/Jakarta'));
         Cache::put('portal_pay:'.$token, $customer->id, now()->addHours(2));
 
         $this->get('/portal/'.$token.'/tagihan')

@@ -274,7 +274,7 @@
     ]
   },
   "resources/css/app.css": {
-    "file": "assets/app-nDTWYRGZ.css",
+    "file": "assets/app-CAOplGER.css",
     "name": "app",
     "names": [
       "app.css"
@@ -315,7 +315,7 @@
     ]
   },
   "resources/js/Pages/Admin/Billing/Index.jsx": {
-    "file": "assets/Index-V9zon8wT.js",
+    "file": "assets/Index-1HNR5l9P.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Billing/Index.jsx",
     "isDynamicEntry": true,
@@ -1101,7 +1101,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DtdUpzV5.js",
+    "file": "assets/app-DCeLofY8.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
@@ -1164,7 +1164,7 @@
       "resources/js/Pages/Vpn/Signup.jsx"
     ],
     "css": [
-      "assets/app-nDTWYRGZ.css"
+      "assets/app-CAOplGER.css"
     ],
     "assets": [
       "assets/syne-greek-wght-normal-5tOOQDeJ.woff2",

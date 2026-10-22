@@ -556,9 +556,10 @@ class BillingService
      * Samakan / buat tagihan terbuka agar cocok dengan due_date pelanggan.
      * Dipakai saat admin mengubah siklus tagihan, dan saat generate otomatis.
      *
-     * Generate massal tetap menunggu jendela hari. Pembayaran lebih awal
-     * memakai ensurePayableInvoice(), yang boleh melewati jendela itu
-     * setelah periode berjalan sudah mulai.
+     * Pembuatan tagihan baru selalu menunggu jendela hari
+     * (app_billing_generate_days), termasuk lewat ensurePayableInvoice().
+     * Satu-satunya pengecualian adalah tagihan yang memang diminta eksplisit
+     * (prorata pelanggan baru, bayar beberapa bulan, perubahan paket/tanggal).
      *
      * @return array{invoice: ?Invoice, created: bool}
      */
@@ -609,11 +610,17 @@ class BillingService
     }
 
     /**
-     * Siapkan tagihan periode berjalan supaya bisa dibayar,
-     * termasuk saat jatuh tempo masih di luar jendela generate otomatis.
+     * Siapkan tagihan periode berjalan supaya bisa dibayar.
+     *
+     * Ketat mengikuti jendela generate (app_billing_generate_days, default
+     * 7 hari): tagihan baru hanya dibuat bila jatuh tempo sudah masuk
+     * jendela itu atau sudah lewat tempo. Membuka portal, bot, atau tombol
+     * siapkan tagihan tidak lagi membuat tagihan lebih awal dari itu.
+     * Tagihan unpaid yang sudah terlanjur ada tetap dikembalikan.
      *
      * Tidak membuat tagihan bulan berikutnya: setelah lunas, due_date maju
-     * dan periode baru belum mulai, jadi pemanggilan ulang tidak menumpuk.
+     * ke bulan berikutnya yang masih di luar jendela, jadi pemanggilan
+     * ulang tidak menumpuk.
      *
      * @return array{invoice: ?Invoice, created: bool}
      */
@@ -624,21 +631,17 @@ class BillingService
         $withinWindow = $customer->due_date
             && $this->isWithinUpcomingWindow($customer->due_date);
 
-        if (! $withinWindow && ! $this->currentCycleHasStarted($customer)) {
-            return ['invoice' => null, 'created' => false];
-        }
-
         return $this->ensureOpenInvoice(
             $customer,
             notify: $withinWindow,
-            ignoreWindow: true,
+            ignoreWindow: false,
         );
     }
 
     /**
      * Periode yang berakhir di due_date sudah berjalan (hari ini berada di dalamnya,
-     * atau jatuh tempo sudah lewat). Dipakai agar bayar lebih awal hanya
-     * mencakup siklus yang sedang dipakai, bukan bulan yang belum mulai.
+     * atau jatuh tempo sudah lewat). Dipakai untuk kutipan bayar beberapa
+     * bulan: membedakan siklus yang sedang dipakai dari bulan yang belum mulai.
      */
     public function currentCycleHasStarted(PppoeCustomer $customer): bool
     {

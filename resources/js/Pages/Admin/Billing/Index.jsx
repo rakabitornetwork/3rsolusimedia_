@@ -548,7 +548,7 @@ export default function Index({
     return (
         <AdminLayout
             title="Tagihan & Pembayaran"
-            subtitle={`Tagihan bulanan muncul otomatis ${billingGenerateDays} hari sebelum jatuh tempo. Periode berjalan bisa disiapkan lebih awal, atau beberapa bulan dibayar sekaligus.`}
+            subtitle={`Tagihan bulanan hanya muncul ${billingGenerateDays} hari sebelum jatuh tempo (atau setelah lewat). Di luar jendela itu tagihan belum dibuat, kecuali bayar beberapa bulan sekaligus yang memang diminta.`}
         >
             <Head title="Tagihan & Pembayaran" />
 
@@ -604,8 +604,10 @@ export default function Index({
                 <div className="early-pay-card-body">
                     <p className="early-pay-reveal text-sm font-semibold text-ink">Bayar lebih awal</p>
                     <p className="early-pay-reveal text-xs text-ink-soft">
-                        Cari dengan username, nama lengkap, atau nomor telepon. Pilih 2–6 bulan
-                        bila pelanggan membayar beberapa bulan ke depan sekaligus. Tagihan layanan
+                        Cari dengan username, nama lengkap, atau nomor telepon. Tagihan 1 bulan
+                        hanya bisa disiapkan bila sudah masuk jendela {billingGenerateDays} hari
+                        sebelum jatuh tempo. Pilih 2–6 bulan bila pelanggan memang meminta
+                        membayar beberapa bulan ke depan sekaligus. Tagihan layanan
                         yang belum lunas diganti; tagihan router VPN tidak ikut.
                     </p>
                     <div className="early-pay-reveal flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1120,7 +1122,7 @@ export default function Index({
                             <tr>
                                 <td colSpan={isAgen ? 10 : 8} className="px-4 py-10 text-center text-ink-soft">
                                     {query.trim()
-                                        ? 'Tidak ada tagihan yang cocok. Jika pelanggan bayar lebih awal, siapkan tagihannya dengan username di atas.'
+                                        ? 'Tidak ada tagihan yang cocok. Tagihan baru muncul dalam jendela jatuh tempo; untuk bayar beberapa bulan sekaligus, siapkan lewat formulir di atas.'
                                         : filters.hide_old_paid !== false &&
                                             filters.hide_old_paid !== 0 &&
                                             filters.hide_old_paid !== '0'
