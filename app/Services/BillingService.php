@@ -1339,10 +1339,7 @@ class BillingService
             $this->voidInvoice($existing, 'Diganti karena toleransi mencakup '.$months.' jatuh tempo.');
         }
 
-        $note = 'Toleransi sampai '.$until->format('d/m/Y').'. '
-            .$months.' jatuh tempo ('
-            .$firstDue->format('d/m/Y').' s/d '.$lastDue->format('d/m/Y')
-            .'), harga paket × '.$months.' bulan.';
+        $note = 'Toleransi sampai '.$until->format('d/m/Y').'.';
 
         return $this->createInvoice(
             customer: $customer,
