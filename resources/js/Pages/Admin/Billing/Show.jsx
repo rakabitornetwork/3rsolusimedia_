@@ -220,9 +220,12 @@ export default function Show({
                                 <dd className="text-xs text-ink-soft">{invoice.package_price_label}</dd>
                             </div>
                             <div>
-                                <dt className="text-xs text-ink-soft uppercase">Periode</dt>
+                                <dt className="text-xs text-ink-soft uppercase">Periode pemakaian</dt>
                                 <dd className="mt-1 text-sm text-ink">
-                                    {invoice.period_start} s/d {invoice.period_end}
+                                    {invoice.period_label ||
+                                        (invoice.period_start && invoice.period_end
+                                            ? `${invoice.period_start} s/d ${invoice.period_end}`
+                                            : '—')}
                                 </dd>
                             </div>
                             <div>

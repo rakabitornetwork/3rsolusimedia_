@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -79,6 +80,42 @@ class Invoice extends Model
             && ! $this->due_date->isToday();
     }
 
+    /**
+     * Akhir pemakaian untuk ditampilkan: sehari sebelum period_end.
+     * period_end di DB adalah batas eksklusif siklus (= jatuh tempo / stop).
+     */
+    public function usagePeriodEnd(): ?Carbon
+    {
+        if (! $this->period_end) {
+            return null;
+        }
+
+        $end = $this->period_end->copy()->startOfDay()->subDay();
+
+        if ($this->period_start && $end->lessThan($this->period_start->copy()->startOfDay())) {
+            return $this->period_end->copy()->startOfDay();
+        }
+
+        return $end;
+    }
+
+    /**
+     * Label periode pemakaian, mis. "2026-10-11 s/d 2026-11-10".
+     */
+    public function periodLabel(string $format = 'Y-m-d', string $separator = ' s/d '): ?string
+    {
+        if (! $this->period_start || ! $this->period_end) {
+            return null;
+        }
+
+        $end = $this->usagePeriodEnd();
+        if (! $end) {
+            return null;
+        }
+
+        return $this->period_start->format($format).$separator.$end->format($format);
+    }
+
     public function toAdminArray(): array
     {
         return [
@@ -98,6 +135,8 @@ class Invoice extends Model
             },
             'period_start' => $this->period_start?->format('Y-m-d'),
             'period_end' => $this->period_end?->format('Y-m-d'),
+            'period_usage_end' => $this->usagePeriodEnd()?->format('Y-m-d'),
+            'period_label' => $this->periodLabel(),
             'due_date' => $this->due_date?->format('Y-m-d'),
             'amount' => $this->amount,
             'discount' => $this->discount,

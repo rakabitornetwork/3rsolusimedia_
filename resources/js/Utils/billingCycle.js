@@ -170,6 +170,24 @@ export function periodStartBeforeDue(dueValue, billingDay) {
     return formatDate(dateOnBillingDay(prev, day));
 }
 
+/**
+ * Label periode pemakaian: period_end di DB bersifat eksklusif (= jatuh tempo),
+ * jadi akhir yang ditampilkan = sehari sebelumnya.
+ */
+export function invoicePeriodLabel(periodStartValue, periodEndValue, separator = ' s/d ') {
+    const start = parseDate(periodStartValue);
+    const endExclusive = parseDate(periodEndValue);
+    if (!start || !endExclusive) return null;
+
+    const usageEnd = new Date(endExclusive);
+    usageEnd.setDate(usageEnd.getDate() - 1);
+    if (usageEnd < start) {
+        return `${formatDate(start)}${separator}${formatDate(endExclusive)}`;
+    }
+
+    return `${formatDate(start)}${separator}${formatDate(usageEnd)}`;
+}
+
 export function calculateSpanCharge(fromValue, toValue, price) {
     const from = parseDate(fromValue);
     const to = parseDate(alignDueDate(toValue));

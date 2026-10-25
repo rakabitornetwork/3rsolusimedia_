@@ -52,8 +52,10 @@
                 <strong>{{ $fmtDate($invoice->due_date) }}</strong>
             </div>
             <div class="inv-meta-row">
-                <span>Periode</span>
-                <strong>{{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->period_end) }}</strong>
+                <span>Periode pemakaian</span>
+                <strong>
+                    {{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->usagePeriodEnd()) }}
+                </strong>
             </div>
             <div class="inv-meta-row">
                 <span>Jenis</span>

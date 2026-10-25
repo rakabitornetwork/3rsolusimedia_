@@ -104,9 +104,11 @@ export default function Show({
                                             ? ` · ${invoice.billing_months} bulan`
                                             : ''}
                                         {' · '}
-                                        {invoice.period_start && invoice.period_end
-                                            ? `${invoice.period_start} s/d ${invoice.period_end} · `
-                                            : ''}
+                                        {invoice.period_label
+                                            ? `${invoice.period_label} · `
+                                            : invoice.period_start && invoice.period_end
+                                              ? `${invoice.period_start} s/d ${invoice.period_end} · `
+                                              : ''}
                                         Jatuh tempo {invoice.due_date}
                                         {invoice.is_overdue ? ' · terlambat' : ''}
                                     </p>
