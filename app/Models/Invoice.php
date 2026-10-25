@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Services\BillingCycleService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -84,8 +83,8 @@ class Invoice extends Model
     /**
      * Awal periode pemakaian untuk ditampilkan.
      *
-     * Tagihan bulanan penuh (period_start…period_end = satu siklus ke jatuh tempo)
-     * menagih siklus sebelumnya: bayar di November untuk pemakaian Sep→Okt.
+     * Dari period_start sampai sehari sebelum period_end (jatuh tempo),
+     * mis. jatuh tempo 20/10 → pemakaian 20/09 — 19/10.
      */
     public function usagePeriodStart(): ?Carbon
     {
@@ -101,7 +100,7 @@ class Invoice extends Model
     }
 
     /**
-     * Label periode pemakaian, mis. "2026-09-11 s/d 2026-10-10".
+     * Label periode pemakaian, mis. "2026-09-20 s/d 2026-10-19".
      */
     public function periodLabel(string $format = 'Y-m-d', string $separator = ' s/d '): ?string
     {
@@ -124,41 +123,12 @@ class Invoice extends Model
 
         $storedStart = $this->period_start->copy()->startOfDay();
         $storedEnd = $this->period_end->copy()->startOfDay();
-        $cycle = app(BillingCycleService::class);
-        $billingDay = $this->billingDayForPeriod();
-        $months = max(1, (int) ($this->billing_months ?: 1));
-
-        $isFullSingleCycle = $months === 1
-            && $this->type !== 'vpn_router'
-            && $cycle->periodStart($storedEnd, $billingDay)->equalTo($storedStart);
-
-        if ($isFullSingleCycle) {
-            // Siklus tersimpan Oct→Nov due Nov = tagihan untuk pemakaian Sep→Okt.
-            return [
-                $cycle->periodStart($storedStart, $billingDay),
-                $storedStart->copy()->subDay(),
-            ];
-        }
-
         $end = $storedEnd->copy()->subDay();
         if ($end->lessThan($storedStart)) {
             $end = $storedEnd->copy();
         }
 
         return [$storedStart, $end];
-    }
-
-    private function billingDayForPeriod(): int
-    {
-        if ($this->relationLoaded('customer') && $this->customer?->billing_day) {
-            return app(BillingCycleService::class)
-                ->normalizeBillingDay((int) $this->customer->billing_day);
-        }
-
-        $anchor = $this->due_date ?? $this->period_end;
-
-        return app(BillingCycleService::class)
-            ->normalizeBillingDay((int) ($anchor?->day ?? 1));
     }
 
     public function toAdminArray(): array

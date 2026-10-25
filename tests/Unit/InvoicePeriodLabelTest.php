@@ -9,20 +9,20 @@ use Tests\TestCase;
 class InvoicePeriodLabelTest extends TestCase
 {
     #[Test]
-    public function monthly_invoice_shows_previous_cycle_as_usage_period(): void
+    public function monthly_invoice_shows_cycle_through_day_before_due(): void
     {
         $invoice = new Invoice([
             'type' => 'monthly',
             'billing_months' => 1,
-            'period_start' => '2026-10-11',
-            'period_end' => '2026-11-11',
-            'due_date' => '2026-11-11',
+            'period_start' => '2026-09-20',
+            'period_end' => '2026-10-20',
+            'due_date' => '2026-10-20',
         ]);
 
-        $this->assertSame('2026-09-11', $invoice->usagePeriodStart()?->toDateString());
-        $this->assertSame('2026-10-10', $invoice->usagePeriodEnd()?->toDateString());
-        $this->assertSame('2026-09-11 s/d 2026-10-10', $invoice->periodLabel());
-        $this->assertSame('11/09/2026 — 10/10/2026', $invoice->periodLabel('d/m/Y', ' — '));
+        $this->assertSame('2026-09-20', $invoice->usagePeriodStart()?->toDateString());
+        $this->assertSame('2026-10-19', $invoice->usagePeriodEnd()?->toDateString());
+        $this->assertSame('2026-09-20 s/d 2026-10-19', $invoice->periodLabel());
+        $this->assertSame('20/09/2026 — 19/10/2026', $invoice->periodLabel('d/m/Y', ' — '));
     }
 
     #[Test]
@@ -58,15 +58,15 @@ class InvoicePeriodLabelTest extends TestCase
     }
 
     #[Test]
-    public function admin_array_includes_shifted_period_label(): void
+    public function admin_array_includes_usage_period_label(): void
     {
         $invoice = new Invoice([
-            'number' => 'INV/2026/11/0001',
+            'number' => 'INV/2026/10/0001',
             'type' => 'monthly',
             'billing_months' => 1,
-            'period_start' => '2026-10-11',
-            'period_end' => '2026-11-11',
-            'due_date' => '2026-11-11',
+            'period_start' => '2026-09-20',
+            'period_end' => '2026-10-20',
+            'due_date' => '2026-10-20',
             'amount' => 150000,
             'discount' => 0,
             'total' => 150000,
@@ -75,10 +75,10 @@ class InvoicePeriodLabelTest extends TestCase
 
         $payload = $invoice->toAdminArray();
 
-        $this->assertSame('2026-10-11', $payload['period_start']);
-        $this->assertSame('2026-11-11', $payload['period_end']);
-        $this->assertSame('2026-09-11', $payload['period_usage_start']);
-        $this->assertSame('2026-10-10', $payload['period_usage_end']);
-        $this->assertSame('2026-09-11 s/d 2026-10-10', $payload['period_label']);
+        $this->assertSame('2026-09-20', $payload['period_start']);
+        $this->assertSame('2026-10-20', $payload['period_end']);
+        $this->assertSame('2026-09-20', $payload['period_usage_start']);
+        $this->assertSame('2026-10-19', $payload['period_usage_end']);
+        $this->assertSame('2026-09-20 s/d 2026-10-19', $payload['period_label']);
     }
 }
