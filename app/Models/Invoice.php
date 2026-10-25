@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\BillingCycleService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,39 +82,83 @@ class Invoice extends Model
     }
 
     /**
-     * Akhir pemakaian untuk ditampilkan: sehari sebelum period_end.
-     * period_end di DB adalah batas eksklusif siklus (= jatuh tempo / stop).
+     * Awal periode pemakaian untuk ditampilkan.
+     *
+     * Tagihan bulanan penuh (period_start…period_end = satu siklus ke jatuh tempo)
+     * menagih siklus sebelumnya: bayar di November untuk pemakaian Sep→Okt.
      */
-    public function usagePeriodEnd(): ?Carbon
+    public function usagePeriodStart(): ?Carbon
     {
-        if (! $this->period_end) {
-            return null;
-        }
-
-        $end = $this->period_end->copy()->startOfDay()->subDay();
-
-        if ($this->period_start && $end->lessThan($this->period_start->copy()->startOfDay())) {
-            return $this->period_end->copy()->startOfDay();
-        }
-
-        return $end;
+        return $this->usagePeriodBounds()[0];
     }
 
     /**
-     * Label periode pemakaian, mis. "2026-10-11 s/d 2026-11-10".
+     * Akhir periode pemakaian untuk ditampilkan (inklusif).
+     */
+    public function usagePeriodEnd(): ?Carbon
+    {
+        return $this->usagePeriodBounds()[1];
+    }
+
+    /**
+     * Label periode pemakaian, mis. "2026-09-11 s/d 2026-10-10".
      */
     public function periodLabel(string $format = 'Y-m-d', string $separator = ' s/d '): ?string
     {
+        [$start, $end] = $this->usagePeriodBounds();
+        if (! $start || ! $end) {
+            return null;
+        }
+
+        return $start->format($format).$separator.$end->format($format);
+    }
+
+    /**
+     * @return array{0: ?Carbon, 1: ?Carbon}
+     */
+    private function usagePeriodBounds(): array
+    {
         if (! $this->period_start || ! $this->period_end) {
-            return null;
+            return [null, null];
         }
 
-        $end = $this->usagePeriodEnd();
-        if (! $end) {
-            return null;
+        $storedStart = $this->period_start->copy()->startOfDay();
+        $storedEnd = $this->period_end->copy()->startOfDay();
+        $cycle = app(BillingCycleService::class);
+        $billingDay = $this->billingDayForPeriod();
+        $months = max(1, (int) ($this->billing_months ?: 1));
+
+        $isFullSingleCycle = $months === 1
+            && $this->type !== 'vpn_router'
+            && $cycle->periodStart($storedEnd, $billingDay)->equalTo($storedStart);
+
+        if ($isFullSingleCycle) {
+            // Siklus tersimpan Oct→Nov due Nov = tagihan untuk pemakaian Sep→Okt.
+            return [
+                $cycle->periodStart($storedStart, $billingDay),
+                $storedStart->copy()->subDay(),
+            ];
         }
 
-        return $this->period_start->format($format).$separator.$end->format($format);
+        $end = $storedEnd->copy()->subDay();
+        if ($end->lessThan($storedStart)) {
+            $end = $storedEnd->copy();
+        }
+
+        return [$storedStart, $end];
+    }
+
+    private function billingDayForPeriod(): int
+    {
+        if ($this->relationLoaded('customer') && $this->customer?->billing_day) {
+            return app(BillingCycleService::class)
+                ->normalizeBillingDay((int) $this->customer->billing_day);
+        }
+
+        $anchor = $this->due_date ?? $this->period_end;
+
+        return app(BillingCycleService::class)
+            ->normalizeBillingDay((int) ($anchor?->day ?? 1));
     }
 
     public function toAdminArray(): array
@@ -135,6 +180,7 @@ class Invoice extends Model
             },
             'period_start' => $this->period_start?->format('Y-m-d'),
             'period_end' => $this->period_end?->format('Y-m-d'),
+            'period_usage_start' => $this->usagePeriodStart()?->format('Y-m-d'),
             'period_usage_end' => $this->usagePeriodEnd()?->format('Y-m-d'),
             'period_label' => $this->periodLabel(),
             'due_date' => $this->due_date?->format('Y-m-d'),

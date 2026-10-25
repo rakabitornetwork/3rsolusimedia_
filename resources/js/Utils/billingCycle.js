@@ -171,13 +171,36 @@ export function periodStartBeforeDue(dueValue, billingDay) {
 }
 
 /**
- * Label periode pemakaian: period_end di DB bersifat eksklusif (= jatuh tempo),
- * jadi akhir yang ditampilkan = sehari sebelumnya.
+ * Label periode pemakaian (postpaid).
+ * Tagihan siklus penuh Oct→Nov due Nov menampilkan pemakaian Sep→Okt.
+ * Prorata / rentang parsial: dari period_start sampai sehari sebelum period_end.
  */
-export function invoicePeriodLabel(periodStartValue, periodEndValue, separator = ' s/d ') {
+export function invoicePeriodLabel(
+    periodStartValue,
+    periodEndValue,
+    separator = ' s/d ',
+    options = {},
+) {
     const start = parseDate(periodStartValue);
     const endExclusive = parseDate(periodEndValue);
     if (!start || !endExclusive) return null;
+
+    const months = Math.max(1, Number(options.billingMonths) || 1);
+    const billingDay = normalizeBillingDay(options.billingDay ?? endExclusive.getDate());
+    const naturalStart = parseDate(periodStartBeforeDue(formatDate(endExclusive), billingDay));
+    const isFullSingleCycle =
+        months === 1 &&
+        options.type !== 'vpn_router' &&
+        naturalStart &&
+        formatDate(naturalStart) === formatDate(start);
+
+    if (isFullSingleCycle) {
+        const usageStart = parseDate(periodStartBeforeDue(formatDate(start), billingDay));
+        const usageEnd = new Date(start);
+        usageEnd.setDate(usageEnd.getDate() - 1);
+        if (!usageStart) return null;
+        return `${formatDate(usageStart)}${separator}${formatDate(usageEnd)}`;
+    }
 
     const usageEnd = new Date(endExclusive);
     usageEnd.setDate(usageEnd.getDate() - 1);

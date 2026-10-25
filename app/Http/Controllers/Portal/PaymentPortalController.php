@@ -174,6 +174,7 @@ class PaymentPortalController extends Controller
             'billing_months' => max(1, (int) ($invoice->billing_months ?: 1)),
             'period_start' => $invoice->period_start?->format('Y-m-d'),
             'period_end' => $invoice->period_end?->format('Y-m-d'),
+            'period_usage_start' => $invoice->usagePeriodStart()?->format('Y-m-d'),
             'period_usage_end' => $invoice->usagePeriodEnd()?->format('Y-m-d'),
             'period_label' => $invoice->periodLabel(),
             'due_date' => $invoice->due_date?->format('Y-m-d'),

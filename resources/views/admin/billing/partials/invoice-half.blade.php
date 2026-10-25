@@ -54,7 +54,7 @@
             <div class="inv-meta-row">
                 <span>Periode pemakaian</span>
                 <strong>
-                    {{ $fmtDate($invoice->period_start) }} — {{ $fmtDate($invoice->usagePeriodEnd()) }}
+                    {{ $fmtDate($invoice->usagePeriodStart()) }} — {{ $fmtDate($invoice->usagePeriodEnd()) }}
                 </strong>
             </div>
             <div class="inv-meta-row">
