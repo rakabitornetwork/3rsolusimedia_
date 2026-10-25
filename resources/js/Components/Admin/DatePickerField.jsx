@@ -69,6 +69,7 @@ export default function DatePickerField({
                     <DayPicker
                         mode="single"
                         selected={selected}
+                        defaultMonth={selected || minDate || new Date()}
                         disabled={minDate ? { before: minDate } : undefined}
                         startMonth={minDate}
                         onSelect={(date) => {
